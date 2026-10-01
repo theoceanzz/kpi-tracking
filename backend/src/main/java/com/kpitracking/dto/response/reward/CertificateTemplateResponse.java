@@ -36,6 +36,7 @@ public class CertificateTemplateResponse {
     private String surfaceColor;
 
     private Boolean showLogo;
+    private Boolean showOrgName;
     private Boolean showPoints;
     private Boolean showReason;
 

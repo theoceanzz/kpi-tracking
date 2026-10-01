@@ -223,7 +223,7 @@ export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions
  * chức). Điểm là RRF — chỉ có nghĩa để xếp hạng trong cùng một lần tìm — nên hiện thứ hạng, không
  * hiện phần trăm giả.
  */
-function SearchBox({ scope, search, placeholder }: { scope: string; search: (q: string) => Promise<RagSearchHit[]>; placeholder: string }) {
+export function SearchBox({ scope, search, placeholder }: { scope: string; search: (q: string) => Promise<RagSearchHit[]>; placeholder: string }) {
   const { t } = useTranslation('analytics')
   const [q, setQ] = useState('')
   const [asked, setAsked] = useState('')
@@ -299,7 +299,7 @@ function HitRow({ rank, hit }: { rank: number; hit: RagSearchHit }) {
 }
 
 /** Các đoạn của một tài liệu, đúng như đang nằm trong kho vector (có [mục] chèn đầu, có ảnh kèm). */
-function ChunkList({ scope, docId, load }: { scope: string; docId: string; load: (id: string) => Promise<RagChunk[]> }) {
+export function ChunkList({ scope, docId, load }: { scope: string; docId: string; load: (id: string) => Promise<RagChunk[]> }) {
   const { t } = useTranslation('analytics')
   const { data: chunks, isLoading, isError } = useQuery({
     queryKey: ['ai', 'rag-chunks', scope, docId],

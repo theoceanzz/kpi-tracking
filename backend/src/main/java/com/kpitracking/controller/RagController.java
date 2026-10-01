@@ -9,6 +9,8 @@ import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.ai.RagChunkResponse;
 import com.kpitracking.dto.response.ai.RagSearchHitResponse;
 import com.kpitracking.entity.RagDocument;
+import com.kpitracking.dto.response.document.DocumentResponse;
+import com.kpitracking.service.document.DocumentService;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
@@ -57,6 +59,7 @@ import java.util.UUID;
 public class RagController {
 
     private final RagIngestionService ingestion;
+    private final DocumentService documentService;
     private final RagDocumentRepository documents;
     private final HelpService helpService;
     private final RewardContext currentUser;
@@ -79,25 +82,20 @@ public class RagController {
         return ResponseEntity.ok(ApiResponse.success(helpService.ask(request.getQuestion().trim())));
     }
 
+    /**
+     * Cửa cũ để nạp tài liệu của tổ chức. Nay tạo một tài liệu CÔNG TY trong thư viện tài liệu (lưu tệp gốc, nạp
+     * nền, metadata có scope) — không còn đường nào sinh vector thiếu scope (docs/DOCUMENTS_DESIGN.md §4.4).
+     */
     @PostMapping(value = "/rag/documents", consumes = "multipart/form-data")
-    @Operation(summary = "Nạp một tài liệu .docx của tổ chức vào kho tri thức")
-    public ResponseEntity<ApiResponse<RagDocument>> upload(
+    @Operation(summary = "[Cũ] Tải tài liệu công ty — dùng POST /api/v1/documents")
+    public ResponseEntity<ApiResponse<DocumentResponse>> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "source", required = false) RagDocument.Source source,
-            @RequestParam(value = "title", required = false) String title) throws IOException {
-
-        var user = requireOrgManager();
-        RagDocument.Source kind = source == null ? RagDocument.Source.REGULATION : source;
-        if (!kind.isOrganizationScoped()) {
+            @RequestParam(value = "title", required = false) String title) {
+        if (source != null && !source.isOrganizationScoped()) {
             throw new BusinessException(ErrorCode.KEYGO_GUIDE_LOADED_PLATFORM_ADMINISTRATOR_PLATFORM_ADMINISTRATION);
         }
-        UUID orgId = currentUser.getCurrentOrgId();
-        String name = RagIngestionService.docxFileName(file.getOriginalFilename());
-        try (var in = file.getInputStream()) {
-            RagDocument doc = ingestion.ingestDocx(in, name, RagIngestionService.titleOf(title, name),
-                    kind, orgId, user.getId());
-            return ResponseEntity.ok(ApiResponse.success(doc));
-        }
+        return ResponseEntity.ok(ApiResponse.success(documentService.uploadCompanyFromLegacyEndpoint(file, source, title)));
     }
 
     @GetMapping("/rag/assets/{name}")
@@ -140,8 +138,9 @@ public class RagController {
     @Operation(summary = "Thử tìm trong kho tri thức bằng bộ truy hồi của trợ lý")
     public ResponseEntity<ApiResponse<List<RagSearchHitResponse>>> search(@RequestParam("q") String q) {
         requireOrgManager();
-        InvocationParameters params = InvocationParameters.from(
-                HelpAgentFactory.PARAM_ORG_ID, currentUser.getCurrentOrgId().toString());
+        // Chạy với quyền của CHÍNH người thử: họ thấy đúng những gì trợ lý sẽ đưa cho họ.
+        InvocationParameters params = HelpAgentFactory.params(
+                currentUser.getCurrentOrgId(), currentUser.getCurrentUser().getId());
         return ResponseEntity.ok(ApiResponse.success(RagQueries.search(helpContentRetriever, q, params)));
     }
 

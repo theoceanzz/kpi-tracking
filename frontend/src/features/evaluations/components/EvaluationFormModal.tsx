@@ -109,9 +109,14 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
       if (initialPeriodId) {
         setValue('kpiPeriodId', initialPeriodId)
       } else if (filteredPeriods.length > 0 && !watch('kpiPeriodId')) {
-        const firstPeriod = filteredPeriods[0]
-        if (firstPeriod) {
-          setValue('kpiPeriodId', firstPeriod.id)
+        // Đợt do hệ thống tự chọn và người dùng không đổi được, nên phải là đợt đang diễn ra
+        // (hôm nay nằm trong khoảng ngày) chứ không phải đợt đầu danh sách.
+        const now = Date.now()
+        const current = filteredPeriods.find(p =>
+          p.startDate && p.endDate && now >= new Date(p.startDate).getTime() && now <= new Date(p.endDate).getTime())
+        const picked = current ?? filteredPeriods[0]
+        if (picked) {
+          setValue('kpiPeriodId', picked.id)
         }
       }
     }
@@ -156,7 +161,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   useEffect(() => {
     fillableRef.current = readOnly
       ? []
-      : ['kpiPeriodId', 'comment', ...(scoreLocked || noQuantScore ? [] : ['score'])]
+      : ['comment', ...(scoreLocked || noQuantScore ? [] : ['score'])]
   }, [readOnly, scoreLocked, noQuantScore])
 
   // Điểm gợi ý 0..100:
@@ -254,11 +259,9 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
               label={<>{t('EvaluationFormModal.evaluationPeriods')} {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
               hint={t('EvaluationFormModal.periodsInWhichYouHaveKpis2')}
             >
-              <Select
-                value={selectedPeriodId || undefined}
-                onValueChange={(v) => setValue('kpiPeriodId', v, { shouldValidate: true, shouldDirty: true })}
-                disabled={readOnly}
-              >
+              {/* Đợt tự chọn sẵn (đợt được truyền vào hoặc đợt đang diễn ra) và khoá lại: tự
+                  chấm luôn gắn với đợt hiện hành, không cho đổi sang đợt khác. */}
+              <Select value={selectedPeriodId || undefined} disabled>
                 <SelectTrigger className="w-full sm:max-w-xs" aria-label={t('EvaluationFormModal.evaluationPeriods')}>
                   <SelectValue placeholder={t('EvaluationFormModal.chooseTheEvaluationCycle')} />
                 </SelectTrigger>

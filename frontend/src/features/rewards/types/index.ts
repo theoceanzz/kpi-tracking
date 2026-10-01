@@ -604,6 +604,8 @@ export interface CertificateTemplate {
   inkColor?: string | null
   surfaceColor?: string | null
   showLogo: boolean
+  /** Tắt khi logo đã chứa sẵn tên công ty. Mẫu cũ chưa có trường này = hiện. */
+  showOrgName?: boolean
   showPoints: boolean
   showReason: boolean
   isDefault: boolean
@@ -632,6 +634,7 @@ export interface CertificateTemplateRequest {
   inkColor?: string | null
   surfaceColor?: string | null
   showLogo?: boolean
+  showOrgName?: boolean
   showPoints?: boolean
   showReason?: boolean
   isDefault?: boolean

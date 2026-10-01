@@ -117,7 +117,8 @@
     "weight": "Weight",
     "youHaveCompletedAllKpisIn": "You have completed all KPIs in this period.",
     "youHaveSubmittedAllExpectedReports": "You have submitted all expected reports, or no KPI has been approved for reporting yet.",
-    "yourDirectManagerWillBeNotified": "Your direct manager will be notified and will score this report."
+    "yourDirectManagerWillBeNotified": "Your direct manager will be notified and will score this report.",
+    "pleaseEnterTheActualResult": "Please enter the actual result"
   },
   "OrgUnitSubmissionsPage": {
     "actions": "Actions",
@@ -249,7 +250,7 @@
     "endOfPeriodScore": "End-of-period score",
     "evaluatesTheResultsOfPeriod": "{{userRoleName}} evaluates the results of period {{periodName}}",
     "evaluationAndApprovalCompletedForThe": "Evaluation and approval completed for the employee",
-    "evaluationCycle": "Evaluation cycle:",
+    "evaluationCycle": "Period:",
     "evaluationFinalizedForTheEmployee": "Evaluation finalized for the employee",
     "failedToSaveTheEvaluation": "Failed to save the evaluation",
     "goodResultsInThePeriod": "Good results in the period{{value}}",
@@ -379,7 +380,8 @@
     "theFinalScoreCannotExceed": "The final score cannot exceed {{ceiling}}",
     "theFinalScoreMustBeA": "The final score must be a number",
     "theScoreCannotBeNegative": "The score cannot be negative",
-    "theValueCannotBeNegative": "The value cannot be negative"
+    "theValueCannotBeNegative": "The value cannot be negative",
+    "theValueMustBeANumber": "The result must be a number"
   },
   "submittable": {
     "allSubmissionsMade": "All submissions made",

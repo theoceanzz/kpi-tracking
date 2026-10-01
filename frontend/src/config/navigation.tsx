@@ -281,6 +281,9 @@ export const navItems = perLanguage((): NavItem[] => ([
       { id: 'bsc', labelKey: 'analytics-bsc', label: i18n.t('layout:navigation.bscScorecard'), icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: i18n.t('layout:navigation.wholeCompany'), description: i18n.t('layout:navigation.isTheCompanyOnStrategyScorecard'), audience: i18n.t('layout:navigation.boardOfDirectors') },
     ],
   },
+  // Thư viện tài liệu 3 phạm vi (tri thức cho K.AI). Không gắn aiOnly: tài liệu vẫn xem/tải được khi tổ chức
+  // tắt AI. Mọi người đăng nhập đều có ít nhất tab Công ty; tab nào hiện do backend quyết.
+  { id: 'documents', label: i18n.t('layout:navigation.documents'), path: '/documents', icon: <BookOpen size={20} />, permission: 'DASHBOARD:VIEW', end: true },
   { id: 'ai-assistant', label: 'K.AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true, aiOnly: true },
 ]))
 

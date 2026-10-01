@@ -7,6 +7,8 @@ import UserFormModal from '../components/UserFormModal'
 import ImportGuideModal from '../components/ImportGuideModal'
 import ExcelPreviewModal from '../components/ExcelPreviewModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import PurgePersonalDocumentsDialog from '@/features/documents/components/PurgePersonalDocumentsDialog'
+import { useDocumentCapabilities } from '@/features/documents/hooks/useDocuments'
 import Pagination from '@/components/common/Pagination'
 
 import { useUsers } from '../hooks/useUsers'
@@ -40,6 +42,7 @@ export default function UsersPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [editUser, setEditUser] = useState<User | null>(null)
   const [deleteUser, setDeleteUser] = useState<User | null>(null)
+  const [purgeUser, setPurgeUser] = useState<User | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const user = useAuthStore(state => state.user)
   const organizationId = user?.memberships?.[0]?.organizationId
@@ -215,6 +218,9 @@ export default function UsersPage() {
   const canImport = hasPermission('USER:IMPORT')
   const canUpdate = hasPermission('USER:UPDATE')
   const canDelete = hasPermission('USER:DELETE')
+  // Xoá sớm tài liệu cá nhân của người bị vô hiệu hoá: cần quản lý tài liệu công ty + sửa người dùng (backend kiểm lại).
+  const { data: docCaps } = useDocumentCapabilities()
+  const canPurgeDocuments = canUpdate && !!docCaps?.canManageCompany
 
   const handleRoleChange = (val: string) => {
     setRoleFilter(val)
@@ -290,6 +296,7 @@ export default function UsersPage() {
               users={data?.content || []}
               onRowClick={handleRowClick}
               onDelete={(u) => setDeleteUser(u)}
+              onPurgeDocuments={canPurgeDocuments ? setPurgeUser : undefined}
               canUpdate={canUpdate}
               canDelete={canDelete}
               orgUnitMap={orgUnitCodeMap}
@@ -317,6 +324,8 @@ export default function UsersPage() {
         onImport={handleConfirmImport}
         isImporting={importMutation.isPending}
       />
+
+      {purgeUser && <PurgePersonalDocumentsDialog user={purgeUser} onClose={() => setPurgeUser(null)} />}
 
       <ConfirmDialog
         open={!!deleteUser}

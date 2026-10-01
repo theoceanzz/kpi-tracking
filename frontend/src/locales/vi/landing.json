@@ -14,14 +14,12 @@
     "headline": "Xem KeyGo <em>vận hành</em>."
   },
   "HeroScene": {
-    "assignMeasureEvaluateRewardOnOne": "Giao · đo · đánh giá · thưởng trên một màn hình. Hỏi K.AI thay vì chờ báo cáo.",
-    "clearGoals": "Mục tiêu rõ ràng.",
+    "assignMeasureEvaluateRewardOnOne": "Ứng dụng AI trong quản trị mục tiêu, hiệu suất, ma trận năng lực, ghi nhận và khen thưởng.",
     "keygosOverviewScreenUnitKpiMetrics": "Màn hình Tổng quan của KeyGo: chỉ số KPI đơn vị, bộ lọc, danh sách nhân sự cần can thiệp",
     "okrKpiBscPlatformWithAn": "Nền tảng OKR · KPI · BSC có trợ lý AI",
     "scrollToSeeTheStory": "Cuộn để xem câu chuyện",
     "seeKeygoInAction": "Xem KeyGo vận hành",
-    "tryItFree": "Trải nghiệm miễn phí",
-    "visiblePerformance": "Hiệu suất nhìn thấy được."
+    "tryItFree": "Trải nghiệm miễn phí"
   },
   "LandingFooter": {
     "aGoalPerformanceManagementPlatformOkr": "Nền tảng quản trị mục tiêu & hiệu suất: OKR, KPI, BSC, hạnh kiểm, thưởng và trợ lý AI cho doanh nghiệp Việt.",

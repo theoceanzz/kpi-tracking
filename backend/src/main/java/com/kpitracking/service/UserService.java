@@ -336,6 +336,9 @@ public class UserService {
             boolean wasPaused = user.isPausedAccount();
             user.setStatus(request.getStatus());
             deactivated = !wasPaused && user.isPausedAccount();
+            // Mốc đếm ngày tự xoá tài liệu cá nhân: ghi lúc vừa vô hiệu hoá, xoá khi mở lại.
+            if (deactivated) user.setDeactivatedAt(Instant.now());
+            else if (wasPaused && !user.isPausedAccount()) user.setDeactivatedAt(null);
         }
 
         if (request.getOrgUnitId() != null || request.getRole() != null) {
@@ -390,6 +393,7 @@ public class UserService {
         }
 
         user.setDeletedAt(Instant.now());
+        if (user.getDeactivatedAt() == null) user.setDeactivatedAt(user.getDeletedAt());
         userRepository.save(user);
         approvalChain.onApproverDeactivated(user);
     }

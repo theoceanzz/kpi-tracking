@@ -68,6 +68,8 @@ public class CertificateTemplateRequest {
 
     private Boolean showLogo;
 
+    private Boolean showOrgName;
+
     private Boolean showPoints;
 
     private Boolean showReason;

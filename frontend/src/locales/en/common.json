@@ -127,5 +127,11 @@
   "formDraft": {
     "restored": "Restored the unsaved data you entered at {{time}}.",
     "discard": "Discard draft"
+  },
+  "createPeriodCycle": {
+    "newPeriod": "Create a new period",
+    "newCycle": "Create a new cycle",
+    "periodCreatedBack": "Period created — you are back on the previous page; reopen the form to pick it.",
+    "cycleCreatedBack": "Cycle created — you are back on the previous page; reopen the form to pick it."
   }
 }

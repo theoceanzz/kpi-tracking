@@ -58,6 +58,24 @@ public class AgentState {
     /** Các ID đang chờ người dùng chọn, theo loại thực thể — thay ThreadLocal của guard tên trùng. */
     private final Map<String, Set<UUID>> armed = new ConcurrentHashMap<>();
 
+    /**
+     * Tài liệu của tổ chức mà lượt này đã đọc (nhánh hỏi đáp + công cụ {@code get_org_documents}), mỗi tài liệu
+     * một lần, theo thứ tự gặp. Client vẽ thành chip nguồn. Chỉ gồm đoạn đã qua bộ lọc quyền của người hỏi.
+     */
+    private final List<com.kpitracking.dto.response.ai.DocumentSourceResponse> sources = new CopyOnWriteArrayList<>();
+
+    /** Tối đa bấy nhiêu chip — nhiều hơn là nhiễu, model cũng không dùng hết. */
+    private static final int MAX_SOURCES = 6;
+
+    /** Thêm nguồn, bỏ trùng theo {@code docId}. */
+    public synchronized void addSources(java.util.Collection<com.kpitracking.dto.response.ai.DocumentSourceResponse> found) {
+        if (found == null) return;
+        for (var s : found) {
+            if (s == null || sources.size() >= MAX_SOURCES) continue;
+            if (sources.stream().noneMatch(x -> x.docId().equals(s.docId()))) sources.add(s);
+        }
+    }
+
     /** Câu trả lời cuối cùng, đặt khi model thôi gọi tool. */
     @Setter
     private String answer;

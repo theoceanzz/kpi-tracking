@@ -4,7 +4,8 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools, type ClarificationOption, type PendingAction, type AiChatResponse } from '../api/aiApi'
+import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools, type ClarificationOption, type PendingAction, type AiChatResponse, type DocumentSource } from '../api/aiApi'
+import SourceChips from '@/features/documents/components/SourceChips'
 import InsightCards from '../components/InsightCards'
 import AiDisabledPage from '../components/AiDisabledPage'
 import FollowupSuggestions from '../components/FollowupSuggestions'
@@ -74,6 +75,8 @@ interface Message {
   evidenceRequest?: boolean
   /** Trợ lý đề nghị một thao tác GHI và chờ xác nhận. */
   pendingAction?: PendingAction
+  /** Tài liệu của tổ chức K.AI đã đọc để trả lời — chip nguồn. Vắng ở tin nhắn tải từ lịch sử. */
+  sources?: DocumentSource[]
 }
 
 const WELCOME_MSG = perLanguage((): Message => ({
@@ -378,6 +381,7 @@ export default function AiAssistantPage() {
           followups: response.followups,
           evidenceRequest: response.evidenceRequest,
           pendingAction: response.pendingAction,
+          sources: response.sources,
 
         },
       ])
@@ -596,6 +600,11 @@ export default function AiAssistantPage() {
                               </button>
                             ))}
                           </div>
+                        )}
+
+                        {/* Tài liệu của tổ chức đã đọc để trả lời */}
+                        {msg.role === 'assistant' && msg.sources && !msg.typing && (
+                          <SourceChips sources={msg.sources} />
                         )}
 
                         {/* Vùng thả minh chứng, khi trợ lý vừa mời người dùng gửi tài liệu */}

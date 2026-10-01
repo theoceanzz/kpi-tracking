@@ -86,6 +86,16 @@ export interface ConfirmActionResult {
   failures: string[]
 }
 
+/** Tài liệu của tổ chức mà K.AI đã đọc để trả lời — chip nguồn (khớp DocumentSourceResponse). */
+export interface DocumentSource {
+  docId: string
+  title: string
+  scope: 'PERSONAL' | 'UNIT' | 'COMPANY'
+  section: string | null
+  /** Tài liệu tri thức cũ, không có tệp gốc. */
+  legacy: boolean
+}
+
 export interface AiChatResponse {
   text: string
   /** Chỉ có ở lượt trợ lý hỏi lại; lượt trả lời bình thường sẽ vắng field này. */
@@ -117,6 +127,8 @@ export interface AiChatResponse {
    * thay vì bấm nút. Client dùng nó để tắt thẻ xác nhận cũ còn nằm trên màn hình.
    */
   consumedActionId?: string
+  /** Tài liệu của tổ chức đã đọc ở lượt này. Vắng khi không tra tài liệu nào. */
+  sources?: DocumentSource[]
 }
 
 export interface ConversationResponse {

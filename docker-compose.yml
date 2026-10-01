@@ -103,6 +103,18 @@ services:
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
 
+      # Thư viện tài liệu (docs/DOCUMENTS_DESIGN.md). Prod lưu tệp trên Cloudinary chế độ authenticated
+      # (riêng tư) — KHÔNG dùng local trong container không gắn volume: khởi động lại là mất tệp.
+      - DOCUMENTS_STORAGE=${DOCUMENTS_STORAGE:-cloudinary}
+      - DOCUMENTS_QUOTA_PERSONAL_MB=${DOCUMENTS_QUOTA_PERSONAL_MB:-200}
+      - DOCUMENTS_QUOTA_UNIT_MB=${DOCUMENTS_QUOTA_UNIT_MB:-1024}
+      - DOCUMENTS_QUOTA_COMPANY_MB=${DOCUMENTS_QUOTA_COMPANY_MB:-5120}
+      - DOCUMENTS_ORG_MAX_CHUNKS=${DOCUMENTS_ORG_MAX_CHUNKS:-200000}
+      - DOCUMENTS_DISABLED_USER_RETENTION_DAYS=${DOCUMENTS_DISABLED_USER_RETENTION_DAYS:-90}
+      - DOCUMENTS_INDEX_CONCURRENCY=${DOCUMENTS_INDEX_CONCURRENCY:-1}
+      # Tìm chính xác, không index ANN (lọc theo quyền sau top-K sẽ trả thiếu). Xem DOCUMENTS_DESIGN.md §6.6.
+      - RAG_ALLOW_ANN_INDEX=${RAG_ALLOW_ANN_INDEX:-false}
+
       # Mail
       - MAIL_HOST=${MAIL_HOST}
       - MAIL_PORT=${MAIL_PORT}

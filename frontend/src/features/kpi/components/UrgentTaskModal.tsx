@@ -33,6 +33,7 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
 import { SegmentedControl } from '@/components/common/FilterBar'
 import { Field, Hint } from './KpiFormParts'
 import { UrgentKpiFields, type UrgentKpiContext } from './UrgentKpiFields'
+import { useCreatePeriodCycleOption } from '@/components/common/CreatePeriodCycleOption'
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
@@ -440,6 +441,7 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
   }, [open, initPeriodId, initOrgUnitId])
 
   const { data: periodsData } = useKpiPeriods({ organizationId })
+  const createPeriod = useCreatePeriodCycleOption('period')
   const { data: org } = useOrganization(organizationId)
   const enableOkr = org?.enableOkr ?? false
   const enableQualitative = org?.enableQualitative ?? false
@@ -548,9 +550,9 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
         {/* Kỳ + đơn vị: bối cảnh chung cho cả hai tab, và điều kiện 100% phải kiểm ở đây. */}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t('UrgentTaskModal.evaluationCycles')} required>
-            <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId}>
+            <Select value={selectedPeriodId} onValueChange={createPeriod.wrap(setSelectedPeriodId)}>
               <SelectTrigger><CalendarRange size={14} className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" /><SelectValue placeholder={t('UrgentTaskModal.chooseCycle')} /></SelectTrigger>
-              <SelectContent>{periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+              <SelectContent>{periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}{createPeriod.item}</SelectContent>
             </Select>
           </Field>
           <Field label={t('UrgentTaskModal.unit')} required>

@@ -2,7 +2,7 @@ import { intlDateLocale } from '@/i18n/format'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Upload, Trash2, RotateCcw } from 'lucide-react'
+import { Loader2, Upload, Trash2, RotateCcw, Eraser } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -31,6 +31,7 @@ import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { BackgroundNotRemovableError, removeImageBackground } from './removeImageBackground'
 
 interface CertificateTemplateModalProps {
   open: boolean
@@ -81,7 +82,7 @@ export default function CertificateTemplateModal({
       eyebrow: '', title: '', subtitle: '', body: '', footnote: '',
       signerName: '', signerTitle: '', signatureUrl: '', logoUrl: '', backgroundUrl: '',
       accentColor: '', inkColor: '', surfaceColor: '',
-      showLogo: true, showPoints: true, showReason: true, isDefault: false, active: true,
+      showLogo: true, showOrgName: true, showPoints: true, showReason: true, isDefault: false, active: true,
     },
   })
   const { handleSubmit, reset, watch, setValue, formState: { errors } } = formApi
@@ -94,10 +95,12 @@ export default function CertificateTemplateModal({
     name, preset, orientation, eyebrow, title, subtitle, body, footnote,
     signerName, signerTitle, signatureUrl, logoUrl, backgroundUrl,
     accentColor, inkColor, surfaceColor,
-    showLogo, showPoints, showReason, isDefault, active,
+    showLogo, showOrgName, showPoints, showReason, isDefault, active,
   } = watch()
 
   const [uploading, setUploading] = useState<ImageSlot | null>(null)
+  // Logo và chữ ký mặc định được tách nền khi tải lên; ảnh nền thì không bao giờ.
+  const [autoRemoveBg, setAutoRemoveBg] = useState(true)
 
   useEffect(() => {
     if (!open) return
@@ -121,6 +124,7 @@ export default function CertificateTemplateModal({
         inkColor: editTemplate.inkColor ?? '',
         surfaceColor: editTemplate.surfaceColor ?? '',
         showLogo: editTemplate.showLogo,
+        showOrgName: editTemplate.showOrgName ?? true,
         showPoints: editTemplate.showPoints,
         showReason: editTemplate.showReason,
         isDefault: editTemplate.isDefault,
@@ -143,7 +147,7 @@ export default function CertificateTemplateModal({
       footnote: base.content.footnote,
       signerName: '', signerTitle: '', signatureUrl: '', logoUrl: '', backgroundUrl: '',
       accentColor: '', inkColor: '', surfaceColor: '',
-      showLogo: true, showPoints: true, showReason: true, isDefault: false, active: true,
+      showLogo: true, showOrgName: true, showPoints: true, showReason: true, isDefault: false, active: true,
     })
   }, [open, editTemplate, reset])
 
@@ -171,6 +175,7 @@ export default function CertificateTemplateModal({
         inkColor: inkColor || null,
         surfaceColor: surfaceColor || null,
         showLogo,
+        showOrgName,
         showPoints,
         showReason,
         isDefault,
@@ -196,6 +201,7 @@ export default function CertificateTemplateModal({
       inkColor,
       surfaceColor,
       showLogo,
+      showOrgName,
       showPoints,
       showReason,
       isDefault,
@@ -204,6 +210,31 @@ export default function CertificateTemplateModal({
   )
 
   if (!open) return null
+
+  const setSlotUrl = (slot: ImageSlot, url: string) => {
+    if (slot === 'signature') setValue('signatureUrl', url)
+    if (slot === 'logo') setValue('logoUrl', url)
+    if (slot === 'background') setValue('backgroundUrl', url)
+  }
+
+  /**
+   * Tách nền rồi trả về tệp đã xử lý. Không tách được (ảnh đã trong suốt, ảnh chụp nhiều
+   * màu) thì dùng nguyên ảnh gốc — tách nền là phần phụ, không được chặn việc tải ảnh.
+   */
+  const stripBackground = async (slot: ImageSlot, source: File | string, notifyUnchanged: boolean) => {
+    try {
+      return await removeImageBackground(source, slot === 'signature' ? 'signature' : 'logo')
+    } catch (e) {
+      if (notifyUnchanged) {
+        toast.info(
+          e instanceof BackgroundNotRemovableError && e.reason === 'ALREADY_TRANSPARENT'
+            ? t('CertificateTemplateModal.backgroundAlreadyTransparent')
+            : t('CertificateTemplateModal.backgroundNotRemovable')
+        )
+      }
+      return null
+    }
+  }
 
   const handleUpload = async (slot: ImageSlot, file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -216,11 +247,26 @@ export default function CertificateTemplateModal({
     }
     setUploading(slot)
     try {
-      const url = await certificateApi.uploadImage(file)
-      if (slot === 'signature') setValue('signatureUrl', url)
-      if (slot === 'logo') setValue('logoUrl', url)
-      if (slot === 'background') setValue('backgroundUrl', url)
-    } catch (e: any) {
+      const processed =
+        slot !== 'background' && autoRemoveBg ? await stripBackground(slot, file, false) : null
+      setSlotUrl(slot, await certificateApi.uploadImage(processed ?? file))
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, t('CertificateTemplateModal.imageUploadFailed')))
+    } finally {
+      setUploading(null)
+    }
+  }
+
+  /** Tách nền cho ảnh ĐÃ tải lên từ trước (mẫu cũ có chữ ký nền trắng). */
+  const handleRemoveBackground = async (slot: ImageSlot, url: string) => {
+    setUploading(slot)
+    try {
+      const processed = await stripBackground(slot, url, true)
+      if (processed) {
+        setSlotUrl(slot, await certificateApi.uploadImage(processed))
+        toast.success(t('CertificateTemplateModal.backgroundRemoved'))
+      }
+    } catch (e) {
       toast.error(getApiErrorMessage(e, t('CertificateTemplateModal.imageUploadFailed')))
     } finally {
       setUploading(null)
@@ -276,6 +322,7 @@ export default function CertificateTemplateModal({
       inkColor: data.inkColor || null,
       surfaceColor: data.surfaceColor || null,
       showLogo: data.showLogo,
+      showOrgName: data.showOrgName,
       showPoints: data.showPoints,
       showReason: data.showReason,
       isDefault: data.isDefault,
@@ -411,11 +458,17 @@ export default function CertificateTemplateModal({
               />
             </Field>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Toggle
                 checked={showLogo}
                 onChange={v => setValue('showLogo', v)}
                 label={t('CertificateTemplateModal.showLogo')}
+              />
+              <Toggle
+                checked={showOrgName}
+                onChange={v => setValue('showOrgName', v)}
+                label={t('CertificateTemplateModal.showOrgName')}
+                hint={t('CertificateTemplateModal.showOrgNameHint')}
               />
               <Toggle
                 checked={showPoints}
@@ -457,6 +510,7 @@ export default function CertificateTemplateModal({
                 value={signatureUrl}
                 onChange={v => setValue('signatureUrl', v)}
                 onUpload={(f) => handleUpload('signature', f)}
+                onRemoveBackground={() => handleRemoveBackground('signature', signatureUrl)}
                 uploading={uploading === 'signature'}
               />
               <ImageField
@@ -465,6 +519,7 @@ export default function CertificateTemplateModal({
                 value={logoUrl}
                 onChange={v => setValue('logoUrl', v)}
                 onUpload={(f) => handleUpload('logo', f)}
+                onRemoveBackground={() => handleRemoveBackground('logo', logoUrl)}
                 uploading={uploading === 'logo'}
               />
               <ImageField
@@ -475,6 +530,12 @@ export default function CertificateTemplateModal({
                 uploading={uploading === 'background'}
               />
             </div>
+            <Toggle
+              checked={autoRemoveBg}
+              onChange={setAutoRemoveBg}
+              label={t('CertificateTemplateModal.autoRemoveBackground')}
+              hint={t('CertificateTemplateModal.autoRemoveBackgroundHint')}
+            />
           </div>
 
           <div className="space-y-3 border-t border-[var(--color-border)] pt-5">
@@ -642,6 +703,7 @@ function ImageField({
   value,
   onChange,
   onUpload,
+  onRemoveBackground,
   uploading,
 }: {
   label: string
@@ -649,6 +711,8 @@ function ImageField({
   value: string
   onChange: (v: string) => void
   onUpload: (file: File) => void
+  /** Có = hiện nút tách nền cho ảnh đã tải lên. */
+  onRemoveBackground?: () => void
   uploading: boolean
 }) {
   const { t } = useTranslation('rewards')
@@ -660,13 +724,34 @@ function ImageField({
         {label}
         {hint && <span className="ml-1 font-normal text-[var(--color-muted-foreground)]">· {hint}</span>}
       </div>
-      <div className="relative flex h-20 items-center justify-center overflow-hidden rounded-control border border-dashed border-[var(--color-border)] bg-[var(--color-background)]">
+      <div
+        className="relative flex h-20 items-center justify-center overflow-hidden rounded-control border border-dashed border-[var(--color-border)] bg-[var(--color-background)]"
+        // Nền ô ca-rô khi đã có ảnh: nhìn là biết ảnh đã trong suốt hay còn khối nền trắng.
+        style={
+          value && !uploading
+            ? {
+                backgroundImage:
+                  'repeating-conic-gradient(rgba(128,128,128,0.18) 0% 25%, transparent 0% 50%)',
+                backgroundSize: '12px 12px',
+              }
+            : undefined
+        }
+      >
         {uploading ? (
           <Loader2 size={18} className="animate-spin text-[var(--color-muted-foreground)]" />
         ) : value ? (
           <>
-            {/* Nền ô ca-rô để chữ ký PNG nền trong không lẫn vào nền trắng của khung. */}
             <img src={value} alt="" className="max-h-full max-w-full object-contain p-1.5" />
+            {onRemoveBackground && (
+              <button
+                onClick={onRemoveBackground}
+                title={t('CertificateTemplateModal.removeBackground')}
+                aria-label={t('CertificateTemplateModal.removeBackground')}
+                className="absolute left-1 top-1 rounded-md bg-black/55 p-1 text-white hover:bg-black/75"
+              >
+                <Eraser size={12} />
+              </button>
+            )}
             <button
               onClick={() => onChange('')}
               title={t('CertificateTemplateModal.removeImage')}

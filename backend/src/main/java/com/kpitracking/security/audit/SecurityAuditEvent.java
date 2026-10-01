@@ -22,5 +22,12 @@ public enum SecurityAuditEvent {
     /** 403 — thiếu quyền hoặc chạm vào dữ liệu tổ chức khác. */
     ACCESS_DENIED,
     /** Bị AuthRateLimitFilter chặn. */
-    RATE_LIMITED
+    RATE_LIMITED,
+    /** Thư viện tài liệu (docs/DOCUMENTS_DESIGN.md §10): tải lên, đổi phạm vi, xoá, tải về tài liệu đơn vị/công ty,
+     *  admin xoá sớm tài liệu cá nhân của người bị vô hiệu hoá. Không ghi nội dung hay tên tệp cá nhân. */
+    DOCUMENT_UPLOADED,
+    DOCUMENT_SCOPE_CHANGED,
+    DOCUMENT_DELETED,
+    DOCUMENT_DOWNLOADED,
+    DOCUMENT_PURGED
 }

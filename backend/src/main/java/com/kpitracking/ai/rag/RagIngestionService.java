@@ -41,7 +41,13 @@ import java.util.concurrent.atomic.AtomicInteger;
  * nếu không, sửa tài liệu rồi nạp lại sẽ để bản cũ và bản mới cùng trả lời.
  *
  * <p>Metadata mỗi đoạn (kho chỉ nhận String/số/UUID nên danh sách ảnh ghép bằng {@code |}):
- * {@code docId, orgId, source, title, parent, order, images, captions, route, roles}.
+ * {@code docId, orgId, scope, source, title, parent, order, images, captions, route, roles}.
+ *
+ * <p><b>{@code scope} là bắt buộc</b> (docs/DOCUMENTS_DESIGN.md §6.2): bộ lọc truy hồi là fail-closed, vector
+ * thiếu {@code scope} không ai đọc được. Mọi đường nạp đi qua {@link #requireScope} trước khi ghi.
+ *
+ * <p>Từ khi có thư viện tài liệu, lớp này chỉ còn nạp trực tiếp BỘ HƯỚNG DẪN chung ({@link #ingestDocx},
+ * {@code scope = GLOBAL}). Tài liệu của tổ chức đi qua {@code DocumentIndexer}, dùng lại {@link #indexSections}.
  */
 @Service
 @RequiredArgsConstructor
@@ -83,6 +89,11 @@ public class RagIngestionService {
 
     public RagDocument ingestDocx(InputStream docx, String fileName, String title,
                                   RagDocument.Source source, UUID organizationId, UUID createdBy) {
+        // Tài liệu của tổ chức phải có chủ/đơn vị/phạm vi — chỉ thư viện tài liệu cấp được, nên cửa này
+        // chỉ còn nhận bộ hướng dẫn chung.
+        if (organizationId != null || source.isOrganizationScoped()) {
+            throw new IllegalArgumentException("Tài liệu của tổ chức nạp qua thư viện tài liệu (DocumentService)");
+        }
         RagDocument doc = documents.save(RagDocument.builder()
                 .organizationId(organizationId)
                 .source(source)
@@ -125,8 +136,71 @@ public class RagIngestionService {
 
     /** Xoá tài liệu: vector trước, bản ghi sau — thứ tự ngược lại để lại vector mồ côi nếu hỏng giữa chừng. */
     public void delete(UUID docId) {
-        embeddingStore.removeAll(MetadataFilterBuilder.metadataKey("docId").isEqualTo(docId.toString()));
+        removeVectors(docId);
         documents.deleteById(docId);
+    }
+
+    /** Xoá mọi vector của một tài liệu (bất kể nó thuộc bảng rag_documents hay documents). */
+    public void removeVectors(UUID docId) {
+        embeddingStore.removeAll(MetadataFilterBuilder.metadataKey("docId").isEqualTo(docId.toString()));
+    }
+
+    /** Kết quả nạp một tài liệu. */
+    public record Indexed(int chunks, int images) {}
+
+    /**
+     * Nạp các mục đã đọc sẵn của MỘT tài liệu, thay thế vector cũ của nó. Dùng cho thư viện tài liệu.
+     *
+     * @param docId    khoá nối vector về bản ghi
+     * @param base     metadata chung cho mọi đoạn — PHẢI có {@code orgId} và {@code scope} hợp lệ
+     * @param withImages tải ảnh lên kho ảnh (công khai) — chỉ bật cho tài liệu COMPANY
+     */
+    public Indexed indexSections(UUID docId, List<DocxSectionWalker.Section> sections, Map<String, Object> base,
+                                 boolean withImages) throws Exception {
+        requireScope(base);
+        int images = 0;
+        List<Document> lcDocs = new ArrayList<>();
+        for (int i = 0; i < sections.size(); i++) {
+            DocxSectionWalker.Section s = sections.get(i);
+            List<String> urls = new ArrayList<>();
+            List<String> captions = new ArrayList<>();
+            if (withImages) {
+                for (DocxSectionWalker.Image img : s.images()) {
+                    urls.add(uploadOnce(img, docId));
+                    captions.add(img.caption() == null ? "" : img.caption());
+                    images++;
+                }
+            }
+            Map<String, Object> m = new LinkedHashMap<>(base);
+            m.put("docId", docId.toString());
+            m.put("title", s.title());
+            m.put("parent", s.parent());
+            m.put("order", i);
+            if (!urls.isEmpty()) {
+                m.put("images", String.join(SEP, urls));
+                m.put("captions", String.join(SEP, captions));
+            }
+            lcDocs.add(Document.from(s.text(), Metadata.from(m)));
+        }
+        return new Indexed(replaceVectors(docId, lcDocs), images);
+    }
+
+    /**
+     * Chốt chặn fail-closed phía GHI: metadata thiếu phạm vi, hoặc phạm vi thiếu khoá đi kèm, thì không nạp —
+     * vector như thế đằng nào cũng không ai truy hồi được, nạp vào chỉ tốn chỗ và gây nhầm khi đối chiếu.
+     */
+    static void requireScope(Map<String, Object> m) {
+        Object org = m.get("orgId");
+        Object scope = m.get("scope");
+        if (org == null || scope == null) throw new IllegalArgumentException("Metadata thiếu orgId/scope");
+        boolean ok = switch (scope.toString()) {
+            case GLOBAL_ORG -> GLOBAL_ORG.equals(org.toString());
+            case "COMPANY" -> !GLOBAL_ORG.equals(org.toString());
+            case "UNIT" -> !GLOBAL_ORG.equals(org.toString()) && m.get("unitId") != null;
+            case "PERSONAL" -> !GLOBAL_ORG.equals(org.toString()) && m.get("ownerId") != null;
+            default -> false;
+        };
+        if (!ok) throw new IllegalArgumentException("Metadata phạm vi không hợp lệ: scope=" + scope);
     }
 
     // ── nội bộ ──────────────────────────────────────────────────────────────
@@ -171,6 +245,8 @@ public class RagIngestionService {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("docId", doc.getId().toString());
         m.put("orgId", orgKey);
+        // Cửa này chỉ còn nạp bộ hướng dẫn chung (xem ingestDocx).
+        m.put("scope", GLOBAL_ORG);
         m.put("source", doc.getSource().name());
         m.put("docTitle", doc.getTitle());
         m.put("title", s.title());
@@ -190,6 +266,7 @@ public class RagIngestionService {
                         if (screen.role() != null) m.put("roles", screen.role());
                     });
         }
+        requireScope(m);
         return Metadata.from(m);
     }
 

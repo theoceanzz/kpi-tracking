@@ -1,48 +1,32 @@
-import { useHasPermission } from '@/components/auth/PermissionGate'
-import { aiApi } from '@/features/analytics/api/aiApi'
-import RagDocumentsPanel, { type RagDocumentsApi } from '@/features/analytics/components/rag/RagDocumentsPanel'
+import { Link } from 'react-router-dom'
+import { ArrowRight, BookOpen } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import i18n from 'i18next'
-import { perLanguage } from '@/i18n/perLanguage'
-
-const ORG_API: RagDocumentsApi = {
-  list: aiApi.listRagDocuments,
-  upload: (file, title, source) => aiApi.uploadRagDocument(file, source ?? 'REGULATION', title),
-  remove: aiApi.deleteRagDocument,
-  chunks: aiApi.listRagChunks,
-  search: aiApi.searchRag,
-}
-
-const SOURCE_OPTIONS = perLanguage(() => ([
-  { value: 'REGULATION' as const, label: i18n.t('organization:AiDocumentsSettingsTab.internalRegulationsAndRules'), hint: i18n.t('organization:AiDocumentsSettingsTab.theAssistantQuotesTheseToAnswer') },
-  { value: 'JOB_DESCRIPTION' as const, label: i18n.t('organization:AiDocumentsSettingsTab.jobDescriptionsDutiesAndResponsibilities'), hint: i18n.t('organization:AiDocumentsSettingsTab.kpiSuggestionsWillFollowTheUnits') },
-  { value: 'STRATEGY' as const, label: i18n.t('organization:AiDocumentsSettingsTab.strategyAndAnnualGoals'), hint: i18n.t('organization:AiDocumentsSettingsTab.kpiSuggestionsWillFollowTheGoals') },
-]))
+import { Button } from '@/components/ui/button'
+import { SearchBox } from '@/features/analytics/components/rag/RagDocumentsPanel'
+import { documentApi } from '@/features/documents/api/documentApi'
 
 /**
- * Tài liệu CỦA TỔ CHỨC mà trợ lý AI dùng. Ba loại, hai chỗ dùng: quy chế → nhánh hỏi đáp; mô tả
- * công việc và chiến lược → gợi ý KPI (và hỏi đáp). Chỉ người trong tổ chức được trợ lý trích.
- *
- * <p>Bộ hướng dẫn sử dụng KeyGo không nằm ở đây: nó là của sản phẩm, dùng chung mọi công ty, nên
- * quản trị nền tảng nạp ở trang Quản trị nền tảng.
+ * Tài liệu của trợ lý AI đã chuyển sang trang Tài liệu (docs/DOCUMENTS_DESIGN.md §8.1): ở đó có tệp gốc, ba phạm vi
+ * và phân quyền. Mục này giữ lại làm lối tắt cho người quen đường cũ, cộng ô "thử tìm" — nay chạy với quyền của
+ * CHÍNH người thử, nên thấy đúng những gì K.AI sẽ đưa cho họ.
  */
 export default function AiDocumentsSettingsTab() {
-  const { t } = useTranslation('organization')
-  const { hasPermission } = useHasPermission()
+  const { t } = useTranslation('documents')
   return (
-    <RagDocumentsPanel
-      api={ORG_API}
-      scope="org"
-      canManage={hasPermission('COMPANY:UPDATE')}
-      sourceOptions={SOURCE_OPTIONS()}
-      title={t('AiDocumentsSettingsTab.aiAssistantDocuments')}
-      description={
-        <>
-          {t('AiDocumentsSettingsTab.theAssistantUsesYourOrganizationsDocuments')}
-        </>
-      }
-      emptyText={t('AiDocumentsSettingsTab.noDocumentsYetTheAssistantWill')}
-      searchPlaceholder={t('AiDocumentsSettingsTab.eGWhatRewardDoesAn')}
-    />
+    <div className="space-y-4">
+      <section className="flex flex-col gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4 sm:flex-row sm:items-center">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)]" aria-hidden="true">
+          <BookOpen size={20} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold text-[var(--color-foreground)]">{t('settingsCard.title')}</h2>
+          <p className="text-caption">{t('settingsCard.description')}</p>
+        </div>
+        <Button asChild>
+          <Link to="/documents?tab=company">{t('settingsCard.open')} <ArrowRight aria-hidden="true" /></Link>
+        </Button>
+      </section>
+      <SearchBox scope="documents" search={documentApi.search} placeholder={t('settingsCard.searchPlaceholder')} />
+    </div>
   )
 }

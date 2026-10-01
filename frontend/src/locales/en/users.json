@@ -192,7 +192,8 @@
     "role": "Role",
     "status": "Status",
     "tryChangingTheKeywordOrFilters": "Try changing the keyword or filters.",
-    "unit": "Unit"
+    "unit": "Unit",
+    "deletePersonalDocuments": "Delete personal documents"
   },
   "useUsers": {
     "updateFailed": "Update failed",

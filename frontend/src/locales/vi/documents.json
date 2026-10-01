@@ -1,0 +1,188 @@
+{
+  "title": "Tài liệu",
+  "tabs": {
+    "mine": "Của tôi",
+    "unit": "Đơn vị",
+    "company": "Công ty"
+  },
+  "tabIntro": {
+    "mine": "Tài liệu ở đây chỉ bạn xem được. K.AI dùng chúng khi trả lời riêng cho bạn — không ai khác, kể cả quản trị viên, đọc được.",
+    "unit": "Tài liệu của đơn vị bạn và các đơn vị cấp trên (kế thừa xuống). Trưởng đơn vị thấy và quản lý cả tài liệu của đơn vị con.",
+    "company": "Quy chế, quy trình, chiến lược chung của công ty. Mọi người trong công ty xem được và K.AI dùng khi trả lời bất kỳ ai."
+  },
+  "actions": {
+    "upload": "Tải tài liệu lên",
+    "download": "Tải về",
+    "preview": "Xem",
+    "replaceFile": "Thay tệp",
+    "uploadOriginal": "Tải tệp gốc lên",
+    "reindex": "Nạp lại cho AI",
+    "delete": "Xoá",
+    "save": "Lưu thay đổi"
+  },
+  "common": {
+    "cancel": "Huỷ",
+    "close": "Đóng"
+  },
+  "stats": {
+    "personalUsage": "Dung lượng của bạn",
+    "companyUsage": "Dung lượng công ty",
+    "aiChunks": "Đoạn trong kho AI",
+    "unitQuota": "Hạn mức mỗi đơn vị"
+  },
+  "notice": {
+    "chatHistory": "Xoá tài liệu hay đổi quyền xem không xoá các câu trả lời K.AI đã trích từ tài liệu đó trước đây — chúng vẫn nằm trong lịch sử chat của chính người đã hỏi."
+  },
+  "legacy": {
+    "heading": "Tài liệu tri thức cũ ({{count}})",
+    "sectionHint": "Nạp trước khi có thư viện tài liệu nên không có tệp gốc. Vẫn được K.AI dùng như tài liệu công ty; tải tệp gốc lên để quản lý đầy đủ.",
+    "explain": "Tài liệu này được nạp trước khi có thư viện tài liệu nên không có tệp gốc: K.AI vẫn dùng như tài liệu công ty, nhưng không tải về hay sửa được. Tải tệp gốc lên để thay thế — bản cũ tự gỡ khi bản mới nạp xong.",
+    "noFile": "Không có tệp gốc"
+  },
+  "filters": {
+    "search": "Tìm theo tên, tệp, mô tả…",
+    "unit": "Đơn vị",
+    "allUnits": "Mọi đơn vị tôi xem được",
+    "includeDescendants": "Gồm đơn vị con",
+    "category": "Danh mục",
+    "allCategories": "Mọi danh mục",
+    "aiStatus": "Trạng thái AI",
+    "allAiStatuses": "Mọi trạng thái AI"
+  },
+  "empty": {
+    "notMemberTitle": "Bạn chưa thuộc tổ chức nào",
+    "notMemberDescription": "Tài liệu gắn với tổ chức và đơn vị. Nhờ quản trị viên xếp bạn vào một đơn vị để dùng tính năng này.",
+    "filteredTitle": "Không có tài liệu khớp bộ lọc",
+    "filteredDescription": "Thử bỏ bớt bộ lọc hoặc đổi từ khoá tìm kiếm.",
+    "mineTitle": "Chưa có tài liệu cá nhân",
+    "mineDescription": "Tải ghi chú, tài liệu tham khảo của riêng bạn lên để K.AI trả lời sát với công việc của bạn.",
+    "unitTitle": "Đơn vị chưa có tài liệu",
+    "unitDescription": "Trưởng đơn vị có thể tải quy chế, mô tả công việc của đơn vị lên để K.AI và gợi ý KPI bám đúng việc thật.",
+    "companyTitle": "Công ty chưa có tài liệu",
+    "companyDescription": "Tải quy chế, quy trình, chiến lược của công ty lên để K.AI trích dẫn khi trả lời."
+  },
+  "pagination": {
+    "item": "tài liệu"
+  },
+  "aiStatus": {
+    "NONE": "Không dùng cho AI",
+    "PENDING": "Chờ nạp",
+    "INDEXING": "Đang nạp",
+    "READY": "AI đã đọc",
+    "FAILED": "Nạp lỗi",
+    "UNSUPPORTED": "Không đọc được chữ"
+  },
+  "aiStatusHint": {
+    "NONE": "Đang tắt “Dùng cho AI” — K.AI không đọc tài liệu này.",
+    "PENDING": "Đang chờ tới lượt nạp.",
+    "INDEXING": "Đang đọc và nạp vào kho tri thức.",
+    "READY": "K.AI đã đọc tài liệu này.",
+    "FAILED": "Nạp lỗi. Thử nạp lại.",
+    "UNSUPPORTED": "Tệp không có chữ để AI đọc (có thể là bản scan)."
+  },
+  "scope": {
+    "PERSONAL": "Cá nhân",
+    "UNIT": "Đơn vị",
+    "COMPANY": "Công ty"
+  },
+  "category": {
+    "REGULATION": "Quy chế, quy định",
+    "PROCESS": "Quy trình",
+    "JOB_DESCRIPTION": "Mô tả công việc",
+    "STRATEGY": "Chiến lược, mục tiêu",
+    "TEMPLATE": "Biểu mẫu",
+    "REFERENCE": "Tài liệu tham khảo",
+    "OTHER": "Khác"
+  },
+  "fields": {
+    "title": "Tên tài liệu",
+    "titlePlaceholder": "Mặc định lấy tên tệp",
+    "scope": "Phạm vi",
+    "category": "Danh mục",
+    "unit": "Đơn vị",
+    "unitPlaceholder": "Chọn đơn vị",
+    "description": "Mô tả",
+    "descriptionPlaceholder": "Tài liệu này nói về gì, áp dụng cho ai (không bắt buộc)",
+    "aiEnabled": "Dùng cho AI",
+    "file": "Tệp",
+    "uploadedBy": "Người tải lên",
+    "updatedAt": "Cập nhật",
+    "ai": "Kho tri thức AI"
+  },
+  "audience": {
+    "PERSONAL": "Chỉ bạn xem được. K.AI dùng tài liệu này khi trả lời riêng cho bạn.",
+    "UNIT": "Thành viên {{unit}} và các đơn vị con xem được; K.AI dùng khi trả lời họ.",
+    "COMPANY": "Mọi người trong công ty xem được; K.AI dùng khi trả lời bất kỳ ai trong công ty.",
+    "off": "K.AI sẽ không đọc tài liệu này. Tài liệu vẫn được lưu để xem và tải về."
+  },
+  "upload": {
+    "title": "Tải tài liệu lên",
+    "description": "Nhận {{types}}, tối đa {{max}} mỗi tệp. Nạp vào kho tri thức chạy nền sau khi lưu.",
+    "submit": "Tải lên",
+    "dropHint": "Kéo thả tệp .docx hoặc .pdf vào đây (tối đa {{max}})"
+  },
+  "ai": {
+    "readyDetail": "{{count}} đoạn · nạp lúc {{time}}"
+  },
+  "edit": {
+    "heading": "Thông tin và quyền xem",
+    "movingToPersonal": "Tài liệu sẽ chuyển vào kho cá nhân CỦA BẠN — chỉ bạn còn xem được.",
+    "scopeChangeReindex": "Đổi phạm vi đổi luôn người xem được; tài liệu sẽ được nạp lại cho AI theo phạm vi mới."
+  },
+  "chunks": {
+    "show": "Xem AI đọc được gì ({{count}} đoạn)",
+    "hide": "Ẩn các đoạn AI đọc"
+  },
+  "delete": {
+    "title": "Xoá tài liệu “{{title}}”?",
+    "description": "K.AI thôi dùng tài liệu này ngay. Tệp gốc được giữ thêm 30 ngày rồi xoá hẳn. Các câu trả lời K.AI đã trích từ tài liệu này trước đây vẫn còn trong lịch sử chat."
+  },
+  "badge": {
+    "noOriginal": "Không có tệp gốc",
+    "inherited": "Kế thừa từ {{unit}}",
+    "orphan": "Đơn vị đã xoá"
+  },
+  "table": {
+    "name": "Tài liệu",
+    "category": "Danh mục",
+    "unit": "Đơn vị",
+    "uploadedBy": "Người tải lên",
+    "updated": "Cập nhật",
+    "size": "Dung lượng",
+    "ai": "AI",
+    "actions": "Thao tác"
+  },
+  "toast": {
+    "uploaded": "Đã tải lên — AI đang đọc tài liệu",
+    "uploadFailed": "Chưa tải được tài liệu lên",
+    "saved": "Đã lưu thay đổi",
+    "saveFailed": "Chưa lưu được thay đổi",
+    "fileReplaced": "Đã thay tệp — AI đang đọc lại",
+    "deleted": "Đã xoá tài liệu",
+    "deleteFailed": "Chưa xoá được tài liệu",
+    "reindexQueued": "Đã đưa vào hàng đợi nạp lại",
+    "legacyReplaced": "Đã tải tệp gốc lên — bản cũ sẽ gỡ khi bản mới nạp xong"
+  },
+  "settingsCard": {
+    "title": "Tài liệu của trợ lý AI đã chuyển sang trang Tài liệu",
+    "description": "Quản lý tài liệu công ty, đơn vị và cá nhân ở một chỗ, có tệp gốc và phân quyền theo phạm vi. Ô thử tìm bên dưới chạy đúng bộ truy hồi của K.AI với quyền của chính bạn.",
+    "open": "Mở trang Tài liệu công ty",
+    "searchPlaceholder": "VD: nhân viên đạt KPI loại A được thưởng gì?"
+  },
+  "sources": {
+    "label": "Nguồn:",
+    "yours": "của bạn",
+    "notFound": "Không mở được tài liệu này — có thể nó đã bị xoá hoặc bạn không còn quyền xem."
+  },
+  "purge": {
+    "title": "Xoá tài liệu cá nhân của {{name}}",
+    "loading": "Đang đếm tài liệu…",
+    "summary": "Kho cá nhân của người này có {{count}} tài liệu ({{size}}). Bạn chỉ thấy số lượng — không xem được tên hay nội dung.",
+    "warning": "K.AI thôi dùng các tài liệu này ngay. Tệp gốc được giữ thêm 30 ngày rồi xoá hẳn. Nếu không xoá sớm, hệ thống tự xoá sau 90 ngày kể từ lúc tài khoản bị vô hiệu hoá.",
+    "empty": "Người này không có tài liệu cá nhân nào.",
+    "notDeactivated": "Chỉ xoá sớm được tài liệu cá nhân của người đang bị tạm dừng hoặc tạm khoá.",
+    "confirm": "Xoá {{count}} tài liệu",
+    "done": "Đã xoá {{count}} tài liệu cá nhân",
+    "failed": "Chưa xoá được tài liệu cá nhân"
+  }
+}

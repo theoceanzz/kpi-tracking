@@ -28,6 +28,7 @@ import {
   ScorecardPerspectiveResponse, BscItemOrigin, BscGateEffect, BscGateScope, BscMeasurementSource,
 } from '../types'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useCreatePeriodCycleOption } from '@/components/common/CreatePeriodCycleOption'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
@@ -191,6 +192,8 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
 
   const allPeriods = useMemo(() => periodsData?.content || [], [periodsData])
   const allCycles = useMemo(() => cyclesData?.content || [], [cyclesData])
+  const createCycle = useCreatePeriodCycleOption('cycle')
+  const createPeriod = useCreatePeriodCycleOption('period')
   // Đợt xếp theo kỳ để tick nhanh cả cụm; đợt không thuộc kỳ nào dồn xuống cuối.
   const periodGroups = useMemo(() => {
     const groups = new Map<string, { label: string; items: typeof allPeriods }>()
@@ -684,12 +687,13 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
             </label>
 
             {isCycleMode ? (
-              <Select value={cycleId} onValueChange={v => setValue('cycleId', v, { shouldValidate: true })}>
+              <Select value={cycleId} onValueChange={createCycle.wrap(v => setValue('cycleId', v, { shouldValidate: true }))}>
                 <SelectTrigger className="w-full h-10 rounded-card bg-[var(--color-muted)] border-[var(--color-border)] text-sm font-medium outline-none">
                   <SelectValue placeholder={t('ScorecardFormModal.chooseEvaluationCycle')} />
                 </SelectTrigger>
                 <SelectContent className="rounded-card border-[var(--color-border)] max-h-[280px]">
                   {allCycles.map(c => <SelectItem key={c.id} value={c.id} className="text-sm font-medium">{c.name}</SelectItem>)}
+                  {createCycle.item}
                 </SelectContent>
               </Select>
             ) : (
@@ -734,6 +738,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
                       </div>
                     )
                   })}
+                  {createPeriod.button}
                 </PopoverContent>
               </Popover>
             )}

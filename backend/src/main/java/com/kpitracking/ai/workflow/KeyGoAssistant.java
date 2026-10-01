@@ -155,6 +155,7 @@ public class KeyGoAssistant {
                 turn.setConsumedActionId(state.getConsumedActionId());
                 turn.setEvidenceRequested(state.isEvidenceRequested());
                 turn.setFilesAttached(state.isFilesAttached());
+                turn.setSources(List.copyOf(state.getSources()));
             }
         }
     }

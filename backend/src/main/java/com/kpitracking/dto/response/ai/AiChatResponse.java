@@ -72,6 +72,12 @@ public class AiChatResponse {
      */
     private String consumedActionId;
 
+    /**
+     * Tài liệu của tổ chức mà K.AI đã đọc để trả lời lượt này — client vẽ thành chip bấm mở tài liệu.
+     * Vắng ở lượt không tra tài liệu nào (bộ hướng dẫn chung không tính).
+     */
+    private List<DocumentSourceResponse> sources;
+
     @Data
     @Builder
     @NoArgsConstructor

@@ -133,6 +133,24 @@ cloudinary:
   api-secret: ${CLOUDINARY_API_SECRET:your-api-secret}
 
 app:
+  # ── Thư viện tài liệu 3 phạm vi, tri thức cho K.AI (docs/DOCUMENTS_DESIGN.md) ──
+  documents:
+    # local = đĩa máy chủ (dev; container không gắn volume thì mất tệp khi khởi động lại)
+    # cloudinary = Cloudinary chế độ authenticated (riêng tư, không URL công khai) — dùng cho prod.
+    storage: ${DOCUMENTS_STORAGE:cloudinary}
+    storage-dir: ${DOCUMENTS_STORAGE_DIR:data/documents}
+    quota:
+      personal-mb: ${DOCUMENTS_QUOTA_PERSONAL_MB:200}
+      unit-mb: ${DOCUMENTS_QUOTA_UNIT_MB:1024}
+      company-mb: ${DOCUMENTS_QUOTA_COMPANY_MB:5120}
+      # Trần số đoạn vector của một tổ chức — cũng là mốc đã đo độ trễ tìm chính xác (§6.6).
+      org-max-chunks: ${DOCUMENTS_ORG_MAX_CHUNKS:200000}
+    # Tài liệu cá nhân của người bị vô hiệu hoá tự xoá mềm sau N ngày; tệp của tài liệu đã xoá giữ thêm N ngày.
+    disabled-user-retention-days: ${DOCUMENTS_DISABLED_USER_RETENTION_DAYS:90}
+    deleted-file-retention-days: ${DOCUMENTS_DELETED_FILE_RETENTION_DAYS:30}
+    index:
+      # Luồng nạp song song (1–2). Model E5 chạy CPU ngay trên server app.
+      concurrency: ${DOCUMENTS_INDEX_CONCURRENCY:1}
   ai:
     # Sáu công tắc của chuỗi công đoạn AI. MẶC ĐỊNH TRONG MÃ NGUỒN CỦA BỐN CÁI ĐẦU LÀ
     # false — không khai báo ở đây là production chạy THIẾU router / planning / validation /
@@ -176,6 +194,9 @@ app:
       reasoning-effort: ${AI_REASONING_EFFORT:medium}
 
     rag:
+      # KHÔNG bật khi chưa đánh giá riêng: với index ANN (HNSW/IVFFlat), lọc theo quyền chạy SAU top-K
+      # và có thể trả thiếu/0 kết quả. App từ chối khởi động nếu thấy index ANN (docs/DOCUMENTS_DESIGN.md §6.6).
+      allow-ann-index: ${RAG_ALLOW_ANN_INDEX:false}
       # Kho vector trên pgvector. Prod dùng MỘT DB: image kpitracking-db là pgvector/pgvector:pg15
       # (thay thế trực tiếp postgres:15) nên ba giá trị dưới trỏ về đúng DB ứng dụng.
       vector-store:

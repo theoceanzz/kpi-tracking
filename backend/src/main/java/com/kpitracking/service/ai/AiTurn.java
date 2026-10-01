@@ -113,6 +113,8 @@ public class AiTurn {
      * đơn vị để kiểm {@code focusUnitId} — không tốn thêm truy vấn nào.
      */
     private String focusUnitName;
+    /** Tài liệu của tổ chức mà lượt này đã đọc — chip nguồn. Chép từ {@code AgentState} như {@link #formPatch}. */
+    private List<com.kpitracking.dto.response.ai.DocumentSourceResponse> sources;
     /** Các câu hỏi gợi ý tiếp theo do {@code FollowupStage} sinh; null ở lượt không có gợi ý. */
     private FollowupResponse followups;
     /**

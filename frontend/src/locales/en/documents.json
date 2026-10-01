@@ -1,0 +1,194 @@
+{
+  "title": "Documents",
+  "tabs": {
+    "mine": "Mine",
+    "unit": "Unit",
+    "company": "Company"
+  },
+  "tabIntro": {
+    "mine": "Only you can see documents here. K.AI uses them when answering you — no one else, not even administrators, can read them.",
+    "unit": "Documents of your unit and the units above it (passed down). Unit heads also see and manage documents of their child units.",
+    "company": "Company-wide regulations, processes and strategy. Everyone in the company can view them and K.AI uses them when answering anyone."
+  },
+  "actions": {
+    "upload": "Upload document",
+    "download": "Download",
+    "preview": "View",
+    "replaceFile": "Replace file",
+    "uploadOriginal": "Upload original file",
+    "reindex": "Re-index for AI",
+    "delete": "Delete",
+    "save": "Save changes"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close"
+  },
+  "stats": {
+    "personalUsage": "Your storage",
+    "companyUsage": "Company storage",
+    "aiChunks": "Chunks in AI knowledge base",
+    "unitQuota": "Quota per unit"
+  },
+  "notice": {
+    "chatHistory": "Deleting a document or changing who can view it does not delete K.AI answers that already quoted it — they remain in the chat history of the person who asked."
+  },
+  "legacy": {
+    "heading_one": "Older knowledge document ({{count}})",
+    "heading_other": "Older knowledge documents ({{count}})",
+    "sectionHint": "Indexed before the document library existed, so there is no original file. K.AI still uses them as company documents; upload the original file to manage them fully.",
+    "explain": "This document was indexed before the document library existed and has no original file: K.AI still uses it as a company document, but it cannot be downloaded or edited. Upload the original file to replace it — the old one is removed once the new one is indexed.",
+    "noFile": "No original file"
+  },
+  "filters": {
+    "search": "Search by name, file, description…",
+    "unit": "Unit",
+    "allUnits": "All units I can view",
+    "includeDescendants": "Include child units",
+    "category": "Category",
+    "allCategories": "All categories",
+    "aiStatus": "AI status",
+    "allAiStatuses": "All AI statuses"
+  },
+  "empty": {
+    "notMemberTitle": "You are not in an organization yet",
+    "notMemberDescription": "Documents belong to an organization and its units. Ask an administrator to add you to a unit.",
+    "filteredTitle": "No documents match the filters",
+    "filteredDescription": "Try removing some filters or changing the search.",
+    "mineTitle": "No personal documents yet",
+    "mineDescription": "Upload your own notes and references so K.AI can answer closer to your work.",
+    "unitTitle": "This unit has no documents yet",
+    "unitDescription": "Unit heads can upload the unit regulations and job descriptions so K.AI and KPI suggestions follow the real work.",
+    "companyTitle": "The company has no documents yet",
+    "companyDescription": "Upload company regulations, processes and strategy so K.AI can quote them in answers."
+  },
+  "pagination": {
+    "item": "documents"
+  },
+  "aiStatus": {
+    "NONE": "Not used by AI",
+    "PENDING": "Queued",
+    "INDEXING": "Indexing",
+    "READY": "Read by AI",
+    "FAILED": "Indexing failed",
+    "UNSUPPORTED": "No readable text"
+  },
+  "aiStatusHint": {
+    "NONE": "“Use for AI” is off — K.AI does not read this document.",
+    "PENDING": "Waiting in the indexing queue.",
+    "INDEXING": "Reading and adding it to the knowledge base.",
+    "READY": "K.AI has read this document.",
+    "FAILED": "Indexing failed. Try re-indexing.",
+    "UNSUPPORTED": "The file has no text the AI can read (it may be a scan)."
+  },
+  "scope": {
+    "PERSONAL": "Personal",
+    "UNIT": "Unit",
+    "COMPANY": "Company"
+  },
+  "category": {
+    "REGULATION": "Regulations and rules",
+    "PROCESS": "Process",
+    "JOB_DESCRIPTION": "Job description",
+    "STRATEGY": "Strategy and goals",
+    "TEMPLATE": "Template",
+    "REFERENCE": "Reference",
+    "OTHER": "Other"
+  },
+  "fields": {
+    "title": "Document name",
+    "titlePlaceholder": "Defaults to the file name",
+    "scope": "Scope",
+    "category": "Category",
+    "unit": "Unit",
+    "unitPlaceholder": "Choose a unit",
+    "description": "Description",
+    "descriptionPlaceholder": "What the document is about and who it applies to (optional)",
+    "aiEnabled": "Use for AI",
+    "file": "File",
+    "uploadedBy": "Uploaded by",
+    "updatedAt": "Updated",
+    "ai": "AI knowledge base"
+  },
+  "audience": {
+    "PERSONAL": "Only you can view it. K.AI uses it when answering you.",
+    "UNIT": "Members of {{unit}} and its child units can view it; K.AI uses it when answering them.",
+    "COMPANY": "Everyone in the company can view it; K.AI uses it when answering anyone in the company.",
+    "off": "K.AI will not read this document. It is still stored for viewing and downloading."
+  },
+  "upload": {
+    "title": "Upload document",
+    "description": "Accepts {{types}}, up to {{max}} per file. Indexing for the knowledge base runs in the background after saving.",
+    "submit": "Upload",
+    "dropHint": "Drag a .docx or .pdf file here (up to {{max}})"
+  },
+  "ai": {
+    "readyDetail_one": "{{count}} chunk · indexed at {{time}}",
+    "readyDetail_other": "{{count}} chunks · indexed at {{time}}"
+  },
+  "edit": {
+    "heading": "Details and visibility",
+    "movingToPersonal": "The document will move to YOUR personal storage — only you will be able to view it.",
+    "scopeChangeReindex": "Changing the scope changes who can view it; the document is re-indexed for the AI under the new scope."
+  },
+  "chunks": {
+    "show_one": "See what the AI reads ({{count}} chunk)",
+    "show_other": "See what the AI reads ({{count}} chunks)",
+    "hide": "Hide AI chunks"
+  },
+  "delete": {
+    "title": "Delete “{{title}}”?",
+    "description": "K.AI stops using this document immediately. The original file is kept for 30 more days, then deleted. K.AI answers that already quoted it remain in the chat history."
+  },
+  "badge": {
+    "noOriginal": "No original file",
+    "inherited": "Inherited from {{unit}}",
+    "orphan": "Unit deleted"
+  },
+  "table": {
+    "name": "Document",
+    "category": "Category",
+    "unit": "Unit",
+    "uploadedBy": "Uploaded by",
+    "updated": "Updated",
+    "size": "Size",
+    "ai": "AI",
+    "actions": "Actions"
+  },
+  "toast": {
+    "uploaded": "Uploaded — the AI is reading the document",
+    "uploadFailed": "The document could not be uploaded",
+    "saved": "Changes saved",
+    "saveFailed": "Changes could not be saved",
+    "fileReplaced": "File replaced — the AI is reading it again",
+    "deleted": "Document deleted",
+    "deleteFailed": "The document could not be deleted",
+    "reindexQueued": "Queued for re-indexing",
+    "legacyReplaced": "Original file uploaded — the old one is removed once the new one is indexed"
+  },
+  "settingsCard": {
+    "title": "AI assistant documents have moved to the Documents page",
+    "description": "Manage company, unit and personal documents in one place, with original files and scope-based access. The search box below runs the K.AI retrieval with your own permissions.",
+    "open": "Open company documents",
+    "searchPlaceholder": "e.g. what reward does an employee with an A rating get?"
+  },
+  "sources": {
+    "label": "Sources:",
+    "yours": "yours",
+    "notFound": "This document could not be opened — it may have been deleted or you no longer have access."
+  },
+  "purge": {
+    "title": "Delete personal documents of {{name}}",
+    "loading": "Counting documents…",
+    "summary_one": "This person has {{count}} personal document ({{size}}). You only see the count — not names or content.",
+    "summary_other": "This person has {{count}} personal documents ({{size}}). You only see the count — not names or content.",
+    "warning": "K.AI stops using these documents immediately. Original files are kept for 30 more days, then deleted. If not deleted early, the system deletes them 90 days after the account was deactivated.",
+    "empty": "This person has no personal documents.",
+    "notDeactivated": "Personal documents can only be deleted early for a paused or suspended account.",
+    "confirm_one": "Delete {{count}} document",
+    "confirm_other": "Delete {{count}} documents",
+    "done_one": "Deleted {{count}} personal document",
+    "done_other": "Deleted {{count}} personal documents",
+    "failed": "The personal documents could not be deleted"
+  }
+}

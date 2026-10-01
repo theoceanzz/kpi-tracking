@@ -117,7 +117,8 @@
     "weight": "Trọng số",
     "youHaveCompletedAllKpisIn": "Bạn đã hoàn thành toàn bộ chỉ tiêu trong đợt này.",
     "youHaveSubmittedAllExpectedReports": "Bạn đã nộp đủ báo cáo dự kiến, hoặc chưa có chỉ tiêu nào được duyệt để báo cáo.",
-    "yourDirectManagerWillBeNotified": "Quản lý trực tiếp sẽ nhận thông báo và chấm điểm báo cáo này."
+    "yourDirectManagerWillBeNotified": "Quản lý trực tiếp sẽ nhận thông báo và chấm điểm báo cáo này.",
+    "pleaseEnterTheActualResult": "Vui lòng nhập kết quả thực tế"
   },
   "OrgUnitSubmissionsPage": {
     "actions": "Hành động",
@@ -249,7 +250,7 @@
     "endOfPeriodScore": "Điểm cuối đợt",
     "evaluatesTheResultsOfPeriod": "{{userRoleName}} đánh giá kết quả đợt {{periodName}}",
     "evaluationAndApprovalCompletedForThe": "Đã hoàn tất đánh giá và phê duyệt cho nhân viên",
-    "evaluationCycle": "Kỳ đánh giá:",
+    "evaluationCycle": "Đợt:",
     "evaluationFinalizedForTheEmployee": "Đã chốt đánh giá cho nhân viên",
     "failedToSaveTheEvaluation": "Lưu đánh giá thất bại",
     "goodResultsInThePeriod": "Kết quả tốt trong đợt{{value}}",
@@ -378,7 +379,8 @@
     "theFinalScoreCannotExceed": "Điểm chốt cuối không được vượt quá {{ceiling}}",
     "theFinalScoreMustBeA": "Điểm chốt cuối phải là số",
     "theScoreCannotBeNegative": "Điểm không được âm",
-    "theValueCannotBeNegative": "Giá trị không được âm"
+    "theValueCannotBeNegative": "Giá trị không được âm",
+    "theValueMustBeANumber": "Kết quả phải là một con số"
   },
   "submittable": {
     "allSubmissionsMade": "Đã nộp đủ số lượt",

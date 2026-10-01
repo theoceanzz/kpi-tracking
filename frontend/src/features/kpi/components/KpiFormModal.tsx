@@ -40,6 +40,7 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
 import { Section } from '@/components/common/ScoreForm'
 import { Field, Hint, SourceCard, Stat, ToggleCard } from './KpiFormParts'
 import type { BscKpiPlanResponse } from '@/features/bsc/types'
+import { useCreatePeriodCycleOption } from '@/components/common/CreatePeriodCycleOption'
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
@@ -173,6 +174,7 @@ export default function KpiFormModal({
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(organizationId)
   const { data: periodsData } = useKpiPeriods({ organizationId })
+  const createPeriod = useCreatePeriodCycleOption('period')
   const enableOkr = org?.enableOkr
   const { data: objectives } = useObjectives(enableOkr ? organizationId : undefined)
 
@@ -885,7 +887,7 @@ export default function KpiFormModal({
               <Field label={tr('KpiFormModal.evaluationPeriods')} required error={errors.kpiPeriodId?.message}>
                 <Controller name="kpiPeriodId" control={control}
                   render={({ field }) => (
-                    <Select value={field.value || ''} onValueChange={field.onChange}>
+                    <Select value={field.value || ''} onValueChange={createPeriod.wrap(field.onChange)}>
                       <SelectTrigger aria-invalid={!!errors.kpiPeriodId}><SelectValue placeholder={tr('KpiFormModal.choosePeriod')} /></SelectTrigger>
                       <SelectContent>
                         {periodsData?.content.map(p => {
@@ -893,6 +895,7 @@ export default function KpiFormModal({
                           const locked = p.cycleStatus === 'LOCKED' || (!!p.status && p.status !== 'ACTIVE')
                           return <SelectItem key={p.id} value={p.id} disabled={locked}>{p.name}{locked && tr('KpiFormModal.locked')}</SelectItem>
                         })}
+                        {createPeriod.item}
                       </SelectContent>
                     </Select>
                   )}

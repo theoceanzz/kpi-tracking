@@ -138,8 +138,9 @@
     "rewardCertificate": "Reward certificate",
     "saveAsPdf": "Save as PDF",
     "selectAll": "Select all",
-    "thisIsUsuallyBecauseTheLogo": "This is usually because the logo or background image does not allow cross-origin loading. You can still print or save as PDF with the button next to it.",
-    "fileNamePrefix": "Certificate"
+    "thisIsUsuallyBecauseTheLogo": "This browser could not render the image. You can still print or save as PDF with the Print / Save PDF button.",
+    "fileNamePrefix": "Certificate",
+    "someImagesSkipped": "Some images (logo, signature or background) could not be loaded and were left out of the PNG. Check your connection or re-upload them in the certificate template."
   },
   "CertificatesTab": {
     "certificateTemplatesUsedWhenPrintingCertificates": "Certificate templates used when printing certificates for rewarded employees. Without any template, the print screen still has six nice designs to choose from — templates here are your company's own versions, with a fixed logo, signature and wording.",
@@ -215,7 +216,15 @@
     "title2": "Title",
     "tranQuocHung": "Tran Quoc Hung",
     "turnOffToKeepTheTemplate": "Turn off to keep the template but not allow choosing it when printing.",
-    "uploadImage": "Upload image"
+    "uploadImage": "Upload image",
+    "showOrgName": "Show company name",
+    "showOrgNameHint": "Turn off when the logo already contains the company name",
+    "autoRemoveBackground": "Remove logo and signature background on upload",
+    "autoRemoveBackgroundHint": "Removes a white / solid background so the image does not show as a block on the certificate",
+    "removeBackground": "Remove background of this image",
+    "backgroundRemoved": "Background removed",
+    "backgroundAlreadyTransparent": "This image already has a transparent background",
+    "backgroundNotRemovable": "No solid background found to remove — use a PNG with a transparent background"
   },
   "certificateTemplateSchema": {
     "pleaseEnterTheTemplateName": "Please enter the template name",

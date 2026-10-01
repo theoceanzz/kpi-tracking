@@ -82,6 +82,13 @@ public class User {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    /**
+     * Lúc tài khoản chuyển sang tạm dừng/tạm khoá hoặc bị xoá mềm; {@code null} khi đang hoạt động.
+     * Mốc cho việc tự xoá tài liệu cá nhân sau N ngày (docs/DOCUMENTS_DESIGN.md §5.5).
+     */
+    @Column(name = "deactivated_at")
+    private Instant deactivatedAt;
+
     @Column(name = "require_password_change", nullable = false)
     @Builder.Default
     private Boolean requirePasswordChange = false;

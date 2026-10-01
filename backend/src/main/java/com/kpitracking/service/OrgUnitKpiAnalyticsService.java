@@ -1370,31 +1370,33 @@ public class OrgUnitKpiAnalyticsService {
         return assignments.stream().map(a -> a.getOrgUnit().getId()).collect(Collectors.toSet());
     }
 
+    /**
+     * "Trễ hạn" = đã quá hạn mà CHƯA nộp, hoặc bài nộp cuối rơi sau hạn.
+     *
+     * <p>Trước đây chỉ tính vế sau, nên người bỏ trống cả loạt chỉ tiêu quá hạn lại hiện "0 trễ
+     * hạn" ở widget "Nhân sự cần can thiệp" trong khi hồ sơ hiệu suất của chính họ báo hàng chục
+     * bài quá hạn — hai màn hình nói ngược nhau về cùng một người.
+     */
     private boolean isKpiOverdueOverall(KpiCriteria kpi) {
-        Instant kpiEnd = kpi.getEffectiveDeadline();
-        if (kpiEnd == null) return false;
-        if (kpi.getSubmissions() == null || kpi.getSubmissions().isEmpty()) return false;
-        return kpi.getSubmissions().stream()
-            .filter(s -> s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED)
-            .map(s -> s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt())
-            .filter(java.util.Objects::nonNull)
-            .max(Comparator.naturalOrder())
-            .map(lastTime -> lastTime.isAfter(kpiEnd))
-            .orElse(false);
+        return isOverdue(kpi, null);
     }
 
     private boolean isKpiOverdueForUser(KpiCriteria kpi, UUID userId) {
+        return isOverdue(kpi, userId);
+    }
+
+    /** {@code userId == null} = xét bài nộp của mọi người được giao. */
+    private boolean isOverdue(KpiCriteria kpi, UUID userId) {
         Instant kpiEnd = kpi.getEffectiveDeadline();
         if (kpiEnd == null) return false;
-        if (kpi.getSubmissions() == null || kpi.getSubmissions().isEmpty()) return false;
-        return kpi.getSubmissions().stream()
-            .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(userId))
+        java.util.Optional<Instant> last = (kpi.getSubmissions() == null ? java.util.stream.Stream.<KpiSubmission>empty() : kpi.getSubmissions().stream())
+            .filter(s -> userId == null || (s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(userId)))
             .filter(s -> s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED)
             .map(s -> s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt())
             .filter(java.util.Objects::nonNull)
-            .max(Comparator.naturalOrder())
-            .map(lastTime -> lastTime.isAfter(kpiEnd))
-            .orElse(false);
+            .max(Comparator.naturalOrder());
+        // Chưa nộp gì: trễ khi hạn đã qua.
+        return last.map(t -> t.isAfter(kpiEnd)).orElseGet(() -> kpiEnd.isBefore(Instant.now()));
     }
 
     private static class MemberRiskAccumulator {

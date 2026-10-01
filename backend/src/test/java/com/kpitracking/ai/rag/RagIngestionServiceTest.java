@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -68,9 +69,9 @@ class RagIngestionServiceTest {
                 mock(RagImageStore.class), FAKE_EMBEDDING, store, new GuideScreenIndex());
 
         String body = "Nộp báo cáo KPI theo các bước sau. ".repeat(120); // ~4.200 ký tự > MAX_CHARS
-        UUID orgId = UUID.randomUUID();
-        RagDocument saved = service.ingestDocx(docxWith("3.2. Nộp báo cáo", body), "qc.docx",
-                "Quy chế", RagDocument.Source.REGULATION, orgId, UUID.randomUUID());
+        // Cửa ingestDocx chỉ còn nhận bộ hướng dẫn chung (tài liệu tổ chức đi qua thư viện tài liệu).
+        RagDocument saved = service.ingestDocx(docxWith("3.2. Nộp báo cáo", body), "hd.docx",
+                "Hướng dẫn", RagDocument.Source.GUIDE, null, UUID.randomUUID());
 
         assertThat(saved.getStatus()).isEqualTo(RagDocument.Status.READY);
         assertThat(saved.getChunkCount()).isGreaterThanOrEqualTo(3);
@@ -83,9 +84,44 @@ class RagIngestionServiceTest {
             assertThat(seg.text()).startsWith("[");
             assertThat(seg.text()).contains("Nộp báo cáo]");
             assertThat(seg.metadata().getString("docId")).isEqualTo(saved.getId().toString());
-            assertThat(seg.metadata().getString("orgId")).isEqualTo(orgId.toString());
+            assertThat(seg.metadata().getString("orgId")).isEqualTo(RagIngestionService.GLOBAL_ORG);
+            // Fail-closed phía ghi: bộ hướng dẫn cũng phải mang scope, không thì không ai truy hồi được.
+            assertThat(seg.metadata().getString("scope")).isEqualTo(RagIngestionService.GLOBAL_ORG);
             assertThat(seg.metadata().getString("title")).isEqualTo("3.2. Nộp báo cáo");
         }
+    }
+
+    @Test
+    @DisplayName("ingestDocx từ chối tài liệu của tổ chức — chỉ thư viện tài liệu mới gắn được phạm vi")
+    void ingestDocxRejectsOrganizationDocuments() {
+        RagIngestionService service = new RagIngestionService(mock(RagDocumentRepository.class), mock(RagAssetRepository.class),
+                mock(RagImageStore.class), FAKE_EMBEDDING, new InMemoryEmbeddingStore<>(), new GuideScreenIndex());
+        assertThatThrownBy(() -> service.ingestDocx(docxWith("1", "x"), "qc.docx", "Quy chế",
+                RagDocument.Source.REGULATION, UUID.randomUUID(), UUID.randomUUID()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("requireScope: metadata thiếu scope hoặc thiếu khoá đi kèm thì không nạp")
+    void requireScopeIsFailClosed() {
+        String org = UUID.randomUUID().toString();
+        assertThatThrownBy(() -> RagIngestionService.requireScope(Map.of("orgId", org)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> RagIngestionService.requireScope(Map.of("orgId", org, "scope", "UNIT")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> RagIngestionService.requireScope(Map.of("orgId", org, "scope", "PERSONAL")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> RagIngestionService.requireScope(Map.of("orgId", org, "scope", "GLOBAL")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> RagIngestionService.requireScope(Map.of("orgId", "GLOBAL", "scope", "COMPANY")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> RagIngestionService.requireScope(Map.of("orgId", org, "scope", "EVERYONE")))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        RagIngestionService.requireScope(Map.of("orgId", org, "scope", "COMPANY"));
+        RagIngestionService.requireScope(Map.of("orgId", org, "scope", "UNIT", "unitId", UUID.randomUUID().toString()));
+        RagIngestionService.requireScope(Map.of("orgId", org, "scope", "PERSONAL", "ownerId", UUID.randomUUID().toString()));
+        RagIngestionService.requireScope(Map.of("orgId", "GLOBAL", "scope", "GLOBAL"));
     }
 
     @Test

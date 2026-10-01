@@ -1,6 +1,7 @@
 package com.kpitracking.ai.agent.help;
 
 import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.service.Result;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 
@@ -19,5 +20,6 @@ import dev.langchain4j.service.UserMessage;
 public interface HelpAgent {
 
     @SystemMessage(fromResource = "promptTemplates/helpAgentSystem.txt")
-    String answer(@UserMessage String question, InvocationParameters params);
+    /** {@code Result} để lấy kèm {@link Result#sources()} — các đoạn đã truy hồi, làm chip nguồn. */
+    Result<String> answer(@UserMessage String question, InvocationParameters params);
 }

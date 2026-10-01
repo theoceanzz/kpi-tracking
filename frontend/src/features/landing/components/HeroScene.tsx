@@ -28,17 +28,19 @@ export function HeroScene() {
           <span>{t('HeroScene.okrKpiBscPlatformWithAn')}</span>
         </div>
 
-        {/* Mỗi câu một dòng. Dòng gradient dùng background-clip:text nên phải có padding
-            dưới — không thì dấu nặng (ụ, ợ) nằm ngoài hộp và bị cắt. */}
-        <h1 className="mx-auto max-w-5xl text-[38px] font-black leading-[1.15] tracking-tight text-slate-900 sm:text-6xl lg:text-[80px]">
+        {/* Khẩu hiệu thương hiệu, CỐ Ý không dịch: mọi ngôn ngữ đều hiện nguyên câu tiếng Anh;
+            phần giải nghĩa theo ngôn ngữ nằm ở dòng mô tả nhỏ bên dưới. Câu dài gấp ba khẩu hiệu
+            cũ nên cỡ chữ nhỏ hơn (80px cũ sẽ tràn 4–5 dòng). Dòng gradient dùng background-clip:text
+            nên phải có padding dưới — không thì dấu nặng (ụ, ợ) nằm ngoài hộp và bị cắt. */}
+        <h1 className="mx-auto max-w-6xl text-[30px] font-black leading-[1.18] tracking-tight text-slate-900 text-balance sm:text-5xl lg:text-[60px]">
           <span className="lp-word block pb-[0.08em]" style={{ '--lp-delay': '120ms' } as CSSProperties}>
-            {t('HeroScene.clearGoals')}
+            AI-powered goals, performance,
           </span>
           <span
             className="lp-word lp-gradient-text block px-[0.05em] pb-[0.18em] -mb-[0.1em]"
             style={{ '--lp-delay': '300ms' } as CSSProperties}
           >
-            {t('HeroScene.visiblePerformance')}
+            competency mapping, recognition &amp; rewards.
           </span>
         </h1>
 

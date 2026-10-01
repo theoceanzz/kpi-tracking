@@ -13,12 +13,12 @@ public class RolePermissionConstants {
 
     public static final List<String> PERSONAL_PERMS = Arrays.asList(
             "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "EVALUATION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY",
-            "REWARD:VIEW_MY", "WALLET:VIEW_MY", "FEEDBACK360:VIEW_MY"
+            "REWARD:VIEW_MY", "WALLET:VIEW_MY", "FEEDBACK360:VIEW_MY", "DOCUMENT:UPLOAD_PERSONAL"
     );
 
     public static final List<String> UNIT_HEAD_PERSONAL_PERMS = Arrays.asList(
             "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY",
-            "REWARD:VIEW_MY", "WALLET:VIEW_MY", "FEEDBACK360:VIEW_MY"
+            "REWARD:VIEW_MY", "WALLET:VIEW_MY", "FEEDBACK360:VIEW_MY", "DOCUMENT:UPLOAD_PERSONAL"
     );
 
     // ----------------------------------------------------------------
@@ -61,7 +61,9 @@ public class RolePermissionConstants {
             "WALLET:VIEW_MY", "WALLET:VIEW", "WALLET:CONFIG", "WALLET:RECONCILE",
             // Đánh giá 360: giám đốc điều hành chiến dịch. VIEW_MY vì giám đốc không nhận
             // PERSONAL_PERMS nhưng vẫn có thể là người được đánh giá.
-            "FEEDBACK360:MANAGE", "FEEDBACK360:VIEW", "FEEDBACK360:VIEW_MY"
+            "FEEDBACK360:MANAGE", "FEEDBACK360:VIEW", "FEEDBACK360:VIEW_MY",
+            // Tài liệu (tri thức K.AI): giám đốc quản lý tài liệu công ty và mọi đơn vị bên dưới.
+            "DOCUMENT:UPLOAD_PERSONAL", "DOCUMENT:MANAGE_UNIT", "DOCUMENT:MANAGE_COMPANY"
     );
 
     // ----------------------------------------------------------------
@@ -98,7 +100,9 @@ public class RolePermissionConstants {
             // đang tước quyền cấu hình của cấp phó ở REWARD:CONFIG.
             "WALLET:VIEW_MY", "WALLET:VIEW", "WALLET:RECONCILE",
             // Đánh giá 360: xem báo cáo trong phạm vi, không cấu hình chiến dịch.
-            "FEEDBACK360:VIEW", "FEEDBACK360:VIEW_MY"
+            "FEEDBACK360:VIEW", "FEEDBACK360:VIEW_MY",
+            // Tài liệu: quản lý tài liệu đơn vị, KHÔNG sửa tài liệu chung của công ty.
+            "DOCUMENT:UPLOAD_PERSONAL", "DOCUMENT:MANAGE_UNIT"
     );
 
     // ----------------------------------------------------------------
@@ -126,7 +130,9 @@ public class RolePermissionConstants {
             // phải qua duyệt.
             "REWARD:VIEW", "REWARD:GRANT", "GIFT:REDEEM",
             // Đánh giá 360: trưởng đơn vị xem báo cáo của người trong đơn vị (không phải của chính mình).
-            "FEEDBACK360:VIEW"
+            "FEEDBACK360:VIEW",
+            // Trưởng đơn vị giữ tài liệu (quy chế, JD) của đơn vị mình và các đơn vị con.
+            "DOCUMENT:MANAGE_UNIT"
     );
 
     // ----------------------------------------------------------------
