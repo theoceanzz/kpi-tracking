@@ -397,7 +397,8 @@ export default function OrgUnitSubmissionsPage() {
           { label: t('OrgUnitSubmissionsPage.evaluated'), value: stats.totalEvaluated, icon: ClipboardCheck },
         ]}
         actions={
-          <>
+          // Gom các nút vào một nhóm để chúng xuống dòng cùng nhau, không tách 1 trên 1 dưới.
+          <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
             {canAiBatch && (
               <Button
                 variant="outline"
@@ -425,7 +426,7 @@ export default function OrgUnitSubmissionsPage() {
                 title={t('OrgUnitSubmissionsPage.kAiListsThePeopleWho')}
               />
             )}
-          </>
+          </div>
         }
       />
 

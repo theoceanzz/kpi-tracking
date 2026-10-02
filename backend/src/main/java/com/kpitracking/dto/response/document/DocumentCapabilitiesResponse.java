@@ -23,6 +23,8 @@ public class DocumentCapabilitiesResponse {
     /** Đơn vị mình đọc được tài liệu (để lọc ở tab Đơn vị). */
     private List<UnitOption> visibleUnits;
     private List<String> allowedExtensions;
+    /** Đơn vị gốc — không phải đích của tài liệu đơn vị (dùng phạm vi Công ty); frontend loại khỏi nơi đề xuất. */
+    private List<UUID> rootUnitIds;
 
     @Data
     @NoArgsConstructor

@@ -23,6 +23,7 @@ import static dev.langchain4j.store.embedding.filter.MetadataFilterBuilder.metad
  *                           thành viên, cộng cây con của đơn vị mình quản lý
  * @param manageableUnitIds  đơn vị mà mình sửa được tài liệu {@code UNIT}: cây con của nơi có {@code DOCUMENT:MANAGE_UNIT}
  * @param liveUnitIds        mọi đơn vị còn sống của tổ chức — tài liệu của đơn vị đã xoá là "mồ côi"
+ * @param sharedDocIds       tài liệu được CHIA SẺ cho người này (trực tiếp, hoặc cho đơn vị của họ): chỉ XEM
  */
 public record DocumentAccess(
         UUID orgId,
@@ -32,7 +33,21 @@ public record DocumentAccess(
         Set<UUID> manageableUnitIds,
         Set<UUID> liveUnitIds,
         boolean canManageCompany,
-        boolean canUploadPersonal) {
+        boolean canUploadPersonal,
+        Set<UUID> sharedDocIds) {
+
+    /** Chưa tính phần chia sẻ (test, hoặc trước khi resolver nạp chia sẻ). */
+    public DocumentAccess(UUID orgId, UUID userId, boolean member, Set<UUID> visibleUnitIds, Set<UUID> manageableUnitIds,
+                          Set<UUID> liveUnitIds, boolean canManageCompany, boolean canUploadPersonal) {
+        this(orgId, userId, member, visibleUnitIds, manageableUnitIds, liveUnitIds, canManageCompany, canUploadPersonal,
+                Set.of());
+    }
+
+    /** Bản sao kèm danh sách tài liệu được chia sẻ. */
+    public DocumentAccess withShared(Set<UUID> shared) {
+        return new DocumentAccess(orgId, userId, member, visibleUnitIds, manageableUnitIds, liveUnitIds,
+                canManageCompany, canUploadPersonal, Set.copyOf(shared));
+    }
 
     /** Giá trị {@code orgId}/{@code scope} của bộ hướng dẫn chung trong kho vector. */
     public static final String GLOBAL = RagMetadata.GLOBAL_ORG;
@@ -45,13 +60,14 @@ public record DocumentAccess(
 
     /** Không biết là ai → không đọc gì của tổ chức nào. */
     public static DocumentAccess none(UUID orgId, UUID userId) {
-        return new DocumentAccess(orgId, userId, false, Set.of(), Set.of(), Set.of(), false, false);
+        return new DocumentAccess(orgId, userId, false, Set.of(), Set.of(), Set.of(), false, false, Set.of());
     }
 
     // ── Kiểm trên một tài liệu cụ thể ───────────────────────────────────────────────────────────
 
     public boolean canView(Document d) {
         if (!member || d == null || !orgId.equals(d.getOrganizationId())) return false;
+        if (d.getId() != null && sharedDocIds.contains(d.getId())) return true;
         return switch (d.getScope()) {
             case COMPANY -> true;
             case PERSONAL -> userId.equals(d.getOwnerUserId());
@@ -59,8 +75,15 @@ public record DocumentAccess(
         };
     }
 
+    /** Xem được nhờ được chia sẻ, KHÔNG nhờ phạm vi — giao diện hiện "Được chia sẻ với bạn". */
+    public boolean isSharedWithMe(Document d) {
+        return d != null && d.getId() != null && sharedDocIds.contains(d.getId()) && !canEdit(d)
+                && !(d.getScope() == DocumentScope.PERSONAL && userId.equals(d.getOwnerUserId()));
+    }
+
+    /** Sửa được: CHỈ theo phạm vi — được chia sẻ chỉ cho quyền xem. */
     public boolean canEdit(Document d) {
-        if (!canView(d)) return false;
+        if (!member || d == null || !orgId.equals(d.getOrganizationId())) return false;
         return switch (d.getScope()) {
             case COMPANY -> canManageCompany;
             case PERSONAL -> userId.equals(d.getOwnerUserId()) && canUploadPersonal;
@@ -75,6 +98,28 @@ public record DocumentAccess(
             case COMPANY -> canManageCompany;
             case PERSONAL -> canUploadPersonal;
             case UNIT -> unitId != null && manageableUnitIds.contains(unitId);
+        };
+    }
+
+    // ── Thư mục ─────────────────────────────────────────────────────────────────────────────────
+
+    /** Thấy thư mục: cùng luật phạm vi với tài liệu (không có chia sẻ thư mục). */
+    public boolean canViewFolder(com.kpitracking.entity.DocumentFolder f) {
+        if (!member || f == null || !orgId.equals(f.getOrganizationId())) return false;
+        return switch (f.getScope()) {
+            case COMPANY -> true;
+            case PERSONAL -> userId.equals(f.getOwnerUserId());
+            case UNIT -> visibleUnitIds.contains(f.getOrgUnitId());
+        };
+    }
+
+    /** Tạo / đổi tên / xoá thư mục, và đưa tài liệu vào thư mục: cần quyền tạo tài liệu ở đúng phạm vi đó. */
+    public boolean canEditFolder(com.kpitracking.entity.DocumentFolder f) {
+        if (!canViewFolder(f)) return false;
+        return switch (f.getScope()) {
+            case COMPANY -> canManageCompany;
+            case PERSONAL -> userId.equals(f.getOwnerUserId()) && canUploadPersonal;
+            case UNIT -> manageableUnitIds.contains(f.getOrgUnitId());
         };
     }
 
@@ -98,7 +143,13 @@ public record DocumentAccess(
         if (!member) {
             return includeGlobal ? global : nothing();
         }
-        Filter org = metadataKey(KEY_ORG).isEqualTo(orgId.toString()).and(orgBranches());
+        Filter branches = orgBranches();
+        if (!sharedDocIds.isEmpty()) {
+            // Được chia sẻ: khớp DƯƠNG theo đúng docId — vẫn fail-closed, không mở thêm nhánh "thiếu khoá".
+            List<String> ids = sharedDocIds.stream().map(UUID::toString).sorted().toList();
+            branches = branches.or(metadataKey(RagMetadata.DOC_ID).isIn(ids));
+        }
+        Filter org = metadataKey(KEY_ORG).isEqualTo(orgId.toString()).and(branches);
         return includeGlobal ? global.or(org) : org;
     }
 
@@ -133,6 +184,7 @@ public record DocumentAccess(
                 branches.add(cb.and(cb.equal(root.get("scope"), DocumentScope.UNIT),
                         root.get("orgUnitId").in(visibleUnitIds)));
             }
+            if (!sharedDocIds.isEmpty()) branches.add(root.get("id").in(sharedDocIds));
             if (canManageCompany) {
                 var orphan = liveUnitIds.isEmpty()
                         ? cb.equal(root.get("scope"), DocumentScope.UNIT)

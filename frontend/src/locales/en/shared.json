@@ -1291,5 +1291,13 @@
   "WorkspaceTabs": {
     "addWorkspaceheaderToTheTopOf": "Add <WorkspaceHeader/> to the top of the child page.",
     "workspacetabsTabDoesNotRenderWorkspaceheader": "[WorkspaceTabs] Tab \"{{activeTab}}\" does not render <WorkspaceHeader/>, so the second-level tab row does not show. "
+  },
+  "FilePreview": {
+    "unsupported": "This format cannot be previewed yet. Download it to open in an app on your computer.",
+    "loading": "Opening file…",
+    "loadFailed": "Could not open the file for preview. You can still download it.",
+    "emptySheet": "The sheet is empty.",
+    "truncated": "Only the first {{rows}} rows and {{cols}} columns are shown — download to see everything.",
+    "download": "Download"
   }
 }

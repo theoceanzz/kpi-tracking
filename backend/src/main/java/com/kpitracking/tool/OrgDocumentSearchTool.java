@@ -100,6 +100,7 @@ public class OrgDocumentSearchTool {
     private static Map<String, Object> compact(RagSearchHitResponse h) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("document", h.docTitle());
+        if (h.validity() != null) m.put("validity", h.validity());
         m.put("section", h.parent() != null && !h.parent().isBlank() ? h.parent() + " › " + h.title() : h.title());
         String text = h.text() == null ? "" : h.text().strip();
         m.put("text", text.length() > MAX_TEXT ? text.substring(0, MAX_TEXT) + "…" : text);

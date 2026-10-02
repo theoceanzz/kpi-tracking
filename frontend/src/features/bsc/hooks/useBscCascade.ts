@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { getApiErrorMessage } from '@/lib/apiError'
+import { getApiErrorCode, getApiErrorMessage } from '@/lib/apiError'
 import { bscApi } from '../api/bscApi'
-import type { CascadePolicyRequest, CascadeRequest, BscOverrideRequest } from '../types'
+import type { CascadePolicyRequest, CascadeRequest, BscOverrideRequest, WholeCascadeRequest } from '../types'
 import { useBscInvalidator } from './useBsc'
 import { useTranslation } from 'react-i18next'
 
@@ -32,6 +32,26 @@ export function useScorecardCoverage(scorecardId?: string) {
     queryKey: ['bsc-coverage', scorecardId],
     queryFn: () => bscApi.getCoverage(scorecardId!),
     enabled: !!scorecardId,
+  })
+}
+
+/** Hiện trạng phân rã CẢ BỘ của một thẻ: đang giao cho đơn vị nào, trọng số bao nhiêu. */
+export function useWholeCascade(scorecardId?: string) {
+  return useQuery({
+    queryKey: ['bsc-whole-cascade', scorecardId],
+    queryFn: () => bscApi.getWholeCascade(scorecardId!),
+    enabled: !!scorecardId,
+  })
+}
+
+/** Xoá bộ tiêu chí được không (và lý do nếu không) — gọi lại mỗi lần mở hộp xác nhận. */
+export function useScorecardDeleteCheck(scorecardId?: string | null) {
+  return useQuery({
+    queryKey: ['bsc-delete-check', scorecardId],
+    queryFn: () => bscApi.deleteCheck(scorecardId!),
+    enabled: !!scorecardId,
+    staleTime: 0,
+    gcTime: 0,
   })
 }
 
@@ -85,6 +105,16 @@ export function useCascadeMutations() {
     onError: e => toast.error(errText(e, t('useBscCascade.failedToCascadeKpi'))),
   })
 
+  const cascadeWhole = useMutation({
+    mutationFn: ({ scorecardId, data }: { scorecardId: string; data: WholeCascadeRequest }) =>
+      bscApi.cascadeWhole(scorecardId, data),
+    onSuccess: () => {
+      invalidate()
+      toast.success(t('useBscCascade.wholeScorecardCascaded'))
+    },
+    onError: e => toast.error(errText(e, t('useBscCascade.failedToCascadeWholeScorecard'))),
+  })
+
   const submitScorecard = useMutation({
     mutationFn: (scorecardId: string) => bscApi.submitScorecard(scorecardId),
     onSuccess: () => {
@@ -122,24 +152,6 @@ export function useCascadeMutations() {
     onError: e => toast.error(errText(e, t('useBscCascade.failedToApplyScorecard'))),
   })
 
-  const lockScorecard = useMutation({
-    mutationFn: (scorecardId: string) => bscApi.lockScorecard(scorecardId),
-    onSuccess: () => {
-      invalidate()
-      toast.success(t('useBscCascade.scorecardLocked'))
-    },
-    onError: e => toast.error(errText(e, t('useBscCascade.failedToLockScorecard'))),
-  })
-
-  const reopenScorecard = useMutation({
-    mutationFn: (scorecardId: string) => bscApi.reopenScorecard(scorecardId),
-    onSuccess: () => {
-      invalidate()
-      toast.success(t('useBscCascade.scorecardUnlocked'))
-    },
-    onError: e => toast.error(errText(e, t('useBscCascade.failedToUnlockScorecard'))),
-  })
-
   const attachParent = useMutation({
     mutationFn: ({ scorecardId, parentScorecardId, linkItems }: {
       scorecardId: string
@@ -158,13 +170,12 @@ export function useCascadeMutations() {
 
   return {
     cascade,
+    cascadeWhole,
     attachParent,
     submitScorecard,
     approveScorecard,
     rejectScorecard,
     activateScorecard,
-    lockScorecard,
-    reopenScorecard,
   }
 }
 
@@ -186,14 +197,22 @@ export function useUnitResultMutations() {
     onError: e => toast.error(errText(e, t('useBscCascade.failedToRecalculateResults'))),
   })
 
+  /**
+   * `askProvisional`: nơi gọi tự hỏi lại "chốt theo số tạm tính?" khi thẻ nguồn chưa chốt (chỉ
+   * quản trị toàn tổ chức mới được) — khi đó bỏ qua toast lỗi để không báo hai lần.
+   */
   const finalize = useMutation({
-    mutationFn: ({ scorecardId, kpiPeriodId }: { scorecardId: string; kpiPeriodId: string }) =>
-      bscApi.finalizeUnitResult(scorecardId, kpiPeriodId),
+    mutationFn: ({ scorecardId, kpiPeriodId, allowProvisional }:
+      { scorecardId: string; kpiPeriodId: string; allowProvisional?: boolean; askProvisional?: boolean }) =>
+      bscApi.finalizeUnitResult(scorecardId, kpiPeriodId, allowProvisional),
     onSuccess: () => {
       invalidate()
       toast.success(t('useBscCascade.finalizedTheUnitsBscResults'))
     },
-    onError: e => toast.error(errText(e, t('useBscCascade.failedToFinalizeResults'))),
+    onError: (e, vars) => {
+      if (vars.askProvisional && getApiErrorCode(e) === 'BSC_SOURCE_RESULT_NOT_FINALIZED') return
+      toast.error(errText(e, t('useBscCascade.failedToFinalizeResults')))
+    },
   })
 
   const reopen = useMutation({

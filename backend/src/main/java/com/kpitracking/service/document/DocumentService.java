@@ -9,6 +9,9 @@ import com.kpitracking.dto.response.document.DocumentCapabilitiesResponse;
 import com.kpitracking.dto.response.document.DocumentResponse;
 import com.kpitracking.dto.response.document.DocumentUsageResponse;
 import com.kpitracking.entity.Document;
+import com.kpitracking.entity.DocumentFolder;
+import com.kpitracking.entity.DocumentUserState;
+import com.kpitracking.entity.DocumentVersion;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.RagDocument;
 import com.kpitracking.entity.User;
@@ -22,7 +25,11 @@ import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.mapper.DocumentMapper;
+import com.kpitracking.repository.DocumentFolderRepository;
 import com.kpitracking.repository.DocumentRepository;
+import com.kpitracking.repository.DocumentShareRepository;
+import com.kpitracking.repository.DocumentUserStateRepository;
+import com.kpitracking.repository.DocumentVersionRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.RagDocumentRepository;
 import com.kpitracking.repository.UserRepository;
@@ -82,13 +89,22 @@ public class DocumentService {
     private final SecurityAuditService audit;
     private final RewardContext currentUser;
     private final TransactionTemplate tx;
+    private final DocumentFolderRepository folders;
+    private final DocumentShareRepository shares;
+    private final DocumentUserStateRepository userStates;
+    private final DocumentVersionRepository versions;
+
+    /** Giữ tối đa bấy nhiêu bản cũ mỗi tài liệu; bản cũ hơn bị xoá (cả tệp) khi thay tệp mới. */
+    static final int MAX_VERSIONS = 10;
 
     public DocumentService(DocumentRepository documents, DocumentAccessResolver accessResolver, DocumentStorage storage,
                            DocumentSettings settings, DocumentMapper mapper, ApplicationEventPublisher events,
                            DocumentIngestionPipeline ingestion, RagVectorReader vectorReader,
                            RagDocumentRepository legacyDocuments, UserRepository users, OrgUnitRepository orgUnits,
                            PermissionChecker permissionChecker, SecurityAuditService audit, RewardContext currentUser,
-                           PlatformTransactionManager txManager) {
+                           PlatformTransactionManager txManager, DocumentFolderRepository folders,
+                           DocumentShareRepository shares, DocumentUserStateRepository userStates,
+                           DocumentVersionRepository versions) {
         this.documents = documents;
         this.accessResolver = accessResolver;
         this.storage = storage;
@@ -104,11 +120,29 @@ public class DocumentService {
         this.audit = audit;
         this.currentUser = currentUser;
         this.tx = new TransactionTemplate(txManager);
+        this.folders = folders;
+        this.shares = shares;
+        this.userStates = userStates;
+        this.versions = versions;
     }
 
-    /** Bộ lọc màn danh sách. */
+    /** Các tab của trang chủ (kiểu Lark): của tôi, được chia sẻ với tôi, yêu thích. "Gần đây" ở DocumentHomeService. */
+    public enum HomeView { OWNED, SHARED, FAVORITES }
+
+    /**
+     * Bộ lọc màn danh sách.
+     *
+     * @param folderId duyệt trong một thư mục (Drive); {@code rootOnly} = chỉ tài liệu ở gốc của phạm vi
+     */
     public record ListFilter(DocumentScope scope, UUID unitId, boolean includeDescendants,
-                             DocumentCategory category, DocumentAiStatus aiStatus, String q) {}
+                             DocumentCategory category, DocumentAiStatus aiStatus, String q,
+                             UUID folderId, boolean rootOnly, HomeView view) {
+
+        public ListFilter(DocumentScope scope, UUID unitId, boolean includeDescendants, DocumentCategory category,
+                          DocumentAiStatus aiStatus, String q) {
+            this(scope, unitId, includeDescendants, category, aiStatus, q, null, false, null);
+        }
+    }
 
     /** Tệp để trả về khi tải. */
     public record FileContent(byte[] bytes, String fileName, String contentType) {}
@@ -116,14 +150,29 @@ public class DocumentService {
     // ── Ngữ cảnh người xem ─────────────────────────────────────────────────────────────────────────
 
     /** Người đang đăng nhập + quyền tài liệu + cây đơn vị của tổ chức (một lần mỗi request). */
-    private record Viewer(User user, UUID orgId, DocumentAccess access, Map<UUID, OrgUnit> units) {
+    record Viewer(User user, UUID orgId, DocumentAccess access, Map<UUID, OrgUnit> units) {
         String path(UUID unitId) {
             OrgUnit u = unitId == null ? null : units.get(unitId);
             return u == null ? null : u.getPath();
         }
     }
 
-    private Viewer viewer() {
+    /** Đơn vị gốc — không phải đích của tài liệu đơn vị (xem {@link DocumentAccessResolver#rootUnitIds}). */
+    static boolean isRootUnit(Viewer v, UUID unitId) {
+        if (unitId == null) return false;
+        Map<UUID, String> paths = new HashMap<>();
+        v.units().forEach((id, u) -> paths.put(id, u.getPath()));
+        return DocumentAccessResolver.rootUnitIds(paths).contains(unitId);
+    }
+
+    /** Báo rõ "chọn Công ty" thay vì 403 chung chung khi ai đó nhắm vào đơn vị gốc. */
+    static void rejectRootUnit(Viewer v, DocumentScope scope, UUID unitId) {
+        if (scope == DocumentScope.UNIT && isRootUnit(v, unitId)) {
+            throw new BusinessException(ErrorCode.DOCUMENT_ROOT_UNIT_NOT_TARGET);
+        }
+    }
+
+    Viewer viewer() {
         User me = currentUser.getCurrentUser();
         UUID orgId = currentUser.getCurrentOrgId();
         DocumentAccess access = accessResolver.resolve(me.getId(), orgId);
@@ -137,9 +186,16 @@ public class DocumentService {
     public DocumentCapabilitiesResponse capabilities() {
         Viewer v = viewer();
         DocumentAccess a = v.access();
+        Set<UUID> roots = DocumentAccessResolver.rootUnitIds(
+                v.units().values().stream().collect(Collectors.toMap(OrgUnit::getId, OrgUnit::getPath, (x, y) -> x)));
+        // Danh sách đơn vị cho GIAO DIỆN (Drive "Đơn vị", nơi đề xuất…) bỏ đơn vị gốc: gốc không phải nơi để tài liệu
+        // đơn vị (§16.7) — tài liệu cho cả công ty nằm ở Drive "Công ty". Quyền đọc thật ({@code visibleUnitIds}) không
+        // đổi: tài liệu cũ ở gốc (nếu có) vẫn xem được qua tìm kiếm / trang chủ.
+        Set<UUID> visible = new HashSet<>(a.visibleUnitIds());
+        visible.removeAll(roots);
         return new DocumentCapabilitiesResponse(a.member(), a.canUploadPersonal(), a.canManageCompany(),
-                unitOptions(v, a.manageableUnitIds()), unitOptions(v, a.visibleUnitIds()),
-                DocumentPolicy.ALLOWED_EXTENSIONS);
+                unitOptions(v, a.manageableUnitIds()), unitOptions(v, visible),
+                DocumentPolicy.ALLOWED_EXTENSIONS, List.copyOf(roots));
     }
 
     private static List<DocumentCapabilitiesResponse.UnitOption> unitOptions(Viewer v, Set<UUID> ids) {
@@ -155,8 +211,36 @@ public class DocumentService {
         Specification<Document> spec = a.toSpecification();
         if (f.scope() != null) spec = spec.and((r, q, cb) -> cb.equal(r.get("scope"), f.scope()));
 
+        // Drive: duyệt một thư mục, hoặc gốc của phạm vi. Trong Drive, đơn vị là ĐÚNG đơn vị đó (không kèm tài liệu kế thừa).
+        boolean browsing = f.folderId() != null || f.rootOnly();
+        if (f.folderId() != null) {
+            DocumentFolder folder = folders.findByIdAndOrganizationId(f.folderId(), v.orgId()).orElse(null);
+            if (folder == null || !a.canViewFolder(folder)) return emptyPage(pageable);
+            spec = spec.and((r, q, cb) -> cb.equal(r.get("folderId"), f.folderId()));
+        } else if (f.rootOnly()) {
+            spec = spec.and((r, q, cb) -> cb.isNull(r.get("folderId")));
+        }
+        if (f.view() != null) {
+            UUID me = v.user().getId();
+            switch (f.view()) {
+                case OWNED -> spec = spec.and((r, q, cb) -> cb.equal(r.get("createdBy"), me));
+                case SHARED -> {
+                    if (a.sharedDocIds().isEmpty()) return emptyPage(pageable);
+                    spec = spec.and((r, q, cb) -> cb.and(r.get("id").in(a.sharedDocIds()), cb.notEqual(r.get("createdBy"), me)));
+                }
+                case FAVORITES -> {
+                    List<UUID> fav = userStates.findFavoriteIds(me);
+                    if (fav.isEmpty()) return emptyPage(pageable);
+                    spec = spec.and((r, q, cb) -> r.get("id").in(fav));
+                }
+            }
+        }
+
         String filterPath = null;
-        if (f.unitId() != null) {
+        if (f.unitId() != null && browsing) {
+            if (!a.visibleUnitIds().contains(f.unitId())) return emptyPage(pageable);
+            spec = spec.and((r, q, cb) -> cb.and(cb.equal(r.get("scope"), DocumentScope.UNIT), cb.equal(r.get("orgUnitId"), f.unitId())));
+        } else if (f.unitId() != null) {
             filterPath = v.path(f.unitId());
             if (filterPath == null || !a.visibleUnitIds().contains(f.unitId())) {
                 return emptyPage(pageable);
@@ -225,15 +309,49 @@ public class DocumentService {
                 v.orgId() == null ? 0 : documents.sumCompanyBytes(v.orgId()), settings.companyQuotaBytes(),
                 settings.unitQuotaBytes(),
                 v.orgId() == null ? 0 : documents.sumChunks(v.orgId()), settings.getOrgMaxChunks(),
-                DocumentPolicy.MAX_FILE_BYTES);
+                DocumentPolicy.MAX_FILE_BYTES, settings.getDeletedFileRetentionDays());
     }
 
     // ── Tải lên ────────────────────────────────────────────────────────────────────────────────────
 
     public DocumentResponse upload(MultipartFile file, DocumentScope scope, UUID unitId, String title,
                                    String description, DocumentCategory category, boolean aiEnabled) {
+        return upload(file, scope, unitId, title, description, category, aiEnabled, null);
+    }
+
+    /** Tải lên, đặt thẳng vào một thư mục (cùng phạm vi). */
+    public DocumentResponse upload(MultipartFile file, DocumentScope scope, UUID unitId, String title,
+                                   String description, DocumentCategory category, boolean aiEnabled, UUID folderId) {
+        return upload(file, scope, unitId, title, description, category, aiEnabled, folderId, null, null);
+    }
+
+    /** Tải lên kèm ngày rà soát / hết hiệu lực (§16.3). */
+    public DocumentResponse upload(MultipartFile file, DocumentScope scope, UUID unitId, String title,
+                                   String description, DocumentCategory category, boolean aiEnabled, UUID folderId,
+                                   java.time.LocalDate reviewDate, java.time.LocalDate expiryDate) {
         Viewer v = viewer();
-        return toResponse(v, create(v, file, scope, unitId, title, description, category, aiEnabled, null));
+        if (folderId != null) {
+            DocumentFolder folder = folders.findByIdAndOrganizationId(folderId, v.orgId())
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.DOCUMENT_FOLDER_NOT_FOUND));
+            if (!v.access().canEditFolder(folder)) throw new ForbiddenException(ErrorCode.DOCUMENT_FORBIDDEN);
+            // Phạm vi của tài liệu lấy theo thư mục — không cho tải tài liệu công ty vào thư mục cá nhân.
+            scope = folder.getScope();
+            unitId = folder.getOrgUnitId();
+        }
+        Document created = create(v, file, scope, unitId, title, description, category, aiEnabled, null);
+        if (folderId != null || reviewDate != null || expiryDate != null) {
+            final UUID folder = folderId;
+            tx.executeWithoutResult(st -> documents.findByIdForUpdate(created.getId()).ifPresent(d -> {
+                d.setFolderId(folder);
+                d.setReviewDate(reviewDate);
+                d.setExpiryDate(expiryDate);
+                documents.save(d);
+            }));
+            created.setFolderId(folderId);
+            created.setReviewDate(reviewDate);
+            created.setExpiryDate(expiryDate);
+        }
+        return toResponse(v, created);
     }
 
     private Document create(Viewer v, MultipartFile file, DocumentScope scope, UUID unitId, String title,
@@ -243,17 +361,33 @@ public class DocumentService {
         if (scope == DocumentScope.UNIT && unitId == null) {
             throw new BusinessException(ErrorCode.DOCUMENT_SCOPE_INVALID, ErrorMessages.text("document.scope.unitRequired", "unit"));
         }
+        rejectRootUnit(v, scope, unitId);
         if (!a.canCreate(scope, unitId)) throw new ForbiddenException(ErrorCode.DOCUMENT_FORBIDDEN);
 
         byte[] bytes = readBytes(file);
         DocumentPolicy.Checked checked = DocumentPolicy.check(file.getOriginalFilename(), file.getContentType(), bytes);
         UUID ownerId = scope == DocumentScope.PERSONAL ? v.user().getId() : null;
+        return createFromBytes(v, bytes, checked, scope, unitId, ownerId, title, description, category, aiEnabled,
+                replacesLegacy, v.user().getId());
+    }
+
+    /**
+     * Tạo bản ghi từ nội dung đã kiểm. Bên gọi đã kiểm quyền tạo ở phạm vi đích. Dùng chung cho tải lên và cho duyệt
+     * đề xuất đưa lên đơn vị/công ty (sao chép tệp — tài liệu gốc giữ nguyên).
+     *
+     * @param ownerId   chủ khi {@code scope = PERSONAL}
+     * @param createdBy người được ghi là người tạo (đề xuất được duyệt: chính người đề xuất)
+     */
+    Document createFromBytes(Viewer v, byte[] bytes, DocumentPolicy.Checked checked, DocumentScope scope, UUID unitId,
+                             UUID ownerId, String title, String description, DocumentCategory category,
+                             boolean aiEnabled, UUID replacesLegacy, UUID createdBy) {
         UUID docUnit = scope == DocumentScope.UNIT ? unitId : null;
-        checkQuota(v, scope, ownerId, docUnit, bytes.length);
+        UUID owner = scope == DocumentScope.PERSONAL ? ownerId : null;
+        checkQuota(v, scope, owner, docUnit, bytes.length);
 
         String sha = sha256(bytes);
         documents.findByOrganizationIdAndScopeAndContentSha256(v.orgId(), scope, sha).stream()
-                .filter(d -> Objects.equals(d.getOwnerUserId(), ownerId) && Objects.equals(d.getOrgUnitId(), docUnit))
+                .filter(d -> Objects.equals(d.getOwnerUserId(), owner) && Objects.equals(d.getOrgUnitId(), docUnit))
                 .findFirst()
                 .ifPresent(d -> { throw new BusinessException(ErrorCode.DOCUMENT_DUPLICATE, d.getTitle()); });
 
@@ -263,7 +397,7 @@ public class DocumentService {
                 Document d = documents.save(Document.builder()
                         .organizationId(v.orgId())
                         .scope(scope)
-                        .ownerUserId(ownerId)
+                        .ownerUserId(owner)
                         .orgUnitId(docUnit)
                         .title(title == null || title.isBlank() ? DocumentPolicy.defaultTitle(checked.fileName()) : title.strip())
                         .description(description == null || description.isBlank() ? null : description.strip())
@@ -277,7 +411,7 @@ public class DocumentService {
                         .aiEnabled(aiEnabled)
                         .aiStatus(aiEnabled ? DocumentAiStatus.PENDING : DocumentAiStatus.NONE)
                         .legacyRagDocumentId(replacesLegacy)
-                        .createdBy(v.user().getId())
+                        .createdBy(createdBy)
                         .build());
                 if (aiEnabled) events.publishEvent(new DocumentIndexRequestedEvent(d.getId()));
                 return d;
@@ -297,6 +431,7 @@ public class DocumentService {
         Viewer v = viewer();
         DocumentAccess a = v.access();
         boolean[] scopeChanged = new boolean[1];
+        boolean[] metaOnly = new boolean[1];
         Document updated = tx.execute(s -> {
             Document d = documents.findByIdForUpdate(id).orElse(null);
             if (d == null || !a.canView(d)) throw new ResourceNotFoundException(ErrorCode.DOCUMENT_NOT_FOUND);
@@ -304,9 +439,22 @@ public class DocumentService {
 
             boolean reindex = false;
             boolean dropVectors = false;
+            // Tên và hiệu lực chỉ nằm trong metadata vector → vá tại chỗ sau commit, không nạp lại cả tệp (§16.4).
+            boolean patchMeta = false;
             if (req.getTitle() != null && !req.getTitle().isBlank() && !req.getTitle().strip().equals(d.getTitle())) {
                 d.setTitle(req.getTitle().strip());
-                reindex = true;
+                patchMeta = true;
+            }
+            if (Boolean.TRUE.equals(req.getDatesSet())) {
+                if (!Objects.equals(req.getReviewDate(), d.getReviewDate())) {
+                    d.setReviewDate(req.getReviewDate());
+                    d.setReviewNotifiedFor(null);
+                }
+                if (!Objects.equals(req.getExpiryDate(), d.getExpiryDate())) {
+                    d.setExpiryDate(req.getExpiryDate());
+                    d.setExpiryNotifiedFor(null);
+                    patchMeta = true;
+                }
             }
             if (req.getDescription() != null) {
                 d.setDescription(req.getDescription().isBlank() ? null : req.getDescription().strip());
@@ -335,8 +483,12 @@ public class DocumentService {
             }
             if (dropVectors) afterCommit(() -> ingestion.removeVectors(id));
             if (reindex && Boolean.TRUE.equals(d.getAiEnabled())) requestReindex(d);
+            // Đang INDEXING: bước chốt của luồng nạp so ảnh chụp (có tên + ngày hết hạn) và tự nạp lại — không vá đè.
+            metaOnly[0] = patchMeta && !reindex && !dropVectors && Boolean.TRUE.equals(d.getAiEnabled())
+                    && d.getAiStatus() == DocumentAiStatus.READY;
             return documents.save(d);
         });
+        if (metaOnly[0]) syncVectorMetadata(updated);
         if (scopeChanged[0]) {
             audit.record(SecurityAuditEvent.DOCUMENT_SCOPE_CHANGED, SecurityAuditService.OK, "DOCUMENT", id.toString(),
                     updated.getScope().name());
@@ -359,6 +511,7 @@ public class DocumentService {
         if (to == DocumentScope.UNIT && toUnit == null) {
             throw new BusinessException(ErrorCode.DOCUMENT_SCOPE_INVALID, ErrorMessages.text("document.scope.unitRequired", "unit"));
         }
+        rejectRootUnit(v, to, toUnit);
         if (!a.canCreate(to, toUnit)) throw new ForbiddenException(ErrorCode.DOCUMENT_FORBIDDEN);
         UUID owner = to == DocumentScope.PERSONAL ? v.user().getId() : null;
         UUID unit = to == DocumentScope.UNIT ? toUnit : null;
@@ -366,6 +519,7 @@ public class DocumentService {
         d.setScope(to);
         d.setOwnerUserId(owner);
         d.setOrgUnitId(unit);
+        d.setFolderId(null);
     }
 
     public DocumentResponse replaceFile(UUID id, MultipartFile file) {
@@ -376,12 +530,12 @@ public class DocumentService {
         checkQuota(v, current.getScope(), current.getOwnerUserId(), current.getOrgUnitId(), bytes.length - current.getFileSize());
 
         String key = store(bytes, checked.fileName(), v.orgId());
-        String[] oldKey = new String[1];
+        List<String> expiredKeys = new ArrayList<>();
         try {
             Document updated = tx.execute(s -> {
                 Document d = documents.findByIdForUpdate(id).orElseThrow(() -> new ResourceNotFoundException(ErrorCode.DOCUMENT_NOT_FOUND));
                 editable(v, d);
-                oldKey[0] = d.getStorageKey();
+                expiredKeys.addAll(archiveCurrentVersion(d, v.user().getId()));
                 d.setFileName(checked.fileName());
                 d.setContentType(checked.contentType());
                 d.setFileSize((long) bytes.length);
@@ -392,13 +546,39 @@ public class DocumentService {
                 if (Boolean.TRUE.equals(d.getAiEnabled())) requestReindex(d);
                 return documents.save(d);
             });
-            // P1 chưa giữ lịch sử phiên bản (§4.3): tệp cũ bỏ ngay sau khi bản mới đã ghi.
-            afterCommitOrNow(() -> deleteFileQuietly(oldKey[0]));
+            // Bản cũ đã thành một phiên bản; chỉ tệp của những phiên bản vượt trần mới bị xoá.
+            afterCommitOrNow(() -> expiredKeys.forEach(this::deleteFileQuietly));
             return toResponse(v, updated);
         } catch (RuntimeException e) {
             deleteFileQuietly(key);
             throw e;
         }
+    }
+
+    /**
+     * Lưu tệp HIỆN HÀNH của tài liệu thành một phiên bản cũ (trước khi thay). Gọi trong giao dịch đang khoá dòng.
+     *
+     * @return khoá tệp của các phiên bản vượt trần {@link #MAX_VERSIONS} vừa bị gỡ — bên gọi xoá tệp SAU commit
+     */
+    List<String> archiveCurrentVersion(Document d, UUID actor) {
+        versions.save(DocumentVersion.builder()
+                .documentId(d.getId())
+                .version(d.getVersion())
+                .fileName(d.getFileName())
+                .contentType(d.getContentType())
+                .fileSize(d.getFileSize())
+                .contentSha256(d.getContentSha256())
+                .storageProvider(d.getStorageProvider())
+                .storageKey(d.getStorageKey())
+                .createdBy(actor)
+                .build());
+        List<DocumentVersion> all = versions.findByDocumentIdOrderByVersionDesc(d.getId());
+        List<String> expired = new ArrayList<>();
+        for (DocumentVersion old : all.subList(Math.min(MAX_VERSIONS, all.size()), all.size())) {
+            expired.add(old.getStorageKey());
+            versions.delete(old);
+        }
+        return expired;
     }
 
     public DocumentResponse reindex(UUID id) {
@@ -417,11 +597,21 @@ public class DocumentService {
         return toResponse(v, updated);
     }
 
+    /** Vá tên + ghi chú hiệu lực vào mọi đoạn của tài liệu. Hỏng thì chỉ ghi log — lần nạp lại sau sẽ đúng. */
+    void syncVectorMetadata(Document d) {
+        try {
+            int n = vectorReader.patchMetadata(d.getId(), DocumentIndexer.mutableMetadata(d));
+            log.debug("Vá metadata {} đoạn của tài liệu {}", n, d.getId());
+        } catch (Exception e) {
+            log.warn("Không vá được metadata vector của tài liệu {}: {}", d.getId(), e.getMessage());
+        }
+    }
+
     /**
      * Đặt PENDING và phát event nạp — TRỪ khi đang INDEXING: khi đó để nguyên, luồng nạp sẽ thấy ảnh chụp đã đổi
      * ở bước chốt và tự nạp lại. Nhờ vậy không bao giờ có hai luồng nạp cùng một tài liệu.
      */
-    private void requestReindex(Document d) {
+    void requestReindex(Document d) {
         if (d.getAiStatus() == DocumentAiStatus.INDEXING) return;
         d.setAiStatus(DocumentAiStatus.PENDING);
         d.setAiErrorI18n(null);
@@ -437,6 +627,7 @@ public class DocumentService {
         ingestion.removeVectors(id);
         tx.executeWithoutResult(s -> documents.findByIdForUpdate(id).ifPresent(doc -> {
             doc.setDeletedAt(Instant.now());
+            doc.setDeletedBy(v.user().getId());
             doc.setAiStatus(DocumentAiStatus.NONE);
             doc.setAiChunkCount(0);
             documents.save(doc);
@@ -479,12 +670,18 @@ public class DocumentService {
 
     /** Xoá mềm hàng loạt (vector trước từng tài liệu). Dùng cho admin xoá sớm và job tự xoá sau N ngày. */
     public int softDeleteAll(List<Document> docs) {
+        return softDeleteAll(docs, null);
+    }
+
+    /** Như trên, ghi người xoá (thùng rác hiện "Xoá bởi"); {@code null} = hệ thống. */
+    public int softDeleteAll(List<Document> docs, UUID deletedBy) {
         int n = 0;
         for (Document d : docs) {
             try {
                 ingestion.removeVectors(d.getId());
                 tx.executeWithoutResult(s -> documents.findByIdForUpdate(d.getId()).ifPresent(doc -> {
                     doc.setDeletedAt(Instant.now());
+                    doc.setDeletedBy(deletedBy);
                     doc.setAiStatus(DocumentAiStatus.NONE);
                     doc.setAiChunkCount(0);
                     documents.save(doc);
@@ -548,18 +745,18 @@ public class DocumentService {
     // ── Trợ giúp ───────────────────────────────────────────────────────────────────────────────────
 
     /** Tồn tại, cùng tổ chức, VÀ người xem đọc được — không thì 404 như thể không có. */
-    private Document visible(Viewer v, UUID id) {
+    Document visible(Viewer v, UUID id) {
         Document d = v.orgId() == null ? null : documents.findByIdAndOrganizationId(id, v.orgId()).orElse(null);
         if (d == null || !v.access().canView(d)) throw new ResourceNotFoundException(ErrorCode.DOCUMENT_NOT_FOUND);
         return d;
     }
 
-    private static Document editable(Viewer v, Document d) {
+    static Document editable(Viewer v, Document d) {
         if (!v.access().canEdit(d)) throw new ForbiddenException(ErrorCode.DOCUMENT_FORBIDDEN);
         return d;
     }
 
-    private void checkQuota(Viewer v, DocumentScope scope, UUID ownerId, UUID unitId, long addBytes) {
+    void checkQuota(Viewer v, DocumentScope scope, UUID ownerId, UUID unitId, long addBytes) {
         if (addBytes <= 0) return;
         long used;
         long quota;
@@ -574,7 +771,7 @@ public class DocumentService {
         }
     }
 
-    private String store(byte[] bytes, String fileName, UUID orgId) {
+    String store(byte[] bytes, String fileName, UUID orgId) {
         try {
             return storage.store(bytes, fileName, "documents/" + orgId);
         } catch (IOException e) {
@@ -583,7 +780,7 @@ public class DocumentService {
         }
     }
 
-    private void deleteFileQuietly(String key) {
+    void deleteFileQuietly(String key) {
         if (key == null) return;
         try {
             storage.delete(key);
@@ -592,7 +789,7 @@ public class DocumentService {
         }
     }
 
-    private static byte[] readBytes(MultipartFile file) {
+    static byte[] readBytes(MultipartFile file) {
         if (file == null) throw new BusinessException(ErrorCode.FILE_EMPTY, "");
         try {
             return file.getBytes();
@@ -615,7 +812,7 @@ public class DocumentService {
         return String.format("%.1f MB", bytes / (1024.0 * 1024));
     }
 
-    private static void afterCommit(Runnable r) {
+    static void afterCommit(Runnable r) {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
@@ -633,19 +830,40 @@ public class DocumentService {
         else r.run();
     }
 
-    private DocumentResponse toResponse(Viewer v, Document d) {
+    DocumentResponse toResponse(Viewer v, Document d) {
         return toResponses(v, List.of(d), id -> false).get(0);
     }
 
-    private List<DocumentResponse> toResponses(Viewer v, List<Document> docs, java.util.function.Predicate<UUID> inherited) {
-        Map<UUID, String> userNames = userNames(docs.stream().map(Document::getCreatedBy).toList());
+    List<DocumentResponse> toResponses(Viewer v, List<Document> docs) {
+        return toResponses(v, docs, id -> false);
+    }
+
+    /**
+     * Dựng response theo lô, không N+1: tên người tải/xoá, tên đơn vị, tên thư mục, trạng thái riêng của người xem
+     * (yêu thích, ghim, mở gần nhất) và số lượt chia sẻ (chỉ người sửa được mới thấy).
+     */
+    List<DocumentResponse> toResponses(Viewer v, List<Document> docs, java.util.function.Predicate<UUID> inherited) {
+        if (docs.isEmpty()) return List.of();
+        List<UUID> ids = docs.stream().map(Document::getId).toList();
+        List<UUID> people = new ArrayList<>(docs.stream().map(Document::getCreatedBy).toList());
+        docs.stream().map(Document::getDeletedBy).filter(Objects::nonNull).forEach(people::add);
+        Map<UUID, String> userNames = userNames(people);
         Map<UUID, String> unitNames = v.units().values().stream()
                 .collect(Collectors.toMap(OrgUnit::getId, OrgUnit::getName, (a, b) -> a));
-        DocumentMapper.ViewContext ctx = new DocumentMapper.ViewContext(userNames, unitNames, v.access(), inherited);
+        Set<UUID> folderIds = docs.stream().map(Document::getFolderId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<UUID, String> folderNames = folderIds.isEmpty() ? Map.of()
+                : folders.findAllById(folderIds).stream()
+                        .collect(Collectors.toMap(DocumentFolder::getId, DocumentFolder::getName, (a, b) -> a));
+        Map<UUID, DocumentUserState> states = userStates.findByUserIdAndDocumentIdIn(v.user().getId(), ids).stream()
+                .collect(Collectors.toMap(DocumentUserState::getDocumentId, Function.identity(), (a, b) -> a));
+        Map<UUID, Long> shareCounts = new HashMap<>();
+        for (Object[] row : shares.countByDocumentIds(ids)) shareCounts.put((UUID) row[0], ((Number) row[1]).longValue());
+        DocumentMapper.ViewContext ctx = new DocumentMapper.ViewContext(userNames, unitNames, v.access(), inherited,
+                folderNames, states, shareCounts);
         return docs.stream().map(d -> mapper.toResponse(d, ctx)).toList();
     }
 
-    private Map<UUID, String> userNames(Collection<UUID> ids) {
+    Map<UUID, String> userNames(Collection<UUID> ids) {
         Set<UUID> distinct = ids.stream().filter(Objects::nonNull).collect(Collectors.toSet());
         if (distinct.isEmpty()) return Map.of();
         return users.findAllById(distinct).stream().collect(Collectors.toMap(User::getId, User::getFullName, (a, b) -> a));

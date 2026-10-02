@@ -12,6 +12,9 @@ import java.util.UUID;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class ScorecardPerspectiveResponse {
     private UUID id;
+    /** Dòng "Kết quả cấp trên" (phân rã cả bộ): điểm lấy từ kết quả tổng của thẻ này. */
+    private UUID sourceScorecardId;
+    private String sourceScorecardName;
     private UUID perspectiveId;
     private String code;
     private String name;

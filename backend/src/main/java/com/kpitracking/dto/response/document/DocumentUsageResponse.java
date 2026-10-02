@@ -17,4 +17,6 @@ public class DocumentUsageResponse {
     private long orgChunks;
     private long orgChunkQuota;
     private long maxFileBytes;
+    /** Tài liệu trong thùng rác khôi phục được trong bấy nhiêu ngày, sau đó bị xoá hẳn. */
+    private int trashRetentionDays;
 }

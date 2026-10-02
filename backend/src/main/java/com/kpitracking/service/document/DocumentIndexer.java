@@ -226,13 +226,39 @@ public class DocumentIndexer {
         m.put("category", doc.getCategory().name());
         m.put("docTitle", doc.getTitle());
         m.put("version", doc.getVersion());
+        String validity = validity(doc);
+        if (validity != null) m.put(VALIDITY, validity);
+        return m;
+    }
+
+    /** Khoá metadata K.AI đọc kèm đoạn trích: có giá trị khi tài liệu đã hết hiệu lực (§16.3). */
+    public static final String VALIDITY = "validity";
+
+    private static final java.time.format.DateTimeFormatter DMY = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    /**
+     * Câu ghi chú hiệu lực cho K.AI, hoặc {@code null} khi còn hiệu lực. Viết tiếng Việt như phần còn lại của khung
+     * prompt; model tự trả lời theo ngôn ngữ người hỏi.
+     */
+    static String validity(Document doc) {
+        if (!DocumentDates.expired(doc, DocumentDates.today())) return null;
+        return "Tài liệu này ĐÃ HẾT HIỆU LỰC từ " + doc.getExpiryDate().format(DMY)
+                + " — nói rõ điều đó khi trích, không coi là quy định đang áp dụng.";
+    }
+
+    /** Phần metadata đổi được tại chỗ (không cần nạp lại): tên và ghi chú hiệu lực. */
+    static Map<String, Object> mutableMetadata(Document doc) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("docTitle", doc.getTitle());
+        m.put(VALIDITY, validity(doc));
         return m;
     }
 
     /** Những gì nằm trong metadata vector hoặc quyết định nội dung — đổi bất kỳ thứ nào là phải nạp lại. */
     static String fingerprint(Document d) {
         return String.join("|", d.getScope().name(), String.valueOf(d.getOrgUnitId()), String.valueOf(d.getOwnerUserId()),
-                d.getTitle(), d.getCategory().name(), String.valueOf(d.getVersion()), d.getStorageKey());
+                d.getTitle(), d.getCategory().name(), String.valueOf(d.getVersion()), d.getStorageKey(),
+                String.valueOf(d.getExpiryDate()));
     }
 
     private byte[] read(Document doc) throws StorageReadException {

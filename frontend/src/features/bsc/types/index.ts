@@ -75,7 +75,6 @@ export enum BscScorecardStatus {
   APPROVED = 'APPROVED',
   ACTIVE = 'ACTIVE',
   CLOSED = 'CLOSED',
-  LOCKED = 'LOCKED',
   ARCHIVED = 'ARCHIVED',
 }
 
@@ -112,6 +111,8 @@ export enum BscMeasurementSource {
    * nên con số lấy từ kết quả của các đơn vị con thay vì cộng KPI cá nhân.
    */
   CHILD_ROLLUP = 'CHILD_ROLLUP',
+  /** Dòng "Kết quả cấp trên" (phân rã cả bộ): lấy kết quả tổng của thẻ nguồn. Chỉ có trên dòng KẾT QUẢ. */
+  SCORECARD_RESULT = 'SCORECARD_RESULT',
 }
 
 /** Hệ quả khi hạng mục chặn không đạt — cả ba đều tác động lên TRẦN XẾP LOẠI, không trừ điểm. */
@@ -141,6 +142,9 @@ export enum BscUnitResultStatus {
 
 export interface ScorecardPerspectiveResponse {
   id: string
+  /** Dòng "Kết quả cấp trên" (phân rã cả bộ): điểm = kết quả tổng của thẻ này, không gắn KPI. */
+  sourceScorecardId?: string | null
+  sourceScorecardName?: string | null
   perspectiveId: string
   code: string
   name: string
@@ -289,6 +293,10 @@ export interface PerspectiveScoreResponse {
   gateMinPercent?: number | null
   /** null = không phải hạng mục chặn, hoặc chưa đủ dữ liệu để kết luận. */
   gatePassed?: boolean | null
+  /** Dòng "Kết quả cấp trên": thẻ nguồn, và true khi thẻ đó chưa chốt (điểm đang là số tạm tính). */
+  sourceScorecardId?: string | null
+  sourceScorecardName?: string | null
+  provisional?: boolean | null
 }
 
 // `PerspectiveScoreResponse` ở trên vẫn dùng: điểm hạng mục đính kèm trong Evaluation
@@ -315,6 +323,33 @@ export interface CascadeRequest {
   scorecardPerspectiveId: string
   linkType?: BscLinkType
   targets: CascadeTargetRequest[]
+}
+
+/** Phân rã CẢ BỘ: mỗi đơn vị nhận một dòng "Kết quả cấp trên", chỉ có trọng số. */
+export interface WholeCascadeRequest {
+  itemName?: string | null
+  fixedPerspective: BscFixedPerspective
+  targets: { orgUnitId: string; weightPercentage: number }[]
+  revokeOrgUnitIds?: string[]
+}
+
+export interface WholeCascadeRecipient {
+  orgUnitId?: string | null
+  orgUnitName?: string | null
+  scorecardId: string
+  scorecardName: string
+  scorecardPerspectiveId: string
+  weightPercentage?: number | null
+  /** Tổng trọng số hiện tại của thẻ con — khác 100 thì đơn vị phải chia lại trước khi trình. */
+  scorecardTotalWeight?: number | null
+}
+
+export interface WholeCascadeResponse {
+  sourceScorecardId: string
+  /** null khi thẻ chưa từng giao cả bộ. */
+  itemName?: string | null
+  fixedPerspective?: BscFixedPerspective | null
+  recipients: WholeCascadeRecipient[]
 }
 
 export interface CoverageChildResponse {
@@ -387,6 +422,9 @@ export interface UnitResultItemResponse {
   isGate?: boolean
   gatePassed?: boolean | null
   measurementSource?: BscMeasurementSource
+  /** Dòng "Kết quả cấp trên": thẻ nguồn và việc thẻ đó chưa chốt đợt này (số tạm tính). */
+  sourceScorecardName?: string | null
+  provisional?: boolean | null
 }
 
 export interface UnitResultResponse {
@@ -403,6 +441,8 @@ export interface UnitResultResponse {
   finalizedByName?: string | null
   finalizedAt?: string | null
   items: UnitResultItemResponse[]
+  /** Đã chốt dù thẻ nguồn chưa chốt (quản trị cho phép) — phần kết quả cấp trên là số tạm tính. */
+  provisionalSource?: boolean | null
 }
 
 /**

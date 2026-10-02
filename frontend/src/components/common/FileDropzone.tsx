@@ -4,6 +4,7 @@ import { Upload, X, FileIcon, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import MediaPreviewModal from '@/components/common/MediaPreviewModal'
+import { canPreview as canPreviewFile } from '@/lib/filePreview'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 
@@ -17,6 +18,8 @@ interface FileDropzoneProps {
   maxSize?: number
   /** Dòng mô tả loại tệp nhận được. Không đặt thì dùng câu chung chung, không nhắc dung lượng. */
   hint?: string
+  /** Dòng tiêu đề của vùng kéo thả. Không đặt thì dùng câu cho minh chứng bài nộp. */
+  label?: string
   className?: string
 }
 
@@ -37,7 +40,7 @@ function rejectionReason(rejection: FileRejection, maxSize?: number): string {
   return i18n.t('shared:FileDropzone.couldNotAccept', { name: rejection.file.name })
 }
 
-export default function FileDropzone({ onFilesSelected, files, onRemove, accept, maxFiles = 5, maxSize, hint, className }: FileDropzoneProps) {
+export default function FileDropzone({ onFilesSelected, files, onRemove, accept, maxFiles = 5, maxSize, hint, label, className }: FileDropzoneProps) {
   const { t } = useTranslation('shared')
   const [previewFile, setPreviewFile] = useState<{ url: string, name: string, type: string } | null>(null)
   
@@ -84,7 +87,7 @@ export default function FileDropzone({ onFilesSelected, files, onRemove, accept,
           </div>
           <div className="space-y-1 text-center">
             <p className="text-sm font-semibold text-[var(--color-foreground)]">
-              {isDragActive ? t('FileDropzone.dropToUpload') : files.length >= maxFiles ? t('FileDropzone.fileLimitReached') : t('FileDropzone.chooseEvidenceDocuments')}
+              {isDragActive ? t('FileDropzone.dropToUpload') : files.length >= maxFiles ? t('FileDropzone.fileLimitReached') : (label ?? t('FileDropzone.chooseEvidenceDocuments'))}
             </p>
             <p className="text-eyebrow">
               {hint ?? t('FileDropzone.imagesPdfWordExcelMaxFiles', { maxFiles })}
@@ -124,9 +127,7 @@ export default function FileDropzone({ onFilesSelected, files, onRemove, accept,
 
 function FileItem({ file, onRemove, onPreview }: { file: File, onRemove: () => void, onPreview: (url: string) => void }) {
   const isImage = file.type.startsWith('image/')
-  const isPdf = file.type === 'application/pdf'
-  const isOfficeDoc = /\.(docx?|xlsx?|pptx?)$/i.test(file.name)
-  const canPreview = isImage || isPdf || isOfficeDoc
+  const canPreview = canPreviewFile(file.name, file.type)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   useEffect(() => {

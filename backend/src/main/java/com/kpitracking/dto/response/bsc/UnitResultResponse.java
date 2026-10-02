@@ -23,4 +23,6 @@ public class UnitResultResponse {
     private String finalizedByName;
     private Instant finalizedAt;
     private List<UnitResultItemResponse> items;
+    /** Đã chốt theo số tạm tính của thẻ nguồn (quản trị cho phép). */
+    private Boolean provisionalSource;
 }

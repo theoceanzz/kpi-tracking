@@ -2,9 +2,10 @@ import { useRef } from 'react'
 import { useNotifications, useMarkAllRead, useMarkAsRead } from '../hooks/useNotifications'
 import { formatDateTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { CheckCheck, Bell, Send, FileSearch, ShieldCheck, Target, Inbox, Layers, GitBranch, Calculator, Award, Coins, Gift, Wallet, Scale, Users, Lock, FileText } from 'lucide-react'
+import { CheckCheck, Bell, Send, FileSearch, ShieldCheck, Target, Inbox, Layers, GitBranch, Calculator, Award, Coins, Gift, Wallet, Scale, Users, Lock, FileText, Share2, ArrowUpFromLine, CalendarClock } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { notificationLink } from '../notificationLink'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
@@ -34,6 +35,10 @@ const typeConfig: Record<string, { icon: LucideIcon; color: string }> = {
   KPI_CYCLE_LOCKED: { icon: Lock, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
   WALLET_RECONCILE: { icon: Scale, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
   AI_CRITERIA: { icon: FileText, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
+  DOCUMENT_SHARED: { icon: Share2, color: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]' },
+  DOCUMENT_PROMOTION_REQUEST: { icon: ArrowUpFromLine, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
+  DOCUMENT_PROMOTION: { icon: ArrowUpFromLine, color: 'bg-[var(--color-success-bg)] text-[var(--color-success)]' },
+  DOCUMENT_REVIEW: { icon: CalendarClock, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
 }
 const DEFAULT_TYPE = { icon: Bell, color: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]' }
 
@@ -66,6 +71,17 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
   const todayNotifs = readNotifs.filter(n => new Date(n.createdAt).getTime() >= today)
   const olderNotifs = readNotifs.filter(n => new Date(n.createdAt).getTime() < today)
 
+  const navigate = useNavigate()
+  /** Bấm: đánh dấu đã đọc, và mở màn liên quan nếu loại thông báo có (`notificationLink`). */
+  const openNotification = (n: (typeof notifications)[number]) => {
+    if (!n.isRead) markRead.mutate(n.id)
+    const link = notificationLink(n)
+    if (link) {
+      onClose()
+      navigate(link)
+    }
+  }
+
   const renderSection = (title: string, list: typeof notifications) => {
     if (list.length === 0) return null
     return (
@@ -80,8 +96,8 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
               key={n.id} 
               role="button"
               tabIndex={0}
-              onClick={() => !n.isRead && markRead.mutate(n.id)}
-              onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === '') && !n.isRead) { e.preventDefault(); markRead.mutate(n.id) } }}
+              onClick={() => openNotification(n)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNotification(n) } }}
               className={cn(
                 'group flex cursor-pointer gap-3 border-l-2 px-4 py-3 transition-colors hover:bg-[var(--color-muted)]',
                 n.isRead ? 'border-transparent' : 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'

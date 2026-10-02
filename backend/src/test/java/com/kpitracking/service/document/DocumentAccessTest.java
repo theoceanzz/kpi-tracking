@@ -1,6 +1,7 @@
 package com.kpitracking.service.document;
 
 import com.kpitracking.entity.Document;
+import com.kpitracking.entity.DocumentFolder;
 import com.kpitracking.enums.DocumentScope;
 import com.kpitracking.service.document.DocumentAccessResolver.Membership;
 import org.junit.jupiter.api.DisplayName;
@@ -153,5 +154,92 @@ class DocumentAccessTest {
         assertThat(staff.canCreate(DocumentScope.UNIT, X1)).isFalse();
         assertThat(staff.canCreate(DocumentScope.COMPANY, null)).isFalse();
         assertThat(access(at(X1, Set.of())).canCreate(DocumentScope.PERSONAL, null)).isFalse();
+    }
+
+    // ── Chia sẻ (§15.3) ────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("được chia sẻ: XEM được tài liệu cá nhân của người khác / đơn vị ngang hàng, nhưng KHÔNG sửa được")
+    void sharedIsViewOnly() {
+        Document othersPersonal = personalDoc(OTHER);
+        othersPersonal.setId(UUID.randomUUID());
+        Document peerUnit = unitDoc(Y);
+        peerUnit.setId(UUID.randomUUID());
+        DocumentAccess plain = access(at(X1, HEAD));
+        assertThat(plain.canView(othersPersonal)).isFalse();
+        assertThat(plain.canView(peerUnit)).isFalse();
+
+        DocumentAccess shared = plain.withShared(Set.of(othersPersonal.getId(), peerUnit.getId()));
+        assertThat(shared.canView(othersPersonal)).isTrue();
+        assertThat(shared.canView(peerUnit)).isTrue();
+        assertThat(shared.canEdit(othersPersonal)).isFalse();
+        assertThat(shared.canEdit(peerUnit)).isFalse();
+        assertThat(shared.isSharedWithMe(othersPersonal)).isTrue();
+        // Chia sẻ không mở thêm gì khác: một tài liệu cá nhân khác của cùng người đó vẫn kín.
+        Document another = personalDoc(OTHER);
+        another.setId(UUID.randomUUID());
+        assertThat(shared.canView(another)).isFalse();
+    }
+
+    @Test
+    @DisplayName("chia sẻ không vượt tổ chức: id trùng nhưng tài liệu thuộc tổ chức khác thì vẫn không thấy")
+    void sharedRespectsOrganization() {
+        Document foreign = Document.builder().organizationId(UUID.randomUUID()).scope(DocumentScope.COMPANY).build();
+        foreign.setId(UUID.randomUUID());
+        assertThat(access(at(X1, STAFF)).withShared(Set.of(foreign.getId())).canView(foreign)).isFalse();
+    }
+
+    @Test
+    @DisplayName("bộ lọc vector: đoạn của tài liệu được chia sẻ lọt qua theo docId; tài liệu khác của cùng chủ thì không")
+    void vectorFilterIncludesSharedDocs() {
+        UUID shared = UUID.randomUUID();
+        var sharedChunk = dev.langchain4j.data.document.Metadata.from(Map.of(
+                "orgId", ORG.toString(), "scope", "PERSONAL", "ownerId", OTHER.toString(), "docId", shared.toString()));
+        var otherChunk = dev.langchain4j.data.document.Metadata.from(Map.of(
+                "orgId", ORG.toString(), "scope", "PERSONAL", "ownerId", OTHER.toString(), "docId", UUID.randomUUID().toString()));
+        var foreignOrg = dev.langchain4j.data.document.Metadata.from(Map.of(
+                "orgId", UUID.randomUUID().toString(), "scope", "PERSONAL", "ownerId", OTHER.toString(), "docId", shared.toString()));
+        var withShare = access(at(X1, STAFF)).withShared(Set.of(shared)).toVectorFilter(false);
+        assertThat(withShare.test(sharedChunk)).isTrue();
+        assertThat(withShare.test(otherChunk)).isFalse();
+        assertThat(withShare.test(foreignOrg)).isFalse();
+        assertThat(access(at(X1, STAFF)).toVectorFilter(false).test(sharedChunk)).isFalse();
+    }
+
+    // ── Thư mục (§15.2) ────────────────────────────────────────────────────────────────────────────
+
+    static DocumentFolder folder(DocumentScope scope, UUID owner, UUID unit) {
+        return DocumentFolder.builder().organizationId(ORG).scope(scope).ownerUserId(owner).orgUnitId(unit).name("f").build();
+    }
+
+    @Test
+    @DisplayName("thư mục theo đúng luật phạm vi: cá nhân chỉ chủ; đơn vị thấy theo cây, sửa khi quản lý; công ty sửa khi quản lý công ty")
+    void folderRules() {
+        DocumentAccess staff = access(at(X1, STAFF));
+        assertThat(staff.canViewFolder(folder(DocumentScope.PERSONAL, ME, null))).isTrue();
+        assertThat(staff.canEditFolder(folder(DocumentScope.PERSONAL, ME, null))).isTrue();
+        assertThat(staff.canViewFolder(folder(DocumentScope.PERSONAL, OTHER, null))).isFalse();
+        assertThat(staff.canViewFolder(folder(DocumentScope.UNIT, null, X))).isTrue();
+        assertThat(staff.canEditFolder(folder(DocumentScope.UNIT, null, X))).isFalse();
+        assertThat(staff.canViewFolder(folder(DocumentScope.UNIT, null, Y))).isFalse();
+        assertThat(staff.canEditFolder(folder(DocumentScope.COMPANY, null, null))).isFalse();
+
+        DocumentAccess head = access(at(X, HEAD));
+        assertThat(head.canEditFolder(folder(DocumentScope.UNIT, null, X1))).isTrue();
+        assertThat(head.canEditFolder(folder(DocumentScope.UNIT, null, Y))).isFalse();
+        assertThat(access(at(ROOT, Set.of("DOCUMENT:MANAGE_COMPANY"))).canEditFolder(folder(DocumentScope.COMPANY, null, null))).isTrue();
+    }
+
+    @Test
+    @DisplayName("đơn vị gốc không phải đích của tài liệu đơn vị: quản lý ở gốc vẫn quản lý cây con, nhưng tạo cho cả công ty phải là phạm vi Công ty")
+    void rootUnitIsNotAUnitTarget() {
+        DocumentAccess rootHead = access(at(ROOT, HEAD));
+        assertThat(rootHead.manageableUnitIds()).containsExactlyInAnyOrder(X, X1, X2, Y);
+        assertThat(rootHead.canCreate(DocumentScope.UNIT, ROOT)).isFalse();
+        assertThat(rootHead.canCreate(DocumentScope.UNIT, X)).isTrue();
+        assertThat(rootHead.canEditFolder(folder(DocumentScope.UNIT, null, ROOT))).isFalse();
+        assertThat(rootHead.visibleUnitIds()).contains(ROOT);
+        assertThat(rootHead.canCreate(DocumentScope.COMPANY, null)).isFalse();
+        assertThat(DocumentAccessResolver.rootUnitIds(UNITS)).containsExactly(ROOT);
     }
 }

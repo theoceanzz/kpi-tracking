@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Section, ScoreRow, RefStat, Collapsible } from '@/components/common/ScoreForm'
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo, useEffect, useRef, useState } from 'react'
 import { BscScoringMode, type PerspectiveScoreResponse } from '@/features/bsc/types'
 import { useQuery } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
@@ -29,6 +29,9 @@ import ConductInlineSheet, { type ConductSheetHandle } from '@/features/conduct/
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
+import { usePermission } from '@/hooks/usePermission'
+import { getApiErrorCode } from '@/lib/apiError'
 
 interface EvaluationFormModalProps {
   open: boolean
@@ -201,14 +204,28 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   // họ sửa rồi gửi lại thay vì gửi đánh giá kèm điểm hành vi cũ.
   const conductRef = useRef<ConductSheetHandle>(null)
 
-  const onSubmit = async (data: EvaluationFormData) => {
+  // Dòng "Kết quả cấp trên" còn tạm tính (thẻ nguồn chưa chốt) ⇒ backend chặn chốt ở chế độ chính
+  // thức. Quản trị BSC toàn tổ chức được chủ động chốt theo số tạm, nên hỏi lại thay vì chỉ báo lỗi.
+  const { hasPermission } = usePermission()
+  const canOverrideProvisional = hasPermission('BSC:MANAGE')
+  const [provisionalAsk, setProvisionalAsk] = useState<EvaluationFormData | null>(null)
+  const provisionalSources = (scorePreview?.bscPerspectives ?? [])
+    .filter(p => p.provisional).map(p => p.sourceScorecardName).filter(Boolean)
+
+  const onSubmit = async (data: EvaluationFormData, allowProvisionalBsc = false) => {
     if (readOnly) return
-    try {
-      await conductRef.current?.save()
-    } catch {
-      return // hook của phiếu đã hiện toast lỗi
+    if (!allowProvisionalBsc) {
+      try {
+        await conductRef.current?.save()
+      } catch {
+        return // hook của phiếu đã hiện toast lỗi
+      }
     }
-    createMutation.mutate(data, {
+    createMutation.mutate({ ...data, allowProvisionalBsc, askProvisional: canOverrideProvisional }, {
+      onError: e => {
+        if (canOverrideProvisional && getApiErrorCode(e) === 'EVALUATION_WAITING_BSC_SOURCE') setProvisionalAsk(data)
+      },
+      onSettled: () => { if (allowProvisionalBsc) setProvisionalAsk(null) },
       onSuccess: () => {
         reset()
 
@@ -245,7 +262,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
 
   const body = (
     <div className="p-5 md:p-6">
-      <form id="evaluation-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form id="evaluation-form" onSubmit={handleSubmit(d => onSubmit(d))} className="space-y-6">
         <input type="hidden" {...register('userId')} />
         <input type="hidden" {...register('kpiPeriodId')} />
 
@@ -422,6 +439,15 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
           </div>
         )}
       </form>
+      <ConfirmDialog
+        open={!!provisionalAsk}
+        onClose={() => setProvisionalAsk(null)}
+        onConfirm={() => { if (provisionalAsk) onSubmit(provisionalAsk, true) }}
+        loading={createMutation.isPending}
+        title={t('EvaluationFormModal.provisionalConfirmTitle')}
+        description={t('EvaluationFormModal.provisionalConfirmDescription', { names: provisionalSources.join(', ') })}
+        confirmLabel={t('EvaluationFormModal.provisionalConfirm')}
+      />
     </div>
   )
 
@@ -568,6 +594,12 @@ function MeasurementPanel({
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
                   <span className="text-caption min-w-0 flex-1 truncate">
                     {p.name}
+                    {p.provisional && (
+                      <span className="text-eyebrow ml-1.5 rounded px-1 py-px align-middle bg-[var(--color-warning-bg)] text-[var(--color-warning)]"
+                        title={t('EvaluationFormModal.provisionalHint', { name: p.sourceScorecardName })}>
+                        {t('EvaluationFormModal.provisional')}
+                      </span>
+                    )}
                     {p.isGate && (
                       <span className={cn(
                         'text-eyebrow ml-1.5 rounded px-1 py-px align-middle',

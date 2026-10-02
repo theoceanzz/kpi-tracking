@@ -120,6 +120,29 @@ public class Document {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    /** Ai đưa vào thùng rác. */
+    @Column(name = "deleted_by")
+    private UUID deletedBy;
+
+    /** Thư mục chứa; {@code null} = ở gốc của phạm vi. Cùng phạm vi với tài liệu. */
+    @Column(name = "folder_id")
+    private UUID folderId;
+
+    /** Ngày cần rà soát lại (quy chế đổi theo năm…). Tới ngày thì nhắc người quản lý — §16.3. */
+    @Column(name = "review_date")
+    private java.time.LocalDate reviewDate;
+
+    /** Từ ngày này tài liệu hết hiệu lực: K.AI vẫn đọc nhưng ghi chú khi trích. */
+    @Column(name = "expiry_date")
+    private java.time.LocalDate expiryDate;
+
+    /** Đã nhắc rà soát cho đúng ngày nào (đổi ngày thì nhắc lại). */
+    @Column(name = "review_notified_for")
+    private java.time.LocalDate reviewNotifiedFor;
+
+    @Column(name = "expiry_notified_for")
+    private java.time.LocalDate expiryNotifiedFor;
+
     @PreUpdate
     void touch() {
         updatedAt = Instant.now();

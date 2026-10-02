@@ -100,4 +100,95 @@ public interface DocumentRepository extends JpaRepository<Document, UUID>, JpaSp
                AND (u.deleted_at IS NOT NULL OR u.status IN ('INACTIVE', 'SUSPENDED'))
             """, nativeQuery = true)
     boolean isUserDeactivated(@Param("userId") UUID userId);
+
+    // ── Thùng rác (native: @SQLRestriction ẩn dòng đã xoá mềm khỏi JPQL) ─────────────────────────────
+
+    /** Tài liệu trong thùng rác của tổ chức, xoá sau {@code since} (còn khôi phục được), mới nhất trước. */
+    @Query(value = """
+            SELECT * FROM documents
+             WHERE organization_id = :orgId AND deleted_at IS NOT NULL AND deleted_at >= :since
+             ORDER BY deleted_at DESC LIMIT 500
+            """, nativeQuery = true)
+    List<Document> findTrash(@Param("orgId") UUID orgId, @Param("since") Instant since);
+
+    @Query(value = "SELECT * FROM documents WHERE id = :id AND organization_id = :orgId AND deleted_at IS NOT NULL",
+            nativeQuery = true)
+    Optional<Document> findDeletedById(@Param("id") UUID id, @Param("orgId") UUID orgId);
+
+    /**
+     * Lấy ra khỏi thùng rác. Thư mục cũ đã bị xoá thì về gốc của phạm vi. {@code clearAutomatically}: bản entity đã
+     * nạp trước câu UPDATE (cùng persistence context của request) còn giữ {@code deletedAt}/{@code folderId} cũ.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query(value = """
+            UPDATE documents d
+               SET deleted_at = NULL, deleted_by = NULL, updated_at = :now, ai_status = :aiStatus,
+                   folder_id = CASE WHEN EXISTS (SELECT 1 FROM document_folders f WHERE f.id = d.folder_id AND f.deleted_at IS NULL)
+                                    THEN d.folder_id ELSE NULL END
+             WHERE d.id = :id AND d.deleted_at IS NOT NULL
+            """, nativeQuery = true)
+    int restore(@Param("id") UUID id, @Param("aiStatus") String aiStatus, @Param("now") Instant now);
+
+    // ── Thống kê dung lượng cho quản trị (§16.5). Mỗi dòng Object[]. ─────────────────────────────────
+
+    /** [scope, số tài liệu, tổng byte, tổng đoạn AI] theo phạm vi, chỉ tài liệu còn sống. */
+    @Query(value = """
+            SELECT scope, COUNT(*), COALESCE(SUM(file_size), 0), COALESCE(SUM(ai_chunk_count), 0)
+              FROM documents WHERE organization_id = :orgId AND deleted_at IS NULL GROUP BY scope
+            """, nativeQuery = true)
+    List<Object[]> statsByScope(@Param("orgId") UUID orgId);
+
+    /** [số tài liệu, tổng byte] trong thùng rác (chưa xoá hẳn). */
+    @Query(value = """
+            SELECT COUNT(*), COALESCE(SUM(file_size), 0) FROM documents
+             WHERE organization_id = :orgId AND deleted_at IS NOT NULL
+            """, nativeQuery = true)
+    List<Object[]> statsTrash(@Param("orgId") UUID orgId);
+
+    /** [số phiên bản cũ, tổng byte] — tệp cũ giữ lại khi thay tệp. */
+    @Query(value = """
+            SELECT COUNT(*), COALESCE(SUM(v.file_size), 0) FROM document_versions v
+              JOIN documents d ON d.id = v.document_id WHERE d.organization_id = :orgId
+            """, nativeQuery = true)
+    List<Object[]> statsVersions(@Param("orgId") UUID orgId);
+
+    /** [org_unit_id, số tài liệu, tổng byte, tổng đoạn] theo đơn vị, nhiều nhất trước. */
+    @Query(value = """
+            SELECT org_unit_id, COUNT(*), COALESCE(SUM(file_size), 0), COALESCE(SUM(ai_chunk_count), 0)
+              FROM documents WHERE organization_id = :orgId AND scope = 'UNIT' AND deleted_at IS NULL
+             GROUP BY org_unit_id ORDER BY 3 DESC LIMIT :limit
+            """, nativeQuery = true)
+    List<Object[]> statsTopUnits(@Param("orgId") UUID orgId, @Param("limit") int limit);
+
+    /** [owner_user_id, số tài liệu, tổng byte, tổng đoạn] của kho cá nhân theo người, nhiều nhất trước. */
+    @Query(value = """
+            SELECT owner_user_id, COUNT(*), COALESCE(SUM(file_size), 0), COALESCE(SUM(ai_chunk_count), 0)
+              FROM documents WHERE organization_id = :orgId AND scope = 'PERSONAL' AND deleted_at IS NULL
+             GROUP BY owner_user_id ORDER BY 3 DESC LIMIT :limit
+            """, nativeQuery = true)
+    List<Object[]> statsTopOwners(@Param("orgId") UUID orgId, @Param("limit") int limit);
+
+    /** Tài liệu còn sống cần nhắc rà soát hoặc sắp / đã hết hiệu lực (job hằng ngày, §16.3). */
+    @Query(value = """
+            SELECT * FROM documents
+             WHERE deleted_at IS NULL
+               AND ((review_date IS NOT NULL AND review_date <= :today
+                     AND (review_notified_for IS NULL OR review_notified_for <> review_date))
+                 OR (expiry_date IS NOT NULL AND expiry_date <= :warnUntil
+                     AND (expiry_notified_for IS NULL OR expiry_notified_for <> expiry_date)))
+             LIMIT :limit
+            """, nativeQuery = true)
+    List<Document> findDueForReminder(@Param("today") java.time.LocalDate today,
+                                      @Param("warnUntil") java.time.LocalDate warnUntil, @Param("limit") int limit);
+
+    /** Tài liệu đã hết hiệu lực còn đang dùng cho AI — để job gắn ghi chú hiệu lực vào vector (idempotent). */
+    @Query(value = """
+            SELECT * FROM documents
+             WHERE deleted_at IS NULL AND ai_enabled = TRUE AND ai_status = 'READY'
+               AND expiry_date IS NOT NULL AND expiry_date <= :today AND expiry_date > :since
+            """, nativeQuery = true)
+    List<Document> findRecentlyExpired(@Param("today") java.time.LocalDate today, @Param("since") java.time.LocalDate since);
+
+    /** Tài liệu còn sống trong các thư mục này — để xoá thư mục thì đưa chúng vào thùng rác. */
+    List<Document> findByFolderIdIn(java.util.Collection<UUID> folderIds);
 }

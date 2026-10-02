@@ -6,7 +6,7 @@ import {
   ScorecardTreeNodeResponse, ScorecardCoverageResponse, CascadeRequest,
   UnitResultResponse, CascadePolicyResponse, CascadePolicyRequest,
   BscWaterfallResponse, BscOverrideRequest, LinkedWeightCheck,
-  BscKpiPlanResponse,
+  BscKpiPlanResponse, WholeCascadeRequest, WholeCascadeResponse,
 } from '../types'
 
 export const bscApi = {
@@ -77,6 +77,16 @@ export const bscApi = {
       .post<ApiResponse<ScorecardCoverageResponse>>(`/bsc/scorecards/${scorecardId}/cascade`, data)
       .then(r => r.data.data),
 
+  getWholeCascade: (scorecardId: string) =>
+    axiosInstance
+      .get<ApiResponse<WholeCascadeResponse>>(`/bsc/scorecards/${scorecardId}/whole-cascade`)
+      .then(r => r.data.data),
+
+  cascadeWhole: (scorecardId: string, data: WholeCascadeRequest) =>
+    axiosInstance
+      .post<ApiResponse<WholeCascadeResponse>>(`/bsc/scorecards/${scorecardId}/whole-cascade`, data)
+      .then(r => r.data.data),
+
   // ── Vòng đời trình – duyệt ─────────────────────────────────
   submitScorecard: (scorecardId: string) =>
     axiosInstance.post<ApiResponse<ScorecardResponse>>(`/bsc/scorecards/${scorecardId}/submit`).then(r => r.data.data),
@@ -89,14 +99,14 @@ export const bscApi = {
       .post<ApiResponse<ScorecardResponse>>(`/bsc/scorecards/${scorecardId}/reject`, { reason })
       .then(r => r.data.data),
 
+  /** Xoá được không, và nếu không thì vì sao — hộp xác nhận xoá hiện lý do ngay khi mở. */
+  deleteCheck: (scorecardId: string) =>
+    axiosInstance
+      .get<ApiResponse<{ deletable: boolean; reason?: string | null }>>(`/bsc/scorecards/${scorecardId}/delete-check`)
+      .then(r => r.data.data),
+
   activateScorecard: (scorecardId: string) =>
     axiosInstance.post<ApiResponse<ScorecardResponse>>(`/bsc/scorecards/${scorecardId}/activate`).then(r => r.data.data),
-
-  lockScorecard: (scorecardId: string) =>
-    axiosInstance.post<ApiResponse<ScorecardResponse>>(`/bsc/scorecards/${scorecardId}/lock`).then(r => r.data.data),
-
-  reopenScorecard: (scorecardId: string) =>
-    axiosInstance.post<ApiResponse<ScorecardResponse>>(`/bsc/scorecards/${scorecardId}/reopen`).then(r => r.data.data),
 
   // ── Kết quả BSC đơn vị ─────────────────────────────────────
   getUnitResult: (scorecardId: string, kpiPeriodId: string) =>
@@ -109,9 +119,12 @@ export const bscApi = {
       .post<ApiResponse<UnitResultResponse>>(`/bsc/scorecards/${scorecardId}/results/recompute`, null, { params: { kpiPeriodId } })
       .then(r => r.data.data),
 
-  finalizeUnitResult: (scorecardId: string, kpiPeriodId: string) =>
+  /** `allowProvisional`: quản trị chốt dù thẻ nguồn của dòng "Kết quả cấp trên" chưa chốt. */
+  finalizeUnitResult: (scorecardId: string, kpiPeriodId: string, allowProvisional = false) =>
     axiosInstance
-      .post<ApiResponse<UnitResultResponse>>(`/bsc/scorecards/${scorecardId}/results/finalize`, null, { params: { kpiPeriodId } })
+      .post<ApiResponse<UnitResultResponse>>(`/bsc/scorecards/${scorecardId}/results/finalize`, null, {
+        params: allowProvisional ? { kpiPeriodId, allowProvisional } : { kpiPeriodId },
+      })
       .then(r => r.data.data),
 
   reopenUnitResult: (scorecardId: string, kpiPeriodId: string) =>

@@ -104,4 +104,48 @@ class DocumentPolicyTest {
             throw new RuntimeException(e);
         }
     }
+
+    // ── Loại tệp mới (§16.1): xlsx, txt, md, csv ───────────────────────────────────────────────────
+
+    static byte[] xlsx() throws Exception {
+        try (org.apache.poi.xssf.usermodel.XSSFWorkbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            wb.createSheet("KPI").createRow(0).createCell(0).setCellValue("Doanh số");
+            wb.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    @Test
+    @DisplayName("XLSX thật: nhận; XLSX mang macro (.xlsm đổi tên) bị chặn")
+    void xlsxWithoutMacros() throws Exception {
+        var x = DocumentPolicy.check("bao-cao.xlsx", "application/octet-stream", xlsx());
+        assertThat(x.contentType()).isEqualTo("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        byte[] xlsm = zipWith("xl/workbook.xml", "xl/vbaProject.bin");
+        assertThat(codeOf(() -> DocumentPolicy.check("bao-cao.xlsx", null, xlsm))).isEqualTo(ErrorCode.DOCUMENT_FILE_TYPE_NOT_ALLOWED);
+        // DOCX đổi đuôi thành .xlsx: không có xl/workbook.xml.
+        assertThat(codeOf(() -> DocumentPolicy.check("x.xlsx", null, rethrow(DocumentPolicyTest::docx))))
+                .isEqualTo(ErrorCode.DOCUMENT_FILE_TYPE_NOT_ALLOWED);
+    }
+
+    @Test
+    @DisplayName("TXT / MD / CSV: UTF-8 (cả BOM) thì nhận; nhị phân đổi đuôi, NUL, Windows-1258 thì chặn")
+    void plainText() {
+        byte[] vi = "Quy trình xét thưởng\n- Bước 1".getBytes(StandardCharsets.UTF_8);
+        assertThat(DocumentPolicy.check("a.txt", "text/plain", vi).contentType()).isEqualTo("text/plain");
+        assertThat(DocumentPolicy.check("a.md", "text/markdown", vi).contentType()).isEqualTo("text/markdown");
+        assertThat(DocumentPolicy.check("a.csv", "application/vnd.ms-excel", "a,b\n1,2".getBytes(StandardCharsets.UTF_8))
+                .extension()).isEqualTo("csv");
+        assertThat(DocumentPolicy.check("a.txt", "text/plain; charset=utf-8", vi).extension()).isEqualTo("txt");
+        byte[] bom = new byte[vi.length + 3];
+        bom[0] = (byte) 0xEF; bom[1] = (byte) 0xBB; bom[2] = (byte) 0xBF;
+        System.arraycopy(vi, 0, bom, 3, vi.length);
+        assertThat(DocumentPolicy.check("a.txt", null, bom).extension()).isEqualTo("txt");
+
+        assertThat(codeOf(() -> DocumentPolicy.check("a.txt", null, new byte[] {'M', 'Z', 0, 1})))
+                .isEqualTo(ErrorCode.DOCUMENT_FILE_TYPE_NOT_ALLOWED);
+        assertThat(codeOf(() -> DocumentPolicy.check("a.txt", null, new byte[] {(byte) 0xC3, (byte) 0x28})))
+                .isEqualTo(ErrorCode.DOCUMENT_FILE_TYPE_NOT_ALLOWED);
+        assertThat(codeOf(() -> DocumentPolicy.check("a.md", "image/png", vi))).isEqualTo(ErrorCode.DOCUMENT_FILE_TYPE_NOT_ALLOWED);
+    }
 }

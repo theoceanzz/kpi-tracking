@@ -4,20 +4,22 @@ import { useMemo, useState } from 'react'
 import {
   ChevronDown, ChevronRight, GitBranch, Lock, ShieldAlert, Building2, Users, Search,
   Send, Check, Undo2, RefreshCw, Loader2, AlertTriangle, Calculator, Target, Layers,
-  Edit2, Trash2, PlusCircle, ShieldCheck, ListTree, Link2, Unlink,
+  Edit2, Trash2, ShieldCheck, ListTree, Link2, Unlink,
 } from 'lucide-react'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { usePermission } from '@/hooks/usePermission'
+import { getApiErrorCode } from '@/lib/apiError'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
 import {
   useScorecardTree, useScorecardCoverage, useCascadeMutations,
   useUnitResult, useUnitResultMutations,
 } from '../hooks/useBscCascade'
 import {
   BscScorecardLevel, BscScorecardStatus, BscScoringMode, BscUnitResultStatus, BscMeasurementSource,
-  type BscFixedPerspective, type FixedPerspectiveResponse, type ScorecardPeriodResponse,
+  type FixedPerspectiveResponse, type ScorecardPeriodResponse,
   type ScorecardTreeNodeResponse, type ScorecardResponse,
 } from '../types'
 import { scorecardStatusMeta } from '../utils/scorecardStatus'
@@ -47,7 +49,6 @@ interface BscScorecardTreeProps {
   onEdit: (scorecard: ScorecardResponse) => void
   onDelete: (scorecard: ScorecardResponse) => void
   onTogglePublish: (scorecard: ScorecardResponse) => void
-  onAddPerspective: (scorecard: ScorecardResponse, code: BscFixedPerspective) => void
 }
 
 const COVERAGE_META = perLanguage((): Record<string, { label: string; className: string; hint: string }> => ({
@@ -100,7 +101,7 @@ function filterTree(nodes: ScorecardTreeNodeResponse[], q: string): ScorecardTre
  */
 export default function BscScorecardTree({
   organizationId, scorecards, fixedPerspectives, canPublish, canEditScorecard,
-  onCascade, onEdit, onDelete, onTogglePublish, onAddPerspective,
+  onCascade, onEdit, onDelete, onTogglePublish,
 }: BscScorecardTreeProps) {
   const { t } = useTranslation('bsc')
   const { hasPermission } = usePermission()
@@ -184,7 +185,7 @@ export default function BscScorecardTree({
             canManage={canManage} canApprove={canApprove} canPublish={canPublish}
             canEditNode={canEditNode}
             onCascade={onCascade} onEdit={onEdit} onDelete={onDelete}
-            onTogglePublish={onTogglePublish} onAddPerspective={onAddPerspective} />
+            onTogglePublish={onTogglePublish} />
         ))}
       </div>
     </div>
@@ -211,7 +212,6 @@ interface TreeNodeProps {
   onEdit: (s: ScorecardResponse) => void
   onDelete: (s: ScorecardResponse) => void
   onTogglePublish: (s: ScorecardResponse) => void
-  onAddPerspective: (s: ScorecardResponse, code: BscFixedPerspective) => void
 }
 
 function TreeNode(props: TreeNodeProps) {
@@ -313,7 +313,7 @@ function TreeNode(props: TreeNodeProps) {
 
 /** Ba việc làm với một nhánh, tách mục để không đổ hết ra cùng lúc và chỉ tải thứ đang xem. */
 function NodeDetail({
-  node, scorecard: sc, fixedPerspectives, canEdit, canManage, onCascade, onAddPerspective,
+  node, scorecard: sc, fixedPerspectives, canEdit, canManage, onCascade,
 }: TreeNodeProps & { scorecard?: ScorecardResponse; canEdit: boolean }) {
   const { t: tr } = useTranslation('bsc')
   const [tab, setTab] = useState<'items' | 'coverage' | 'result'>('items')
@@ -336,8 +336,7 @@ function NodeDetail({
       </div>
 
       {tab === 'items' && (
-        <PerspectivePanel scorecard={sc} fixedPerspectives={fixedPerspectives}
-          canEdit={canEdit} onAddPerspective={onAddPerspective} />
+        <PerspectivePanel scorecard={sc} fixedPerspectives={fixedPerspectives} />
       )}
       {tab === 'coverage' && (
         <CoveragePanel scorecardId={node.id} scorecard={sc}
@@ -399,7 +398,7 @@ function NodeActions({
 }: TreeNodeProps & { scorecard?: ScorecardResponse; canEdit: boolean }) {
   const { t } = useTranslation('bsc')
   const {
-    submitScorecard, approveScorecard, rejectScorecard, activateScorecard, lockScorecard, reopenScorecard,
+    submitScorecard, approveScorecard, rejectScorecard, activateScorecard,
     attachParent,
   } = useCascadeMutations()
   const [attachOpen, setAttachOpen] = useState(false)
@@ -462,16 +461,6 @@ function NodeActions({
         <IconAction key="activate" icon={<Check aria-hidden="true" />} label={t('BscScorecardTree.apply')} accent="emerald"
           pending={activateScorecard.isPending}
           onClick={() => activateScorecard.mutate(node.id)} />
-      ),
-      canApprove && node.status === BscScorecardStatus.ACTIVE && (
-        <IconAction key="lock" icon={<Lock aria-hidden="true" />} label={t('BscScorecardTree.lockScorecard')}
-          pending={lockScorecard.isPending}
-          onClick={() => lockScorecard.mutate(node.id)} />
-      ),
-      canApprove && node.status === BscScorecardStatus.LOCKED && (
-        <IconAction key="reopen" icon={<Undo2 aria-hidden="true" />} label={t('BscScorecardTree.unlock')}
-          pending={reopenScorecard.isPending}
-          onClick={() => reopenScorecard.mutate(node.id)} />
       ),
     ],
     // Chế độ chấm điểm
@@ -551,11 +540,10 @@ function IconAction({ icon, label, onClick, pending, accent }: {
 }
 
 /** Hạng mục của bộ tiêu chí, gom theo 4 lĩnh vực cố định — chỗ chia trọng số cho đủ 100%. */
-function PerspectivePanel({ scorecard: sc, fixedPerspectives, canEdit, onAddPerspective }: {
+/** Chỉ để XEM — thêm/sửa hạng mục làm trong form "Sửa bộ tiêu chí" (nút bút chì trên hàng thẻ). */
+function PerspectivePanel({ scorecard: sc, fixedPerspectives }: {
   scorecard?: ScorecardResponse
   fixedPerspectives: FixedPerspectiveResponse[]
-  canEdit: boolean
-  onAddPerspective: (s: ScorecardResponse, code: BscFixedPerspective) => void
 }) {
   const { t } = useTranslation('bsc')
   if (!sc) {
@@ -591,13 +579,6 @@ function PerspectivePanel({ scorecard: sc, fixedPerspectives, canEdit, onAddPers
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: fp.color }} />
               <h4 className="text-label">{fp.name}</h4>
               <span className="text-caption tabular-nums">{groupWeight.toFixed(1)}%</span>
-              {/* Thêm hạng mục là SỬA bộ tiêu chí — cùng một quyền với nút "Sửa bộ tiêu chí" ở trên,
-                  nên phải ẩn theo cùng điều kiện, không thì mở nhánh của đơn vị khác vẫn thêm được. */}
-              {canEdit && (
-                <Button variant="ghost" size="sm" className="ml-auto shrink-0" onClick={() => onAddPerspective(sc, fp.code)}>
-                  <PlusCircle aria-hidden="true" /> {t('BscScorecardTree.addItem')}
-                </Button>
-              )}
             </div>
 
             <div className="grid gap-1.5">
@@ -609,7 +590,11 @@ function PerspectivePanel({ scorecard: sc, fixedPerspectives, canEdit, onAddPers
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-[var(--color-foreground)]">{p.name}</p>
-                    <span className="text-caption font-mono">{p.code}</span>
+                    {p.sourceScorecardId ? (
+                      <span className="text-caption">{t('BscScorecardTree.sourceRowHint', { name: p.sourceScorecardName })}</span>
+                    ) : (
+                      <span className="text-caption font-mono">{p.code}</span>
+                    )}
                     {(p.targetValue != null || p.minimumValue != null) && (
                       <span className="text-caption ml-2">
                         {p.targetValue != null && <>{t('BscScorecardTree.target')} {p.targetValue}{p.unit ? ` ${p.unit}` : ''}</>}
@@ -799,8 +784,18 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
   const { t } = useTranslation('bsc')
   const { data, isLoading } = useUnitResult(scorecardId, kpiPeriodId)
   const { recompute, finalize, reopen, setManualActual } = useUnitResultMutations()
+  const { hasPermission } = usePermission()
+  // Chốt theo số tạm tính chỉ dành cho quản trị BSC toàn tổ chức (backend cũng chặn).
+  const canManageAll = hasPermission('BSC:MANAGE')
+  const [askProvisional, setAskProvisional] = useState(false)
   const isDraft = data?.status === BscUnitResultStatus.DRAFT
   const computing = recompute.isPending
+
+  const finalizeNow = () => finalize.mutate(
+    { scorecardId, kpiPeriodId, askProvisional: canManageAll },
+    { onError: e => { if (canManageAll && getApiErrorCode(e) === 'BSC_SOURCE_RESULT_NOT_FINALIZED') setAskProvisional(true) } },
+  )
+  const pendingSources = (data?.items ?? []).filter(i => i.provisional).map(i => i.sourceScorecardName).filter(Boolean)
 
   return (
     <div className="rounded-card border border-[var(--color-border)] overflow-hidden">
@@ -821,6 +816,9 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
         {data && (
           <Badge variant={isDraft ? 'secondary' : 'success'}>{isDraft ? t('BscScorecardTree.draft') : t('BscScorecardTree.finalized')}</Badge>
         )}
+        {data?.provisionalSource && (
+          <Badge variant="warning" title={t('BscScorecardTree.finalizedProvisionalHint')}>{t('BscScorecardTree.finalizedProvisional')}</Badge>
+        )}
 
         <span className="flex-1" />
 
@@ -831,7 +829,7 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
               {t('BscScorecardTree.recalculate')}
             </Button>
             {isDraft ? (
-              <Button size="sm" onClick={() => finalize.mutate({ scorecardId, kpiPeriodId })} disabled={finalize.isPending} title={t('BscScorecardTree.finalizeTheseFiguresAfterFinalizingYou')}>
+              <Button size="sm" onClick={finalizeNow} disabled={finalize.isPending} title={t('BscScorecardTree.finalizeTheseFiguresAfterFinalizingYou')}>
                 {finalize.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Check aria-hidden="true" />}
                 {t('BscScorecardTree.finalizeResults')}
               </Button>
@@ -890,6 +888,12 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
             </div>
           )}
 
+          {isDraft && pendingSources.length > 0 && (
+            <div className="border-b border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-xs text-[var(--color-warning)]">
+              {t('BscScorecardTree.waitingForSource', { names: pendingSources.join(', ') })}
+            </div>
+          )}
+
           {data.gatePassed === false && (
             <div className="flex items-start gap-1.5 border-b border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-xs font-medium text-[var(--color-error)]">
               <ShieldAlert size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
@@ -919,7 +923,15 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
                 </span>
 
                 <div className="w-32 flex justify-end">
-                  {item.measurementSource !== BscMeasurementSource.MANUAL
+                  {item.measurementSource === BscMeasurementSource.SCORECARD_RESULT ? (
+                    // Dòng "Kết quả cấp trên": không có thực đạt/mục tiêu, chỉ có điểm tổng của thẻ nguồn.
+                    <span className="text-right text-caption leading-tight">
+                      {item.sourceScorecardName}
+                      {item.provisional && (
+                        <span className="block text-[var(--color-warning)]">{t('BscScorecardTree.provisional')}</span>
+                      )}
+                    </span>
+                  ) : item.measurementSource !== BscMeasurementSource.MANUAL
                   && item.measurementSource !== BscMeasurementSource.DATASOURCE ? (
                     // Chỉ đọc là CÓ CHỦ Ý: số của dòng này do hệ thống cộng từ KPI cá nhân. Nhưng ô
                     // trơ ra mà không nói gì thì người dùng tưởng giao diện hỏng — nên ghi luôn số
@@ -970,6 +982,19 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
               </div>
             ))}
           </div>
+
+          <ConfirmDialog
+            open={askProvisional}
+            onClose={() => setAskProvisional(false)}
+            onConfirm={() => finalize.mutate(
+              { scorecardId, kpiPeriodId, allowProvisional: true },
+              { onSettled: () => setAskProvisional(false) },
+            )}
+            loading={finalize.isPending}
+            title={t('BscScorecardTree.finalizeProvisionalTitle')}
+            description={t('BscScorecardTree.finalizeProvisionalDescription', { names: pendingSources.join(', ') })}
+            confirmLabel={t('BscScorecardTree.finalizeProvisionalConfirm')}
+          />
 
           {canManageUnit && isDraft && data.items.some(i =>
             i.measurementSource === BscMeasurementSource.MANUAL

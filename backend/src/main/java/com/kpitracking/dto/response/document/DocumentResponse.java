@@ -46,4 +46,26 @@ public class DocumentResponse {
     private boolean orphan;
     /** Tài liệu tri thức cũ (rag_documents) không có tệp gốc: dùng cho AI, xoá được, không sửa/tải về được. */
     private boolean legacy;
+
+    // ── Thư mục, trạng thái riêng của người xem, chia sẻ, thùng rác (kiểu Lark Docs) ──
+    private UUID folderId;
+    private String folderName;
+    /** Người xem đánh dấu yêu thích. */
+    private boolean favorite;
+    /** Người xem ghim lên thanh bên. */
+    private boolean pinned;
+    /** Lần mở gần nhất của CHÍNH người xem (cột "Mở gần đây"). */
+    private Instant lastOpenedAt;
+    /** Xem được nhờ được chia sẻ (không nhờ phạm vi) — chỉ xem, không sửa. */
+    private boolean sharedWithMe;
+    /** Số lượt chia sẻ — chỉ điền cho người sửa được tài liệu. */
+    private long shareCount;
+    private Instant deletedAt;
+    private String deletedByName;
+    private java.time.LocalDate reviewDate;
+    private java.time.LocalDate expiryDate;
+    /** Đã tới / quá ngày rà soát. */
+    private boolean reviewDue;
+    /** Đã hết hiệu lực. */
+    private boolean expired;
 }

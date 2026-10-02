@@ -7,6 +7,7 @@ import { rewardApi } from '@/features/rewards/api/rewardApi'
 import { giftApi } from '@/features/rewards/api/giftApi'
 import { walletApi } from '@/features/wallet/api/walletApi'
 import { aiCriteriaSetApi } from '@/features/submissions/api/aiReviewApi'
+import { documentApi } from '@/features/documents/api/documentApi'
 import { BscScorecardStatus } from '@/features/bsc/types'
 import { RewardGrantStatus, RedemptionStatus } from '@/features/rewards/types'
 import { TopupOrderStatus } from '@/features/wallet/types'
@@ -32,6 +33,8 @@ export interface NotificationCounts {
   pendingWallet: number
   /** Đề nghị đổi quy chế chấm AI cấp dưới gửi lên, chờ mình quyết. */
   pendingAiCriteria: number
+  /** Đề xuất đưa tài liệu lên đơn vị / công ty đang chờ mình duyệt. */
+  pendingDocumentPromotions: number
 }
 
 export function useNotificationDots() {
@@ -139,6 +142,17 @@ export function useNotificationDots() {
     retry: false,
   })
 
+  // Cùng khoá với `usePromotionInbox` của mục "Đề xuất" trong trang Tài liệu — duyệt / từ chối xong (mutation làm
+  // mới mọi khoá 'documents') thì số ở sidebar giảm theo ngay. Backend tự trả rỗng cho ai không quyết được gì.
+  const { data: documentPromotions } = useQuery({
+    queryKey: ['documents', 'promotions', 'inbox'],
+    queryFn: documentApi.promotionInbox,
+    enabled: !!user,
+    refetchInterval: 60000,
+    staleTime: 30_000,
+    retry: false,
+  })
+
   const counts: NotificationCounts = {
     pendingKpis: overviewAllUnits?.pendingKpiForApproval || 0,
     pendingSubmissions: overviewMyUnit?.pendingSubmissions || 0,
@@ -153,6 +167,7 @@ export function useNotificationDots() {
     pendingRewards: (pendingGrants?.totalElements || 0) + (pendingRedemptions?.totalElements || 0),
     pendingWallet: reconcile ? reconcile.unresolvedEventCount + reconcile.amountMismatchCount : 0,
     pendingAiCriteria: aiCriteriaRequests?.length || 0,
+    pendingDocumentPromotions: documentPromotions?.length || 0,
   }
 
   return { counts }

@@ -2,6 +2,7 @@ package com.kpitracking.mapper;
 
 import com.kpitracking.dto.response.document.DocumentResponse;
 import com.kpitracking.entity.Document;
+import com.kpitracking.entity.DocumentUserState;
 import com.kpitracking.entity.RagDocument;
 import com.kpitracking.enums.DocumentAiStatus;
 import com.kpitracking.enums.DocumentCategory;
@@ -28,7 +29,14 @@ public interface DocumentMapper {
      * @param isStrictAncestorOfFilter tài liệu của đơn vị này có phải của một đơn vị CHA của đơn vị đang lọc
      */
     record ViewContext(Map<UUID, String> userNames, Map<UUID, String> unitNames, DocumentAccess access,
-                       Predicate<UUID> isStrictAncestorOfFilter) {}
+                       Predicate<UUID> isStrictAncestorOfFilter, Map<UUID, String> folderNames,
+                       Map<UUID, DocumentUserState> states, Map<UUID, Long> shareCounts) {
+
+        public ViewContext(Map<UUID, String> userNames, Map<UUID, String> unitNames, DocumentAccess access,
+                           Predicate<UUID> isStrictAncestorOfFilter) {
+            this(userNames, unitNames, access, isStrictAncestorOfFilter, Map.of(), Map.of(), Map.of());
+        }
+    }
 
     @Mapping(target = "ownerId", source = "ownerUserId")
     @Mapping(target = "orgUnitName", ignore = true)
@@ -38,6 +46,15 @@ public interface DocumentMapper {
     @Mapping(target = "inherited", ignore = true)
     @Mapping(target = "orphan", ignore = true)
     @Mapping(target = "legacy", ignore = true)
+    @Mapping(target = "folderName", ignore = true)
+    @Mapping(target = "favorite", ignore = true)
+    @Mapping(target = "pinned", ignore = true)
+    @Mapping(target = "lastOpenedAt", ignore = true)
+    @Mapping(target = "sharedWithMe", ignore = true)
+    @Mapping(target = "shareCount", ignore = true)
+    @Mapping(target = "deletedByName", ignore = true)
+    @Mapping(target = "reviewDue", ignore = true)
+    @Mapping(target = "expired", ignore = true)
     DocumentResponse toResponse(Document document, @Context ViewContext ctx);
 
     @AfterMapping
@@ -50,6 +67,19 @@ public interface DocumentMapper {
         r.setOrphan(ctx.access().isOrphan(document));
         r.setInherited(document.getScope() == DocumentScope.UNIT
                 && ctx.isStrictAncestorOfFilter().test(document.getOrgUnitId()));
+        if (document.getFolderId() != null) r.setFolderName(ctx.folderNames().get(document.getFolderId()));
+        DocumentUserState st = ctx.states().get(document.getId());
+        if (st != null) {
+            r.setFavorite(Boolean.TRUE.equals(st.getFavorite()));
+            r.setPinned(Boolean.TRUE.equals(st.getPinned()));
+            r.setLastOpenedAt(st.getLastOpenedAt());
+        }
+        r.setSharedWithMe(ctx.access().isSharedWithMe(document));
+        if (r.isCanEdit()) r.setShareCount(ctx.shareCounts().getOrDefault(document.getId(), 0L));
+        if (document.getDeletedBy() != null) r.setDeletedByName(ctx.userNames().get(document.getDeletedBy()));
+        java.time.LocalDate today = com.kpitracking.service.document.DocumentDates.today();
+        r.setReviewDue(com.kpitracking.service.document.DocumentDates.reviewDue(document, today));
+        r.setExpired(com.kpitracking.service.document.DocumentDates.expired(document, today));
     }
 
     /**

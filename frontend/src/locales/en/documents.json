@@ -18,7 +18,18 @@
     "uploadOriginal": "Upload original file",
     "reindex": "Re-index for AI",
     "delete": "Delete",
-    "save": "Save changes"
+    "save": "Save changes",
+    "new": "New",
+    "newFolder": "New folder",
+    "rename": "Rename",
+    "more": "More actions",
+    "open": "Open",
+    "favorite": "Add to favorites",
+    "unfavorite": "Remove from favorites",
+    "pin": "Pin to sidebar",
+    "unpin": "Unpin",
+    "share": "Share",
+    "move": "Move"
   },
   "common": {
     "cancel": "Cancel",
@@ -60,7 +71,10 @@
     "unitTitle": "This unit has no documents yet",
     "unitDescription": "Unit heads can upload the unit regulations and job descriptions so K.AI and KPI suggestions follow the real work.",
     "companyTitle": "The company has no documents yet",
-    "companyDescription": "Upload company regulations, processes and strategy so K.AI can quote them in answers."
+    "companyDescription": "Upload company regulations, processes and strategy so K.AI can quote them in answers.",
+    "noUnitDescription": "You do not belong to any unit with documents.",
+    "folderTitle": "This folder is empty",
+    "folderDescription": "Upload documents or create a subfolder here."
   },
   "pagination": {
     "item": "documents"
@@ -108,7 +122,12 @@
     "file": "File",
     "uploadedBy": "Uploaded by",
     "updatedAt": "Updated",
-    "ai": "AI knowledge base"
+    "ai": "AI knowledge base",
+    "folder": "Folder",
+    "reviewDate": "Review date",
+    "expiryDate": "Expires on",
+    "datesHint": "Optional. On the review date the document managers are reminded to read it again; once expired, K.AI still reads it but says it has expired when quoting it.",
+    "datesOdd": "The expiry date is before the review date — check whether that was a typo."
   },
   "audience": {
     "PERSONAL": "Only you can view it. K.AI uses it when answering you.",
@@ -120,7 +139,9 @@
     "title": "Upload document",
     "description": "Accepts {{types}}, up to {{max}} per file. Indexing for the knowledge base runs in the background after saving.",
     "submit": "Upload",
-    "dropHint": "Drag a .docx or .pdf file here (up to {{max}})"
+    "dropHint": "Drag a Word, PDF, Excel, .txt or .md file here (up to {{max}})",
+    "intoFolder": "Upload into folder “{{name}}”",
+    "dropTitle": "Choose a document file"
   },
   "ai": {
     "readyDetail_one": "{{count}} chunk · indexed at {{time}}",
@@ -138,12 +159,19 @@
   },
   "delete": {
     "title": "Delete “{{title}}”?",
-    "description": "K.AI stops using this document immediately. The original file is kept for 30 more days, then deleted. K.AI answers that already quoted it remain in the chat history."
+    "description": "K.AI stops using this document immediately. It goes to the trash and can be restored within {{days}} days. Answers K.AI previously quoted from it remain in chat history.",
+    "legacyDescription": "K.AI stops using this document immediately. Legacy documents have no original file, so they do not go to the trash — deleting is permanent."
   },
   "badge": {
     "noOriginal": "No original file",
     "inherited": "Inherited from {{unit}}",
-    "orphan": "Unit deleted"
+    "orphan": "Unit deleted",
+    "favorite": "Favorite",
+    "pinned": "Pinned",
+    "sharedWithMe": "Shared with me",
+    "sharedCount": "Shared with {{count}} people/units",
+    "reviewDue": "Review due",
+    "expired": "Expired"
   },
   "table": {
     "name": "Document",
@@ -153,7 +181,12 @@
     "updated": "Updated",
     "size": "Size",
     "ai": "AI",
-    "actions": "Actions"
+    "actions": "Actions",
+    "location": "Location",
+    "owner": "Created by",
+    "createdAt": "Created",
+    "openedAt": "Last opened",
+    "updatedAt": "Updated"
   },
   "toast": {
     "uploaded": "Uploaded — the AI is reading the document",
@@ -161,10 +194,25 @@
     "saved": "Changes saved",
     "saveFailed": "Changes could not be saved",
     "fileReplaced": "File replaced — the AI is reading it again",
-    "deleted": "Document deleted",
+    "deleted": "Moved to trash",
     "deleteFailed": "The document could not be deleted",
     "reindexQueued": "Queued for re-indexing",
-    "legacyReplaced": "Original file uploaded — the old one is removed once the new one is indexed"
+    "legacyReplaced": "Original file uploaded — the old one is removed once the new one is indexed",
+    "folderCreated": "Folder created",
+    "folderDeleted": "Folder deleted",
+    "moved": "Document moved",
+    "restored": "Restored — AI is reading it again",
+    "deletedPermanently": "Deleted permanently",
+    "versionRestored": "Version restored — AI is reading it again",
+    "shared": "Shared",
+    "shareFailed": "Could not update sharing",
+    "unshared": "Sharing removed",
+    "trashEmptied_one": "Permanently deleted {{count}} document",
+    "trashEmptied_other": "Permanently deleted {{count}} documents",
+    "proposed": "Proposal sent",
+    "promotionApproved": "Approved — the document has been moved up",
+    "promotionRejected": "Proposal declined",
+    "promotionCancelled": "Proposal withdrawn"
   },
   "settingsCard": {
     "title": "AI assistant documents have moved to the Documents page",
@@ -190,5 +238,219 @@
     "done_one": "Deleted {{count}} personal document",
     "done_other": "Deleted {{count}} personal documents",
     "failed": "The personal documents could not be deleted"
+  },
+  "pageIntro": "Personal, unit and company documents in one place — organized in folders, shared with the people who need them, and K.AI reads exactly what each person is allowed to see.",
+  "nav": {
+    "label": "Document navigation",
+    "home": "Home",
+    "drive": "Drive",
+    "trash": "Trash",
+    "pinned": "Pinned",
+    "pinnedEmpty": "Pin documents you use often to open them quickly from here.",
+    "requests": "Proposals",
+    "storage": "Storage"
+  },
+  "location": {
+    "mine": "My documents",
+    "personalOf": "{{name}}'s personal library"
+  },
+  "folder": {
+    "createTitle": "New folder",
+    "renameTitle": "Rename folder",
+    "inside": "Inside “{{name}}”",
+    "create": "Create folder",
+    "name": "Folder name",
+    "namePlaceholder": "E.g. 2026 policies",
+    "deleteTitle": "Delete folder “{{name}}”?",
+    "deleteDescription": "Subfolders are deleted too. Documents inside go to the trash and can be restored within {{days}} days (to the root of their scope)."
+  },
+  "move": {
+    "title": "Move “{{title}}”",
+    "description": "Choose a folder in the same scope. To change who can view it, change “Scope” in the document details.",
+    "alreadyHere": "The document is already here",
+    "here": "Move here",
+    "noSubfolders": "No subfolders"
+  },
+  "drive": {
+    "breadcrumb": "Folder path",
+    "searchScope": "Search in {{name}}…"
+  },
+  "share": {
+    "intro": {
+      "PERSONAL": "Personal documents are visible only to you. Share to let others view and download it — and K.AI reads it when answering them.",
+      "UNIT": "Unit members can already view it. Share with other people or units so they can view it too — K.AI reads it when answering them.",
+      "COMPANY": "Everyone in the company can already view company documents; no extra sharing is needed."
+    },
+    "searchPlaceholder": "Search people or units…",
+    "noTargets": "No people or units found",
+    "results": "Search results",
+    "listHeading": "Shared with",
+    "none": "Not shared with anyone yet.",
+    "unitIncludesChildren": "(including sub-units)",
+    "grantedBy": "Shared by {{name}} at {{time}}",
+    "canView": "View",
+    "remove": "Stop sharing with {{name}}",
+    "youAreViewer": "{{name}} shared this document with you — you can view and download it, but not edit it.",
+    "noUnits": "The organization has no units to share with.",
+    "unitTree": "Unit tree",
+    "expand": "Expand {{name}}",
+    "collapse": "Collapse {{name}}",
+    "shareUnit": "Share with all of {{name}}",
+    "shareUser": "Share with {{name}}",
+    "viaUnit": "Can already view via the unit {{name}}",
+    "unitMeta_one": "{{count}} person · {{children}} sub-units",
+    "unitMeta_other": "{{count}} people · {{children}} sub-units",
+    "wholeUnit": "Whole unit",
+    "loadingMembers": "Loading people…",
+    "owner": "Owner",
+    "you": "You"
+  },
+  "versions": {
+    "intro": "Every time the file is replaced, the old one is kept (up to 10 versions). Restoring an old version does not lose the current one.",
+    "current": "Current",
+    "replacedBy": "replaced by {{name}}",
+    "restore": "Restore this version",
+    "none": "No earlier versions yet — use “Replace file” to create a new version.",
+    "confirmTitle": "Restore version v{{version}}?",
+    "confirmDescription": "This version becomes the current one; the current file is kept in the history. K.AI will read the content again."
+  },
+  "drawer": {
+    "tabs": "Document sections",
+    "tab": {
+      "info": "Details",
+      "share": "Sharing",
+      "versions": "Versions",
+      "ai": "What AI reads"
+    }
+  },
+  "trash": {
+    "title": "Trash",
+    "intro": "Deleted documents you can manage. They can be restored within {{days}} days, after which the file is deleted permanently.",
+    "emptyTitle": "Trash is empty",
+    "emptyDescription": "Deleted documents stay here for {{days}} days before being deleted permanently.",
+    "originalLocation": "Original location",
+    "deletedBy": "Deleted by",
+    "deletedAt": "Deleted",
+    "remaining": "Remaining",
+    "system": "System",
+    "daysLeft_one": "{{count}} day",
+    "daysLeft_other": "{{count}} days",
+    "restore": "Restore",
+    "deleteForever": "Delete permanently",
+    "confirmTitle": "Delete “{{title}}” permanently?",
+    "confirmDescription": "The file and all earlier versions are deleted immediately and cannot be restored.",
+    "empty": "Empty trash",
+    "emptyConfirmTitle": "Empty the trash?",
+    "emptyConfirmDescription_one": "Permanently delete {{count}} document and all its earlier versions. This cannot be undone.",
+    "emptyConfirmDescription_other": "Permanently delete {{count}} documents and all their earlier versions. This cannot be undone."
+  },
+  "home": {
+    "tabs": "Document lists",
+    "tab": {
+      "recent": "Recent",
+      "owned": "Created by me",
+      "shared": "Shared with me",
+      "favorites": "Favorites"
+    },
+    "cardUpload": "Upload",
+    "cardUploadHint": "Word, PDF, Excel, .txt, .md — read by K.AI right away",
+    "cardFolder": "New folder",
+    "cardFolderHint": "Organize documents by topic",
+    "cardAsk": "Ask K.AI about documents",
+    "cardAskHint": "Answers based on the documents you can view",
+    "empty": {
+      "recentTitle": "No documents opened yet",
+      "recentDescription": "Documents you recently opened or uploaded will appear here.",
+      "ownedTitle": "You have not created any documents",
+      "ownedDescription": "Documents you upload (personal, unit or company) will appear here.",
+      "sharedTitle": "Nothing has been shared with you yet",
+      "sharedDescription": "When someone shares a document with you or your unit, it will appear here.",
+      "favoritesTitle": "No favorite documents yet",
+      "favoritesDescription": "Click ⋯ → “Add to favorites” on a document to collect it here."
+    }
+  },
+  "layout": {
+    "label": "View",
+    "list": "List",
+    "grid": "Grid"
+  },
+  "picker": {
+    "button": "Choose from Documents",
+    "title": "Choose from the document library",
+    "description": "Choose up to {{max}} documents you can view. The files are copied here — deleting the original later does not affect them.",
+    "descriptionTypes": "Choose up to {{max}} documents you can view ({{types}} accepted). The files are copied here — deleting the original later does not affect them.",
+    "selected_one": "{{count}} document selected",
+    "selected_other": "{{count}} documents selected",
+    "attach_one": "Attach {{count}} file",
+    "attach_other": "Attach {{count}} files",
+    "tooMany": "You can choose at most {{max}} documents here",
+    "loadFailed": "Could not load the document file, please try again",
+    "emptyTitle": "No documents yet",
+    "emptyDescription": "Documents you upload or can view on the Documents page will appear here.",
+    "typeNotAccepted": "{{name}} — this file type is not accepted here"
+  },
+  "promotion": {
+    "propose": "Propose to a unit / the company",
+    "pendingTo": "Awaiting approval to move to {{target}}",
+    "cancel": "Withdraw proposal",
+    "dialogTitle": "Propose moving “{{title}}”",
+    "dialogDescription": "The document managers at the destination will review it. Once approved, the document is copied there — your copy stays as is.",
+    "send": "Send proposal",
+    "target": "Move to",
+    "targetPlaceholder": "Choose a unit or the company",
+    "note": "Note for the reviewer",
+    "notePlaceholder": "E.g. this process already works in our team, proposing it for the whole department",
+    "copyHint": "Everyone at the destination will be able to view the copy, and K.AI uses it when answering them.",
+    "inbox": "Awaiting my approval",
+    "inboxIntro": "Proposals to move documents to a unit or the company whose documents you manage. Approving copies the document there.",
+    "inboxEmptyTitle": "No proposals waiting for you",
+    "inboxEmptyDescription": "When someone proposes moving a document to a place you manage, it will appear here.",
+    "requestLine": "{{name}} proposed moving to {{target}} · {{time}}",
+    "approve": "Approve",
+    "reject": "Decline",
+    "mine": "Sent by me",
+    "mineIntro": "Your proposals to move documents up and their results.",
+    "mineEmptyTitle": "You have not sent any proposals",
+    "mineEmptyDescription": "Open one of your documents → “Propose to a unit / the company”.",
+    "status": {
+      "PENDING": "Pending",
+      "APPROVED": "Approved",
+      "REJECTED": "Declined",
+      "CANCELLED": "Withdrawn"
+    },
+    "mineLine": "To {{target}} · sent {{time}}",
+    "decidedBy": "Handled by {{name}} {{time}}",
+    "reason": "Note: {{note}}",
+    "openCopy": "Open the moved copy",
+    "approveTitle": "Approve moving to {{target}}",
+    "rejectTitle": "Decline proposal",
+    "approveDescription": "The document is copied as a new document at the destination (counted against its quota). You can rename the copy.",
+    "rejectDescription": "{{name}} will be notified with the reason.",
+    "copyTitle": "Document name at the destination",
+    "approveNote": "Note (optional)",
+    "rejectReason": "Reason"
+  },
+  "storage": {
+    "docsAndChunks_one": "{{count}} document · {{chunks}} AI chunks",
+    "docsAndChunks_other": "{{count}} documents · {{chunks}} AI chunks",
+    "perUnitQuota": "Quota per unit: {{quota}}",
+    "perPersonQuota": "Quota per person: {{quota}}",
+    "aiChunks": "Chunks in the AI store",
+    "trash": "Trash",
+    "trashHint_one": "{{count}} document, deleted permanently after {{days}} days",
+    "trashHint_other": "{{count}} documents, deleted permanently after {{days}} days",
+    "versions": "Earlier versions",
+    "versionsHint_one": "{{count}} old file kept when files were replaced (not counted against quota)",
+    "versionsHint_other": "{{count}} old files kept when files were replaced (not counted against quota)",
+    "topUnits": "Units using the most",
+    "topOwners": "Personal libraries using the most",
+    "topOwnersHint": "Only counts and sizes are shown — no names or content of personal documents.",
+    "none": "No data yet.",
+    "docs": "Documents",
+    "usedOfQuota": "Used / quota",
+    "chunks": "AI chunks",
+    "person": "Person",
+    "deletedUser": "Deleted account",
+    "deactivated": "Deactivated"
   }
 }

@@ -21,4 +21,11 @@ public class UpdateDocumentRequest {
     private Boolean aiEnabled;
     private DocumentScope scope;
     private UUID orgUnitId;
+    /**
+     * {@code true} = ghi đè CẢ HAI ngày bên dưới (gửi {@code null} để xoá ngày). Cần cờ riêng vì {@code null} ở các
+     * trường khác nghĩa là "giữ nguyên".
+     */
+    private Boolean datesSet;
+    private java.time.LocalDate reviewDate;
+    private java.time.LocalDate expiryDate;
 }

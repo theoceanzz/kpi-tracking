@@ -1,10 +1,13 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Paperclip, Upload, X, ExternalLink, FileText, ImageIcon, Sheet, Loader2 } from 'lucide-react'
+import { Paperclip, Upload, X, ExternalLink, Eye, FileText, ImageIcon, Sheet, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/apiError'
-import { ATTACHMENT_HINT, MAX_ATTACHMENT_FILES, formatBytes, screenEvidence } from '@/lib/attachmentPolicy'
+import { ATTACHMENT_EXTENSIONS, ATTACHMENT_HINT, MAX_ATTACHMENT_FILES, formatBytes, screenEvidence } from '@/lib/attachmentPolicy'
+import { canPreview } from '@/lib/filePreview'
+import MediaPreviewModal from '@/components/common/MediaPreviewModal'
+import { PickFromLibraryButton } from '@/features/documents/components/DocumentPickerDialog'
 import { Button } from '@/components/ui/button'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import type { Attachment } from '@/types/submission'
@@ -40,6 +43,7 @@ export default function EvidenceAttachments({ target, readOnly = false, title = 
   const { data: files = [], isLoading } = useQuery({ queryKey: key, queryFn: () => evidenceApi.list(target) })
   const inputRef = useRef<HTMLInputElement>(null)
   const [pendingDelete, setPendingDelete] = useState<Attachment | null>(null)
+  const [previewing, setPreviewing] = useState<Attachment | null>(null)
 
   const upload = useMutation({
     mutationFn: (picked: File[]) => evidenceApi.upload(target, picked),
@@ -55,7 +59,7 @@ export default function EvidenceAttachments({ target, readOnly = false, title = 
     onError: err => toast.error(getApiErrorMessage(err, t('EvidenceAttachments.couldNotDeleteTheFile'))),
   })
 
-  const onPick = (list: FileList | null) => {
+  const onPick = (list: FileList | File[] | null) => {
     if (!list?.length) return
     // Cùng bộ lọc với bài nộp: loại, dung lượng, số tệp — báo trước, không để server từ chối.
     const screened = screenEvidence(Array.from(list), [])
@@ -84,10 +88,14 @@ export default function EvidenceAttachments({ target, readOnly = false, title = 
         {canAdd && (
           <>
             <input ref={inputRef} type="file" multiple className="hidden" onChange={e => onPick(e.target.files)} aria-label={t('EvidenceAttachments.chooseEvidenceFiles')} />
-            <Button variant="outline" size="sm" type="button" onClick={() => inputRef.current?.click()} disabled={upload.isPending}>
-              {upload.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Upload aria-hidden="true" />}
-              {t('EvidenceAttachments.attachFiles')}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" type="button" onClick={() => inputRef.current?.click()} disabled={upload.isPending}>
+                {upload.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Upload aria-hidden="true" />}
+                {t('EvidenceAttachments.attachFiles')}
+              </Button>
+              <PickFromLibraryButton accept={ATTACHMENT_EXTENSIONS} max={MAX_ATTACHMENT_FILES - files.length}
+                                     disabled={upload.isPending} onPicked={picked => onPick(picked)} />
+            </div>
           </>
         )}
       </div>
@@ -107,6 +115,12 @@ export default function EvidenceAttachments({ target, readOnly = false, title = 
                   {a.fileName}
                 </a>
                 <span className="shrink-0 text-caption tabular-nums">{a.fileSize ? formatBytes(a.fileSize) : ''}</span>
+                {canPreview(a.fileName, a.contentType) && (
+                  <Button variant="ghost" size="icon-sm" type="button" onClick={() => setPreviewing(a)}
+                          aria-label={t('EvidenceAttachments.preview', { fileName: a.fileName })} title={t('EvidenceAttachments.preview', { fileName: a.fileName })}>
+                    <Eye aria-hidden="true" />
+                  </Button>
+                )}
                 <Button asChild variant="ghost" size="icon-sm" aria-label={t('EvidenceAttachments.open', { fileName: a.fileName })}>
                   <a href={a.fileUrl} target="_blank" rel="noopener noreferrer"><ExternalLink aria-hidden="true" /></a>
                 </Button>
@@ -119,6 +133,11 @@ export default function EvidenceAttachments({ target, readOnly = false, title = 
             )
           })}
         </ul>
+      )}
+
+      {previewing && (
+        <MediaPreviewModal isOpen onClose={() => setPreviewing(null)} url={previewing.fileUrl}
+                           fileName={previewing.fileName} contentType={previewing.contentType} />
       )}
 
       <ConfirmDialog

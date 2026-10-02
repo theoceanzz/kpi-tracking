@@ -23,6 +23,7 @@ import {
   useUploadAiCriteriaSet,
 } from '../hooks/useAiReview'
 import type { AiCriteriaChangeRequest, AiCriteriaSet } from '../api/aiReviewApi'
+import { PickFromLibraryButton } from '@/features/documents/components/DocumentPickerDialog'
 
 const ACCEPT = '.docx,.doc,.pdf,.xlsx,.xls,.png,.jpg,.jpeg,.txt'
 
@@ -177,10 +178,14 @@ export default function AiCriteriaSetSection() {
             <span className="text-label">Tài liệu</span>
             <input ref={fileRef} type="file" accept={ACCEPT} className="sr-only" id="ai-criteria-file"
                    onChange={e => setFile(e.target.files?.[0] ?? null)} />
-            <Button variant="outline" className="w-full justify-start" onClick={() => fileRef.current?.click()}>
-              <Upload aria-hidden="true" />
-              <span className="truncate">{file ? file.name : 'Word, PDF, Excel'}</span>
-            </Button>
+            <div className="flex gap-1.5">
+              <Button variant="outline" className="min-w-0 flex-1 justify-start" onClick={() => fileRef.current?.click()}>
+                <Upload aria-hidden="true" />
+                <span className="truncate">{file ? file.name : 'Word, PDF, Excel'}</span>
+              </Button>
+              <PickFromLibraryButton iconOnly size="icon" accept={['docx', 'pdf', 'xlsx', 'txt']} max={1}
+                                     onPicked={files => setFile(files[0] ?? null)} />
+            </div>
           </div>
           <div className="space-y-1">
             <span className="text-label flex items-center gap-1">

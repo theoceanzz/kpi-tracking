@@ -23,6 +23,7 @@ export function useBscInvalidator() {
     queryClient.invalidateQueries({ queryKey: ['bsc-scorecards'] })
     queryClient.invalidateQueries({ queryKey: ['bsc-scorecard-tree'] })
     queryClient.invalidateQueries({ queryKey: ['bsc-coverage'] })
+    queryClient.invalidateQueries({ queryKey: ['bsc-whole-cascade'] })
     queryClient.invalidateQueries({ queryKey: ['bsc-unit-result'] })
     queryClient.invalidateQueries({ queryKey: ['bsc-perspectives'] })
   }

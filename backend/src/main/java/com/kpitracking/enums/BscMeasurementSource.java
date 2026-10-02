@@ -10,10 +10,13 @@ package com.kpitracking.enums;
  * <p>{@link #CHILD_ROLLUP} — cộng từ kết quả của các ĐƠN VỊ CON đã nhận phân rã chỉ tiêu này.
  * Giá trị này KHÔNG chọn được lúc cấu hình: nó chỉ xuất hiện trên dòng KẾT QUẢ, khi hệ thống thấy
  * chỉ tiêu đã được giao xuống cấp dưới và lấy số từ đó thay vì cộng KPI cá nhân.
+ * <p>{@link #SCORECARD_RESULT} — dòng "Kết quả cấp trên" của phân rã cả bộ: lấy kết quả tổng của
+ * thẻ nguồn trong cùng đợt. Cũng chỉ xuất hiện trên dòng KẾT QUẢ (cột cấu hình có CHECK riêng).
  */
 public enum BscMeasurementSource {
     ROLLUP,
     MANUAL,
     DATASOURCE,
-    CHILD_ROLLUP
+    CHILD_ROLLUP,
+    SCORECARD_RESULT
 }

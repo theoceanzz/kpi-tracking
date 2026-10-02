@@ -101,7 +101,12 @@
     "weight": "Weight",
     "yourEvidence": "Your evidence",
     "yourSelfAssessment": "Your self-assessment",
-    "yourSelfScore": "Your self-score"
+    "yourSelfScore": "Your self-score",
+    "provisional": "Provisional",
+    "provisionalHint": "The result of {{name}} has not been finalized — this row's score may still change.",
+    "provisionalConfirmTitle": "Finalize with provisional figures?",
+    "provisionalConfirmDescription": "The result of {{names}} has not been finalized, so the upper-level result row is still provisional. Finalizing now saves the evaluation with this provisional figure and flags it.",
+    "provisionalConfirm": "Finalize anyway"
   },
   "evaluationSchema": {
     "minimumScoreIs0": "Minimum score is 0",

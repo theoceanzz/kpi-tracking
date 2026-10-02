@@ -842,7 +842,6 @@
     "whenABankTransferArrivesAnd": "When a bank transfer arrives and the wallet balance is credited",
     "whenABscScorecardIsApplied": "When a BSC scorecard is applied for scoring",
     "whenABscScorecardIsApproved": "When a BSC scorecard is approved",
-    "whenABscScorecardIsLocked": "When a BSC scorecard is locked or unlocked",
     "whenABscScorecardIsReturned": "When a BSC scorecard is returned for changes",
     "whenAGiftRedemptionRequestIs": "When a gift redemption request is approved",
     "whenAGiftRedemptionRequestIs2": "When a gift redemption request is rejected and points are refunded",
@@ -878,7 +877,11 @@
     "whenTheUnitsBscResultsFor": "When the unit's BSC results for a period are finalized",
     "whenYourPeriodEvaluationResultsAre": "When your period evaluation results are available (for the person scored)",
     "whenASubordinateRequestsChangingAiRules": "When a lower unit requests changing the AI scoring rules you applied (for the applier / superior)",
-    "whenYourAiRulesRequestIsDecided": "When your request to change AI scoring rules is approved or rejected"
+    "whenYourAiRulesRequestIsDecided": "When your request to change AI scoring rules is approved or rejected",
+    "whenSomeoneSharesADocumentWithYou": "When someone shares a document with you or with your unit",
+    "whenSomeoneProposesADocumentForYourScope": "When someone proposes moving a document to a unit or the company whose documents you manage",
+    "whenYourDocumentProposalIsDecided": "When your proposal to move a document up is approved or declined",
+    "whenADocumentIsDueForReview": "When a document you manage reaches its review date or is about to expire"
   },
   "useAiQuota": {
     "couldNotUpdate": "Could not update",

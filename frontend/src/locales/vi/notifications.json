@@ -43,7 +43,10 @@
     "wallet": "Ví tiền",
     "walletReconciliation": "Đối soát ví",
     "youHaveReadAllNotifications": "Bạn đã đọc hết thông báo.",
-    "aiScoringRules": "Quy chế chấm AI"
+    "aiScoringRules": "Quy chế chấm AI",
+    "sharedDocuments": "Tài liệu được chia sẻ",
+    "documentProposals": "Đề xuất tài liệu",
+    "documentReview": "Rà soát tài liệu"
   },
   "useNotifications": {
     "markedAllNotificationsAsRead": "Đã đánh dấu tất cả thông báo là đã đọc"

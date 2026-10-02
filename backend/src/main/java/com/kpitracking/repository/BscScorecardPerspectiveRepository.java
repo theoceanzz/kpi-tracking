@@ -17,15 +17,25 @@ public interface BscScorecardPerspectiveRepository extends JpaRepository<BscScor
     /**
      * Các dòng con đã nhận phân rã từ một dòng chỉ tiêu — dùng để đo độ phủ (coverage).
      *
-     * <p>JOIN sang bộ tiêu chí là CÓ CHỦ Ý, không thừa: {@code BscScorecard} có
-     * {@code @SQLRestriction("deleted_at IS NULL")}, nên phép join tự loại các dòng thuộc bộ tiêu
-     * chí đã xoá mềm. Không join thì các dòng đó vẫn trả về, và ngay khi đọc {@code getScorecard()}
-     * để dựng response, Hibernate nạp proxy trỏ vào bản ghi đã xoá rồi ném EntityNotFoundException
-     * — tức xoá một bộ tiêu chí con làm hỏng luôn màn hình độ phủ của bộ tiêu chí cha.
+     * <p>Phải lọc {@code s.deletedAt IS NULL} TƯỜNG MINH: {@code @SQLRestriction} của
+     * {@code BscScorecard} KHÔNG được Hibernate áp vào phép JOIN trong JPQL (đã kiểm trên DB thật).
+     * Thiếu điều kiện này thì dòng của bộ tiêu chí đã xoá mềm vẫn trả về, và ngay khi đọc
+     * {@code getScorecard()} Hibernate ném EntityNotFoundException — xoá một bộ tiêu chí con làm
+     * hỏng luôn màn hình độ phủ (và việc xoá) của bộ tiêu chí cha.
      */
-    @Query("SELECT sp FROM BscScorecardPerspective sp JOIN sp.scorecard s WHERE sp.parentItem.id = :parentItemId")
+    @Query("SELECT sp FROM BscScorecardPerspective sp JOIN sp.scorecard s "
+            + "WHERE sp.parentItem.id = :parentItemId AND s.deletedAt IS NULL")
     List<BscScorecardPerspective> findByParentItemId(@Param("parentItemId") UUID parentItemId);
 
-    @Query("SELECT sp FROM BscScorecardPerspective sp JOIN sp.scorecard s WHERE sp.parentItem.id IN :parentItemIds")
+    @Query("SELECT sp FROM BscScorecardPerspective sp JOIN sp.scorecard s "
+            + "WHERE sp.parentItem.id IN :parentItemIds AND s.deletedAt IS NULL")
     List<BscScorecardPerspective> findByParentItemIdIn(@Param("parentItemIds") java.util.Collection<UUID> parentItemIds);
+
+    /**
+     * Các dòng "Kết quả cấp trên" đang lấy điểm từ một thẻ nguồn (phân rã cả bộ). Lọc thẻ đã xoá
+     * mềm tường minh, cùng lý do như {@link #findByParentItemId}.
+     */
+    @Query("SELECT sp FROM BscScorecardPerspective sp JOIN sp.scorecard s JOIN sp.perspective p "
+            + "WHERE p.sourceScorecard.id = :sourceId AND s.deletedAt IS NULL")
+    List<BscScorecardPerspective> findBySourceScorecardId(@Param("sourceId") UUID sourceId);
 }

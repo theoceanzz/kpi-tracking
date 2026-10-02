@@ -64,7 +64,8 @@ public class HelpAgentFactory {
                 .contentInjector(DefaultContentInjector.builder()
                         // Model cần ba thứ ngoài chữ: mục nào (để nói đúng ngữ cảnh), mở ở đâu, ảnh nào.
                         // docTitle + scope: để model ghi nguồn và phân biệt quy định công ty với ghi chú cá nhân.
-                        .metadataKeysToInclude(List.of("docTitle", "scope", "parent", "title", "route", "roles", "images", "captions"))
+                        // validity: chỉ có khi tài liệu đã hết hiệu lực — model phải nói rõ khi trích.
+                        .metadataKeysToInclude(List.of("docTitle", "validity", "scope", "parent", "title", "route", "roles", "images", "captions"))
                         .promptTemplate(PromptTemplate.from(
                                 "{{userMessage}}\n\nTài liệu liên quan:\n{{contents}}"))
                         .build())
