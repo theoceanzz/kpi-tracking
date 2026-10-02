@@ -16,6 +16,11 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import WholeCascadeBody from './WholeCascadeBody'
+
+/** Giao từng chỉ tiêu (có đóng góp) hay giao CẢ BỘ thành một dòng "Kết quả cấp trên" chỉ có trọng số. */
+type CascadeMode = 'item' | 'whole'
+const WHOLE_FORM_ID = 'whole-cascade-form'
 
 interface CascadeModalProps {
   open: boolean
@@ -49,8 +54,9 @@ interface TargetRow {
 export default function CascadeModal({ open, onClose, scorecard }: CascadeModalProps) {
   const { t } = useTranslation('bsc')
   const { data: orgUnitTreeData } = useOrgUnitTree()
-  const { cascade } = useCascadeMutations()
+  const { cascade, cascadeWhole } = useCascadeMutations()
 
+  const [mode, setMode] = useState<CascadeMode>('item')
   const [itemId, setItemId] = useState<string>('')
   const [linkType, setLinkType] = useState<BscLinkType>(BscLinkType.SUM)
   /** CHỈ chứa thay đổi người dùng vừa gõ. Phần đã giao trước đó đọc thẳng từ độ phủ (xem rowOf). */
@@ -58,8 +64,10 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
 
   const { data: coverage } = useScorecardCoverage(open ? scorecard?.id : undefined)
 
+  // Dòng "Kết quả cấp trên" không có con số để chia — muốn giao tiếp xuống thì giao cả bộ.
   const items: ScorecardPerspectiveResponse[] = useMemo(
-    () => (scorecard?.perspectives || []).slice().sort((a, b) => a.displayOrder - b.displayOrder),
+    () => (scorecard?.perspectives || []).filter(p => !p.sourceScorecardId)
+      .sort((a, b) => a.displayOrder - b.displayOrder),
     [scorecard],
   )
   // Mặc định chọn chỉ tiêu đầu tiên thay vì để trống: modal này chỉ có một việc để làm, bắt người
@@ -192,27 +200,69 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
     }, { onSuccess: () => { setRows({}); onClose() } })
   }
 
+  const pending = cascade.isPending || cascadeWhole.isPending
+
+  /** Tổng thẻ con lệch 100% sau khi giao ⇒ đơn vị phải chia lại trước khi trình; báo ngay cho người giao. */
+  const submitWhole = (data: Parameters<typeof cascadeWhole.mutate>[0]['data']) =>
+    cascadeWhole.mutate({ scorecardId: scorecard.id, data }, {
+      onSuccess: res => {
+        const off = (res?.recipients ?? []).filter(r => Math.abs((r.scorecardTotalWeight ?? 0) - 100) > 0.01)
+        if (off.length > 0) {
+          toast.warning(t('CascadeModal.childTotalsOff', {
+            units: off.map(r => `${r.orgUnitName ?? r.scorecardName} (${Math.round((r.scorecardTotalWeight ?? 0) * 10) / 10}%)`).join(', '),
+          }))
+        }
+        onClose()
+      },
+    })
+
+  const modeSwitch = (
+    <div className="grid grid-cols-2 gap-2">
+      {([
+        { value: 'item' as const, label: t('CascadeModal.modeItem') },
+        { value: 'whole' as const, label: t('CascadeModal.modeWhole') },
+      ]).map(opt => (
+        <ChoiceChip key={opt.value} selected={mode === opt.value} variant="solid" onClick={() => setMode(opt.value)}>
+          {opt.label}
+        </ChoiceChip>
+      ))}
+    </div>
+  )
+
   return (
     <Dialog
       open
       onClose={onClose}
       size="lg"
-      dismissible={!cascade.isPending}
+      dismissible={!pending}
       title={t('CascadeModal.cascadeKpiToUnits')}
       description={<span className="block truncate" title={scorecard.name}>{scorecard.name}</span>}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={cascade.isPending}>{t('CascadeModal.cancel')}</Button>}
-          primary={
-            <Button onClick={submit} disabled={!selectedItem || selected.length === 0 || cascade.isPending}>
+          secondary={<Button variant="outline" onClick={onClose} disabled={pending}>{t('CascadeModal.cancel')}</Button>}
+          primary={mode === 'whole' ? (
+            <Button type="submit" form={WHOLE_FORM_ID} disabled={pending}>
+              {cascadeWhole.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {t('CascadeModal.saveWhole')}
+            </Button>
+          ) : (
+            <Button onClick={submit} disabled={!selectedItem || selected.length === 0 || pending}>
               {cascade.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
               {assigned.size > 0 ? t('CascadeModal.update') : t('CascadeModal.cascade')} {t('CascadeModal.forUnits', { count: selected.length })}
             </Button>
-          }
+          )}
         />
       }
     >
+      {mode === 'whole' ? (
+        <div className="space-y-4">
+          {modeSwitch}
+          <WholeCascadeBody scorecard={scorecard} units={targetUnits} ownUnitIds={ownUnitIds}
+            formId={WHOLE_FORM_ID} onSubmit={submitWhole} />
+        </div>
+      ) : (
       <div className="space-y-4">
+        {modeSwitch}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <label className="text-label">{t('CascadeModal.kpiToAssign')}</label>
@@ -309,6 +359,7 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
           {t('CascadeModal.unitsReceiveTheKpiAs')} <b>{t('CascadeModal.locked')}</b>{t('CascadeModal.theUnitHeadCannotEditThe')} <b>{t('CascadeModal.theWeightMustBeEnteredHere')}</b> {t('CascadeModal.ifLeftEmptyTheKpiStays')}
         </p>
       </div>
+      )}
     </Dialog>
   )
 }

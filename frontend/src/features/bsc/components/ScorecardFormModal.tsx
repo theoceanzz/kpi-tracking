@@ -2,7 +2,7 @@ import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Scale, ChevronDown, Check, PlusCircle, Edit2, Trash2, Target, Lock, ShieldAlert } from 'lucide-react'
+import { Loader2, Scale, ChevronDown, Check, PlusCircle, Edit2, Trash2, Target, Lock, ShieldAlert, GripVertical } from 'lucide-react'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -17,7 +17,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useBscMutations, useBscPerspectives, useFixedPerspectives, useScorecardMutations } from '../hooks/useBsc'
-import PerspectiveFormModal from './PerspectiveFormModal'
+import PerspectiveFormModal, { type PerspectiveTargetPatch } from './PerspectiveFormModal'
 import { scorecardSchema, type ScorecardFormData, type WeightRow } from '../schemas/scorecardSchema'
 import { toastFirstError } from '@/lib/formErrors'
 import { SCORECARD_STATUS_CHOICES, scorecardStatusMeta } from '../utils/scorecardStatus'
@@ -26,6 +26,7 @@ import {
   ScorecardResponse, ScorecardRequest, BscScorecardStatus, BscScoringMode, BscEmptyPerspectivePolicy,
   BscFixedPerspective, PerspectiveResponse, FixedPerspectiveResponse, BscScorecardApplyScope,
   ScorecardPerspectiveResponse, BscItemOrigin, BscGateEffect, BscGateScope, BscMeasurementSource,
+  BscPerspectiveStatus,
 } from '../types'
 import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useCreatePeriodCycleOption } from '@/components/common/CreatePeriodCycleOption'
@@ -35,27 +36,11 @@ import { perLanguage } from '@/i18n/perLanguage'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
 
-/**
- * Vì sao ô trạng thái bị khoá, nói theo đúng trạng thái đang có và chỉ luôn nút cần bấm.
- * Câu chung chung "đổi qua luồng duyệt" không giúp người dùng biết phải bấm gì, ở đâu.
- */
-const STATUS_LOCK_HINT = perLanguage((): Partial<Record<BscScorecardStatus, string>> => ({
-  [BscScorecardStatus.SUBMITTED]: i18n.t('bsc:ScorecardFormModal.waitingForParentApprovalOnceThe'),
-  [BscScorecardStatus.ACTIVE]: i18n.t('bsc:ScorecardFormModal.inUseForScoringToStop'),
-  [BscScorecardStatus.LOCKED]: i18n.t('bsc:ScorecardFormModal.lockedClickUnlockOnTheScorecard'),
-  [BscScorecardStatus.APPROVED]: i18n.t('bsc:ScorecardFormModal.theOldScorecardIsStillWaiting'),
-  [BscScorecardStatus.CLOSED]: i18n.t('bsc:ScorecardFormModal.closedClickApplyOnTheScorecard'),
-}))
-
-const STATUS_LOCK_HINT_DEFAULT = perLanguage(() => (i18n.t('bsc:ScorecardFormModal.changeStatusWithTheButtonsOn')))
-
 interface ScorecardFormModalProps {
   isOpen: boolean
   onClose: () => void
   organizationId: string
   scorecard?: ScorecardResponse
-  /** Mở sẵn form tạo hạng mục cho lĩnh vực này (nút "Thêm hạng mục" ngoài danh sách). */
-  autoCreateFixed?: BscFixedPerspective
 }
 
 /**
@@ -81,7 +66,7 @@ const toRow = (
   enabled: boolean,
   row?: Partial<Pick<ScorecardPerspectiveResponse,
     'targetValue' | 'minimumValue' | 'unit' | 'origin' | 'locked' | 'parentItemName'
-    | 'parentScorecardName' | 'measurementSource' | 'isGate' | 'gateMinPercent'
+    | 'parentScorecardName' | 'sourceScorecardName' | 'measurementSource' | 'isGate' | 'gateMinPercent'
     | 'gateEffect' | 'gateCapRating' | 'gateAppliesTo'>>,
 ): WeightRow => ({
   perspectiveId: p.id,
@@ -97,6 +82,7 @@ const toRow = (
   locked: row?.locked ?? false,
   parentItemName: row?.parentItemName ?? null,
   parentScorecardName: row?.parentScorecardName ?? null,
+  sourceScorecardName: row?.sourceScorecardName ?? null,
   measurementSource: row?.measurementSource ?? BscMeasurementSource.ROLLUP,
   isGate: row?.isGate ?? false,
   gateMinPercent: row?.gateMinPercent ?? null,
@@ -106,6 +92,33 @@ const toRow = (
   weight,
   enabled,
 })
+
+/**
+ * Đánh lại thứ tự 0..n-1 theo khoá sắp xếp. Thứ tự dòng là của RIÊNG bộ tiêu chí (kéo thả để
+ * đổi) nên chỉ cần tương đối; số liền nhau giúp phép đổi chỗ khi kéo thả không bao giờ đụng nhau.
+ */
+/**
+ * Hạng mục hệ thống của dòng "Kết quả cấp trên" bị giấu khỏi danh mục (KPI không được gắn vào),
+ * nên dựng lại từ chính các dòng của thẻ — thiếu nó thì dòng đó biến khỏi bảng, tổng trọng số
+ * hụt đúng phần đó và lưu là bị báo lệch 100%.
+ */
+const withSourceRows = (catalog: PerspectiveResponse[], scorecard?: ScorecardResponse): PerspectiveResponse[] => [
+  ...catalog,
+  ...(scorecard?.perspectives ?? [])
+    .filter(sp => sp.sourceScorecardId && !catalog.some(p => p.id === sp.perspectiveId))
+    .map(sp => ({
+      id: sp.perspectiveId,
+      code: sp.code,
+      name: sp.name,
+      color: sp.color,
+      fixedPerspective: (sp.fixedPerspective ?? undefined) as BscFixedPerspective | undefined,
+      displayOrder: sp.displayOrder,
+      status: BscPerspectiveStatus.ACTIVE,
+    }) as PerspectiveResponse),
+]
+
+const rankRows = (list: WeightRow[], key: (r: WeightRow) => number) =>
+  [...list].sort((a, b) => key(a) - key(b)).map((r, i) => ({ ...r, displayOrder: i }))
 
 /**
  * Hạng mục có mặt trong bộ tiêu chí nhưng chưa KPI nào gắn vào thì tính điểm ra sao.
@@ -126,7 +139,7 @@ const EMPTY_POLICY_META = perLanguage((): Record<BscEmptyPerspectivePolicy, { sh
   },
 }))
 
-export default function ScorecardFormModal({ isOpen, onClose, organizationId, scorecard, autoCreateFixed }: ScorecardFormModalProps) {
+export default function ScorecardFormModal({ isOpen, onClose, organizationId, scorecard }: ScorecardFormModalProps) {
   const { t } = useTranslation('bsc')
   const { data: periodsData } = useKpiPeriods({ organizationId, size: 200, sortBy: 'startDate', direction: 'desc' })
   const { data: cyclesData } = useKpiCycles({ organizationId, size: 200, sortBy: 'startDate', direction: 'desc' })
@@ -216,7 +229,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
   const pendingWeights = useRef<Record<string, number>>({})
   const [perspectiveModal, setPerspectiveModal] = useState<
     { perspective?: PerspectiveResponse; fixed?: BscFixedPerspective } | null
-  >(autoCreateFixed ? { fixed: autoCreateFixed } : null)
+  >(null)
   const [editingFixed, setEditingFixed] = useState<FixedPerspectiveResponse | undefined>()
   const [deletePerspectiveTarget, setDeletePerspectiveTarget] = useState<WeightRow | null>(null)
   // Dòng nào đang mở ô nhập mục tiêu riêng. Mặc định đóng để bảng trọng số vẫn gọn —
@@ -255,9 +268,13 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
           scopes: (scorecard.orgUnits || []).map(u => u.id),
           status: scorecard.status,
           emptyPolicy: scorecard.emptyPerspectivePolicy,
-          rows: perspectives.map(p => {
+          // Dòng đã có trong thẻ theo thứ tự đã lưu của thẻ; hạng mục chưa dùng xếp sau.
+          rows: rankRows(withSourceRows(perspectives, scorecard).map(p => {
             const existing = scorecard.perspectives.find(sp => sp.perspectiveId === p.id)
             return toRow(p, existing?.weightPercentage ?? 0, !!existing, existing)
+          }), r => {
+            const existing = scorecard.perspectives.find(sp => sp.perspectiveId === r.perspectiveId)
+            return existing ? existing.displayOrder : 100_000 + r.displayOrder
           }),
         })
       } else {
@@ -268,7 +285,8 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
           periodIds: [], cycleId: '', scopes: defaultScopeIds,
           status: BscScorecardStatus.DRAFT,
           emptyPolicy: BscEmptyPerspectivePolicy.RENORMALIZE,
-          rows: perspectives.map(p => toRow(p, 0, true)),
+          // Không tick sẵn: người lập thẻ tự chọn hạng mục nào vào bộ tiêu chí.
+          rows: rankRows(perspectives.map(p => toRow(p, 0, false)), r => r.displayOrder),
         })
       }
       return
@@ -278,11 +296,18 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
     // việc chia trọng số; hạng mục vừa xoá thì rời khỏi danh sách.
     updateRows(prev => {
       const byId = new Map(prev.map(r => [r.perspectiveId, r]))
-      return perspectives.map(p => {
+      let nextOrder = prev.reduce((m, r) => Math.max(m, r.displayOrder), -1) + 1
+      return withSourceRows(perspectives, scorecard).map(p => {
         const old = byId.get(p.id)
         const pending = pendingWeights.current[p.id]
         if (pending !== undefined) delete pendingWeights.current[p.id]
-        return toRow(p, pending ?? old?.weight ?? 0, old?.enabled ?? true, old)
+        // Giữ thứ tự người dùng đã kéo; hạng mục mới xuống cuối. Hạng mục vừa tạo NGAY TRONG
+        // modal này (có trọng số chờ áp) thì tick luôn — tạo ở đây tức là muốn đưa vào thẻ.
+        // Hạng mục xuất hiện từ nơi khác thì để trống cho người dùng tự chọn.
+        return {
+          ...toRow(p, pending ?? old?.weight ?? 0, old?.enabled ?? pending !== undefined, old),
+          displayOrder: old?.displayOrder ?? nextOrder++,
+        }
       })
     })
   }, [isOpen, scorecard, perspectives])
@@ -302,9 +327,20 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
   const setWeight = (id: string, w: number) => updateRows(prev => prev.map(r => r.perspectiveId === id ? { ...r, weight: w } : r))
 
   // Trọng số vừa nhập trong modal hạng mục (tạo mới hoặc sửa) → áp thẳng vào dòng tương ứng.
-  const applyPerspectiveWeight = (perspectiveId: string, weight: number) => {
+  const applyPerspectiveWeight = (perspectiveId: string, weight: number, saved?: PerspectiveTargetPatch) => {
     pendingWeights.current[perspectiveId] = weight
-    updateRows(prev => prev.map(r => r.perspectiveId === perspectiveId ? { ...r, weight, enabled: true } : r))
+    // Sửa mục tiêu của hạng mục ngay từ bộ tiêu chí: dòng đang ĐI THEO mặc định của hạng mục thì
+    // ăn luôn con số mới — nếu không dòng vẫn giữ số cũ và trông như lưu không được. Dòng đã đặt
+    // số riêng (nhãn "riêng") hoặc do cấp trên giao thì giữ nguyên, đó là chủ ý của thẻ này.
+    const before = perspectiveModal?.perspective
+    updateRows(prev => prev.map(r => {
+      if (r.perspectiveId !== perspectiveId) return r
+      const followsCatalog = !!before && !!saved && !r.locked
+        && (r.targetValue ?? null) === (before.targetValue ?? null)
+        && (r.minimumValue ?? null) === (before.minimumValue ?? null)
+        && (r.unit ?? null) === (before.unit ?? null)
+      return { ...r, weight, enabled: true, ...(followsCatalog ? saved : {}) }
+    }))
   }
   const toggle = (id: string) => updateRows(prev => prev.map(r => r.perspectiveId === id ? { ...r, enabled: !r.enabled } : r))
 
@@ -320,7 +356,34 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
   const toggleTargetRow = (id: string) =>
     setOpenTargetRows(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
-  // Tick node gốc ⇒ chọn/bỏ toàn bộ; tick hết các đơn vị con khác ⇒ tự tick luôn gốc (giống OKR).
+  /**
+   * Kéo thả đổi thứ tự trong CÙNG một lĩnh vực. Dòng chỉ draggable khi đang giữ tay nắm — để cả
+   * dòng draggable thì không bôi chọn được chữ trong ô trọng số / mục tiêu nằm trên dòng đó.
+   */
+  const [dragArmed, setDragArmed] = useState<string | null>(null)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const endDrag = () => { setDragArmed(null); setDragId(null); setDragOverId(null) }
+  const sameGroup = (a: string | null, b: string) => {
+    const ra = rows.find(r => r.perspectiveId === a)
+    const rb = rows.find(r => r.perspectiveId === b)
+    return !!ra && !!rb && ra.perspectiveId !== rb.perspectiveId && ra.fixedPerspective === rb.fixedPerspective
+  }
+  /** Đưa `fromId` vào chỗ của `toId`; các dòng trong lĩnh vực đổi chỗ trên chính dãy số đang dùng. */
+  const moveRow = (fromId: string, toId: string) => updateRows(prev => {
+    const from = prev.find(r => r.perspectiveId === fromId)
+    if (!from) return prev
+    const group = prev.filter(r => r.fixedPerspective === from.fixedPerspective)
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+    const ids = group.map(r => r.perspectiveId)
+    const target = ids.indexOf(toId)
+    if (target < 0 || fromId === toId) return prev
+    ids.splice(ids.indexOf(fromId), 1)
+    ids.splice(target, 0, fromId)
+    const slot = new Map(ids.map((id, i) => [id, group[i]!.displayOrder]))
+    return prev.map(r => slot.has(r.perspectiveId) ? { ...r, displayOrder: slot.get(r.perspectiveId)! } : r)
+  })
+
   /**
    * Tick thẳng đúng đơn vị được chọn, KHÔNG lan xuống cây nữa.
    *
@@ -380,6 +443,24 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
 
   const isPending = createScorecard.isPending || updateScorecard.isPending
 
+  /**
+   * Người có quyền duyệt tạo thẻ mới: không còn ô chọn trạng thái — "Xác nhận tạo" là áp dụng
+   * luôn, cạnh đó có nút "Lưu nháp". Ô chọn chỉ thừa một bước cho việc họ làm gần như mọi lần.
+   */
+  const quickCreate = !scorecard && canApprove
+  /**
+   * Ô trạng thái chỉ hiện khi đổi được thật: sửa thẻ chưa vào luồng duyệt, bởi người có quyền
+   * duyệt. Còn lại trạng thái do các nút trên cây quyết định — hiện một ô khoá chỉ gây hiểu nhầm.
+   */
+  const showStatus = !!scorecard && canApprove && statusEditable
+  const submitAs = (forced?: BscScorecardStatus) =>
+    rhfHandleSubmit(data => onSubmit(forced ? { ...data, status: forced } : data), toastFirstError)
+
+  const groupRank = (r: WeightRow) => {
+    const i = (fixedPerspectives || []).findIndex(fp => fp.code === r.fixedPerspective)
+    return i < 0 ? Number.MAX_SAFE_INTEGER : i
+  }
+
   const onSubmit = (data: ScorecardFormData) => {
     const cycleMode = data.applyScope === BscScorecardApplyScope.CYCLE
     const payload: ScorecardRequest = {
@@ -394,7 +475,9 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
       emptyPerspectivePolicy: data.emptyPolicy,
       // Mục tiêu gửi kèm từng dòng: backend coi danh sách này là authoritative nên null ở đây
       // đúng nghĩa "hạng mục này không đặt mục tiêu riêng trong bộ tiêu chí".
+      // Thứ tự gửi đi = thứ tự đang thấy: theo lĩnh vực, rồi theo vị trí kéo thả trong lĩnh vực.
       perspectives: data.rows.filter(r => r.enabled)
+        .sort((a, b) => groupRank(a) - groupRank(b) || a.displayOrder - b.displayOrder)
         .map((r, idx) => ({
           perspectiveId: r.perspectiveId,
           weightPercentage: Number(r.weight) || 0,
@@ -442,9 +525,33 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
       || (r.unit ?? null) !== (catalog.unit ?? null)
     )
     const targetOpen = openTargetRows.includes(r.perspectiveId)
+    // Dòng "Kết quả cấp trên": không có mục tiêu, không phải hạng mục của danh mục để sửa/xoá.
+    const isSourceRow = !!r.sourceScorecardName
     return (
-    <div key={r.perspectiveId} className={cn('group', !r.enabled && 'opacity-50')}>
-    <div className="flex items-center gap-3 px-4 py-2.5">
+    <div key={r.perspectiveId}
+      draggable={dragArmed === r.perspectiveId}
+      onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', r.perspectiveId); setDragId(r.perspectiveId) }}
+      onDragOver={e => {
+        if (!sameGroup(dragId, r.perspectiveId)) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+        if (dragOverId !== r.perspectiveId) setDragOverId(r.perspectiveId)
+      }}
+      onDrop={e => { e.preventDefault(); if (dragId && sameGroup(dragId, r.perspectiveId)) moveRow(dragId, r.perspectiveId); endDrag() }}
+      onDragEnd={endDrag}
+      className={cn('group transition-colors',
+        dragId === r.perspectiveId && 'opacity-40',
+        dragId !== r.perspectiveId && !r.enabled && 'opacity-50',
+        dragOverId === r.perspectiveId && 'bg-[var(--color-primary-soft)]')}>
+    <div className="flex items-center gap-3 pl-1.5 pr-4 py-2.5">
+      <span
+        className="shrink-0 -mr-1.5 p-1 rounded-control cursor-grab active:cursor-grabbing text-[var(--color-subtle-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-muted)]"
+        title={t('ScorecardFormModal.dragToReorder')}
+        aria-label={t('ScorecardFormModal.dragToReorder')}
+        onMouseDown={() => setDragArmed(r.perspectiveId)}
+        onMouseUp={() => { if (!dragId) setDragArmed(null) }}>
+        <GripVertical size={14} aria-hidden="true" />
+      </span>
       <ChoiceChip selected={r.enabled} variant="solid" className="shrink-0" onClick={() => { if (!r.locked) toggle(r.perspectiveId) }} disabled={!!r.locked} title={r.locked
           ? t('ScorecardFormModal.kpiAssignedByTheParentRemoving')
           : r.enabled ? t('ScorecardFormModal.removeTheItemFromThisScorecard') : t('ScorecardFormModal.addTheItemToThisScorecard')}>
@@ -461,6 +568,11 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
             </span>
           )}
         </p>
+        {isSourceRow && (
+          <p className="text-caption truncate">
+            {t('ScorecardFormModal.sourceRowHint', { name: r.sourceScorecardName })}
+          </p>
+        )}
         {(r.targetValue != null || r.minimumValue != null) && (
           <p className="text-caption truncate">
             {r.targetValue != null && <>{t('ScorecardFormModal.target')} {r.targetValue}{r.unit ? ` ${r.unit}` : ''}</>}
@@ -481,7 +593,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
       {/* Cả ba nút hiện thường trực. Giấu sau hover thì người dùng không biết là có —
           riêng nút cấu hình là thao tác chính của luồng phân rã nên càng không được giấu.
           Xoá vẫn an toàn vì phải qua hộp xác nhận nói rõ là xoá khỏi TOÀN tổ chức. */}
-      <div className="flex items-center gap-0.5 shrink-0">
+      {!isSourceRow && <div className="flex items-center gap-0.5 shrink-0">
         <Button variant="ghost" size="icon-sm" className={cn('',
             targetOpen || isOwnTarget || r.isGate
               ? 'text-[var(--color-warning)] bg-[var(--color-warning-bg)]'
@@ -494,7 +606,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
         <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={t('ScorecardFormModal.deleteTheItemFromTheOrganization')} type="button" onClick={() => setDeletePerspectiveTarget(r)} title={t('ScorecardFormModal.deleteTheItemFromTheOrganization')}>
           <Trash2 aria-hidden="true" />
         </Button>
-      </div>
+      </div>}
       <div className="flex items-center gap-1 shrink-0">
         <LocaleNumberInput type="number" min={0} max={100} step={0.1} value={r.weight} disabled={!r.enabled || !!r.locked}
           title={r.locked ? t('ScorecardFormModal.weightSetByTheParentContact') : undefined}
@@ -647,9 +759,16 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
         description={t('ScorecardFormModal.bscScorecard')}
         footer={
           <DialogFooter
-            secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>{t('ScorecardFormModal.cancel')}</Button>}
+            secondary={<>
+              <Button variant="outline" onClick={onClose} disabled={isPending}>{t('ScorecardFormModal.cancel')}</Button>
+              {quickCreate && (
+                <Button variant="outline" onClick={submitAs(BscScorecardStatus.DRAFT)} disabled={isPending}>
+                  {t('ScorecardFormModal.saveAsDraft')}
+                </Button>
+              )}
+            </>}
             primary={
-              <Button onClick={rhfHandleSubmit(onSubmit, toastFirstError)} disabled={isPending}>
+              <Button onClick={submitAs(quickCreate ? BscScorecardStatus.ACTIVE : undefined)} disabled={isPending}>
                 {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
                 {scorecard ? t('ScorecardFormModal.saveChanges') : t('ScorecardFormModal.confirmCreate')}
               </Button>
@@ -778,6 +897,9 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
                           {isSelected && <Check size={10} strokeWidth={4} />}
                         </div>
                         <span className="text-xs font-medium truncate" style={{ marginLeft: `${u.level * 12}px` }}>{u.name}</span>
+                        {u.level === 0 && (
+                          <span className="ml-auto shrink-0 text-caption">{t('ScorecardFormModal.wholeOrganization')}</span>
+                        )}
                       </div>
                     )
                   })}
@@ -797,17 +919,10 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
               className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all resize-none"/>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+          {/* Ẩn ô trạng thái thì ô còn lại chiếm trọn dòng, không để nửa dòng trống. */}
+          <div className={cn('grid grid-cols-1 gap-4', showStatus && 'sm:grid-cols-2')}>
+            {showStatus && <div className="space-y-1.5">
               <label className="text-label">{t('ScorecardFormModal.status')}</label>
-              {/* Trạng thái do LUỒNG TRÌNH – DUYỆT quyết định, không phải một ô chọn trong form.
-                  Chỉ sửa được khi thẻ CHƯA vào luồng (nháp / lưu trữ) và người sửa có quyền duyệt —
-                  người quản trị dựng thẻ mới thì đặt thẳng "Đang áp dụng" cho nhanh.
-
-                  Thẻ đã vào luồng thì ô này chỉ để ĐỌC: kéo một thẻ đang áp dụng về nháp ngay
-                  trong form là rút bộ tiêu chí khỏi việc chấm điểm mà không ai được báo, trong
-                  khi hàng nút trên cây đã có sẵn Khoá / Trả lại cho đúng việc đó. */}
-              {canApprove && statusEditable ? (
                 <Select value={status} onValueChange={v => setValue('status', v as BscScorecardStatus)}>
                   <SelectTrigger className="w-full h-10 rounded-card bg-[var(--color-muted)] border-[var(--color-border)] text-sm font-medium outline-none"><SelectValue /></SelectTrigger>
                   <SelectContent className="rounded-card border-[var(--color-border)]">
@@ -816,9 +931,8 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
                         {scorecardStatusMeta(value).label}
                       </SelectItem>
                     ))}
-                    {/* Thẻ đang ở giữa luồng (Chờ duyệt / Đã duyệt / Đã khoá): thêm đúng trạng
-                        thái đó dưới dạng KHÔNG bấm được, để trigger có chữ thay vì rỗng. Muốn
-                        đổi thì dùng nút duyệt/khoá ở tab Cây phân rã. */}
+                    {/* Thẻ cũ "Lưu trữ" không còn trong danh sách chọn: thêm đúng trạng thái đó
+                        dưới dạng KHÔNG bấm được, để trigger có chữ thay vì rỗng. */}
                     {!SCORECARD_STATUS_CHOICES.includes(status) && (
                       <SelectItem value={status} disabled
                         className={cn('text-sm font-medium', scorecardStatusMeta(status).textClass)}>
@@ -827,20 +941,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
                     )}
                   </SelectContent>
                 </Select>
-              ) : (
-                <>
-                  <div className="w-full h-10 px-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center gap-2">
-                    <Lock size={13} className="text-[var(--color-subtle-foreground)] shrink-0" />
-                    <span className={cn('text-sm font-medium', scorecardStatusMeta(status).textClass)}>
-                      {scorecardStatusMeta(status).label}
-                    </span>
-                  </div>
-                  <p className="text-caption ml-1 leading-relaxed">
-                    {STATUS_LOCK_HINT()[status] ?? STATUS_LOCK_HINT_DEFAULT()}
-                  </p>
-                </>
-              )}
-            </div>
+            </div>}
             <div className="space-y-1.5">
               {/* "Chính sách hạng mục rỗng / Chuẩn hoá lại" là chữ của mô hình dữ liệu, người
                   dùng cuối không đọc ra được hệ quả. Đổi thành câu hỏi đúng tình huống họ gặp,
@@ -859,7 +960,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
                     <SelectItem key={key} value={key}
                       className="text-sm font-medium flex-col items-start gap-0.5 py-2 pr-3"
                       extra={(
-                        <span className="block text-caption max-w-[20rem] whitespace-normal leading-snug">
+                        <span className="block text-caption whitespace-normal leading-snug">
                           {EMPTY_POLICY_META()[key].desc}
                         </span>
                       )}>

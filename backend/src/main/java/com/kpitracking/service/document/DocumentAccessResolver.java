@@ -2,6 +2,7 @@ package com.kpitracking.service.document;
 
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.UserRoleOrgUnit;
+import com.kpitracking.repository.DocumentShareRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.RolePermissionRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
@@ -37,6 +38,10 @@ public class DocumentAccessResolver {
     private final UserRoleOrgUnitRepository assignments;
     private final RolePermissionRepository rolePermissions;
     private final OrgUnitRepository orgUnits;
+    private final DocumentShareRepository shares;
+
+    /** UUID không đơn vị nào có — {@code IN ()} rỗng là lỗi cú pháp SQL. */
+    private static final UUID NO_UNIT = new UUID(0L, 0L);
 
     @Transactional(readOnly = true)
     public DocumentAccess resolve(UUID userId, UUID orgId) {
@@ -63,7 +68,39 @@ public class DocumentAccessResolver {
         Map<UUID, String> units = orgUnits.findSubtree("/", orgId).stream()
                 .collect(Collectors.toMap(OrgUnit::getId, OrgUnit::getPath, (x, y) -> x));
 
-        return compute(orgId, userId, memberships, units);
+        DocumentAccess access = compute(orgId, userId, memberships, units);
+        // Tài liệu được chia sẻ: cho chính người này, hoặc cho một đơn vị mà họ là thành viên (của chính nó hay đơn vị
+        // con) — tức các đơn vị tổ tiên-hoặc-chính của đơn vị họ. KHÔNG mở theo cây con người đó quản lý: chia sẻ cho
+        // tổ con không có nghĩa trưởng phòng ở trên được xem.
+        Set<UUID> memberChain = memberChain(memberships, units);
+        List<UUID> shared = shares.findSharedDocumentIds(orgId, userId,
+                memberChain.isEmpty() ? List.of(NO_UNIT) : memberChain);
+        return shared.isEmpty() ? access : access.withShared(Set.copyOf(shared));
+    }
+
+    /** Đơn vị gốc của tổ chức: path nông nhất (ít đoạn nhất). Một tổ chức có một gốc; trả tập cho chắc. */
+    public static Set<UUID> rootUnitIds(Map<UUID, String> unitPaths) {
+        int min = unitPaths.values().stream().mapToInt(DocumentAccessResolver::depth).min().orElse(0);
+        Set<UUID> out = new HashSet<>();
+        unitPaths.forEach((id, path) -> { if (depth(path) == min) out.add(id); });
+        return out;
+    }
+
+    private static int depth(String path) {
+        int n = 0;
+        for (int i = 0; i < path.length(); i++) if (path.charAt(i) == '/') n++;
+        return n;
+    }
+
+    /** Đơn vị tổ tiên-hoặc-chính của mọi đơn vị người này là thành viên. */
+    static Set<UUID> memberChain(List<Membership> memberships, Map<UUID, String> unitPaths) {
+        Set<UUID> out = new HashSet<>();
+        for (Membership m : memberships) {
+            for (Map.Entry<UUID, String> u : unitPaths.entrySet()) {
+                if (m.unitPath().startsWith(u.getValue())) out.add(u.getKey());
+            }
+        }
+        return out;
     }
 
     /** Một vai trò của người dùng tại một đơn vị: path của đơn vị + tập mã quyền của vai trò. */
@@ -97,6 +134,10 @@ public class DocumentAccessResolver {
                 }
             }
         }
+        // Đơn vị GỐC không phải đích của tài liệu đơn vị: tài liệu đơn vị truyền xuống cả cây, nên "đơn vị = gốc" chính
+        // là "cả công ty" nhưng lệch quyền (MANAGE_UNIT thay vì MANAGE_COMPANY), lệch hạn mức, và AI chấm bài (chỉ đọc
+        // COMPANY) bỏ sót. Muốn áp cho cả công ty thì chọn phạm vi Công ty. Vẫn THẤY được tài liệu cũ ở gốc (nếu có).
+        manageable.removeAll(rootUnitIds(unitPaths));
         boolean manageCompany = memberships.stream().anyMatch(m -> m.has(MANAGE_COMPANY));
         boolean uploadPersonal = memberships.stream().anyMatch(m -> m.has(UPLOAD_PERSONAL));
 

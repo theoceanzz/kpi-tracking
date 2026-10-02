@@ -1,24 +1,34 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Download, Eye, Loader2, RefreshCw, Trash2, Upload } from 'lucide-react'
+import { AlertTriangle, ArrowUpFromLine, Download, Eye, Loader2, Pin, RefreshCw, Star, Trash2, Upload } from 'lucide-react'
 import { Drawer, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import DraftNotice from '@/components/common/DraftNotice'
-import ConfirmDialog from '@/components/common/ConfirmDialog'
+import MediaPreviewModal from '@/components/common/MediaPreviewModal'
+import { Badge } from '@/components/ui/badge'
+import { canPreview } from '@/lib/filePreview'
 import { useStateDraft } from '@/hooks/useFormDraft'
-import { formatDateTime } from '@/i18n/format'
+import { formatDate, formatDateTime } from '@/i18n/format'
 import { ChunkList } from '@/features/analytics/components/rag/RagDocumentsPanel'
 import { documentApi, documentFileUrl } from '../api/documentApi'
 import {
-  useDeleteDocument, useReindexDocument, useReplaceDocumentFile, useReplaceLegacyDocument, useUpdateDocument,
+  useCancelPromotion, useDocumentPromotions, useMarkOpened, useReindexDocument, useReplaceDocumentFile,
+  useReplaceLegacyDocument, useToggleFavorite, useTogglePin, useUpdateDocument,
 } from '../hooks/useDocuments'
 import { DOCUMENT_CATEGORIES, type DocumentCapabilities, type DocumentCategory, type DocumentScope, type KbDocument } from '../types'
 import { AiStatusBadge, FileTypeIcon } from './docUi'
-import { creatableScopes, formatBytes } from '../utils'
+import { DOCUMENT_ACCEPT_ATTR, creatableScopes, formatBytes, promotionTargets } from '../utils'
+import { useDocumentActions, type DrawerTab } from './DocumentActions'
+import { locationLabel } from './docMenu'
+import SharePanel from './SharePanel'
+import VersionsPanel from './VersionsPanel'
+import DocumentDateFields from './DocumentDateFields'
+import PromoteDialog from './PromoteDialog'
 
 interface EditState {
   title: string
@@ -27,6 +37,8 @@ interface EditState {
   scope: DocumentScope
   unitId: string
   aiEnabled: boolean
+  reviewDate: string
+  expiryDate: string
 }
 
 function toEdit(doc: KbDocument): EditState {
@@ -37,6 +49,8 @@ function toEdit(doc: KbDocument): EditState {
     scope: doc.scope,
     unitId: doc.orgUnitId ?? '',
     aiEnabled: doc.aiEnabled,
+    reviewDate: doc.reviewDate ?? '',
+    expiryDate: doc.expiryDate ?? '',
   }
 }
 
@@ -44,22 +58,48 @@ interface Props {
   doc: KbDocument
   caps: DocumentCapabilities
   onClose: () => void
+  /** Mở thẳng một tab (vd "Chia sẻ" từ menu ⋯). */
+  initialTab?: DrawerTab
 }
 
 /**
  * Chi tiết một tài liệu. Sửa được khi backend trả `canEdit` — frontend không tự suy quyền. Trang cha chỉ mount
  * drawer khi đang mở một tài liệu, nên mỗi lần mở là một form mới (nháp theo từng tài liệu áp lên sau).
  */
-export default function DocumentDrawer({ doc, caps, onClose }: Props) {
+export default function DocumentDrawer({ doc, caps, onClose, initialTab = 'info' }: Props) {
   const { t } = useTranslation('documents')
   const update = useUpdateDocument()
   const replaceFile = useReplaceDocumentFile()
   const replaceLegacy = useReplaceLegacyDocument()
   const reindex = useReindexDocument()
-  const remove = useDeleteDocument()
+  const actions = useDocumentActions()
   const fileInput = useRef<HTMLInputElement>(null)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [showChunks, setShowChunks] = useState(false)
+  const favorite = useToggleFavorite()
+  const pin = useTogglePin()
+  const markOpened = useMarkOpened()
+  const [previewing, setPreviewing] = useState(false)
+  const [promoting, setPromoting] = useState(false)
+  const targets = useMemo(() => promotionTargets(doc, caps), [doc, caps])
+  const pendingPromotions = useDocumentPromotions(doc.id, doc.canEdit && !doc.legacy)
+  const cancelPromotion = useCancelPromotion()
+
+  // Tab nào có tuỳ quyền: chia sẻ / phiên bản / đoạn AI chỉ người sửa được mới thấy (backend cũng chặn).
+  const tabs = useMemo(() => {
+    const out: DrawerTab[] = ['info']
+    if (doc.canEdit && !doc.legacy) out.push('share', 'versions')
+    if (doc.canEdit && !doc.legacy && doc.aiStatus === 'READY') out.push('ai')
+    return out
+  }, [doc.canEdit, doc.legacy, doc.aiStatus])
+  const [tab, setTab] = useState<DrawerTab>(initialTab)
+  const activeTab = tabs.includes(tab) ? tab : 'info'
+
+  // Ghi "mở gần nhất" một lần mỗi lần mở (tab Gần đây). Tài liệu cũ không có bản ghi để ghi.
+  const markedRef = useRef(false)
+  useEffect(() => {
+    if (markedRef.current || doc.legacy) return
+    markedRef.current = true
+    markOpened.mutate(doc.id)
+  }, [doc.id, doc.legacy, markOpened])
 
   const [form, setForm] = useState<EditState>(() => toEdit(doc))
   const editable = doc.canEdit && !doc.legacy
@@ -81,8 +121,9 @@ export default function DocumentDrawer({ doc, caps, onClose }: Props) {
   }, [caps.manageableUnits, doc.orgUnitId, doc.orgUnitName])
 
   const scopeChanged = form.scope !== doc.scope || (form.scope === 'UNIT' && form.unitId !== (doc.orgUnitId ?? ''))
+  const datesChanged = form.reviewDate !== (doc.reviewDate ?? '') || form.expiryDate !== (doc.expiryDate ?? '')
   const dirty = form.title.trim() !== doc.title || form.description.trim() !== (doc.description ?? '')
-    || form.category !== doc.category || scopeChanged || form.aiEnabled !== doc.aiEnabled
+    || form.category !== doc.category || scopeChanged || form.aiEnabled !== doc.aiEnabled || datesChanged
   const needsUnit = form.scope === 'UNIT' && !form.unitId
 
   const save = () => {
@@ -95,6 +136,9 @@ export default function DocumentDrawer({ doc, caps, onClose }: Props) {
         aiEnabled: form.aiEnabled !== doc.aiEnabled ? form.aiEnabled : undefined,
         scope: scopeChanged ? form.scope : undefined,
         orgUnitId: scopeChanged && form.scope === 'UNIT' ? form.unitId : undefined,
+        datesSet: datesChanged || undefined,
+        reviewDate: datesChanged ? (form.reviewDate || null) : undefined,
+        expiryDate: datesChanged ? (form.expiryDate || null) : undefined,
       },
     }, { onSuccess: onClose })
   }
@@ -105,8 +149,8 @@ export default function DocumentDrawer({ doc, caps, onClose }: Props) {
     else replaceFile.mutate({ id: doc.id, file })
   }
 
-  const busy = update.isPending || replaceFile.isPending || replaceLegacy.isPending || remove.isPending
-  const isPdf = doc.contentType === 'application/pdf'
+  const busy = update.isPending || replaceFile.isPending || replaceLegacy.isPending
+  const previewable = !doc.legacy && canPreview(doc.fileName, doc.contentType)
   const scopeText = doc.scope === 'UNIT'
     ? `${t('scope.UNIT')} · ${doc.orgUnitName ?? '—'}`
     : t(`scope.${doc.scope}`)
@@ -119,16 +163,37 @@ export default function DocumentDrawer({ doc, caps, onClose }: Props) {
         size="lg"
         dismissible={!busy}
         title={doc.title}
-        headerExtra={<AiStatusBadge status={doc.aiStatus} error={doc.aiError} />}
+        description={locationLabel(doc, t)}
+        headerExtra={
+          <span className="flex items-center gap-1">
+            <AiStatusBadge status={doc.aiStatus} error={doc.aiError} />
+            {!doc.legacy && (
+              <>
+                <Button variant="ghost" size="icon-sm" aria-pressed={doc.favorite}
+                        aria-label={doc.favorite ? t('actions.unfavorite') : t('actions.favorite')}
+                        title={doc.favorite ? t('actions.unfavorite') : t('actions.favorite')}
+                        onClick={() => favorite.mutate({ id: doc.id, value: !doc.favorite })} disabled={favorite.isPending}>
+                  <Star className={doc.favorite ? 'fill-[var(--color-warning)] text-[var(--color-warning)]' : undefined} aria-hidden="true" />
+                </Button>
+                <Button variant="ghost" size="icon-sm" aria-pressed={doc.pinned}
+                        aria-label={doc.pinned ? t('actions.unpin') : t('actions.pin')}
+                        title={doc.pinned ? t('actions.unpin') : t('actions.pin')}
+                        onClick={() => pin.mutate({ id: doc.id, value: !doc.pinned })} disabled={pin.isPending}>
+                  <Pin className={doc.pinned ? 'fill-[var(--color-primary)] text-[var(--color-primary)]' : undefined} aria-hidden="true" />
+                </Button>
+              </>
+            )}
+          </span>
+        }
         footer={
           <DialogFooter
             destructive={doc.canEdit ? (
-              <Button variant="ghost" className="text-[var(--color-error)]" onClick={() => setConfirmDelete(true)} disabled={busy}>
+              <Button variant="ghost" className="text-[var(--color-error)]" onClick={() => actions.remove(doc)} disabled={busy}>
                 <Trash2 aria-hidden="true" /> {t('actions.delete')}
               </Button>
             ) : undefined}
             secondary={<Button variant="outline" onClick={onClose} disabled={busy}>{t('common.close')}</Button>}
-            primary={editable ? (
+            primary={editable && activeTab === 'info' ? (
               <Button onClick={save} disabled={!dirty || needsUnit || !form.title.trim() || busy}>
                 {update.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
                 {t('actions.save')}
@@ -137,6 +202,22 @@ export default function DocumentDrawer({ doc, caps, onClose }: Props) {
           />
         }
       >
+        {tabs.length > 1 && (
+          <div role="tablist" aria-label={t('drawer.tabs')} className="mb-4 flex gap-0.5 overflow-x-auto rounded-control bg-[var(--color-muted)] p-0.5">
+            {tabs.map(k => (
+              <ChoiceChip key={k} role="tab" aria-selected={activeTab === k} selected={activeTab === k} variant="segment"
+                          className="flex-1" onClick={() => setTab(k)}>
+                {t(`drawer.tab.${k}`)}
+              </ChoiceChip>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'share' && <SharePanel doc={doc} />}
+        {activeTab === 'versions' && <VersionsPanel doc={doc} />}
+        {activeTab === 'ai' && <ChunkList scope="documents" docId={doc.id} load={documentApi.chunks} />}
+
+        {activeTab === 'info' && <>
         {editable && <DraftNotice draft={draft} className="mb-4" />}
 
         {doc.legacy && (
@@ -148,6 +229,7 @@ export default function DocumentDrawer({ doc, caps, onClose }: Props) {
 
         <dl className="grid grid-cols-1 gap-x-4 gap-y-3 rounded-card border border-[var(--color-border)] p-4 text-sm sm:grid-cols-2">
           <Info label={t('fields.scope')} value={scopeText} />
+          {doc.folderName && <Info label={t('fields.folder')} value={doc.folderName} />}
           <Info label={t('fields.category')} value={t(`category.${doc.category}`)} />
           <Info label={t('fields.file')} value={
             doc.legacy ? t('legacy.noFile') : (
@@ -160,6 +242,12 @@ export default function DocumentDrawer({ doc, caps, onClose }: Props) {
           } />
           <Info label={t('fields.uploadedBy')} value={doc.createdByName ?? '—'} />
           <Info label={t('fields.updatedAt')} value={formatDateTime(doc.updatedAt)} />
+          {doc.reviewDate && <Info label={t('fields.reviewDate')} value={
+            <span className="flex items-center gap-2">{formatDate(doc.reviewDate)}{doc.reviewDue && <Badge variant="warning">{t('badge.reviewDue')}</Badge>}</span>
+          } />}
+          {doc.expiryDate && <Info label={t('fields.expiryDate')} value={
+            <span className="flex items-center gap-2">{formatDate(doc.expiryDate)}{doc.expired && <Badge variant="destructive">{t('badge.expired')}</Badge>}</span>
+          } />}
           <Info label={t('fields.ai')} value={
             doc.aiStatus === 'READY'
               ? t('ai.readyDetail', { count: doc.aiChunkCount, time: formatDateTime(doc.aiIndexedAt) })
@@ -173,14 +261,14 @@ export default function DocumentDrawer({ doc, caps, onClose }: Props) {
               <a href={documentFileUrl(doc.id)} download><Download aria-hidden="true" /> {t('actions.download')}</a>
             </Button>
           )}
-          {!doc.legacy && isPdf && (
-            <Button asChild variant="outline" size="sm">
-              <a href={documentFileUrl(doc.id, true)} target="_blank" rel="noopener noreferrer"><Eye aria-hidden="true" /> {t('actions.preview')}</a>
+          {previewable && (
+            <Button variant="outline" size="sm" onClick={() => setPreviewing(true)}>
+              <Eye aria-hidden="true" /> {t('actions.preview')}
             </Button>
           )}
           {doc.canEdit && (
             <>
-              <input ref={fileInput} type="file" className="hidden" accept=".pdf,.docx"
+              <input ref={fileInput} type="file" className="hidden" accept={DOCUMENT_ACCEPT_ATTR}
                      onChange={e => { onPickFile(e.target.files?.[0]); e.target.value = '' }} />
               <Button variant="outline" size="sm" onClick={() => fileInput.current?.click()} disabled={busy}>
                 {(replaceFile.isPending || replaceLegacy.isPending) ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Upload aria-hidden="true" />}
@@ -193,7 +281,30 @@ export default function DocumentDrawer({ doc, caps, onClose }: Props) {
               <RefreshCw aria-hidden="true" /> {t('actions.reindex')}
             </Button>
           )}
+          {editable && targets.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setPromoting(true)}>
+              <ArrowUpFromLine aria-hidden="true" /> {t('promotion.propose')}
+            </Button>
+          )}
         </div>
+
+        {(pendingPromotions.data?.length ?? 0) > 0 && (
+          <ul className="mt-3 space-y-1.5">
+            {pendingPromotions.data!.map(p => (
+              <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-card border border-[var(--color-info-border)] bg-[var(--color-info-bg)] px-3 py-2 text-sm">
+                <ArrowUpFromLine size={14} className="shrink-0 text-[var(--color-info)]" aria-hidden="true" />
+                <span className="min-w-0 flex-1 text-[var(--color-foreground)]">
+                  {t('promotion.pendingTo', { target: p.targetScope === 'COMPANY' ? t('scope.COMPANY') : (p.targetUnitName ?? '—') })}
+                </span>
+                {p.canCancel && (
+                  <Button variant="ghost" size="sm" onClick={() => cancelPromotion.mutate(p.id)} disabled={cancelPromotion.isPending}>
+                    {t('promotion.cancel')}
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
 
         {editable && (
           <section className="mt-6 space-y-4">
@@ -239,6 +350,13 @@ export default function DocumentDrawer({ doc, caps, onClose }: Props) {
                 {form.scope === 'PERSONAL' ? t('edit.movingToPersonal') : t('edit.scopeChangeReindex')}
               </p>
             )}
+            <DocumentDateFields
+              idPrefix="doc-edit"
+              reviewDate={form.reviewDate}
+              expiryDate={form.expiryDate}
+              onReviewDate={v => set('reviewDate', v)}
+              onExpiryDate={v => set('expiryDate', v)}
+            />
             <div className="space-y-1.5">
               <label className="text-label" htmlFor="doc-edit-desc">{t('fields.description')}</label>
               <Textarea id="doc-edit-desc" rows={3} value={form.description} maxLength={4000}
@@ -258,25 +376,17 @@ export default function DocumentDrawer({ doc, caps, onClose }: Props) {
           </section>
         )}
 
-        {doc.canEdit && !doc.legacy && doc.aiStatus === 'READY' && (
-          <section className="mt-6">
-            <Button variant="ghost" size="sm" onClick={() => setShowChunks(v => !v)} aria-expanded={showChunks}>
-              {showChunks ? t('chunks.hide') : t('chunks.show', { count: doc.aiChunkCount })}
-            </Button>
-            {showChunks && <ChunkList scope="documents" docId={doc.id} load={documentApi.chunks} />}
-          </section>
+        {doc.sharedWithMe && (
+          <p className="mt-4 text-caption">{t('share.youAreViewer', { name: doc.createdByName ?? '—' })}</p>
         )}
+        </>}
       </Drawer>
 
-      <ConfirmDialog
-        open={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
-        onConfirm={() => remove.mutate(doc, { onSuccess: () => { setConfirmDelete(false); onClose() } })}
-        title={t('delete.title', { title: doc.title })}
-        description={t('delete.description')}
-        confirmLabel={t('actions.delete')}
-        loading={remove.isPending}
-      />
+      {previewing && (
+        <MediaPreviewModal isOpen onClose={() => setPreviewing(false)} url={documentFileUrl(doc.id)}
+                           fileName={doc.fileName ?? doc.title} contentType={doc.contentType ?? undefined} />
+      )}
+      {promoting && <PromoteDialog doc={doc} targets={targets} onClose={() => setPromoting(false)} />}
     </>
   )
 }

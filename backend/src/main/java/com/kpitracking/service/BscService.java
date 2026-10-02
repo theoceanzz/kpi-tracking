@@ -69,6 +69,7 @@ public class BscService {
     private final com.kpitracking.repository.BscFixedPerspectiveRepository fixedPerspectiveRepository;
     private final OrgCodeRuleService orgCodeRuleService;
     private final BscAccessGuard accessGuard;
+    private final com.kpitracking.repository.BscUnitResultRepository unitResultRepository;
 
     // ============================================================
     // Perspectives (lĩnh vực) — danh mục cấu hình theo org
@@ -77,6 +78,9 @@ public class BscService {
     @Transactional(readOnly = true)
     public List<PerspectiveResponse> getPerspectives(UUID organizationId) {
         return perspectiveRepository.findByOrganizationIdOrderByDisplayOrderAsc(organizationId).stream()
+                // Hạng mục hệ thống của phân rã cả bộ không phải danh mục: KPI không được gắn vào,
+                // người dùng không tự tick vào bộ tiêu chí — nó chỉ đến qua phân rã.
+                .filter(p -> p.getSourceScorecard() == null)
                 .map(this::mapToPerspectiveResponse)
                 .collect(Collectors.toList());
     }
@@ -300,6 +304,8 @@ public class BscService {
             for (ScorecardPerspectiveWeightRequest item : request.getPerspectives()) {
                 BscPerspective perspective = perspectiveRepository.findById(item.getPerspectiveId())
                         .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.item"), "id", item.getPerspectiveId()));
+                // Dòng "Kết quả cấp trên" chỉ sinh ra qua phân rã cả bộ, không tự thêm bằng form.
+                if (perspective.getSourceScorecard() != null) continue;
                 BscScorecardPerspective sp = BscScorecardPerspective.builder()
                         .scorecard(scorecard)
                         .perspective(perspective)
@@ -388,6 +394,8 @@ public class BscService {
                 } else {
                     BscPerspective perspective = perspectiveRepository.findById(item.getPerspectiveId())
                             .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.item"), "id", item.getPerspectiveId()));
+                    // Dòng "Kết quả cấp trên" chỉ sinh ra qua phân rã cả bộ, không tự thêm bằng form.
+                    if (perspective.getSourceScorecard() != null) continue;
                     BscScorecardPerspective created = BscScorecardPerspective.builder()
                             .scorecard(scorecard)
                             .perspective(perspective)
@@ -405,11 +413,20 @@ public class BscService {
             // cấp trên giao phải đi qua cấp trên, nếu không đơn vị chỉ cần bỏ tick là thoát chỉ tiêu.
             for (BscScorecardPerspective sp : existing) {
                 if (keepIds.contains(sp.getPerspective().getId())) continue;
+                // Dòng "Kết quả cấp trên": thu hồi đi qua phân rã cả bộ ở thẻ nguồn, kể cả với quản
+                // trị — bỏ tick trong form không được làm rơi nó.
+                if (sp.getPerspective().getSourceScorecard() != null) continue;
                 if (Boolean.TRUE.equals(sp.getLocked()) && !canManageWholeTree()) {
                     throw new BusinessException(ErrorCode.CANNOT_REMOVE_KPIS_ASSIGNED_PARENT, sp.getPerspective().getName());
                 }
+                // Gỡ khỏi collection của thẻ TRƯỚC khi xoá: collection có cascade ALL, nên nếu nó
+                // còn giữ dòng này thì lúc commit Hibernate ghi lại chính dòng vừa xoá — bỏ tích
+                // một hạng mục rồi lưu, mở lại vẫn thấy nó được tick.
+                scorecard.getScorecardPerspectives().removeIf(x -> x.getId().equals(sp.getId()));
                 scorecardPerspectiveRepository.delete(sp);
             }
+            // Ghi xuống ngay để lần đọc lại collection khi dựng response không nạp lại dòng đã xoá.
+            scorecardPerspectiveRepository.flush();
         }
         scorecardRepository.save(scorecard);
         return mapToScorecardResponse(scorecardRepository.findById(scorecardId).orElseThrow());
@@ -420,8 +437,60 @@ public class BscService {
         BscScorecard scorecard = scorecardRepository.findById(scorecardId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.scorecard")));
         accessGuard.assertCanEdit(scorecard);
+        BusinessException blocked = deleteBlocker(scorecard);
+        if (blocked != null) throw blocked;
         scorecard.setDeletedAt(Instant.now());
         scorecardRepository.save(scorecard);
+    }
+
+    /**
+     * Xoá được không — để hộp xác nhận nói LÝ DO ngay khi mở, thay vì để người dùng bấm xoá rồi
+     * mới thấy lỗi. Cùng một luật với {@link #deleteScorecard}.
+     */
+    @Transactional(readOnly = true)
+    public com.kpitracking.dto.response.bsc.DeleteCheckResponse deleteCheck(UUID scorecardId) {
+        BscScorecard scorecard = scorecardRepository.findById(scorecardId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.scorecard")));
+        BusinessException blocked = deleteBlocker(scorecard);
+        return new com.kpitracking.dto.response.bsc.DeleteCheckResponse(
+                blocked == null, blocked != null ? blocked.getMessage() : null);
+    }
+
+    /**
+     * Lý do KHÔNG được xoá (null = xoá được). Thẻ đang áp dụng vẫn xoá được nếu không vi phạm gì
+     * dưới đây — người xoá đã được hỏi lại trước khi bấm.
+     */
+    private BusinessException deleteBlocker(BscScorecard scorecard) {
+        UUID scorecardId = scorecard.getId();
+        // Kết quả đợt đã chốt là số đã công bố — xoá thẻ là mất gốc của nó. Giữ ở "Đã đóng" để tra cứu.
+        String finalizedPeriods = unitResultRepository.findByScorecardIdOrderByCreatedAtDesc(scorecardId).stream()
+                .filter(r -> r.getStatus() != com.kpitracking.enums.BscUnitResultStatus.DRAFT)
+                .map(r -> r.getKpiPeriod() != null ? r.getKpiPeriod().getName() : "?")
+                .distinct()
+                .collect(Collectors.joining(", "));
+        if (!finalizedPeriods.isEmpty()) {
+            return new BusinessException(ErrorCode.SCORECARD_HAS_FINALIZED_RESULTS, finalizedPeriods);
+        }
+        // Thẻ con đang treo dưới thẻ này sẽ trỏ vào một thẻ đã xoá — gỡ chúng khỏi cây trước.
+        String children = scorecardRepository.findByParentScorecardId(scorecardId).stream()
+                .map(BscScorecard::getName)
+                .collect(Collectors.joining(", "));
+        if (!children.isEmpty()) {
+            return new BusinessException(ErrorCode.SCORECARD_HAS_CHILDREN, children);
+        }
+        // Còn đơn vị đang lấy điểm "Kết quả cấp trên" từ thẻ này ⇒ không xoá: điểm của họ sẽ biến
+        // mất không ai hay. Phải thu hồi trước.
+        List<BscScorecardPerspective> receivers = scorecardPerspectiveRepository.findBySourceScorecardId(scorecardId);
+        if (!receivers.isEmpty()) {
+            String units = receivers.stream()
+                    .map(r -> r.getScorecard().getOrgUnits() == null || r.getScorecard().getOrgUnits().isEmpty()
+                            ? r.getScorecard().getName()
+                            : r.getScorecard().getOrgUnits().get(0).getName())
+                    .distinct()
+                    .collect(Collectors.joining(", "));
+            return new BusinessException(ErrorCode.SCORECARD_SOURCE_IN_USE, units);
+        }
+        return null;
     }
 
     /** Chuyển chế độ chấm điểm (SHADOW/OFFICIAL) — gác bằng permission BSC:PUBLISH_SCORE ở controller. */
@@ -494,14 +563,14 @@ public class BscService {
         for (UUID periodId : scope.effectivePeriodIds()) {
             if (unitIds.isEmpty()) {
                 boolean taken = scorecardRepository.findDefaultByPeriod(organizationId, periodId).stream()
-                        .anyMatch(sc -> !sc.getId().equals(ignoreScorecardId));
+                        .anyMatch(sc -> !sc.getId().equals(ignoreScorecardId) && !isRetired(sc));
                 if (taken) {
                     throw new DuplicateResourceException(ErrorCode.DEFAULT_SCORECARD_EXISTS_PERIOD, String.valueOf(periodNameOf(periodId)));
                 }
             } else {
                 List<BscScorecard> clashing = scorecardRepository
                         .findByOrgUnitsAndPeriod(organizationId, unitIds, periodId).stream()
-                        .filter(sc -> !sc.getId().equals(ignoreScorecardId))
+                        .filter(sc -> !sc.getId().equals(ignoreScorecardId) && !isRetired(sc))
                         .collect(Collectors.toList());
                 if (!clashing.isEmpty()) {
                     java.util.Set<UUID> taken = clashing.stream()
@@ -513,6 +582,11 @@ public class BscService {
                 }
             }
         }
+    }
+
+    /** Thẻ đã đóng không chiếm chỗ: đóng thẻ cũ rồi lập thẻ mới cho cùng đơn vị/đợt là việc bình thường. */
+    private static boolean isRetired(BscScorecard sc) {
+        return sc.getStatus() != null && sc.getStatus().isRetired();
     }
 
     private String periodNameOf(UUID periodId) {
@@ -702,6 +776,10 @@ public class BscService {
                 : s.getScorecardPerspectives().stream()
                     .map(sp -> ScorecardPerspectiveResponse.builder()
                             .id(sp.getId())
+                            .sourceScorecardId(sp.getPerspective().getSourceScorecard() != null
+                                    ? sp.getPerspective().getSourceScorecard().getId() : null)
+                            .sourceScorecardName(sp.getPerspective().getSourceScorecard() != null
+                                    ? sp.getPerspective().getSourceScorecard().getName() : null)
                             .perspectiveId(sp.getPerspective().getId())
                             .code(sp.getPerspective().getCode())
                             .name(sp.getPerspective().getName())

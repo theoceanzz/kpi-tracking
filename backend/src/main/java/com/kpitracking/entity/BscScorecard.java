@@ -147,9 +147,6 @@ public class BscScorecard {
     @Column(name = "reject_reason", columnDefinition = "TEXT")
     private String rejectReason;
 
-    @Column(name = "locked_at")
-    private Instant lockedAt;
-
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

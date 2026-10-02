@@ -1,12 +1,13 @@
 import { useMemo, useRef, useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useFixedPerspectives, useScorecards, useScorecardMutations } from '../hooks/useBsc'
+import { useScorecardDeleteCheck } from '../hooks/useBscCascade'
 import { Plus, FileUp, Sliders } from 'lucide-react'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import { usePermission } from '@/hooks/usePermission'
 import { useNavLabels } from '@/features/organization/hooks/useNavLabels'
 import { findNavItem } from '@/config/navigation'
-import { ScorecardResponse, BscScoringMode, BscFixedPerspective } from '../types'
+import { ScorecardResponse, BscScoringMode } from '../types'
 import ScorecardFormModal from '../components/ScorecardFormModal'
 import ImportScorecardGuideModal from '../components/ImportScorecardGuideModal'
 import ScorecardExcelPreviewModal from '../components/ScorecardExcelPreviewModal'
@@ -48,12 +49,9 @@ export default function BscManagementPage() {
   const bscNavItem = findNavItem('bsc')
   const pageTitle = bscNavItem ? labelOf(bscNavItem) : t('BscManagementPage.bscManagement')
 
-  // `createFixed` khác undefined ⇒ mở luôn form tạo hạng mục cho lĩnh vực đó bên trong
-  // modal bộ tiêu chí, để nút "Thêm hạng mục" trong cây đi thẳng tới việc cần làm.
-  const [scorecardModal, setScorecardModal] = useState<
-    { scorecard?: ScorecardResponse; createFixed?: BscFixedPerspective } | null
-  >(null)
+  const [scorecardModal, setScorecardModal] = useState<{ scorecard?: ScorecardResponse } | null>(null)
   const [deleteScorecardId, setDeleteScorecardId] = useState<string | null>(null)
+  const deleteCheck = useScorecardDeleteCheck(deleteScorecardId)
   const [publishTarget, setPublishTarget] = useState<ScorecardResponse | null>(null)
   const [cascadeTarget, setCascadeTarget] = useState<ScorecardResponse | null>(null)
   const [isPolicyOpen, setIsPolicyOpen] = useState(false)
@@ -148,7 +146,6 @@ export default function BscManagementPage() {
           onEdit={sc => setScorecardModal({ scorecard: sc })}
           onDelete={sc => setDeleteScorecardId(sc.id)}
           onTogglePublish={setPublishTarget}
-          onAddPerspective={(sc, code) => setScorecardModal({ scorecard: sc, createFixed: code })}
         />
       </div>
 
@@ -158,7 +155,6 @@ export default function BscManagementPage() {
           onClose={() => setScorecardModal(null)}
           organizationId={organizationId || ''}
           scorecard={scorecardModal.scorecard}
-          autoCreateFixed={scorecardModal.createFixed}
         />
       )}
 
@@ -171,9 +167,17 @@ export default function BscManagementPage() {
       <ImportScorecardGuideModal open={isScorecardImportGuideOpen} onClose={() => setIsScorecardImportGuideOpen(false)} onSelectFile={() => scorecardFileInputRef.current?.click()} />
       <ScorecardExcelPreviewModal open={!!scorecardPreviewFile} file={scorecardPreviewFile} onClose={() => setScorecardPreviewFile(null)} onImport={handleConfirmScorecardImport} isImporting={importScorecards.isPending} />
 
+      {/* Kiểm tra trước khi hỏi: không xoá được thì nói lý do ngay và khoá nút, thay vì để người
+          dùng bấm xoá rồi mới nhận lỗi. Backend vẫn chặn lại lúc xoá thật. */}
       <ConfirmDialog open={!!deleteScorecardId} onClose={() => setDeleteScorecardId(null)}
         onConfirm={() => { if (deleteScorecardId) deleteScorecard.mutate(deleteScorecardId); setDeleteScorecardId(null) }}
-        title={t('BscManagementPage.deleteScorecard')} description={t('BscManagementPage.areYouSureYouWantTo')}
+        title={t('BscManagementPage.deleteScorecard')}
+        description={deleteCheck.isLoading
+          ? t('BscManagementPage.checkingDelete')
+          : deleteCheck.data && !deleteCheck.data.deletable
+            ? (deleteCheck.data.reason ?? '')
+            : t('BscManagementPage.areYouSureYouWantTo')}
+        confirmDisabled={deleteCheck.isLoading || deleteCheck.data?.deletable === false}
         confirmLabel={t('BscManagementPage.delete')} loading={deleteScorecard.isPending} />
 
       <ConfirmDialog

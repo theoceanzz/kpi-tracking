@@ -29,5 +29,13 @@ public enum SecurityAuditEvent {
     DOCUMENT_SCOPE_CHANGED,
     DOCUMENT_DELETED,
     DOCUMENT_DOWNLOADED,
-    DOCUMENT_PURGED
+    DOCUMENT_PURGED,
+    /** Chia sẻ quyền xem, gỡ chia sẻ, khôi phục từ thùng rác, xoá vĩnh viễn, khôi phục phiên bản cũ. */
+    DOCUMENT_SHARED,
+    DOCUMENT_UNSHARED,
+    DOCUMENT_RESTORED,
+    DOCUMENT_DELETED_PERMANENTLY,
+    DOCUMENT_VERSION_RESTORED,
+    /** Duyệt đề xuất đưa tài liệu lên đơn vị / công ty (bản sao ở phạm vi đích). */
+    DOCUMENT_PROMOTED
 }

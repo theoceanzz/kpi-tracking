@@ -44,7 +44,10 @@
     "wallet": "Wallet",
     "walletReconciliation": "Wallet reconciliation",
     "youHaveReadAllNotifications": "You have read all notifications.",
-    "aiScoringRules": "AI scoring rules"
+    "aiScoringRules": "AI scoring rules",
+    "sharedDocuments": "Shared documents",
+    "documentProposals": "Document proposals",
+    "documentReview": "Document reviews"
   },
   "useNotifications": {
     "markedAllNotificationsAsRead": "Marked all notifications as read"

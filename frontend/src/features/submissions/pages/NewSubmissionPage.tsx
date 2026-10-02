@@ -17,7 +17,8 @@ import FileDropzone from '@/components/common/FileDropzone'
 import { useUploadStore } from '@/store/uploadStore'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import { MicButton } from '@/components/common/MicButton'
-import { ATTACHMENT_ACCEPT, ATTACHMENT_HINT, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_FILES, screenEvidence } from '@/lib/attachmentPolicy'
+import { ATTACHMENT_ACCEPT, ATTACHMENT_EXTENSIONS, ATTACHMENT_HINT, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_FILES, screenEvidence } from '@/lib/attachmentPolicy'
+import { PickFromLibraryButton } from '@/features/documents/components/DocumentPickerDialog'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { useWorkflowNavigator, WORKFLOW_PARAMS } from '@/features/kpi/workflow/hooks/useWorkflowNavigator'
@@ -431,6 +432,12 @@ export default function NewSubmissionPage() {
                       maxSize={MAX_ATTACHMENT_BYTES}
                       maxFiles={MAX_ATTACHMENT_FILES}
                       hint={ATTACHMENT_HINT()}
+                    />
+                    <PickFromLibraryButton
+                      className="mt-2"
+                      accept={ATTACHMENT_EXTENSIONS}
+                      max={MAX_ATTACHMENT_FILES - files.length}
+                      onPicked={picked => setFiles(prev => [...prev, ...picked].slice(0, MAX_ATTACHMENT_FILES))}
                     />
                   </div>
                </div>

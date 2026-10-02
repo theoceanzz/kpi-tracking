@@ -22,4 +22,10 @@ public class CreateEvaluationRequest {
     private Double score;
 
     private String comment;
+
+    /**
+     * Quản trị BSC chủ động chốt dù thẻ nguồn của dòng "Kết quả cấp trên" chưa chốt — điểm dòng đó
+     * được lưu theo số tạm tính và đánh dấu lại. Người khác gửi cờ này thì bị từ chối.
+     */
+    private Boolean allowProvisionalBsc;
 }

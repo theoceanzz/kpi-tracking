@@ -1,121 +1,149 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Building2, FileText, Info, Layers, Plus, User, X } from 'lucide-react'
+import { AlertTriangle, ArrowUpFromLine, Building2, FileText, FolderPlus, HardDrive, Home, Info, Layers, Plus, Trash2, Upload, User, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
-import { WorkspaceTabsProvider } from '@/components/common/WorkspaceTabs'
-import FilterBar from '@/components/common/FilterBar'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
-import Pagination from '@/components/common/Pagination'
-import { useTabParam } from '@/hooks/useTabParam'
-import { useDebounce } from '@/hooks/useDebounce'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
+import MediaPreviewModal from '@/components/common/MediaPreviewModal'
 import { formatNumber } from '@/i18n/format'
-import { useDocument, useDocumentCapabilities, useDocumentUsage, useDocuments, useLegacyDocuments } from './hooks/useDocuments'
-import DocumentTable from './components/DocumentTable'
+import {
+  useDeleteDocument, useDeleteFolder, useDocument, useDocumentCapabilities, useDocumentUsage, useLegacyDocuments,
+  usePinnedDocuments, usePromotionInbox,
+} from './hooks/useDocuments'
 import DocumentDrawer from './components/DocumentDrawer'
 import UploadDocumentDialog from './components/UploadDocumentDialog'
-import { creatableScopes, formatBytes } from './utils'
-import {
-  DOCUMENT_CATEGORIES, type DocumentAiStatus, type DocumentCategory, type DocumentScope, type KbDocument,
-} from './types'
+import FolderDialog from './components/FolderDialog'
+import MoveDocumentDialog from './components/MoveDocumentDialog'
+import DocumentsNav, { type NavItem } from './components/DocumentsNav'
+import { DocumentActionsProvider, type DocumentActions, type DrawerTab } from './components/DocumentActions'
+import type { DocLayout } from './components/DocumentList'
+import HomeView from './views/HomeView'
+import DriveView, { type DriveContext } from './views/DriveView'
+import TrashView from './views/TrashView'
+import PromotionsView from './views/PromotionsView'
+import StorageView from './views/StorageView'
+import { documentFileUrl } from './api/documentApi'
+import { creatableScopes, formatBytes, listableUnits } from './utils'
+import type { DocumentFolder, DocumentScope, KbDocument } from './types'
 
-type TabKey = 'mine' | 'unit' | 'company'
-const SCOPE_OF: Record<TabKey, DocumentScope> = { mine: 'PERSONAL', unit: 'UNIT', company: 'COMPANY' }
-/** Radix Select không nhận value="" — dùng hằng cho lựa chọn "tất cả". */
-const ALL = '__all__'
-const PAGE_SIZE = 20
-const AI_FILTERS: DocumentAiStatus[] = ['READY', 'PENDING', 'INDEXING', 'FAILED', 'UNSUPPORTED', 'NONE']
+type TabKey = 'home' | 'mine' | 'unit' | 'company' | 'trash' | 'requests' | 'storage'
+const SCOPE_OF: Partial<Record<TabKey, DocumentScope>> = { mine: 'PERSONAL', unit: 'UNIT', company: 'COMPANY' }
+const TAB_OF: Record<DocumentScope, TabKey> = { PERSONAL: 'mine', UNIT: 'unit', COMPANY: 'company' }
+const LAYOUT_KEY = 'documents.layout'
+
+function readLayout(): DocLayout {
+  try {
+    return localStorage.getItem(LAYOUT_KEY) === 'grid' ? 'grid' : 'list'
+  } catch {
+    return 'list'
+  }
+}
+
+type FolderDialogState =
+  | { kind: 'create'; parent: DocumentFolder | null; scope?: DocumentScope; unitId?: string | null }
+  | { kind: 'rename'; folder: DocumentFolder }
 
 /**
- * Thư viện tài liệu 3 phạm vi — tri thức cho K.AI (docs/DOCUMENTS_DESIGN.md §8). Tab nào hiện và ai sửa được gì
- * đều do backend quyết (`/documents/capabilities`, `canEdit` trên từng tài liệu).
+ * Thư viện tài liệu kiểu Lark Docs (docs/DOCUMENTS_DESIGN.md §8, §15): trang chủ (gần đây, của tôi, được chia sẻ,
+ * yêu thích), Drive theo phạm vi có thư mục, thùng rác, ghim lên thanh bên. Ai làm được gì đều do backend quyết
+ * (`/documents/capabilities`, `canEdit` trên từng tài liệu / thư mục).
+ *
+ * <p>URL: `?tab=home|mine|unit|company|trash`, `&view=` (tab trang chủ), `&unit=`, `&folder=`, `&doc=<id>[&legacy=1]`
+ * (mở thẳng tài liệu — chip nguồn K.AI dùng link này).
  */
 export default function DocumentsPage() {
   const { t } = useTranslation('documents')
   const { data: caps, isLoading: capsLoading } = useDocumentCapabilities()
   const { data: usage } = useDocumentUsage()
+  const member = !!caps?.member
+  const pinned = usePinnedDocuments(member)
+  const inbox = usePromotionInbox(member)
 
-  const { activeTab, setActiveTab, visibleTabs } = useTabParam<TabKey>([
-    { key: 'mine', label: t('tabs.mine'), icon: User, visible: !!caps?.canUploadPersonal },
-    { key: 'unit', label: t('tabs.unit'), icon: Layers, visible: (caps?.visibleUnits.length ?? 0) > 0 },
-    { key: 'company', label: t('tabs.company'), icon: Building2, visible: !!caps?.member },
-  ])
-  const scope = SCOPE_OF[activeTab] ?? 'COMPANY'
+  const [params, setParams] = useSearchParams()
+  const navItems = useMemo<NavItem<TabKey>[]>(() => {
+    const out: NavItem<TabKey>[] = [{ key: 'home', label: t('nav.home'), icon: Home }]
+    if (caps?.canUploadPersonal) out.push({ key: 'mine', label: t('tabs.mine'), icon: User, group: 'drive' })
+    if (caps && listableUnits(caps).length > 0) out.push({ key: 'unit', label: t('tabs.unit'), icon: Layers, group: 'drive' })
+    out.push({ key: 'company', label: t('tabs.company'), icon: Building2, group: 'drive' })
+    out.push({ key: 'requests', label: t('nav.requests'), icon: ArrowUpFromLine, badge: inbox.data?.length })
+    if (caps?.canManageCompany) out.push({ key: 'storage', label: t('nav.storage'), icon: HardDrive })
+    out.push({ key: 'trash', label: t('nav.trash'), icon: Trash2 })
+    return out
+  }, [caps, t, inbox.data?.length])
+  const rawTab = params.get('tab') as TabKey | null
+  const tab: TabKey = rawTab && navItems.some(i => i.key === rawTab) ? rawTab : 'home'
 
-  const [q, setQ] = useState('')
-  const debouncedQ = useDebounce(q, 400)
-  const [category, setCategory] = useState<string>(ALL)
-  const [aiStatus, setAiStatus] = useState<string>(ALL)
-  const [unitId, setUnitId] = useState<string>(ALL)
-  const [includeDescendants, setIncludeDescendants] = useState(true)
-  const [page, setPage] = useState(0)
-  const [uploadOpen, setUploadOpen] = useState(false)
-  const [openDoc, setOpenDoc] = useState<KbDocument | null>(null)
+  const go = (next: TabKey, extra: Record<string, string | null> = {}) => setParams(prev => {
+    const p = new URLSearchParams(prev)
+    p.set('tab', next)
+    for (const k of ['folder', 'view', 'unit']) p.delete(k)
+    for (const [k, v] of Object.entries(extra)) { if (v) p.set(k, v); else p.delete(k) }
+    return p
+  }, { replace: true })
 
-  /** Đổi tab hay bộ lọc là quay về trang đầu — làm ngay trong handler, không qua effect. */
-  const resetting = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); setPage(0) }
+  const [layout, setLayout] = useState<DocLayout>(readLayout)
+  const changeLayout = (l: DocLayout) => {
+    setLayout(l)
+    try { localStorage.setItem(LAYOUT_KEY, l) } catch { /* trình duyệt chặn lưu — chỉ mất ghi nhớ */ }
+  }
 
-  const filterUnit = activeTab === 'unit' && unitId !== ALL ? unitId : undefined
-  const { data, isLoading, isFetching } = useDocuments({
-    scope,
-    unitId: filterUnit,
-    includeDescendants: filterUnit ? includeDescendants : undefined,
-    category: category === ALL ? undefined : category as DocumentCategory,
-    aiStatus: aiStatus === ALL ? undefined : aiStatus as DocumentAiStatus,
-    q: debouncedQ.trim() || undefined,
-    page,
-    size: PAGE_SIZE,
-  }, !!caps?.member)
-  const { data: legacy } = useLegacyDocuments(activeTab === 'company' && !!caps?.member)
+  const [upload, setUpload] = useState<DriveContext | 'pick' | null>(null)
+  const [folderDialog, setFolderDialog] = useState<FolderDialogState | null>(null)
+  const [moving, setMoving] = useState<KbDocument | null>(null)
+  const [removing, setRemoving] = useState<KbDocument | null>(null)
+  const [removingFolder, setRemovingFolder] = useState<DocumentFolder | null>(null)
+  const [opened, setOpened] = useState<{ doc: KbDocument; tab?: DrawerTab } | null>(null)
+  const [previewDoc, setPreviewDoc] = useState<KbDocument | null>(null)
+  const [newMenu, setNewMenu] = useState(false)
+  const removeDoc = useDeleteDocument()
+  const removeFolder = useDeleteFolder()
 
-  // Mở thẳng một tài liệu từ chip nguồn của K.AI: /documents?tab=…&doc=<id>[&legacy=1]. Vẫn qua kiểm quyền —
-  // không đọc được (đã xoá, bị thu quyền) thì báo rõ thay vì im lặng.
-  const [searchParams, setSearchParams] = useSearchParams()
-  const linkedId = searchParams.get('doc')
-  const linkedLegacy = searchParams.get('legacy') === '1'
-  const linked = useDocument(linkedLegacy ? null : linkedId, !!caps?.member)
-  const linkedDoc = linkedId
-    ? (linkedLegacy ? legacy?.find(d => d.id === linkedId) : linked.data) ?? null
-    : null
-  const linkedMissing = !!linkedId && (linkedLegacy ? legacy !== undefined && !linkedDoc : linked.isError)
+  // Mở thẳng một tài liệu từ chip nguồn của K.AI: ?doc=<id>[&legacy=1]. Vẫn qua kiểm quyền — không đọc được (đã xoá,
+  // bị thu quyền) thì báo rõ thay vì im lặng.
+  const linkedId = params.get('doc')
+  const linkedLegacy = params.get('legacy') === '1'
+  const openId = opened?.doc.id ?? linkedId
+  const openLegacy = opened ? opened.doc.legacy : linkedLegacy
+  const fresh = useDocument(openLegacy ? null : openId, member)
+  const legacyList = useLegacyDocuments(member && !!openId && openLegacy)
+  const drawerDoc = openLegacy
+    ? (legacyList.data?.find(d => d.id === openId) ?? opened?.doc ?? null)
+    : (fresh.data ?? opened?.doc ?? null)
+  const linkedMissing = !opened && !!linkedId && (linkedLegacy ? legacyList.data !== undefined && !drawerDoc : fresh.isError)
 
-  const clearLink = () => setSearchParams(prev => {
+  const clearLink = () => setParams(prev => {
     const p = new URLSearchParams(prev)
     p.delete('doc')
     p.delete('legacy')
     return p
   }, { replace: true })
-
-  // Drawer luôn hiện bản MỚI NHẤT sau khi danh sách làm mới (bật AI, nạp xong…).
-  const current = useMemo(() => {
-    const open = openDoc ?? linkedDoc
-    if (!open) return null
-    return data?.content.find(d => d.id === open.id) ?? legacy?.find(d => d.id === open.id) ?? open
-  }, [openDoc, linkedDoc, data, legacy])
-
   const closeDrawer = () => {
-    setOpenDoc(null)
+    setOpened(null)
     if (linkedId) clearLink()
   }
 
-  const docs = data?.content ?? []
-  const filtered = !!(debouncedQ || category !== ALL || aiStatus !== ALL || filterUnit)
-  const canUpload = !!caps && creatableScopes(caps).length > 0
+  const actions: DocumentActions = {
+    open: (doc, drawerTab) => { if (linkedId) clearLink(); setOpened({ doc, tab: drawerTab }) },
+    preview: setPreviewDoc,
+    move: setMoving,
+    remove: setRemoving,
+    openFolder: f => go(TAB_OF[f.scope], { folder: f.id, unit: f.orgUnitId }),
+    renameFolder: f => setFolderDialog({ kind: 'rename', folder: f }),
+    deleteFolder: setRemovingFolder,
+  }
 
-  const stats = usage ? (
-    activeTab === 'mine'
-      ? [{ label: t('stats.personalUsage'), value: `${formatBytes(usage.personalUsed)} / ${formatBytes(usage.personalQuota)}` }]
-      : activeTab === 'company'
-        ? [
-            { label: t('stats.companyUsage'), value: `${formatBytes(usage.companyUsed)} / ${formatBytes(usage.companyQuota)}` },
-            { label: t('stats.aiChunks'), value: `${formatNumber(usage.orgChunks)} / ${formatNumber(usage.orgChunkQuota)}` },
-          ]
-        : [{ label: t('stats.unitQuota'), value: formatBytes(usage.unitQuota) }]
-  ) : undefined
+  const creatable = caps ? creatableScopes(caps) : []
+  const canUpload = creatable.length > 0
+
+  const stats = usage ? [
+    ...(caps?.canUploadPersonal ? [{ label: t('stats.personalUsage'), value: `${formatBytes(usage.personalUsed)} / ${formatBytes(usage.personalQuota)}` }] : []),
+    { label: t('stats.companyUsage'), value: `${formatBytes(usage.companyUsed)} / ${formatBytes(usage.companyQuota)}` },
+    { label: t('stats.aiChunks'), value: `${formatNumber(usage.orgChunks)} / ${formatNumber(usage.orgChunkQuota)}` },
+  ] : undefined
 
   if (capsLoading) {
     return <div className="mx-auto max-w-[1600px]"><LoadingSkeleton type="table" rows={6} /></div>
@@ -128,118 +156,168 @@ export default function DocumentsPage() {
     )
   }
 
+  const scope = SCOPE_OF[tab]
+  const driveKey = `${tab}:${params.get('unit') ?? ''}:${params.get('folder') ?? ''}`
+
   return (
-    <div className="mx-auto max-w-[1600px] space-y-4">
-      <WorkspaceTabsProvider tabs={visibleTabs} activeTab={activeTab} setActiveTab={k => { setActiveTab(k as TabKey); setPage(0) }}>
+    <DocumentActionsProvider value={actions}>
+      <div className="mx-auto max-w-[1600px] space-y-4">
         <WorkspaceHeader
           id="tour-documents-header"
-          title={visibleTabs.length > 1 ? undefined : t('title')}
-          description={t(`tabIntro.${activeTab}`)}
+          title={t('title')}
+          description={t('pageIntro')}
           stats={stats}
           actions={canUpload ? (
-            <Button onClick={() => setUploadOpen(true)}><Plus aria-hidden="true" /> {t('actions.upload')}</Button>
+            <Popover open={newMenu} onOpenChange={setNewMenu}>
+              <PopoverTrigger asChild>
+                <Button aria-haspopup="menu"><Plus aria-hidden="true" /> {t('actions.new')}</Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-56 p-1.5" role="menu">
+                <NewMenuItem icon={<Upload />} label={t('actions.upload')} onClick={() => { setNewMenu(false); setUpload('pick') }} />
+                <NewMenuItem icon={<FolderPlus />} label={t('actions.newFolder')}
+                             onClick={() => { setNewMenu(false); setFolderDialog({ kind: 'create', parent: null }) }} />
+              </PopoverContent>
+            </Popover>
           ) : undefined}
         />
-      </WorkspaceTabsProvider>
 
-      {linkedMissing && (
-        <div role="alert" className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm">
-          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden="true" />
-          <p className="flex-1 text-[var(--color-foreground)]">{t('sources.notFound')}</p>
-          <button type="button" onClick={clearLink} aria-label={t('common.close')}
-                  className="shrink-0 text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]">
-            <X size={16} aria-hidden="true" />
-          </button>
-        </div>
-      )}
-
-      <p className="flex items-start gap-1.5 text-caption">
-        <Info size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
-        <span>{t('notice.chatHistory')}</span>
-      </p>
-
-      {activeTab === 'company' && (legacy?.length ?? 0) > 0 && (
-        <section className="overflow-hidden rounded-card border border-[var(--color-warning-border)] bg-[var(--color-card)]">
-          <div className="border-b border-[var(--color-border)] bg-[var(--color-warning-bg)] px-4 py-2.5">
-            <h2 className="text-sm font-semibold text-[var(--color-foreground)]">{t('legacy.heading', { count: legacy!.length })}</h2>
-            <p className="text-caption">{t('legacy.sectionHint')}</p>
-          </div>
-          <DocumentTable docs={legacy!} scope="COMPANY" onOpen={setOpenDoc} />
-        </section>
-      )}
-
-      <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-        <FilterBar
-          className="border-b border-[var(--color-border)] p-3"
-          search={{ value: q, onChange: resetting(setQ), placeholder: t('filters.search') }}
-        >
-          {activeTab === 'unit' && (
-            <>
-              <Select value={unitId} onValueChange={resetting(setUnitId)}>
-                <SelectTrigger className="w-full sm:w-56" aria-label={t('filters.unit')}><SelectValue /></SelectTrigger>
-                <SelectContent className="max-h-72">
-                  <SelectItem value={ALL}>{t('filters.allUnits')}</SelectItem>
-                  {caps.visibleUnits.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {filterUnit && (
-                <label className="flex h-9 items-center gap-2 text-sm text-[var(--color-foreground)]">
-                  <Checkbox checked={includeDescendants} onCheckedChange={resetting(setIncludeDescendants)} />
-                  {t('filters.includeDescendants')}
-                </label>
-              )}
-            </>
-          )}
-          <Select value={category} onValueChange={resetting(setCategory)}>
-            <SelectTrigger className="w-full sm:w-48" aria-label={t('filters.category')}><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>{t('filters.allCategories')}</SelectItem>
-              {DOCUMENT_CATEGORIES.map(c => <SelectItem key={c} value={c}>{t(`category.${c}`)}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={aiStatus} onValueChange={resetting(setAiStatus)}>
-            <SelectTrigger className="w-full sm:w-44" aria-label={t('filters.aiStatus')}><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>{t('filters.allAiStatuses')}</SelectItem>
-              {AI_FILTERS.map(s => <SelectItem key={s} value={s}>{t(`aiStatus.${s}`)}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </FilterBar>
-
-        {isLoading ? (
-          <div className="p-4"><LoadingSkeleton type="table" rows={5} /></div>
-        ) : docs.length === 0 ? (
-          <EmptyState
-            icon={FileText}
-            title={filtered ? t('empty.filteredTitle') : t(`empty.${activeTab}Title`)}
-            description={filtered ? t('empty.filteredDescription') : t(`empty.${activeTab}Description`)}
-            action={!filtered && canUpload ? (
-              <Button variant="outline" onClick={() => setUploadOpen(true)}><Plus aria-hidden="true" /> {t('actions.upload')}</Button>
-            ) : undefined}
-          />
-        ) : (
-          <div className={isFetching ? 'opacity-80 transition-opacity' : undefined}>
-            <DocumentTable docs={docs} scope={scope} onOpen={setOpenDoc} />
+        {linkedMissing && (
+          <div role="alert" className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden="true" />
+            <p className="flex-1 text-[var(--color-foreground)]">{t('sources.notFound')}</p>
+            <button type="button" onClick={clearLink} aria-label={t('common.close')}
+                    className="shrink-0 text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]">
+              <X size={16} aria-hidden="true" />
+            </button>
           </div>
         )}
-      </div>
 
-      {data && data.totalPages > 1 && (
-        <Pagination currentPage={page} totalPages={data.totalPages} totalElements={data.totalElements}
-                    size={PAGE_SIZE} onPageChange={setPage} itemLabel={t('pagination.item')} />
-      )}
+        <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <aside className="lg:sticky lg:top-4 lg:self-start">
+            <DocumentsNav items={navItems} active={tab} onSelect={k => go(k)} pinned={pinned.data ?? []} />
+          </aside>
 
-      {uploadOpen && usage && (
-        <UploadDocumentDialog
-          open
-          onClose={() => setUploadOpen(false)}
-          caps={caps}
-          maxFileBytes={usage.maxFileBytes}
-          defaultScope={scope}
-          defaultUnitId={filterUnit}
+          <main className="min-w-0 space-y-4">
+            {tab === 'home' && (
+              <HomeView
+                layout={layout}
+                onLayoutChange={changeLayout}
+                canUpload={canUpload}
+                canCreateFolder={canUpload}
+                onUpload={() => setUpload('pick')}
+                onNewFolder={() => setFolderDialog({ kind: 'create', parent: null })}
+              />
+            )}
+            {scope && (
+              <DriveView
+                key={driveKey}
+                scope={scope}
+                caps={caps}
+                layout={layout}
+                onLayoutChange={changeLayout}
+                onUpload={ctx => setUpload(ctx)}
+                onNewFolder={ctx => setFolderDialog(ctx.folder
+                  ? { kind: 'create', parent: ctx.folder }
+                  : { kind: 'create', parent: null, scope: ctx.scope, unitId: ctx.unitId })}
+              />
+            )}
+            {tab === 'trash' && <TrashView retentionDays={usage?.trashRetentionDays ?? 30} />}
+            {tab === 'requests' && (
+              <PromotionsView onOpenDocument={id => setParams(prev => {
+                const p = new URLSearchParams(prev)
+                p.set('doc', id)
+                p.delete('legacy')
+                return p
+              }, { replace: true })} />
+            )}
+            {tab === 'storage' && <StorageView />}
+
+            <p className="flex items-start gap-1.5 text-caption">
+              <Info size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <span>{t('notice.chatHistory')}</span>
+            </p>
+          </main>
+        </div>
+
+        {upload && usage && (
+          <UploadDocumentDialog
+            open
+            onClose={() => setUpload(null)}
+            caps={caps}
+            maxFileBytes={usage.maxFileBytes}
+            defaultScope={upload === 'pick' ? (scope ?? creatable[0] ?? 'PERSONAL') : upload.scope}
+            defaultUnitId={upload === 'pick' ? null : upload.unitId}
+            folder={upload === 'pick' ? null : upload.folder}
+          />
+        )}
+        {folderDialog && (
+          <FolderDialog
+            onClose={() => setFolderDialog(null)}
+            caps={caps}
+            editing={folderDialog.kind === 'rename' ? folderDialog.folder : null}
+            parent={folderDialog.kind === 'create' ? folderDialog.parent : null}
+            scope={folderDialog.kind === 'create' ? folderDialog.scope : undefined}
+            unitId={folderDialog.kind === 'create' ? folderDialog.unitId : undefined}
+          />
+        )}
+        {previewDoc && (
+          <MediaPreviewModal isOpen onClose={() => setPreviewDoc(null)} url={documentFileUrl(previewDoc.id)}
+                             fileName={previewDoc.fileName ?? previewDoc.title} contentType={previewDoc.contentType ?? undefined} />
+        )}
+        {moving && <MoveDocumentDialog doc={moving} onClose={() => setMoving(null)} />}
+        {drawerDoc && (
+          <DocumentDrawer key={drawerDoc.id} doc={drawerDoc} caps={caps} onClose={closeDrawer} initialTab={opened?.tab} />
+        )}
+
+        <ConfirmDialog
+          open={!!removing}
+          onClose={() => setRemoving(null)}
+          onConfirm={() => removing && removeDoc.mutate(removing, {
+            onSuccess: () => {
+              if (openId === removing.id) closeDrawer()
+              setRemoving(null)
+            },
+          })}
+          title={t('delete.title', { title: removing?.title ?? '' })}
+          description={removing?.legacy ? t('delete.legacyDescription') : t('delete.description', { days: usage?.trashRetentionDays ?? 30 })}
+          confirmLabel={t('actions.delete')}
+          loading={removeDoc.isPending}
         />
-      )}
-      {current && <DocumentDrawer key={current.id} doc={current} caps={caps} onClose={closeDrawer} />}
-    </div>
+        <ConfirmDialog
+          open={!!removingFolder}
+          onClose={() => setRemovingFolder(null)}
+          onConfirm={() => removingFolder && removeFolder.mutate(removingFolder.id, {
+            onSuccess: () => {
+              // Đang đứng trong thư mục vừa xoá → về thư mục cha.
+              if (params.get('folder') === removingFolder.id) {
+                setParams(prev => {
+                  const p = new URLSearchParams(prev)
+                  if (removingFolder.parentId) p.set('folder', removingFolder.parentId); else p.delete('folder')
+                  return p
+                }, { replace: true })
+              }
+              setRemovingFolder(null)
+            },
+          })}
+          title={t('folder.deleteTitle', { name: removingFolder?.name ?? '' })}
+          description={t('folder.deleteDescription', { days: usage?.trashRetentionDays ?? 30 })}
+          confirmLabel={t('actions.delete')}
+          loading={removeFolder.isPending}
+        />
+      </div>
+    </DocumentActionsProvider>
+  )
+}
+
+function NewMenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] focus-visible:bg-[var(--color-muted)] focus-visible:outline-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]"
+    >
+      {icon}{label}
+    </button>
   )
 }

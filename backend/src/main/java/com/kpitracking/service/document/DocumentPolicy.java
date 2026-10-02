@@ -25,12 +25,20 @@ public final class DocumentPolicy {
     public static final long MAX_FILE_BYTES = 10L * 1024 * 1024;
     private static final int MAX_FILE_NAME_LENGTH = 120;
 
-    /** P1: DOCX + PDF (§14 điểm 3). Thêm loại mới ở đây và ở {@code DocumentParser}. */
-    private static final Map<String, Set<String>> ALLOWED = Map.of(
-            "docx", Set.of("application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-            "pdf", Set.of("application/pdf"));
+    /**
+     * Loại tệp nhận được. Thêm loại mới ở đây VÀ phải có {@code DocumentParser} đọc được nó. Kiểu MIME ĐẦU TIÊN của
+     * mỗi đuôi là kiểu được lưu; các kiểu sau là những gì trình duyệt / hệ điều hành hay khai cho đuôi đó.
+     */
+    private static final Map<String, List<String>> ALLOWED = Map.of(
+            "docx", List.of("application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            "pdf", List.of("application/pdf"),
+            "xlsx", List.of("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            "txt", List.of("text/plain"),
+            "md", List.of("text/markdown", "text/x-markdown", "text/plain"),
+            // Windows khai .csv là "application/vnd.ms-excel" khi máy có cài Excel.
+            "csv", List.of("text/csv", "text/plain", "application/vnd.ms-excel"));
 
-    public static final List<String> ALLOWED_EXTENSIONS = List.of("docx", "pdf");
+    public static final List<String> ALLOWED_EXTENSIONS = List.of("docx", "pdf", "xlsx", "txt", "md", "csv");
 
     private DocumentPolicy() {}
 
@@ -46,32 +54,40 @@ public final class DocumentPolicy {
             throw new BusinessException(ErrorCode.DOCUMENT_FILE_TOO_LARGE, name, MAX_FILE_BYTES / (1024 * 1024));
         }
         String ext = extensionOf(name);
-        Set<String> types = ALLOWED.get(ext);
+        List<String> types = ALLOWED.get(ext);
         if (types == null) {
             throw new BusinessException(ErrorCode.DOCUMENT_FILE_TYPE_NOT_ALLOWED, name, String.join(", ", ALLOWED_EXTENSIONS));
         }
         // Bỏ qua khi client không khai hoặc khai "không biết" — lớp magic byte bên dưới vẫn chặn.
         if (declaredType != null && !declaredType.isBlank()
                 && !"application/octet-stream".equalsIgnoreCase(declaredType)
-                && !types.contains(declaredType.toLowerCase(Locale.ROOT))) {
+                && !types.contains(declaredType.split(";")[0].strip().toLowerCase(Locale.ROOT))) {
             throw new BusinessException(ErrorCode.DOCUMENT_FILE_TYPE_NOT_ALLOWED, name, String.join(", ", ALLOWED_EXTENSIONS));
         }
         boolean signatureOk = switch (ext) {
             case "pdf" -> startsWith(bytes, 0x25, 0x50, 0x44, 0x46);            // %PDF
-            case "docx" -> startsWith(bytes, 0x50, 0x4B, 0x03, 0x04) && isMacroFreeDocx(bytes);
+            case "docx" -> startsWith(bytes, 0x50, 0x4B, 0x03, 0x04) && isMacroFreeOffice(bytes, "word/document.xml");
+            case "xlsx" -> startsWith(bytes, 0x50, 0x4B, 0x03, 0x04) && isMacroFreeOffice(bytes, "xl/workbook.xml");
+            case "txt", "md", "csv" -> isPlainUtf8Text(bytes);
             default -> false;
         };
         if (!signatureOk) {
             throw new BusinessException(ErrorCode.DOCUMENT_FILE_TYPE_NOT_ALLOWED, name, String.join(", ", ALLOWED_EXTENSIONS));
         }
-        return new Checked(name, ext, types.iterator().next());
+        return new Checked(name, ext, types.get(0));
+    }
+
+    /** DOCX thật, không macro — giữ tên cũ cho test. */
+    static boolean isMacroFreeDocx(byte[] bytes) {
+        return isMacroFreeOffice(bytes, "word/document.xml");
     }
 
     /**
-     * DOCX thật: là ZIP, có {@code word/document.xml}, KHÔNG có {@code word/vbaProject.bin} (macro).
-     * Đọc hỏng giữa chừng thì từ chối — một chốt chặn mặc định phải là TỪ CHỐI.
+     * Tệp Office Open XML thật: là ZIP, có phần thân {@code bodyEntry} ({@code word/document.xml},
+     * {@code xl/workbook.xml}), KHÔNG có {@code vbaProject.bin} (macro — đổi tên .docm/.xlsm thành .docx/.xlsx là
+     * qua được ba lớp kia). Đọc hỏng giữa chừng thì từ chối — một chốt chặn mặc định phải là TỪ CHỐI.
      */
-    static boolean isMacroFreeDocx(byte[] bytes) {
+    static boolean isMacroFreeOffice(byte[] bytes, String bodyEntry) {
         boolean hasBody = false;
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
             ZipEntry e;
@@ -81,12 +97,30 @@ public final class DocumentPolicy {
                 if (++entries > 5000) return false;
                 String n = e.getName().toLowerCase(Locale.ROOT);
                 if (n.endsWith("vbaproject.bin")) return false;
-                if (n.equals("word/document.xml")) hasBody = true;
+                if (n.equals(bodyEntry)) hasBody = true;
             }
         } catch (IOException ex) {
             return false;
         }
         return hasBody;
+    }
+
+    /**
+     * Văn bản thuần: UTF-8 hợp lệ (cho phép BOM) và không có byte NUL — tệp nhị phân đổi đuôi thành .txt sẽ có NUL
+     * hoặc chuỗi byte UTF-8 hỏng. Tiếng Việt gõ ở Windows-1258 cũng bị từ chối: K.AI đọc ra chữ vỡ còn tệ hơn không đọc.
+     */
+    static boolean isPlainUtf8Text(byte[] bytes) {
+        for (byte b : bytes) if (b == 0) return false;
+        int start = startsWith(bytes, 0xEF, 0xBB, 0xBF) ? 3 : 0;
+        try {
+            java.nio.charset.StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                    .decode(java.nio.ByteBuffer.wrap(bytes, start, bytes.length - start));
+            return true;
+        } catch (java.nio.charset.CharacterCodingException e) {
+            return false;
+        }
     }
 
     /** Cắt về tên cơ sở (bỏ đường dẫn máy người dùng, chặn {@code ../}), tối đa 120 ký tự, giữ đuôi. */

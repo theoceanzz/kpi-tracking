@@ -42,11 +42,6 @@ export const SCORECARD_STATUS_META = perLanguage((): Record<
     badgeClass: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
     textClass: 'text-slate-500',
   },
-  [BscScorecardStatus.LOCKED]: {
-    label: i18n.t('bsc:scorecardStatus.locked'),
-    badgeClass: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
-    textClass: 'text-slate-600',
-  },
   [BscScorecardStatus.ARCHIVED]: {
     label: i18n.t('bsc:scorecardStatus.archived'),
     badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -59,11 +54,10 @@ export const scorecardStatusMeta = (status?: BscScorecardStatus | null) =>
   (status && SCORECARD_STATUS_META()[status]) || SCORECARD_STATUS_META()[BscScorecardStatus.DRAFT]
 
 /**
- * Ba trạng thái người duyệt CHỌN TAY được trong form.
- * Bốn trạng thái còn lại do luồng trình–duyệt đặt, không ai chọn trực tiếp.
+ * Hai trạng thái người duyệt CHỌN TAY được trong form. Các trạng thái còn lại do luồng
+ * trình–duyệt đặt; "Lưu trữ" là trạng thái cũ, chỉ còn để hiển thị thẻ đã tạo trước đây.
  */
 export const SCORECARD_STATUS_CHOICES: BscScorecardStatus[] = [
   BscScorecardStatus.DRAFT,
   BscScorecardStatus.ACTIVE,
-  BscScorecardStatus.ARCHIVED,
 ]

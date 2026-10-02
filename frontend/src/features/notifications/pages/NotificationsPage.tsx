@@ -10,12 +10,14 @@ import {
   Bell, CheckCheck, Send,
   FileSearch, ShieldCheck, Target,
   CheckCircle2, Layers, GitBranch, Calculator,
-  Award, Coins, Gift, Wallet, Scale, Inbox, Users, Lock, FileText
+  Award, Coins, Gift, Wallet, Scale, Inbox, Users, Lock, FileText, Share2, ArrowUpFromLine, CalendarClock
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { useNavigate } from 'react-router-dom'
+import { notificationLink } from '../notificationLink'
 
 /** Cùng bảng màu theo nhóm nghiệp vụ với NotificationDropdown. */
 const typeConfig = perLanguage((): Record<string, { icon: LucideIcon; color: string; label: string }> => ({
@@ -34,6 +36,10 @@ const typeConfig = perLanguage((): Record<string, { icon: LucideIcon; color: str
   KPI_CYCLE_LOCKED: { icon: Lock, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.cycleLock') },
   WALLET_RECONCILE: { icon: Scale, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.walletReconciliation') },
   AI_CRITERIA: { icon: FileText, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.aiScoringRules') },
+  DOCUMENT_SHARED: { icon: Share2, color: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]', label: i18n.t('notifications:NotificationsPage.sharedDocuments') },
+  DOCUMENT_PROMOTION_REQUEST: { icon: ArrowUpFromLine, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.documentProposals') },
+  DOCUMENT_PROMOTION: { icon: ArrowUpFromLine, color: 'bg-[var(--color-success-bg)] text-[var(--color-success)]', label: i18n.t('notifications:NotificationsPage.documentProposals') },
+  DOCUMENT_REVIEW: { icon: CalendarClock, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.documentReview') },
 }))
 const DEFAULT_TYPE = perLanguage(() => ({ icon: Bell, color: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]', label: i18n.t('notifications:NotificationsPage.notifications') }))
 
@@ -46,6 +52,13 @@ export default function NotificationsPage() {
   const { data, isLoading } = useNotifications(50)
   const markAllRead = useMarkAllRead()
   const markRead = useMarkAsRead()
+  const navigate = useNavigate()
+  /** Bấm: đánh dấu đã đọc, và mở màn liên quan nếu loại thông báo có (`notificationLink`). */
+  const openNotification = (n: { id: string; isRead: boolean; type: string; referenceId: string | null }) => {
+    if (!n.isRead) markRead.mutate(n.id)
+    const link = notificationLink(n)
+    if (link) navigate(link)
+  }
   
   const [filter, setFilter] = useState<'ALL' | 'UNREAD'>('ALL')
 
@@ -142,8 +155,8 @@ export default function NotificationsPage() {
                   key={n.id}
                 role={n.isRead ? undefined : 'button'}
                 tabIndex={n.isRead ? undefined : 0}
-                  onClick={() => !n.isRead && markRead.mutate(n.id)}
-                onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === '') && !n.isRead) { e.preventDefault(); markRead.mutate(n.id) } }}
+                  onClick={() => openNotification(n)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNotification(n) } }}
                   className={cn(
                   'flex gap-4 border-l-2 px-5 py-4 transition-colors',
                     n.isRead 

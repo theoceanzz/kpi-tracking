@@ -7,7 +7,9 @@
     "files2": "files",
     "openInANewTab": "Open {{fileName}} in a new tab",
     "openInANewTab2": "Open in a new tab",
-    "viewAndDownloadAttachments": "View and download attachments"
+    "viewAndDownloadAttachments": "View and download attachments",
+    "preview": "Preview {{fileName}}",
+    "preview2": "Preview"
   },
   "EvidenceAttachments": {
     "attachFiles": "Attach files",
@@ -27,6 +29,7 @@
     "onlyMoreFilesCanBeAdded": "Only {{room}} more files can be added (max {{MAX_ATTACHMENT_FILES}})",
     "open": "Open {{fileName}}",
     "upToFilesPerScoring": "Up to {{MAX_ATTACHMENT_FILES}} files per scoring",
-    "willBeRemovedFromThisScoring": "\"{{value}}\" will be removed from this scoring. This cannot be undone."
+    "willBeRemovedFromThisScoring": "\"{{value}}\" will be removed from this scoring. This cannot be undone.",
+    "preview": "Preview {{fileName}}"
   }
 }

@@ -1,18 +1,23 @@
-import { FileText, FileType2, Loader2 } from 'lucide-react'
+import { FileCode2, FileSpreadsheet, FileText, FileType2, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import type { DocumentAiStatus, KbDocument } from '../types'
 
 export function FileTypeIcon({ doc, size = 18 }: { doc: Pick<KbDocument, 'fileName' | 'contentType'>; size?: number }) {
-  const pdf = doc.contentType === 'application/pdf' || doc.fileName?.toLowerCase().endsWith('.pdf')
-  const Icon = pdf ? FileType2 : FileText
+  const name = doc.fileName?.toLowerCase() ?? ''
+  const pdf = doc.contentType === 'application/pdf' || name.endsWith('.pdf')
+  const sheet = /\.(xlsx|xls|csv)$/.test(name)
+  const text = /\.(txt|md)$/.test(name)
+  const Icon = pdf ? FileType2 : sheet ? FileSpreadsheet : text ? FileCode2 : FileText
+  const tone = pdf
+    ? 'bg-[var(--color-error-bg)] text-[var(--color-error)]'
+    : sheet
+      ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]'
+      : text
+        ? 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'
+        : 'bg-[var(--color-info-bg)] text-[var(--color-info)]'
   return (
-    <span
-      className={pdf
-        ? 'flex shrink-0 items-center justify-center rounded-control bg-[var(--color-error-bg)] p-1.5 text-[var(--color-error)]'
-        : 'flex shrink-0 items-center justify-center rounded-control bg-[var(--color-info-bg)] p-1.5 text-[var(--color-info)]'}
-      aria-hidden="true"
-    >
+    <span className={`flex shrink-0 items-center justify-center rounded-control p-1.5 ${tone}`} aria-hidden="true">
       <Icon size={size} />
     </span>
   )

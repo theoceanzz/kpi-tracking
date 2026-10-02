@@ -46,6 +46,8 @@ export interface CreateEvaluationRequest {
   kpiPeriodId: string
   score: number
   comment?: string
+  /** Quản trị BSC chủ động chốt dù dòng "Kết quả cấp trên" còn là số tạm tính (thẻ nguồn chưa chốt). */
+  allowProvisionalBsc?: boolean
 }
 
 // Matches BE: EvaluationScorePreview

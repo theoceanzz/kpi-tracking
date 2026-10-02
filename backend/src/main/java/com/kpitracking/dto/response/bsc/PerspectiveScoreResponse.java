@@ -48,4 +48,10 @@ public class PerspectiveScoreResponse {
     private Double gateMinPercent;
     /** Đã qua chặn chưa. NULL = dòng không phải hạng mục chặn hoặc chưa có dữ liệu để kết luận. */
     private Boolean gatePassed;
+
+    // ── Dòng "Kết quả cấp trên" (phân rã cả bộ) ───────
+    private UUID sourceScorecardId;
+    private String sourceScorecardName;
+    /** Thẻ nguồn chưa chốt kết quả đợt ⇒ điểm dòng này đang là số tạm tính. */
+    private Boolean provisional;
 }

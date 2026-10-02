@@ -373,7 +373,10 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
                         <select value={(row.Status || 'DRAFT').toUpperCase()} onChange={e => change(row.id, 'Status', e.target.value)} className={cn(inputCls(), 'pr-7')}>
                           <option value="DRAFT">{t('ScorecardExcelPreviewModal.draft')}</option>
                           <option value="ACTIVE">{t('ScorecardExcelPreviewModal.apply')}</option>
-                          <option value="ARCHIVED">{t('ScorecardExcelPreviewModal.archived')}</option>
+                          {/* "Lưu trữ" đã bỏ — chỉ hiện lại khi chính file nhập vào ghi trạng thái này. */}
+                          {(row.Status || '').toUpperCase() === 'ARCHIVED' && (
+                            <option value="ARCHIVED">{t('ScorecardExcelPreviewModal.archived')}</option>
+                          )}
                         </select>
                       </td>
                       <td className="px-4 py-2">

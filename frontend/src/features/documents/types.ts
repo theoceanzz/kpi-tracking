@@ -37,6 +37,24 @@ export interface KbDocument {
   orphan: boolean
   /** Tài liệu tri thức cũ, không có tệp gốc. */
   legacy: boolean
+  folderId: string | null
+  folderName: string | null
+  /** Trạng thái riêng của người xem. */
+  favorite: boolean
+  pinned: boolean
+  lastOpenedAt: string | null
+  /** Người xem đọc được nhờ được chia sẻ (không phải nhờ phạm vi). */
+  sharedWithMe: boolean
+  /** Số lượt chia sẻ — chỉ có khi người xem sửa được. */
+  shareCount: number | null
+  /** Chỉ có ở thùng rác. */
+  deletedAt: string | null
+  deletedByName: string | null
+  /** Ngày rà soát / hết hiệu lực (yyyy-MM-dd). */
+  reviewDate: string | null
+  expiryDate: string | null
+  reviewDue: boolean
+  expired: boolean
 }
 
 export interface UnitOption {
@@ -52,6 +70,8 @@ export interface DocumentCapabilities {
   manageableUnits: UnitOption[]
   visibleUnits: UnitOption[]
   allowedExtensions: string[]
+  /** Đơn vị gốc — không chọn làm "Đơn vị" (cả công ty thì dùng phạm vi Công ty). */
+  rootUnitIds: string[]
 }
 
 export interface DocumentUsage {
@@ -63,6 +83,7 @@ export interface DocumentUsage {
   orgChunks: number
   orgChunkQuota: number
   maxFileBytes: number
+  trashRetentionDays: number
 }
 
 export interface PersonalSummary {
@@ -78,8 +99,73 @@ export interface DocumentListParams {
   category?: DocumentCategory
   aiStatus?: DocumentAiStatus
   q?: string
+  folderId?: string
+  rootOnly?: boolean
+  view?: HomeView
   page?: number
   size?: number
+  sort?: 'updatedAt' | 'createdAt' | 'title' | 'fileSize'
+  direction?: 'asc' | 'desc'
+}
+
+/** Tab của trang chủ lọc qua danh sách; "Gần đây" có API riêng. */
+export type HomeView = 'OWNED' | 'SHARED' | 'FAVORITES'
+
+export interface DocumentFolder {
+  id: string
+  name: string
+  scope: DocumentScope
+  orgUnitId: string | null
+  orgUnitName: string | null
+  parentId: string | null
+  canEdit: boolean
+  createdAt: string
+  createdByName: string | null
+}
+
+export interface DocumentFolderList {
+  /** Thư mục đang mở; null = gốc của phạm vi. */
+  current: DocumentFolder | null
+  breadcrumb: DocumentFolder[]
+  folders: DocumentFolder[]
+  canCreate: boolean
+}
+
+export interface DocumentShare {
+  id: string
+  type: 'USER' | 'UNIT'
+  granteeId: string
+  name: string | null
+  detail: string | null
+  grantedByName: string | null
+  createdAt: string
+}
+
+/** Đơn vị trong cây chọn chia sẻ (đơn vị gốc không có — chia sẻ cho cả công ty thì đề xuất lên Công ty). */
+export interface ShareUnit {
+  id: string
+  name: string
+  /** null = cấp đầu (con trực tiếp của đơn vị gốc). */
+  parentId: string | null
+  /** Số người gắn trực tiếp vào đơn vị. */
+  memberCount: number
+}
+
+export interface ShareTarget {
+  type: 'USER' | 'UNIT'
+  id: string
+  name: string
+  detail: string | null
+}
+
+export interface DocumentVersion {
+  id: string
+  version: number
+  fileName: string
+  fileSize: number
+  createdAt: string
+  createdByName: string | null
+  current: boolean
 }
 
 export interface UploadDocumentInput {
@@ -90,6 +176,9 @@ export interface UploadDocumentInput {
   description?: string
   category: DocumentCategory
   aiEnabled: boolean
+  folderId?: string | null
+  reviewDate?: string | null
+  expiryDate?: string | null
 }
 
 export interface UpdateDocumentInput {
@@ -99,4 +188,52 @@ export interface UpdateDocumentInput {
   aiEnabled?: boolean
   scope?: DocumentScope
   orgUnitId?: string | null
+  /** true = ghi đè cả hai ngày (null = xoá ngày). */
+  datesSet?: boolean
+  reviewDate?: string | null
+  expiryDate?: string | null
+}
+
+export type PromotionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
+
+/** Đề xuất đưa tài liệu lên đơn vị / công ty (§16.2). */
+export interface DocumentPromotion {
+  id: string
+  status: PromotionStatus
+  documentId: string
+  documentTitle: string | null
+  fileName: string | null
+  contentType: string | null
+  fileSize: number | null
+  category: DocumentCategory | null
+  sourceScope: DocumentScope | null
+  targetScope: DocumentScope
+  targetUnitId: string | null
+  targetUnitName: string | null
+  note: string | null
+  requestedBy: string
+  requestedByName: string | null
+  createdAt: string
+  decidedByName: string | null
+  decidedAt: string | null
+  decisionNote: string | null
+  resultDocumentId: string | null
+  canDecide: boolean
+  canCancel: boolean
+}
+
+export interface StorageUsage { count: number; bytes: number }
+
+/** Thống kê dung lượng cho quản trị (§16.5). */
+export interface DocumentStorageStats {
+  scopes: { scope: DocumentScope; count: number; bytes: number; chunks: number; quota: number | null }[]
+  trash: StorageUsage
+  versions: StorageUsage
+  topUnits: { unitId: string; name: string | null; path: string | null; count: number; bytes: number; chunks: number }[]
+  topOwners: { userId: string; name: string | null; email: string | null; deactivated: boolean; count: number; bytes: number; chunks: number }[]
+  orgChunks: number
+  orgChunkQuota: number
+  unitQuota: number
+  personalQuota: number
+  trashRetentionDays: number
 }

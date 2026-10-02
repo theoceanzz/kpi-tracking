@@ -73,6 +73,7 @@ public class BscCascadeService {
     private final BscScoringService bscScoringService;
     private final BscAccessGuard accessGuard;
     private final ApplicationEventPublisher eventPublisher;
+    private final BscSourceScores sourceScores;
 
     /**
      * Mức cao nhất của thang xếp loại (ma trận hiệu suất trả 1..5). Dùng cho BLOCK_EXCELLENT:
@@ -223,6 +224,8 @@ public class BscCascadeService {
         boolean zeroFill = scorecard.getEmptyPerspectivePolicy() == com.kpitracking.enums.BscEmptyPerspectivePolicy.ZERO_FILL;
         List<String> gateFailures = new ArrayList<>();
         List<BscUnitResultItem> items = new ArrayList<>();
+        // Dòng "Kết quả cấp trên" (phân rã cả bộ): nạp một lượt kết quả đợt của các thẻ nguồn.
+        java.util.Map<UUID, BscSourceScores.SourceScore> sources = sourceScores.load(rows, kpiPeriodId);
 
         for (BscScorecardPerspective row : rows) {
             double weight = row.getWeightPercentage() != null ? row.getWeightPercentage() : 0.0;
@@ -231,7 +234,8 @@ public class BscCascadeService {
             Double target = effectiveTarget(row);
             Double minimum = effectiveMinimum(row);
 
-            List<KpiCriteria> kpis = kpisOfRow(unitKpis, row);
+            BscScorecard sourceCard = BscSourceScores.sourceOf(row);
+            List<KpiCriteria> kpis = sourceCard != null ? List.of() : kpisOfRow(unitKpis, row);
 
             Double actual = null;
             Double achievement = null;
@@ -241,11 +245,17 @@ public class BscCascadeService {
             // Chỉ tiêu ĐÃ GIAO XUỐNG cấp dưới thì con số của nó nằm ở kết quả của các đơn vị con,
             // không phải ở KPI gắn trực tiếp vào đơn vị này. Đây cũng là cách DUY NHẤT để thẻ công
             // ty (không gắn đơn vị nào nên không có KPI nào để cộng) ra được kết quả.
-            ChildRollup fromChildren = source == BscMeasurementSource.ROLLUP
+            ChildRollup fromChildren = sourceCard == null && source == BscMeasurementSource.ROLLUP
                     ? rollupFromChildren(childrenByParent.get(row.getId()), childResults, target, minimum)
                     : null;
 
-            if (fromChildren != null) {
+            if (sourceCard != null) {
+                // Kết quả TỔNG của thẻ nguồn trong cùng đợt — đúng con số cuối cùng của nó, không
+                // cộng KPI nào. Thẻ nguồn chưa tính ⇒ null, để chính sách hạng mục rỗng quyết định.
+                BscSourceScores.SourceScore ss = sources.get(sourceCard.getId());
+                achievement = ss != null ? ss.percent() : null;
+                source = BscMeasurementSource.SCORECARD_RESULT;
+            } else if (fromChildren != null) {
                 actual = fromChildren.actual();
                 achievement = fromChildren.achievement();
                 source = BscMeasurementSource.CHILD_ROLLUP;
@@ -389,15 +399,23 @@ public class BscCascadeService {
         return unitResultRepository.findByScorecardIdAndKpiPeriodId(scorecardId, kpiPeriodId);
     }
 
-    /** Chốt kết quả: từ đây con số và hệ số không đổi nữa trừ khi mở khoá. */
+    /**
+     * Chốt kết quả: từ đây con số và hệ số không đổi nữa trừ khi mở khoá.
+     *
+     * <p>Thẻ có dòng "Kết quả cấp trên" thì thứ tự chốt phải đi từ trên xuống: thẻ nguồn chưa chốt
+     * ⇒ từ chối, kèm tên thẻ đang phải chờ. Quản trị BSC toàn tổ chức được vượt qua bằng
+     * {@code allowProvisional}; khi đó kết quả được đánh dấu "chốt theo số tạm tính" để không ai
+     * nhầm đó là số cuối của cấp trên.
+     */
     @Transactional
-    public BscUnitResult finalizeResult(UUID scorecardId, UUID kpiPeriodId) {
+    public BscUnitResult finalizeResult(UUID scorecardId, UUID kpiPeriodId, boolean allowProvisional) {
         User actor = currentUserOrNull();
         BscUnitResult result = unitResultRepository.findByScorecardIdAndKpiPeriodId(scorecardId, kpiPeriodId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NO_BSC_RESULTS_PERIOD));
         if (result.getAchievementPercent() == null) {
             throw new BusinessException(ErrorCode.BSC_RESULTS_COULD_NOT_COMPUTED);
         }
+        result.setProvisionalSource(checkSourcesBeforeFinalize(result, kpiPeriodId, allowProvisional));
         result.setStatus(BscUnitResultStatus.FINALIZED);
         result.setFinalizedBy(actor);
         result.setFinalizedAt(Instant.now());
@@ -405,6 +423,40 @@ public class BscCascadeService {
         eventPublisher.publishEvent(new BscEvents.UnitResultFinalized(
                 scorecardId, kpiPeriodId, actor != null ? actor.getId() : null));
         return saved;
+    }
+
+    /**
+     * Gác chốt kết quả của thẻ có dòng "Kết quả cấp trên".
+     *
+     * @return true nếu chốt theo số tạm tính (quản trị cho phép)
+     */
+    private boolean checkSourcesBeforeFinalize(BscUnitResult result, UUID kpiPeriodId, boolean allowProvisional) {
+        List<BscScorecardPerspective> rows =
+                scorecardPerspectiveRepository.findByScorecardIdOrderByDisplayOrderAsc(result.getScorecard().getId());
+        java.util.Map<UUID, BscSourceScores.SourceScore> sources = sourceScores.load(rows, kpiPeriodId);
+        if (sources.isEmpty()) return false;
+
+        // Số đã lưu của dòng phải khớp số hiện tại của thẻ nguồn — nếu không, chốt là đóng băng một
+        // con số cũ trong khi màn hình của thẻ nguồn đang nói khác.
+        java.util.Map<UUID, Double> stored = new java.util.HashMap<>();
+        for (BscUnitResultItem item : unitResultItemRepository.findByUnitResultId(result.getId())) {
+            BscScorecard src = BscSourceScores.sourceOf(item.getScorecardPerspective());
+            if (src != null) stored.put(src.getId(), item.getAchievementPercent());
+        }
+        for (BscSourceScores.SourceScore ss : sources.values()) {
+            Double now = ss.percent();
+            Double then = stored.get(ss.sourceId());
+            boolean same = now == null ? then == null : then != null && Math.abs(now - then) < 0.0001;
+            if (!same) throw new BusinessException(ErrorCode.BSC_SOURCE_RESULT_CHANGED, ss.sourceName());
+        }
+
+        String pending = sources.values().stream().filter(ss -> !ss.finalized())
+                .map(BscSourceScores.SourceScore::sourceName)
+                .collect(java.util.stream.Collectors.joining(", "));
+        if (pending.isEmpty()) return false;
+        if (!allowProvisional) throw new BusinessException(ErrorCode.BSC_SOURCE_RESULT_NOT_FINALIZED, pending);
+        if (!accessGuard.canManageAll()) throw new BusinessException(ErrorCode.PROVISIONAL_FINALIZE_ADMIN_ONLY);
+        return true;
     }
 
     /** Mở khoá để tính lại — bắt buộc đi qua đây thay vì sửa thẳng, để còn dấu vết ai mở. */
@@ -415,6 +467,7 @@ public class BscCascadeService {
         result.setStatus(BscUnitResultStatus.DRAFT);
         result.setFinalizedBy(null);
         result.setFinalizedAt(null);
+        result.setProvisionalSource(false);
         return unitResultRepository.save(result);
     }
 

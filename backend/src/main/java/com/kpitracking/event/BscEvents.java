@@ -37,9 +37,6 @@ public final class BscEvents {
 
     public record ScorecardActivated(UUID scorecardId, UUID actorId) {}
 
-    /** Khoá và mở khoá dùng chung một sự kiện — cùng một việc, chỉ khác chiều. */
-    public record ScorecardLockChanged(UUID scorecardId, UUID actorId, boolean locked) {}
-
     /** Một lần phân rã: MỘT chỉ tiêu của thẻ cha giao xuống nhiều đơn vị. */
     public record ScorecardCascaded(UUID parentScorecardId,
                                     UUID actorId,

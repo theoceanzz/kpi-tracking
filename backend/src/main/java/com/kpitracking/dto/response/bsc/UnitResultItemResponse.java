@@ -22,4 +22,7 @@ public class UnitResultItemResponse {
     private Boolean isGate;
     private Boolean gatePassed;
     private BscMeasurementSource measurementSource;
+    /** Dòng "Kết quả cấp trên": thẻ nguồn và việc thẻ đó đã chốt kết quả đợt hay chưa. */
+    private String sourceScorecardName;
+    private Boolean provisional;
 }
