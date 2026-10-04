@@ -155,10 +155,12 @@ export function useNotificationDots() {
 
   const counts: NotificationCounts = {
     pendingKpis: overviewAllUnits?.pendingKpiForApproval || 0,
-    pendingSubmissions: overviewMyUnit?.pendingSubmissions || 0,
+    // Số đỏ chỉ tính (các) đợt hiện tại — đúng đợt mà trang chọn sẵn khi mở. Đếm trên mọi đợt thì
+    // người dùng thấy số mà mở trang không thấy việc ở đâu.
+    pendingSubmissions: overviewMyUnit?.pendingSubmissionsCurrentPeriod || 0,
     pendingAdjustments: adjustments?.totalElements || 0,
-    myPendingTasks: myProgress?.pendingTaskCount || 0,
-    myRejectedSubmissions: myProgress?.rejectedSubmissions || 0,
+    myPendingTasks: myProgress?.currentPendingTaskCount || 0,
+    myRejectedSubmissions: myProgress?.currentRejectedSubmissions || 0,
     myPendingRedemptions: (myRedemptions?.content || [])
       .filter(r => r.status === RedemptionStatus.PENDING).length,
     myPendingTopups: (myTopups?.content || [])

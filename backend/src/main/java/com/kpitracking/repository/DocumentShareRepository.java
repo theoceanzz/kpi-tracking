@@ -33,6 +33,15 @@ public interface DocumentShareRepository extends JpaRepository<DocumentShare, UU
     List<UUID> findSharedDocumentIds(@Param("orgId") UUID orgId, @Param("userId") UUID userId,
                                      @Param("unitIds") Collection<UUID> unitIds);
 
+    /** Như {@link #findSharedDocumentIds} nhưng chỉ những lượt chia sẻ cho quyền SỬA nội dung. */
+    @Query(value = """
+            SELECT DISTINCT s.document_id FROM document_shares s
+              JOIN documents d ON d.id = s.document_id AND d.deleted_at IS NULL AND d.organization_id = :orgId
+             WHERE s.permission = 'EDIT' AND (s.grantee_user_id = :userId OR s.grantee_unit_id IN (:unitIds))
+            """, nativeQuery = true)
+    List<UUID> findEditSharedDocumentIds(@Param("orgId") UUID orgId, @Param("userId") UUID userId,
+                                         @Param("unitIds") Collection<UUID> unitIds);
+
     /**
      * Số người ĐANG làm việc gắn trực tiếp vào từng đơn vị (bỏ tài khoản xoá / tạm dừng, vai trò hết hạn) — cho cây chọn
      * người chia sẻ. Mỗi dòng {@code [org_unit_id, count]}.

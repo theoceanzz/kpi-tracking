@@ -716,7 +716,14 @@ export default function KpiFormModal({
   const isBonus = !!watch('isBonusKpi')
   // Đợt thuộc kỳ đã có bộ tiêu chí BSC ⇒ KPI tính điểm phải gắn hạng mục (hoặc KR có Objective
   // gắn hạng mục) — chặn ngay lúc tạo/sửa, khớp requirePerspectiveWhenBscEnabled ở backend.
-  const needsBscLink = !!enableBsc && periodHasScorecard && !isBonus && !isPendingApproval
+  // Chỉ bắt gắn hạng mục khi CHÍNH đơn vị của KPI có bộ tiêu chí cho đợt — công ty có bộ mà đơn vị
+  // mình chưa có thì không chặn. Cùng luật với backend (KpiCriteriaService.scoredByBsc).
+  const ownUnitHasScorecard = useMemo(() => {
+    const unitId = formOrgUnitIds.find(id => id && id !== NONE)
+    if (!unitId || !formKpiPeriodId) return false
+    return scorecardsForPeriod(bscScorecards, formKpiPeriodId).some(s => (s.orgUnits || []).some(u => u.id === unitId))
+  }, [bscScorecards, formKpiPeriodId, formOrgUnitIds])
+  const needsBscLink = !!enableBsc && ownUnitHasScorecard && !isBonus && !isPendingApproval
     && Number(watchedWeight) > 0 && (isQualitative || Number(watchedTarget) > 0)
 
   // Chỉ tiêu mà lưu xong là CHỐT luôn, không qua chốt 100% lúc gửi duyệt ⇒ chặn vượt 100% ngay trên form:

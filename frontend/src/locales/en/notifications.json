@@ -12,7 +12,10 @@
     "notificationsAboutKpisSubmissionsAndEvaluations": "Notifications about KPIs, submissions and evaluations will appear here.",
     "today": "Today",
     "unread": "Unread",
-    "viewAllNotifications": "View all notifications"
+    "viewAllNotifications": "View all notifications",
+    "enableDesktopNotifications": "Enable desktop notifications (when in another tab)",
+    "muteSound": "Mute notification sound",
+    "unmuteSound": "Unmute notification sound"
   },
   "NotificationsPage": {
     "all": "All",
@@ -51,5 +54,8 @@
   },
   "useNotifications": {
     "markedAllNotificationsAsRead": "Marked all notifications as read"
+  },
+  "NotificationPopup": {
+    "view": "View"
   }
 }

@@ -12,7 +12,10 @@
     "notificationsAboutKpisSubmissionsAndEvaluations": "Thông báo về chỉ tiêu, bài nộp và đánh giá sẽ hiện ở đây.",
     "today": "Hôm nay",
     "unread": "Chưa đọc",
-    "viewAllNotifications": "Xem tất cả thông báo"
+    "viewAllNotifications": "Xem tất cả thông báo",
+    "enableDesktopNotifications": "Bật thông báo trên máy tính (khi đang ở tab khác)",
+    "muteSound": "Tắt tiếng thông báo",
+    "unmuteSound": "Bật tiếng thông báo"
   },
   "NotificationsPage": {
     "all": "Tất cả",
@@ -50,5 +53,8 @@
   },
   "useNotifications": {
     "markedAllNotificationsAsRead": "Đã đánh dấu tất cả thông báo là đã đọc"
+  },
+  "NotificationPopup": {
+    "view": "Xem"
   }
 }

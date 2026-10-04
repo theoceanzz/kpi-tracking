@@ -25,6 +25,13 @@ public final class DocumentPolicy {
     public static final long MAX_FILE_BYTES = 10L * 1024 * 1024;
     private static final int MAX_FILE_NAME_LENGTH = 120;
 
+    /** Đuôi và kiểu MIME của tài liệu soạn trực tuyến — sinh ra từ trình soạn, không nằm trong danh sách đuôi gợi ý tải lên. */
+    public static final String ONLINE_EXTENSION = "kgdoc";
+    public static final String ONLINE_CONTENT_TYPE = "application/vnd.keygo.document+json";
+    /** Bảng tính soạn trực tuyến: snapshot JSON của trình bảng tính Univer. */
+    public static final String ONLINE_SHEET_EXTENSION = "kgsheet";
+    public static final String ONLINE_SHEET_CONTENT_TYPE = "application/vnd.keygo.sheet+json";
+
     /**
      * Loại tệp nhận được. Thêm loại mới ở đây VÀ phải có {@code DocumentParser} đọc được nó. Kiểu MIME ĐẦU TIÊN của
      * mỗi đuôi là kiểu được lưu; các kiểu sau là những gì trình duyệt / hệ điều hành hay khai cho đuôi đó.
@@ -36,7 +43,10 @@ public final class DocumentPolicy {
             "txt", List.of("text/plain"),
             "md", List.of("text/markdown", "text/x-markdown", "text/plain"),
             // Windows khai .csv là "application/vnd.ms-excel" khi máy có cài Excel.
-            "csv", List.of("text/csv", "text/plain", "application/vnd.ms-excel"));
+            "csv", List.of("text/csv", "text/plain", "application/vnd.ms-excel"),
+            // Tài liệu soạn trực tuyến: mảng khối JSON của trình soạn BlockNote (DocumentEditService).
+            ONLINE_EXTENSION, List.of(ONLINE_CONTENT_TYPE, "application/json"),
+            ONLINE_SHEET_EXTENSION, List.of(ONLINE_SHEET_CONTENT_TYPE, "application/json"));
 
     public static final List<String> ALLOWED_EXTENSIONS = List.of("docx", "pdf", "xlsx", "txt", "md", "csv");
 
@@ -69,6 +79,8 @@ public final class DocumentPolicy {
             case "docx" -> startsWith(bytes, 0x50, 0x4B, 0x03, 0x04) && isMacroFreeOffice(bytes, "word/document.xml");
             case "xlsx" -> startsWith(bytes, 0x50, 0x4B, 0x03, 0x04) && isMacroFreeOffice(bytes, "xl/workbook.xml");
             case "txt", "md", "csv" -> isPlainUtf8Text(bytes);
+            case ONLINE_EXTENSION -> isPlainUtf8Text(bytes) && isJsonArray(bytes);
+            case ONLINE_SHEET_EXTENSION -> isPlainUtf8Text(bytes) && isJsonObject(bytes);
             default -> false;
         };
         if (!signatureOk) {
@@ -122,6 +134,26 @@ public final class DocumentPolicy {
             return false;
         }
     }
+
+    /** Một mảng JSON hợp lệ (định dạng khối của tài liệu soạn trực tuyến). */
+    static boolean isJsonArray(byte[] bytes) {
+        try {
+            return JSON.readTree(bytes).isArray();
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /** Một đối tượng JSON hợp lệ (snapshot của bảng tính soạn trực tuyến). */
+    static boolean isJsonObject(byte[] bytes) {
+        try {
+            return JSON.readTree(bytes).isObject();
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
 
     /** Cắt về tên cơ sở (bỏ đường dẫn máy người dùng, chặn {@code ../}), tối đa 120 ký tự, giữ đuôi. */
     public static String safeFileName(String original) {

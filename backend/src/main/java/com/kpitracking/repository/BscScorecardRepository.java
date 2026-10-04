@@ -18,8 +18,11 @@ public interface BscScorecardRepository extends JpaRepository<BscScorecard, UUID
      * gắn TRỰC TIẾP đợt đó (apply_scope = PERIOD) HOẶC gắn KỲ chứa đợt đó (apply_scope = CYCLE).
      * Vì gắn theo kỳ được suy ra động nên đợt thêm vào kỳ sau này cũng tự áp dụng.
      */
+    // deletedAt lọc TƯỜNG MINH: không trông vào @SQLRestriction của entity (đã gặp trường hợp
+    // Hibernate không áp nó), vì bộ đã xoá lọt vào đây là chặn tạo/duyệt KPI và chấm điểm sai.
     String APPLIES_TO_PERIOD =
-            " AND (EXISTS (SELECT 1 FROM s.kpiPeriods sp WHERE sp.id = :periodId)"
+            " AND s.deletedAt IS NULL"
+            + " AND (EXISTS (SELECT 1 FROM s.kpiPeriods sp WHERE sp.id = :periodId)"
             + " OR c.id = (SELECT pc.kpiCycle.id FROM KpiPeriod pc WHERE pc.id = :periodId)) ";
 
     List<BscScorecard> findByOrganizationIdOrderByCreatedAtDesc(UUID organizationId);

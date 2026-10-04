@@ -182,6 +182,27 @@ class DocumentAccessTest {
     }
 
     @Test
+    @DisplayName("chia sẻ quyền chỉnh sửa: sửa được NỘI DUNG, vẫn không quản lý (xoá, chia sẻ…); quyền xem thì không sửa")
+    void editShareGrantsContentOnly() {
+        Document editShared = personalDoc(OTHER);
+        editShared.setId(UUID.randomUUID());
+        Document viewShared = personalDoc(OTHER);
+        viewShared.setId(UUID.randomUUID());
+        DocumentAccess a = access(at(X1, STAFF))
+                .withShared(Set.of(editShared.getId(), viewShared.getId()), Set.of(editShared.getId()));
+        assertThat(a.canEditContent(editShared)).isTrue();
+        assertThat(a.canEdit(editShared)).isFalse();
+        assertThat(a.canEditContent(viewShared)).isFalse();
+        // Quyền sửa chỉ đi kèm quyền xem: id có trong tập sửa nhưng không xem được thì vẫn không sửa.
+        Document foreign = Document.builder().organizationId(UUID.randomUUID()).scope(DocumentScope.COMPANY).build();
+        foreign.setId(UUID.randomUUID());
+        assertThat(access(at(X1, STAFF)).withShared(Set.of(), Set.of(foreign.getId())).canEditContent(foreign)).isFalse();
+        // Người quản lý luôn sửa được nội dung.
+        Document own = personalDoc(ME);
+        assertThat(access(at(X1, STAFF)).canEditContent(own)).isEqualTo(access(at(X1, STAFF)).canEdit(own));
+    }
+
+    @Test
     @DisplayName("chia sẻ không vượt tổ chức: id trùng nhưng tài liệu thuộc tổ chức khác thì vẫn không thấy")
     void sharedRespectsOrganization() {
         Document foreign = Document.builder().organizationId(UUID.randomUUID()).scope(DocumentScope.COMPANY).build();

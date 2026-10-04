@@ -23,7 +23,8 @@ import static dev.langchain4j.store.embedding.filter.MetadataFilterBuilder.metad
  *                           thành viên, cộng cây con của đơn vị mình quản lý
  * @param manageableUnitIds  đơn vị mà mình sửa được tài liệu {@code UNIT}: cây con của nơi có {@code DOCUMENT:MANAGE_UNIT}
  * @param liveUnitIds        mọi đơn vị còn sống của tổ chức — tài liệu của đơn vị đã xoá là "mồ côi"
- * @param sharedDocIds       tài liệu được CHIA SẺ cho người này (trực tiếp, hoặc cho đơn vị của họ): chỉ XEM
+ * @param sharedDocIds       tài liệu được CHIA SẺ cho người này (trực tiếp, hoặc cho đơn vị của họ)
+ * @param editSharedDocIds   phần trong {@code sharedDocIds} được chia sẻ quyền SỬA nội dung (trình soạn trực tuyến)
  */
 public record DocumentAccess(
         UUID orgId,
@@ -34,19 +35,25 @@ public record DocumentAccess(
         Set<UUID> liveUnitIds,
         boolean canManageCompany,
         boolean canUploadPersonal,
-        Set<UUID> sharedDocIds) {
+        Set<UUID> sharedDocIds,
+        Set<UUID> editSharedDocIds) {
 
     /** Chưa tính phần chia sẻ (test, hoặc trước khi resolver nạp chia sẻ). */
     public DocumentAccess(UUID orgId, UUID userId, boolean member, Set<UUID> visibleUnitIds, Set<UUID> manageableUnitIds,
                           Set<UUID> liveUnitIds, boolean canManageCompany, boolean canUploadPersonal) {
         this(orgId, userId, member, visibleUnitIds, manageableUnitIds, liveUnitIds, canManageCompany, canUploadPersonal,
-                Set.of());
+                Set.of(), Set.of());
     }
 
-    /** Bản sao kèm danh sách tài liệu được chia sẻ. */
+    /** Bản sao kèm danh sách tài liệu được chia sẻ (chỉ xem). */
     public DocumentAccess withShared(Set<UUID> shared) {
+        return withShared(shared, Set.of());
+    }
+
+    /** Bản sao kèm tài liệu được chia sẻ, và phần trong đó được chia sẻ quyền sửa nội dung. */
+    public DocumentAccess withShared(Set<UUID> shared, Set<UUID> editShared) {
         return new DocumentAccess(orgId, userId, member, visibleUnitIds, manageableUnitIds, liveUnitIds,
-                canManageCompany, canUploadPersonal, Set.copyOf(shared));
+                canManageCompany, canUploadPersonal, Set.copyOf(shared), Set.copyOf(editShared));
     }
 
     /** Giá trị {@code orgId}/{@code scope} của bộ hướng dẫn chung trong kho vector. */
@@ -60,7 +67,7 @@ public record DocumentAccess(
 
     /** Không biết là ai → không đọc gì của tổ chức nào. */
     public static DocumentAccess none(UUID orgId, UUID userId) {
-        return new DocumentAccess(orgId, userId, false, Set.of(), Set.of(), Set.of(), false, false, Set.of());
+        return new DocumentAccess(orgId, userId, false, Set.of(), Set.of(), Set.of(), false, false, Set.of(), Set.of());
     }
 
     // ── Kiểm trên một tài liệu cụ thể ───────────────────────────────────────────────────────────
@@ -81,7 +88,16 @@ public record DocumentAccess(
                 && !(d.getScope() == DocumentScope.PERSONAL && userId.equals(d.getOwnerUserId()));
     }
 
-    /** Sửa được: CHỈ theo phạm vi — được chia sẻ chỉ cho quyền xem. */
+    /**
+     * Sửa nội dung trong trình soạn trực tuyến: người quản lý tài liệu ({@link #canEdit}), hoặc người được chia sẻ quyền
+     * sửa. Chỉ nội dung — đổi tên, xoá, di chuyển, chia sẻ, phiên bản vẫn theo {@link #canEdit}.
+     */
+    public boolean canEditContent(Document d) {
+        if (canEdit(d)) return true;
+        return canView(d) && d.getId() != null && editSharedDocIds.contains(d.getId());
+    }
+
+    /** Quản lý (sửa thông tin, thay tệp, xoá, di chuyển, chia sẻ): CHỈ theo phạm vi — chia sẻ không bao giờ cho quyền này. */
     public boolean canEdit(Document d) {
         if (!member || d == null || !orgId.equals(d.getOrganizationId())) return false;
         return switch (d.getScope()) {

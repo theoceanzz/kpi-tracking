@@ -1297,5 +1297,12 @@
     "emptySheet": "Trang tính trống.",
     "truncated": "Chỉ hiện {{rows}} hàng và {{cols}} cột đầu — tải về để xem đủ.",
     "download": "Tải về"
+  },
+  "OrgTimeFilters": {
+    "filterUnit": "Lọc theo đơn vị",
+    "filterCyclePeriod": "Lọc theo kỳ / đợt",
+    "allCyclesPeriods": "Tất cả kỳ / đợt",
+    "wholeCycle": "Cả kỳ {{name}}",
+    "clearFilters": "Bỏ lọc"
   }
 }

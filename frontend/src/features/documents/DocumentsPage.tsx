@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, ArrowUpFromLine, Building2, FileText, FolderPlus, HardDrive, Home, Info, Layers, Plus, Trash2, Upload, User, X } from 'lucide-react'
+import { AlertTriangle, ArrowUpFromLine, Building2, FilePlus2, FileSpreadsheet, FileText, FolderPlus, HardDrive, Home, Info, Layers, Plus, Trash2, Upload, User, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
@@ -17,6 +17,7 @@ import {
 import DocumentDrawer from './components/DocumentDrawer'
 import UploadDocumentDialog from './components/UploadDocumentDialog'
 import FolderDialog from './components/FolderDialog'
+import NewOnlineDocumentDialog from './components/NewOnlineDocumentDialog'
 import MoveDocumentDialog from './components/MoveDocumentDialog'
 import DocumentsNav, { type NavItem } from './components/DocumentsNav'
 import { DocumentActionsProvider, type DocumentActions, type DrawerTab } from './components/DocumentActions'
@@ -27,7 +28,7 @@ import TrashView from './views/TrashView'
 import PromotionsView from './views/PromotionsView'
 import StorageView from './views/StorageView'
 import { documentFileUrl } from './api/documentApi'
-import { creatableScopes, formatBytes, listableUnits } from './utils'
+import { creatableScopes, editorPath, formatBytes, listableUnits, onlineFormat } from './utils'
 import type { DocumentFolder, DocumentScope, KbDocument } from './types'
 
 type TabKey = 'home' | 'mine' | 'unit' | 'company' | 'trash' | 'requests' | 'storage'
@@ -92,6 +93,7 @@ export default function DocumentsPage() {
   }
 
   const [upload, setUpload] = useState<DriveContext | 'pick' | null>(null)
+  const [newDoc, setNewDoc] = useState<{ at: DriveContext | 'pick'; kind: 'doc' | 'sheet' } | null>(null)
   const [folderDialog, setFolderDialog] = useState<FolderDialogState | null>(null)
   const [moving, setMoving] = useState<KbDocument | null>(null)
   const [removing, setRemoving] = useState<KbDocument | null>(null)
@@ -126,8 +128,14 @@ export default function DocumentsPage() {
     if (linkedId) clearLink()
   }
 
+  const navigate = useNavigate()
   const actions: DocumentActions = {
-    open: (doc, drawerTab) => { if (linkedId) clearLink(); setOpened({ doc, tab: drawerTab }) },
+    // Tài liệu soạn trực tuyến (.md / .txt) mở thẳng trình soạn như Lark; drawer thông tin vẫn mở được khi hỏi rõ tab.
+    open: (doc, drawerTab) => {
+      if (!drawerTab && onlineFormat(doc)) { navigate(editorPath(doc.id)); return }
+      if (linkedId) clearLink()
+      setOpened({ doc, tab: drawerTab })
+    },
     preview: setPreviewDoc,
     move: setMoving,
     remove: setRemoving,
@@ -173,6 +181,10 @@ export default function DocumentsPage() {
                 <Button aria-haspopup="menu"><Plus aria-hidden="true" /> {t('actions.new')}</Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-56 p-1.5" role="menu">
+                <NewMenuItem icon={<FilePlus2 />} label={t('actions.newDoc')}
+                             onClick={() => { setNewMenu(false); setNewDoc({ at: scope && scope !== 'UNIT' ? { scope, unitId: null, folder: null } : 'pick', kind: 'doc' }) }} />
+                <NewMenuItem icon={<FileSpreadsheet />} label={t('actions.newSheet')}
+                             onClick={() => { setNewMenu(false); setNewDoc({ at: scope && scope !== 'UNIT' ? { scope, unitId: null, folder: null } : 'pick', kind: 'sheet' }) }} />
                 <NewMenuItem icon={<Upload />} label={t('actions.upload')} onClick={() => { setNewMenu(false); setUpload('pick') }} />
                 <NewMenuItem icon={<FolderPlus />} label={t('actions.newFolder')}
                              onClick={() => { setNewMenu(false); setFolderDialog({ kind: 'create', parent: null }) }} />
@@ -206,6 +218,7 @@ export default function DocumentsPage() {
                 canCreateFolder={canUpload}
                 onUpload={() => setUpload('pick')}
                 onNewFolder={() => setFolderDialog({ kind: 'create', parent: null })}
+                onNewDoc={kind => setNewDoc({ at: 'pick', kind })}
               />
             )}
             {scope && (
@@ -216,6 +229,7 @@ export default function DocumentsPage() {
                 layout={layout}
                 onLayoutChange={changeLayout}
                 onUpload={ctx => setUpload(ctx)}
+                onNewDoc={(ctx, kind) => setNewDoc({ at: ctx, kind })}
                 onNewFolder={ctx => setFolderDialog(ctx.folder
                   ? { kind: 'create', parent: ctx.folder }
                   : { kind: 'create', parent: null, scope: ctx.scope, unitId: ctx.unitId })}
@@ -248,6 +262,16 @@ export default function DocumentsPage() {
             defaultScope={upload === 'pick' ? (scope ?? creatable[0] ?? 'PERSONAL') : upload.scope}
             defaultUnitId={upload === 'pick' ? null : upload.unitId}
             folder={upload === 'pick' ? null : upload.folder}
+          />
+        )}
+        {newDoc && (
+          <NewOnlineDocumentDialog
+            onClose={() => setNewDoc(null)}
+            caps={caps}
+            folder={newDoc.at === 'pick' ? null : newDoc.at.folder}
+            scope={newDoc.at === 'pick' ? undefined : newDoc.at.scope}
+            unitId={newDoc.at === 'pick' ? undefined : newDoc.at.unitId}
+            kind={newDoc.kind}
           />
         )}
         {folderDialog && (

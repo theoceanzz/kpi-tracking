@@ -105,7 +105,8 @@
     "provisionalHint": "Kết quả {{name}} chưa được chốt — điểm dòng này còn có thể đổi.",
     "provisionalConfirmTitle": "Chốt theo số tạm tính?",
     "provisionalConfirmDescription": "Kết quả {{names}} chưa được chốt nên điểm dòng kết quả cấp trên vẫn là số tạm tính. Chốt bây giờ sẽ lưu đánh giá theo số tạm này và đánh dấu lại.",
-    "provisionalConfirm": "Vẫn chốt"
+    "provisionalConfirm": "Vẫn chốt",
+    "bscNotApplied": "Chưa áp dụng BSC — đơn vị chưa có bộ tiêu chí riêng cho đợt này."
   },
   "evaluationSchema": {
     "minimumScoreIs0": "Điểm tối thiểu 0",

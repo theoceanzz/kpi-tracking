@@ -109,6 +109,37 @@ public class StatsService {
                 scope.managerUnitIdsForQuery(), scope.memberUnitIdsForQuery(), excludeUserId, kpiTypeFilter);
     }
 
+    /**
+     * (Các) đợt "hiện tại" của tổ chức — phạm vi của số đỏ nhắc việc ở sidebar và tab. Đếm trên mọi
+     * đợt thì nhân viên thấy số đỏ mà mở trang (mặc định chọn đợt hiện tại) không thấy việc ở đâu.
+     *
+     * Cùng quy tắc với {@code pickCurrentOrNearest} ở frontend (trang chọn sẵn đợt theo quy tắc này):
+     * các đợt đang chạy (now trong [start, end]); không đợt nào đang chạy thì ở lại đợt vừa bắt đầu
+     * gần nhất — tối thứ 7 người duyệt vẫn đang chấm đợt tuần vừa xong. Đợt đã khoá/chuyển/huỷ không
+     * còn ghi được nên bỏ qua.
+     */
+    private Set<UUID> currentPeriodIds(UUID organizationId, Instant now) {
+        if (organizationId == null) return Collections.emptySet();
+        List<KpiPeriod> periods = kpiPeriodRepository.findByOrganizationId(organizationId).stream()
+                .filter(p -> p.getStatus() == null || !p.getStatus().isTerminal())
+                .toList();
+
+        Set<UUID> running = periods.stream()
+                .filter(p -> p.getStartDate() != null || p.getEndDate() != null)
+                .filter(p -> (p.getStartDate() == null || !now.isBefore(p.getStartDate()))
+                        && (p.getEndDate() == null || !now.isAfter(p.getEndDate())))
+                .map(KpiPeriod::getId)
+                .collect(Collectors.toSet());
+        if (!running.isEmpty()) return running;
+
+        return periods.stream()
+                .filter(p -> p.getStartDate() != null && !p.getStartDate().isAfter(now))
+                .max(Comparator.comparing(KpiPeriod::getStartDate)
+                        .thenComparing(p -> p.getEndDate() != null ? p.getEndDate() : Instant.EPOCH))
+                .map(p -> Set.of(p.getId()))
+                .orElse(Collections.emptySet());
+    }
+
     @Transactional(readOnly = true)
     public OverviewStatsResponse getOverviewStats(java.util.UUID orgUnitId) {
         User currentUser = getCurrentUser();
@@ -150,6 +181,9 @@ public class StatsService {
                 .count();
 
         long pendingSub = submissionRepository.countBySubmittedByUserOrgUnitInAndStatusExcludingUser(unitIds, SubmissionStatus.PENDING, currentUser.getId());
+        Set<UUID> currentPeriods = currentPeriodIds(getCurrentUserOrganizationId(currentUser), Instant.now());
+        long pendingSubCurrent = currentPeriods.isEmpty() ? 0L
+                : submissionRepository.countBySubmittedByUserOrgUnitInAndStatusExcludingUserInPeriods(unitIds, SubmissionStatus.PENDING, currentUser.getId(), currentPeriods);
         long approvedSub = submissionRepository.countBySubmittedByUserOrgUnitInAndStatus(unitIds, SubmissionStatus.APPROVED);
         long rejectedSub = submissionRepository.countBySubmittedByUserOrgUnitInAndStatus(unitIds, SubmissionStatus.REJECTED);
 
@@ -176,6 +210,7 @@ public class StatsService {
                 .totalSubmissions((int) (pendingSub + approvedSub + rejectedSub))
                 .approvedSubmissions((int) approvedSub)
                 .pendingSubmissions((int) pendingSub)
+                .pendingSubmissionsCurrentPeriod(pendingSubCurrent)
                 .rejectedSubmissions((int) rejectedSub)
                 .totalEvaluations(evaluationRepository.countByOrgUnitIdIn(unitIds))
                 .evaluationPeriods(evaluationPeriods)
@@ -441,7 +476,10 @@ public class StatsService {
         List<KpiTaskResponse> allTasks = new ArrayList<>();
         long lateCount = 0;
         long pendingTaskCount = 0;
+        long currentPendingTaskCount = 0;
         Instant now = Instant.now();
+        UUID targetOrgId = userRepository.findById(userId).map(this::getCurrentUserOrganizationId).orElse(null);
+        Set<UUID> currentPeriods = currentPeriodIds(targetOrgId, now);
 
         for (KpiCriteria criteria : assignedCriteria) {
             if (!activeStatuses.contains(criteria.getStatus())) continue;
@@ -486,6 +524,7 @@ public class StatsService {
             if (!notOpenedYet
                     && (status.equals("NOT_STARTED") || status.equals("OVERDUE") || status.equals("REJECTED") || status.equals("EDIT"))) {
                 pendingTaskCount++;
+                if (period != null && currentPeriods.contains(period.getId())) currentPendingTaskCount++;
             }
 
             if (status.equals("NOT_STARTED") && actualDeadline != null && actualDeadline.isBefore(now)) {
@@ -566,6 +605,12 @@ public class StatsService {
                 .rejectedSubmissions(rejected)
                 .lateSubmissions(lateCount)
                 .pendingTaskCount(pendingTaskCount)
+                .currentPendingTaskCount(currentPendingTaskCount)
+                .currentRejectedSubmissions(mySubmissions.stream()
+                        .filter(s -> s.getStatus() == SubmissionStatus.REJECTED)
+                        .filter(s -> s.getKpiCriteria().getKpiPeriod() != null
+                                && currentPeriods.contains(s.getKpiCriteria().getKpiPeriod().getId()))
+                        .count())
                 .averageScore(avgScore)
                 .tasks(taskPage)
                 .build();

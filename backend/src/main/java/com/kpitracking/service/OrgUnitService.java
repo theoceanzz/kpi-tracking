@@ -347,6 +347,33 @@ public class OrgUnitService {
         return Collections.emptyList();
     }
 
+    /**
+     * Chuỗi đơn vị từ {@code unitId} đi lên tới gốc — cho các trang "của tôi" (BSC, OKR) xem mục tiêu
+     * của cấp trên trực thuộc. Cây đơn vị ({@link #getOrgUnitTree}) chỉ trả nhánh người dùng được
+     * xem, nên nhân viên thường không thấy đơn vị cha của chính mình qua đó.
+     *
+     * <p>Chỉ cho xem chuỗi của đơn vị mà chính người gọi đang thuộc về: chỉ lộ tên các đơn vị cấp
+     * trên của mình, không lộ đơn vị ngang hàng.
+     */
+    @Transactional(readOnly = true)
+    public List<com.kpitracking.dto.response.orgunit.OrgUnitChainItem> getMyUnitChain(UUID orgId, UUID unitId) {
+        OrgUnit unit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", unitId));
+        com.kpitracking.entity.User currentUser = getCurrentUser();
+        if (userRoleOrgUnitRepository.findByUserIdAndOrgUnitId(currentUser.getId(), unitId).isEmpty()) {
+            throw new ForbiddenException(ErrorCode.DO_NOT_BELONG_ORGANIZATION_3);
+        }
+        List<com.kpitracking.dto.response.orgunit.OrgUnitChainItem> chain = new ArrayList<>();
+        OrgUnit cur = unit;
+        int guard = 0; // chặn treo nếu dữ liệu cây bị lỗi vòng
+        while (cur != null && guard++ < 100) {
+            chain.add(new com.kpitracking.dto.response.orgunit.OrgUnitChainItem(
+                    cur.getId(), cur.getName(), cur.getParent() != null ? cur.getParent().getId() : null));
+            cur = cur.getParent();
+        }
+        return chain;
+    }
+
     @Transactional(readOnly = true)
     public List<OrgUnitTreeResponse> getSubtree(UUID orgId, UUID unitId) {
         OrgUnit root = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)

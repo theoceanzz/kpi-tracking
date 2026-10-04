@@ -299,7 +299,8 @@
     "youHaveApprovedAllAssignedKpis": "You have approved all assigned KPIs. Would you like to self-assess now?",
     "yourOwn": "(your own)",
     "chooseLevelsForQualitativeKpis": "choose levels for qualitative KPIs",
-    "scoreConductAbove": "score conduct above"
+    "scoreConductAbove": "score conduct above",
+    "bscNotApplied": "BSC not applied (the unit has no scorecard of its own)"
   },
   "StaffPerformanceDetailModal": {
     "approved": "Approved",

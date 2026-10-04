@@ -169,11 +169,11 @@
     "rowNo": "STT"
   },
   "ConductTargetPicker": {
-    "byCycle": "Theo kỳ",
-    "byPeriod": "Theo đợt",
-    "chooseEvaluationCycle": "Chọn kỳ đánh giá",
-    "chooseEvaluationPeriod": "Chọn đợt đánh giá",
-    "cycle": "kỳ"
+    "chooseCyclePeriod": "Chọn kỳ / đợt chấm",
+    "wholeCycle": "Cả kỳ {{name}}",
+    "periodsWithoutCycle": "Đợt không thuộc kỳ",
+    "showPastCycles": "Hiện {{count}} kỳ đã qua",
+    "hidePastCycles": "Ẩn kỳ đã qua"
   },
   "MyConductPage": {
     "anAdministratorEnablesThisFeatureIn": "Quản trị viên bật tính năng này ở Thiết lập công cụ, mục Module & tính năng.",

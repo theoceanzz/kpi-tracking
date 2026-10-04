@@ -303,6 +303,8 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
               bscMode={bscMode}
               bscPerspectives={bscPerspectives}
               bscUnassigned={bscUnassigned}
+              // Tổ chức bật BSC mà đơn vị chưa có bộ riêng cho đợt ⇒ không có điểm BSC; nói rõ thay vì để trống.
+              bscNotApplied={!!org?.enableBsc && !!scorePreview && !bscMode}
               readOnly={readOnly}
             />
           )}
@@ -501,7 +503,7 @@ const trim = (v: number) => Number(v.toFixed(1)).toString()
 function MeasurementPanel({
   maxScore, calculatedScore, noQuantScore, isBscOfficial, completionPct,
   matrixRating, behaviorScore, systemScore, bscScore, bscMode, bscPerspectives,
-  bscUnassigned, readOnly,
+  bscUnassigned, bscNotApplied, readOnly,
 }: {
   maxScore: number
   calculatedScore: number
@@ -515,6 +517,7 @@ function MeasurementPanel({
   bscMode: BscScoringMode | null
   bscPerspectives: PerspectiveScoreResponse[]
   bscUnassigned: string[]
+  bscNotApplied: boolean
   readOnly: boolean
 }) {
   const { t } = useTranslation('evaluations')
@@ -552,6 +555,11 @@ function MeasurementPanel({
           <RefStat label={t('EvaluationFormModal.conduct2')} value={behaviorScore != null ? <>{behaviorScore.toFixed(1)}<span className="text-sm text-[var(--color-subtle-foreground)]">/5</span></> : '—'} />
         )}
       </div>
+      {bscNotApplied && (
+        <p className="text-caption">
+          <b>BSC:</b> {t('EvaluationFormModal.bscNotApplied')}
+        </p>
+      )}
 
       <p className="text-caption flex items-start gap-1.5">
         {isBscOfficial

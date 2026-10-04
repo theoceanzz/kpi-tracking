@@ -485,6 +485,10 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT s.id) FROM KpiSubmission s JOIN UserRoleOrgUnit uro ON uro.user.id = s.submittedBy.id WHERE (uro.orgUnit.id IN :orgUnitIds OR EXISTS (SELECT 1 FROM OrgUnit au WHERE uro.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :orgUnitIds)) AND s.status = :status AND s.submittedBy.id != :excludedUserId AND s.deletedAt IS NULL")
     long countBySubmittedByUserOrgUnitInAndStatusExcludingUser(@org.springframework.data.repository.query.Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds, @org.springframework.data.repository.query.Param("status") SubmissionStatus status, @org.springframework.data.repository.query.Param("excludedUserId") UUID excludedUserId);
 
+    /** Như {@link #countBySubmittedByUserOrgUnitInAndStatusExcludingUser} nhưng chỉ đếm bài thuộc các đợt cho trước. */
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT s.id) FROM KpiSubmission s JOIN UserRoleOrgUnit uro ON uro.user.id = s.submittedBy.id WHERE (uro.orgUnit.id IN :orgUnitIds OR EXISTS (SELECT 1 FROM OrgUnit au WHERE uro.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :orgUnitIds)) AND s.status = :status AND s.submittedBy.id != :excludedUserId AND s.kpiCriteria.kpiPeriod.id IN :periodIds AND s.deletedAt IS NULL")
+    long countBySubmittedByUserOrgUnitInAndStatusExcludingUserInPeriods(@org.springframework.data.repository.query.Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds, @org.springframework.data.repository.query.Param("status") SubmissionStatus status, @org.springframework.data.repository.query.Param("excludedUserId") UUID excludedUserId, @org.springframework.data.repository.query.Param("periodIds") java.util.Collection<UUID> periodIds);
+
     /**
      * Bài nộp bị trả lại của một người trong một đợt mà vẫn đang chờ nộp lại (chưa có bài mới, chưa
      * quá hạn nộp lại). Còn bài nào thì chưa chốt được đánh giá đợt của người đó.

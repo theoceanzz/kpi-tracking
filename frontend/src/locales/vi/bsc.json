@@ -143,7 +143,10 @@
     "waitingForSource": "Đang chờ kết quả {{names}} được chốt — dòng kết quả cấp trên vẫn là số tạm tính.",
     "finalizeProvisionalTitle": "Chốt theo số tạm tính?",
     "finalizeProvisionalDescription": "Kết quả {{names}} chưa được chốt. Chốt bây giờ sẽ giữ số tạm tính của dòng kết quả cấp trên và đánh dấu kết quả là \"chốt theo số tạm tính\".",
-    "finalizeProvisionalConfirm": "Vẫn chốt"
+    "finalizeProvisionalConfirm": "Vẫn chốt",
+    "noScorecardMatchesFilters": "Không có bộ tiêu chí nào khớp bộ lọc.",
+    "sourceRowShare": "Kết quả {{name}} chiếm {{value}}%",
+    "unallocated": "còn {{value}}% chưa chia"
   },
   "BscWaterfallModal": {
     "anOverrideIsAnExceptionThat": "Ghi đè là hành vi ngoại lệ và phải giải trình được về sau, nên lý do là bắt buộc.",
@@ -227,7 +230,13 @@
     "modeItem": "Giao từng chỉ tiêu",
     "modeWhole": "Giao cả bộ tiêu chí",
     "saveWhole": "Lưu",
-    "childTotalsOff": "Tổng trọng số của {{units}} đang lệch 100% — đơn vị cần chia lại trước khi trình duyệt."
+    "childTotalsOff": "Tổng trọng số của {{units}} đang lệch 100% — đơn vị cần chia lại trước khi trình duyệt.",
+    "chooseUnitsFor": "Chưa chọn đơn vị nào cho chỉ tiêu \"{{name}}\".",
+    "cascadedItems": "Đã phân rã {{count}} chỉ tiêu xuống các đơn vị",
+    "cascadeFailed": "Phân rã thất bại",
+    "cascadedBeforeError": "(đã giao xong {{count}} chỉ tiêu trước khi lỗi)",
+    "cascadeNItems": "Giao {{count}} chỉ tiêu",
+    "nItemsPicked": "Đã chọn {{count}} chỉ tiêu"
   },
   "CascadePolicyModal": {
     "alreadyHasAPolicy": " (đã có chính sách)",
@@ -358,33 +367,43 @@
     "yes": "Có"
   },
   "MyBscPage": {
-    "aPeriod": "Đợt",
     "assignedByParent": "Cấp trên giao",
-    "atLeastRequired": " · cần tối thiểu {{minRequired}}%",
     "bscLinkedKpis": "KPI gắn BSC",
     "bscManagement": "Quản lý BSC",
-    "bscScorecardsAreBuiltPerPeriod": "Bộ tiêu chí BSC do tổ chức hoặc trưởng đơn vị dựng theo từng đợt. Chưa có thì KPI của bạn vẫn chấm bình thường, chỉ chưa quy về điểm BSC.",
     "buildAScorecard": "Dựng bộ tiêu chí",
-    "choosePeriod": "Chọn đợt",
     "gateItems": "Hạng mục chặn",
-    "inheritedFromTheParent": " · kế thừa từ cấp trên",
     "item": "Hạng mục",
     "items": "hạng mục ·",
     "myBsc": "BSC của tôi",
     "officialScoring": "Chấm chính thức",
-    "ofYourKpiWeightLinkedTo": "% trọng số KPI của bạn đã gắn BSC",
-    "organizationWide": "Toàn tổ chức",
     "parallel": "Chạy song song",
     "target": "Mục tiêu {{targetValue}}{{value}}{{value2}}",
-    "theScorecardAppliedToInThe": "Bộ tiêu chí đang áp cho {{value}} trong đợt, từng hạng mục và KPI của bạn góp vào đó.",
-    "thisPeriodHasNoScorecardFor": "Đợt này chưa có bộ tiêu chí cho đơn vị bạn",
     "toSubmit": "Cần nộp",
     "totalWeight": "tổng trọng số",
     "viewAnalytics": "Xem phân tích",
     "youContribute": "Bạn góp",
     "youHaveNoKpiLinkedTo": "Bạn chưa có KPI gắn vào hạng mục này.",
     "minimum": " · tối thiểu {{minimumValue}}",
-    "yourUnit": "đơn vị của bạn"
+    "yourUnit": "đơn vị của bạn",
+    "levelDescription": "Bộ tiêu chí của {{value}} và các cấp trên trực thuộc đến công ty. Chọn cấp, rồi chọn bộ tiêu chí trong cấp đó.",
+    "level": "Cấp",
+    "scorecard": "Bộ tiêu chí",
+    "levelMine": "{{name}} (đơn vị của bạn)",
+    "levelParent": "{{name}} (cấp trên)",
+    "levelCompany": "{{name}} (toàn công ty)",
+    "noScorecardShort": "chưa có bộ tiêu chí",
+    "cycleLabel": "Kỳ {{name}}",
+    "noPeriod": "Chưa gắn đợt",
+    "morePeriods": "+{{count}} đợt",
+    "noScorecardAtLevel": "{{name}} chưa có bộ tiêu chí nào",
+    "noScorecardAtLevelHint": "Bộ tiêu chí BSC do tổ chức hoặc trưởng đơn vị dựng. Chọn một cấp khác ở ô Cấp để xem bộ tiêu chí của cấp trên.",
+    "appliesToYou": "Đang chấm cho bạn",
+    "searchItems": "Tìm hạng mục, KPI…",
+    "noItemMatches": "Không có hạng mục nào khớp từ khoá.",
+    "notAppliedTitle": "Đơn vị của bạn chưa áp dụng BSC.",
+    "notAppliedHint": "{{name}} chưa có bộ tiêu chí riêng nên điểm BSC của bạn để trống. Bộ tiêu chí của cấp trên / công ty bên dưới chỉ để tham khảo, không dùng để chấm điểm bạn.",
+    "referenceOnly": "Chỉ để tham khảo",
+    "referenceOnlyHint": "Bộ tiêu chí của cấp trên — không dùng để chấm điểm bạn. Chỉ bộ của chính đơn vị bạn mới được dùng để chấm."
   },
   "PerspectiveFormModal": {
     "and0IfTheActualTotal": ", và = 0 nếu tổng thực đạt dưới {{minimumValue}}{{unitLabel}}",
@@ -683,13 +702,13 @@
     "itemNameHint": "Bỏ trống thì dùng tên gợi ý.",
     "area": "Xếp vào nhóm lĩnh vực",
     "areaHint": "Bộ tiêu chí nào cũng chia hạng mục theo 4 lĩnh vực, nên dòng này phải nằm trong một nhóm ở thẻ của đơn vị nhận. Chỉ để hiển thị và báo cáo theo lĩnh vực — không ảnh hưởng điểm.",
-    "weightRangeFor": "Trọng số phải lớn hơn 0 và không quá 100% cho: {{units}}",
     "chooseAtLeastOneUnit": "Chọn ít nhất một đơn vị.",
     "willBeRevoked": "· sẽ thu hồi",
     "cardTotal": "· thẻ đang tổng {{value}}%",
-    "sameWeightForAll": "Cùng trọng số cho tất cả",
-    "apply": "Áp dụng",
     "revokeNotice": "Khi lưu sẽ thu hồi dòng kết quả cấp trên khỏi bộ tiêu chí của: {{units}}.",
-    "explainer": "Mỗi đơn vị nhận MỘT dòng khoá, chỉ có trọng số. Điểm của dòng = kết quả tổng của bộ tiêu chí này trong cùng đợt; đơn vị chia phần trọng số còn lại cho hạng mục riêng. Chỉ giao được khi hai bộ tiêu chí cùng đợt/kỳ."
+    "explainer": "Mỗi đơn vị nhận MỘT dòng khoá, chỉ có trọng số. Điểm của dòng = kết quả tổng của bộ tiêu chí này trong cùng đợt; đơn vị chia phần trọng số còn lại cho hạng mục riêng. Chỉ giao được khi hai bộ tiêu chí cùng đợt/kỳ.",
+    "weightRangeFor": "Trọng số phải lớn hơn 0 và không quá 100% cho: {{units}}",
+    "sameWeightForAll": "Cùng trọng số cho tất cả",
+    "apply": "Áp dụng"
   }
 }

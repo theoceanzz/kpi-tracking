@@ -143,6 +143,16 @@ public class Document {
     @Column(name = "expiry_notified_for")
     private java.time.LocalDate expiryNotifiedFor;
 
+    /**
+     * Ai / lúc nào soạn bản hiện hành bằng trình soạn trực tuyến. Lần lưu kế tiếp của cùng người trong phiên soạn gộp
+     * vào bản này thay vì mở phiên bản mới ({@code DocumentEditService}). Thay tệp / khôi phục phiên bản đặt lại null.
+     */
+    @Column(name = "content_edited_by")
+    private UUID contentEditedBy;
+
+    @Column(name = "content_edited_at")
+    private Instant contentEditedAt;
+
     @PreUpdate
     void touch() {
         updatedAt = Instant.now();

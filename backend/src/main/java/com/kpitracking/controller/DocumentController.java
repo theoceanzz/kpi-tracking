@@ -1,17 +1,22 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.dto.request.document.ConvertToOnlineRequest;
 import com.kpitracking.dto.request.document.CreateFolderRequest;
+import com.kpitracking.dto.request.document.CreateOnlineDocumentRequest;
 import com.kpitracking.dto.request.document.FlagRequest;
 import com.kpitracking.dto.request.document.MoveDocumentRequest;
 import com.kpitracking.dto.request.document.PromotionDecisionRequest;
 import com.kpitracking.dto.request.document.PromotionRequest;
 import com.kpitracking.dto.request.document.RenameFolderRequest;
+import com.kpitracking.dto.request.document.SaveDocumentContentRequest;
 import com.kpitracking.dto.request.document.ShareDocumentRequest;
 import com.kpitracking.dto.request.document.UpdateDocumentRequest;
+import com.kpitracking.dto.request.document.UpdateSharePermissionRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.ai.RagChunkResponse;
 import com.kpitracking.dto.response.document.DocumentCapabilitiesResponse;
+import com.kpitracking.dto.response.document.DocumentContentResponse;
 import com.kpitracking.dto.response.document.DocumentFolderListResponse;
 import com.kpitracking.dto.response.document.DocumentFolderResponse;
 import com.kpitracking.dto.response.document.DocumentPromotionResponse;
@@ -25,6 +30,7 @@ import com.kpitracking.dto.response.document.DocumentUsageResponse;
 import com.kpitracking.enums.DocumentAiStatus;
 import com.kpitracking.enums.DocumentCategory;
 import com.kpitracking.enums.DocumentScope;
+import com.kpitracking.service.document.DocumentEditService;
 import com.kpitracking.service.document.DocumentFolderService;
 import com.kpitracking.service.document.DocumentHomeService;
 import com.kpitracking.service.document.DocumentPromotionService;
@@ -73,6 +79,7 @@ public class DocumentController {
     private final DocumentVersionService versions;
     private final DocumentPromotionService promotions;
     private final DocumentStatsService stats;
+    private final DocumentEditService editor;
 
     @GetMapping("/capabilities")
     @Operation(summary = "Người đang đăng nhập làm được gì với thư viện tài liệu")
@@ -148,6 +155,34 @@ public class DocumentController {
     public ResponseEntity<ApiResponse<DocumentResponse>> replaceFile(@PathVariable UUID id,
                                                                      @RequestParam("file") MultipartFile file) {
         return ResponseEntity.ok(ApiResponse.success(documents.replaceFile(id, file)));
+    }
+
+    // ── Soạn trực tuyến (kiểu Lark Docs) ──────────────────────────────────────────────────────────
+
+    @PostMapping("/online")
+    @Operation(summary = "Tạo tài liệu soạn trực tuyến (lưu dạng Markdown)")
+    public ResponseEntity<ApiResponse<DocumentResponse>> createOnline(@Valid @RequestBody CreateOnlineDocumentRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(editor.create(request)));
+    }
+
+    @GetMapping("/{id}/content")
+    @Operation(summary = "Nội dung chữ của tài liệu .md / .txt để mở trong trình soạn")
+    public ResponseEntity<ApiResponse<DocumentContentResponse>> content(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(editor.content(id)));
+    }
+
+    @PutMapping("/{id}/content")
+    @Operation(summary = "Lưu nội dung soạn trực tuyến; baseHash khác bản hiện hành thì báo DOCUMENT_EDIT_CONFLICT")
+    public ResponseEntity<ApiResponse<DocumentResponse>> saveContent(@PathVariable UUID id,
+                                                                     @Valid @RequestBody SaveDocumentContentRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(editor.save(id, request)));
+    }
+
+    @PostMapping("/{id}/convert-online")
+    @Operation(summary = "Chuyển tại chỗ .docx / .md thành tài liệu soạn trực tuyến; tệp cũ vào lịch sử phiên bản")
+    public ResponseEntity<ApiResponse<DocumentResponse>> convertOnline(@PathVariable UUID id,
+                                                                       @Valid @RequestBody ConvertToOnlineRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(editor.convertInPlace(id, request)));
     }
 
     @DeleteMapping("/{id}")
@@ -345,10 +380,17 @@ public class DocumentController {
     }
 
     @PostMapping("/{id}/shares")
-    @Operation(summary = "Chia sẻ quyền xem cho người và/hoặc đơn vị")
+    @Operation(summary = "Chia sẻ cho người và/hoặc đơn vị, quyền xem hoặc chỉnh sửa")
     public ResponseEntity<ApiResponse<List<DocumentShareResponse>>> share(@PathVariable UUID id,
                                                                           @RequestBody ShareDocumentRequest request) {
         return ResponseEntity.ok(ApiResponse.success(shares.add(id, request)));
+    }
+
+    @PatchMapping("/{id}/shares/{shareId}")
+    @Operation(summary = "Đổi mức quyền một lượt chia sẻ (xem / chỉnh sửa)")
+    public ResponseEntity<ApiResponse<List<DocumentShareResponse>>> updateShare(@PathVariable UUID id, @PathVariable UUID shareId,
+                                                                                @Valid @RequestBody UpdateSharePermissionRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(shares.updatePermission(id, shareId, request.permission())));
     }
 
     @DeleteMapping("/{id}/shares/{shareId}")

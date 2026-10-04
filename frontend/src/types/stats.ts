@@ -10,6 +10,8 @@ export interface OverviewStats {
   draftKpi: number
   totalSubmissions: number
   pendingSubmissions: number
+  /** Bài chờ duyệt chỉ trong (các) đợt hiện tại — dùng cho số đỏ. */
+  pendingSubmissionsCurrentPeriod?: number
   approvedSubmissions: number
   rejectedSubmissions: number
   totalEvaluations: number
@@ -83,6 +85,9 @@ export interface MyKpiProgress {
   rejectedSubmissions: number
   lateSubmissions: number
   pendingTaskCount: number
+  /** Như pendingTaskCount / rejectedSubmissions nhưng chỉ trong (các) đợt hiện tại — dùng cho số đỏ. */
+  currentPendingTaskCount?: number
+  currentRejectedSubmissions?: number
   averageScore: number | null
   tasks: {
     content: KpiTask[]

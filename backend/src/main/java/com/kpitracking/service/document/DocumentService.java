@@ -330,28 +330,48 @@ public class DocumentService {
                                    String description, DocumentCategory category, boolean aiEnabled, UUID folderId,
                                    java.time.LocalDate reviewDate, java.time.LocalDate expiryDate) {
         Viewer v = viewer();
+        CreateTarget target = createTarget(v, scope, unitId, folderId);
+        Document created = create(v, file, target.scope(), target.unitId(), title, description, category, aiEnabled, null);
+        place(created, folderId, reviewDate, expiryDate);
+        return toResponse(v, created);
+    }
+
+    /** Chỗ đặt một tài liệu mới, đã kiểm quyền tạo. */
+    record CreateTarget(DocumentScope scope, UUID unitId) {}
+
+    /**
+     * Phạm vi đích khi tạo tài liệu (tải lên, soạn mới): có thư mục thì phạm vi lấy theo thư mục — không cho tải tài liệu
+     * công ty vào thư mục cá nhân. Kiểm quyền tạo ở phạm vi đó.
+     */
+    CreateTarget createTarget(Viewer v, DocumentScope scope, UUID unitId, UUID folderId) {
         if (folderId != null) {
             DocumentFolder folder = folders.findByIdAndOrganizationId(folderId, v.orgId())
                     .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.DOCUMENT_FOLDER_NOT_FOUND));
             if (!v.access().canEditFolder(folder)) throw new ForbiddenException(ErrorCode.DOCUMENT_FORBIDDEN);
-            // Phạm vi của tài liệu lấy theo thư mục — không cho tải tài liệu công ty vào thư mục cá nhân.
             scope = folder.getScope();
             unitId = folder.getOrgUnitId();
         }
-        Document created = create(v, file, scope, unitId, title, description, category, aiEnabled, null);
-        if (folderId != null || reviewDate != null || expiryDate != null) {
-            final UUID folder = folderId;
-            tx.executeWithoutResult(st -> documents.findByIdForUpdate(created.getId()).ifPresent(d -> {
-                d.setFolderId(folder);
-                d.setReviewDate(reviewDate);
-                d.setExpiryDate(expiryDate);
-                documents.save(d);
-            }));
-            created.setFolderId(folderId);
-            created.setReviewDate(reviewDate);
-            created.setExpiryDate(expiryDate);
+        if (scope == null) throw new BusinessException(ErrorCode.DOCUMENT_SCOPE_INVALID, "null");
+        if (scope == DocumentScope.UNIT && unitId == null) {
+            throw new BusinessException(ErrorCode.DOCUMENT_SCOPE_INVALID, ErrorMessages.text("document.scope.unitRequired", "unit"));
         }
-        return toResponse(v, created);
+        rejectRootUnit(v, scope, unitId);
+        if (!v.access().canCreate(scope, unitId)) throw new ForbiddenException(ErrorCode.DOCUMENT_FORBIDDEN);
+        return new CreateTarget(scope, scope == DocumentScope.UNIT ? unitId : null);
+    }
+
+    /** Đặt tài liệu vừa tạo vào thư mục và ghi ngày rà soát / hết hiệu lực (giao dịch riêng, sau khi tạo). */
+    void place(Document created, UUID folderId, java.time.LocalDate reviewDate, java.time.LocalDate expiryDate) {
+        if (folderId == null && reviewDate == null && expiryDate == null) return;
+        tx.executeWithoutResult(st -> documents.findByIdForUpdate(created.getId()).ifPresent(d -> {
+            d.setFolderId(folderId);
+            d.setReviewDate(reviewDate);
+            d.setExpiryDate(expiryDate);
+            documents.save(d);
+        }));
+        created.setFolderId(folderId);
+        created.setReviewDate(reviewDate);
+        created.setExpiryDate(expiryDate);
     }
 
     private Document create(Viewer v, MultipartFile file, DocumentScope scope, UUID unitId, String title,
@@ -381,15 +401,28 @@ public class DocumentService {
     Document createFromBytes(Viewer v, byte[] bytes, DocumentPolicy.Checked checked, DocumentScope scope, UUID unitId,
                              UUID ownerId, String title, String description, DocumentCategory category,
                              boolean aiEnabled, UUID replacesLegacy, UUID createdBy) {
+        return createFromBytes(v, bytes, checked, scope, unitId, ownerId, title, description, category, aiEnabled,
+                replacesLegacy, createdBy, true);
+    }
+
+    /**
+     * @param rejectDuplicate chặn nội dung trùng tài liệu đã có cùng chỗ. Tài liệu trực tuyến mới tạo thì không chặn:
+     *                        hai tài liệu trống cùng tên là chuyện bình thường, nội dung chỉ có sau khi soạn.
+     */
+    Document createFromBytes(Viewer v, byte[] bytes, DocumentPolicy.Checked checked, DocumentScope scope, UUID unitId,
+                             UUID ownerId, String title, String description, DocumentCategory category,
+                             boolean aiEnabled, UUID replacesLegacy, UUID createdBy, boolean rejectDuplicate) {
         UUID docUnit = scope == DocumentScope.UNIT ? unitId : null;
         UUID owner = scope == DocumentScope.PERSONAL ? ownerId : null;
         checkQuota(v, scope, owner, docUnit, bytes.length);
 
         String sha = sha256(bytes);
-        documents.findByOrganizationIdAndScopeAndContentSha256(v.orgId(), scope, sha).stream()
-                .filter(d -> Objects.equals(d.getOwnerUserId(), owner) && Objects.equals(d.getOrgUnitId(), docUnit))
-                .findFirst()
-                .ifPresent(d -> { throw new BusinessException(ErrorCode.DOCUMENT_DUPLICATE, d.getTitle()); });
+        if (rejectDuplicate) {
+            documents.findByOrganizationIdAndScopeAndContentSha256(v.orgId(), scope, sha).stream()
+                    .filter(d -> Objects.equals(d.getOwnerUserId(), owner) && Objects.equals(d.getOrgUnitId(), docUnit))
+                    .findFirst()
+                    .ifPresent(d -> { throw new BusinessException(ErrorCode.DOCUMENT_DUPLICATE, d.getTitle()); });
+        }
 
         String key = store(bytes, checked.fileName(), v.orgId());
         try {
@@ -543,6 +576,8 @@ public class DocumentService {
                 d.setStorageKey(key);
                 d.setStorageProvider(storage.provider());
                 d.setVersion(d.getVersion() + 1);
+                d.setContentEditedBy(null);
+                d.setContentEditedAt(null);
                 if (Boolean.TRUE.equals(d.getAiEnabled())) requestReindex(d);
                 return documents.save(d);
             });

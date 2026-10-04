@@ -107,6 +107,8 @@ public class DocumentVersionService {
             d.setStorageProvider(ver.getStorageProvider());
             d.setStorageKey(ver.getStorageKey());
             d.setVersion(d.getVersion() + 1);
+            d.setContentEditedBy(null);
+            d.setContentEditedAt(null);
             if (Boolean.TRUE.equals(d.getAiEnabled())) base.requestReindex(d);
             Document saved = documents.save(d);
             DocumentService.afterCommit(() -> expiredKeys.forEach(base::deleteFileQuietly));

@@ -6,6 +6,7 @@ import com.kpitracking.dto.response.document.ShareTargetResponse;
 import com.kpitracking.dto.response.document.ShareUnitResponse;
 import com.kpitracking.entity.Document;
 import com.kpitracking.entity.DocumentShare;
+import com.kpitracking.enums.DocumentSharePermission;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
@@ -109,17 +110,29 @@ public class DocumentShareService {
             if (roots.contains(u)) throw new BusinessException(ErrorCode.DOCUMENT_SHARE_ROOT_UNIT);
         }
 
+        DocumentSharePermission permission = req.permission() == null ? DocumentSharePermission.VIEW : req.permission();
         List<UUID> newUsers = new ArrayList<>();
         List<UUID> newUnits = new ArrayList<>();
         tx.executeWithoutResult(s -> {
+            List<DocumentShare> existing = shares.findByDocumentIdOrderByCreatedAtAsc(d.getId());
             for (UUID u : userIds) {
-                if (u.equals(me) || shares.existsByDocumentIdAndGranteeUserId(d.getId(), u)) continue;
-                shares.save(DocumentShare.builder().documentId(d.getId()).granteeUserId(u).grantedBy(me).build());
+                if (u.equals(me)) continue;
+                DocumentShare old = existing.stream().filter(x -> u.equals(x.getGranteeUserId())).findFirst().orElse(null);
+                if (old != null) {
+                    // Đã chia sẻ: chọn lại người đó với mức quyền khác = đổi quyền.
+                    if (old.getPermission() != permission) { old.setPermission(permission); shares.save(old); }
+                    continue;
+                }
+                shares.save(DocumentShare.builder().documentId(d.getId()).granteeUserId(u).permission(permission).grantedBy(me).build());
                 newUsers.add(u);
             }
             for (UUID u : unitIds) {
-                if (shares.existsByDocumentIdAndGranteeUnitId(d.getId(), u)) continue;
-                shares.save(DocumentShare.builder().documentId(d.getId()).granteeUnitId(u).grantedBy(me).build());
+                DocumentShare old = existing.stream().filter(x -> u.equals(x.getGranteeUnitId())).findFirst().orElse(null);
+                if (old != null) {
+                    if (old.getPermission() != permission) { old.setPermission(permission); shares.save(old); }
+                    continue;
+                }
+                shares.save(DocumentShare.builder().documentId(d.getId()).granteeUnitId(u).permission(permission).grantedBy(me).build());
                 newUnits.add(u);
             }
         });
@@ -127,6 +140,21 @@ public class DocumentShareService {
             audit.record(SecurityAuditEvent.DOCUMENT_SHARED, SecurityAuditService.OK, "DOCUMENT", d.getId().toString(),
                     d.getScope().name() + " users=" + newUsers.size() + " units=" + newUnits.size());
             notifyRecipients(v, d, newUsers, newUnits);
+        }
+        return toResponses(v, shares.findByDocumentIdOrderByCreatedAtAsc(d.getId()));
+    }
+
+    /** Đổi mức quyền một lượt chia sẻ. Chỉ người quản lý tài liệu — người được chia sẻ quyền sửa không tự nâng quyền ai. */
+    public List<DocumentShareResponse> updatePermission(UUID documentId, UUID shareId, DocumentSharePermission permission) {
+        DocumentService.Viewer v = base.viewer();
+        Document d = DocumentService.editable(v, base.visible(v, documentId));
+        DocumentShare share = shares.findByIdAndDocumentId(shareId, d.getId())
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.DOCUMENT_NOT_FOUND));
+        if (share.getPermission() != permission) {
+            share.setPermission(permission);
+            shares.save(share);
+            audit.record(SecurityAuditEvent.DOCUMENT_SHARED, SecurityAuditService.OK, "DOCUMENT", d.getId().toString(),
+                    "permission=" + permission.name());
         }
         return toResponses(v, shares.findByDocumentIdOrderByCreatedAtAsc(d.getId()));
     }
@@ -277,11 +305,11 @@ public class DocumentShareService {
             if (s.getGranteeUserId() != null) {
                 User u = byId.get(s.getGranteeUserId());
                 return new DocumentShareResponse(s.getId(), "USER", s.getGranteeUserId(),
-                        u == null ? null : u.getFullName(), u == null ? null : u.getEmail(), grantedBy, s.getCreatedAt());
+                        u == null ? null : u.getFullName(), u == null ? null : u.getEmail(), s.getPermission(), grantedBy, s.getCreatedAt());
             }
             OrgUnit unit = v.units().get(s.getGranteeUnitId());
             return new DocumentShareResponse(s.getId(), "UNIT", s.getGranteeUnitId(),
-                    unit == null ? null : unit.getName(), unit == null ? null : unitPathLabel(v, unit), grantedBy, s.getCreatedAt());
+                    unit == null ? null : unit.getName(), unit == null ? null : unitPathLabel(v, unit), s.getPermission(), grantedBy, s.getCreatedAt());
         }).toList();
     }
 

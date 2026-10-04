@@ -148,6 +148,8 @@ export default function StaffEvaluationModal({
   })
   const bscScore = scorePreview?.bscScore ?? null
   const isBscOfficial = scorePreview?.bscScoringMode === 'OFFICIAL' && bscScore != null
+  // Tổ chức bật BSC mà đơn vị chưa có bộ riêng cho đợt ⇒ không có điểm BSC; nói rõ thay vì để trống.
+  const bscNotApplied = !!org?.enableBsc && !!scorePreview && !scorePreview.bscScoringMode
   // KPI thưởng nằm ngoài pool 100% nên điểm của nó cộng THÊM lên trên thang điểm — trần thật
   // lấy từ backend để khớp đúng giới hạn mà createEvaluation kiểm tra khi lưu.
   const scoreCeiling = scorePreview?.maxAllowedScore ?? maxScore
@@ -601,9 +603,10 @@ export default function StaffEvaluationModal({
               <div className="divide-y divide-[var(--color-border)] rounded-card border border-[var(--color-border)]">
                 <ScoreRow
                   label={<>{t('StaffEvaluationModal.endOfPeriodScore')} {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
-                  hint={isBscOfficial ? t('StaffEvaluationModal.lockedToTheOfficialBscScore')
+                  hint={(isBscOfficial ? t('StaffEvaluationModal.lockedToTheOfficialBscScore')
                     : isFullQualitative ? t('StaffEvaluationModal.allQualitativeFixed', { SCORING_POOL })
-                    : t('StaffEvaluationModal.scoredByKpi', { totalManagerScore: formatNumber(totalManagerScore) })}
+                    : t('StaffEvaluationModal.scoredByKpi', { totalManagerScore: formatNumber(totalManagerScore) }))
+                    + (bscNotApplied ? ` · ${t('StaffEvaluationModal.bscNotApplied')}` : '')}
                   trailing={!readOnly && !isBscOfficial && !isFullQualitative && finalScore !== totalManagerScore && (
                     <Button variant="ghost" size="sm" type="button" onClick={handleResetFinalScore} title={t('StaffEvaluationModal.useTheTotalOfScoresGiven')}>
                       <Zap aria-hidden="true" /> {t('StaffEvaluationModal.use')} {formatNumber(totalManagerScore)}

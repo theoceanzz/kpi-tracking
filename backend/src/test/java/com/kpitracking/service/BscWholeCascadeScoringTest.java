@@ -145,6 +145,19 @@ class BscWholeCascadeScoringTest {
         assertThat(service.resolveScorecardForUser(USER, ORG, PERIOD)).isNull();
     }
 
+    @Test
+    @DisplayName("Đơn vị chưa có bộ riêng ⇒ chưa áp dụng BSC, KHÔNG mượn bộ của đơn vị cha / toàn tổ chức")
+    void noOwnScorecardMeansNoBsc() {
+        OrgUnit parentUnit = OrgUnit.builder().id(UUID.randomUUID()).name("Công ty").build();
+        teamUnit.setParent(parentUnit);
+        when(scorecardRepository.findByOrgUnitAndPeriod(ORG, teamUnit.getId(), PERIOD)).thenReturn(List.of());
+        when(scorecardRepository.findByOrgUnitAndPeriod(ORG, parentUnit.getId(), PERIOD)).thenReturn(List.of(company));
+        when(scorecardRepository.findDefaultByPeriod(ORG, PERIOD)).thenReturn(List.of(company));
+
+        assertThat(service.computeForUser(USER, PERIOD, ORG, false)).isNull();
+        assertThat(service.resolveScorecardForUser(USER, ORG, PERIOD)).isNull();
+    }
+
     // ------------------------------------------------------------
 
     void stubResult(BscScorecard card, Double percent, BscUnitResultStatus status) {

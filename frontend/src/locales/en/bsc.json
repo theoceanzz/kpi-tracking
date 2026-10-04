@@ -144,7 +144,10 @@
     "waitingForSource": "Waiting for the result of {{names}} to be finalized — the upper-level result row is still provisional.",
     "finalizeProvisionalTitle": "Finalize with provisional figures?",
     "finalizeProvisionalDescription": "The result of {{names}} has not been finalized. Finalizing now keeps the provisional figure of the upper-level result row and marks the result as \"finalized with provisional figures\".",
-    "finalizeProvisionalConfirm": "Finalize anyway"
+    "finalizeProvisionalConfirm": "Finalize anyway",
+    "noScorecardMatchesFilters": "No scorecard matches the filters.",
+    "sourceRowShare": "{{name}} result is {{value}}%",
+    "unallocated": "{{value}}% not yet allocated"
   },
   "BscWaterfallModal": {
     "anOverrideIsAnExceptionThat": "An override is an exception that must be justified later, so a reason is required.",
@@ -228,7 +231,13 @@
     "modeItem": "Assign individual KPIs",
     "modeWhole": "Assign whole scorecard",
     "saveWhole": "Save",
-    "childTotalsOff": "The total weight of {{units}} is no longer 100% — the unit must rebalance before submitting."
+    "childTotalsOff": "The total weight of {{units}} is no longer 100% — the unit must rebalance before submitting.",
+    "chooseUnitsFor": "No unit chosen for KPI \"{{name}}\".",
+    "cascadedItems": "Cascaded {{count}} KPIs to the units",
+    "cascadeFailed": "Cascade failed",
+    "cascadedBeforeError": "({{count}} KPIs were assigned before the error)",
+    "cascadeNItems": "Assign {{count}} KPIs",
+    "nItemsPicked": "{{count}} KPIs selected"
   },
   "CascadePolicyModal": {
     "alreadyHasAPolicy": " (already has a policy)",
@@ -360,33 +369,43 @@
     "yes": "Yes"
   },
   "MyBscPage": {
-    "aPeriod": "A period",
     "assignedByParent": "Assigned by parent",
-    "atLeastRequired": " · at least {{minRequired}}% required",
     "bscLinkedKpis": "BSC-linked KPIs",
     "bscManagement": "BSC management",
-    "bscScorecardsAreBuiltPerPeriod": "BSC scorecards are built per period by the organization or the unit head. Until then your KPIs are scored as usual, just not converted into a BSC score.",
     "buildAScorecard": "Build a scorecard",
-    "choosePeriod": "Choose period",
     "gateItems": "Gate items",
-    "inheritedFromTheParent": " · inherited from the parent",
     "item": "Item",
     "items": "items ·",
     "myBsc": "My BSC",
     "officialScoring": "Official scoring",
-    "ofYourKpiWeightLinkedTo": "% of your KPI weight linked to BSC",
-    "organizationWide": "Organization-wide",
     "parallel": "Parallel",
     "target": "Target {{targetValue}}{{value}}{{value2}}",
-    "theScorecardAppliedToInThe": "The scorecard applied to {{value}} in the period, each item and how your KPIs contribute to it.",
-    "thisPeriodHasNoScorecardFor": "This period has no scorecard for your unit yet",
     "toSubmit": "To submit",
     "totalWeight": "total weight",
     "viewAnalytics": "View analytics",
     "youContribute": "You contribute",
     "youHaveNoKpiLinkedTo": "You have no KPI linked to this item yet.",
     "minimum": " · minimum {{minimumValue}}",
-    "yourUnit": "your unit"
+    "yourUnit": "your unit",
+    "levelDescription": "Scorecards of {{value}} and its parent units up to the company. Pick a level, then a scorecard at that level.",
+    "level": "Level",
+    "scorecard": "Scorecard",
+    "levelMine": "{{name}} (your unit)",
+    "levelParent": "{{name}} (parent unit)",
+    "levelCompany": "{{name}} (whole company)",
+    "noScorecardShort": "no scorecard",
+    "cycleLabel": "Cycle {{name}}",
+    "noPeriod": "No period assigned",
+    "morePeriods": "+{{count}} periods",
+    "noScorecardAtLevel": "{{name}} has no scorecard yet",
+    "noScorecardAtLevelHint": "BSC scorecards are built by the organization or the unit head. Pick another level to see a parent unit's scorecard.",
+    "appliesToYou": "Scores you",
+    "searchItems": "Search items, KPIs…",
+    "noItemMatches": "No item matches the search.",
+    "notAppliedTitle": "Your unit does not use BSC yet.",
+    "notAppliedHint": "{{name}} has no scorecard of its own, so your BSC score is left empty. The parent / company scorecards below are for reference only and are not used to score you.",
+    "referenceOnly": "Reference only",
+    "referenceOnlyHint": "A parent-level scorecard — not used to score you. Only your own unit's scorecard is used for scoring."
   },
   "PerspectiveFormModal": {
     "and0IfTheActualTotal": ", and = 0 if the actual total is below {{minimumValue}}{{unitLabel}}",
@@ -691,13 +710,13 @@
     "itemNameHint": "Leave empty to use the suggested name.",
     "area": "Group under BSC area",
     "areaHint": "Every scorecard groups its items under the 4 BSC areas, so this row has to sit in one group on the receiving unit's scorecard. Display and area reports only — it does not affect the score.",
-    "weightRangeFor": "The weight must be greater than 0 and at most 100% for: {{units}}",
     "chooseAtLeastOneUnit": "Choose at least one unit.",
     "willBeRevoked": "· will be revoked",
     "cardTotal": "· scorecard total {{value}}%",
-    "sameWeightForAll": "Same weight for all",
-    "apply": "Apply",
     "revokeNotice": "Saving will revoke the upper-level result row from the scorecards of: {{units}}.",
-    "explainer": "Each unit receives ONE locked row with a weight only. Its score is this scorecard's total result for the same period; the unit splits the remaining weight across its own items. Both scorecards must share the same periods/cycle."
+    "explainer": "Each unit receives ONE locked row with a weight only. Its score is this scorecard's total result for the same period; the unit splits the remaining weight across its own items. Both scorecards must share the same periods/cycle.",
+    "weightRangeFor": "The weight must be greater than 0 and at most 100% for: {{units}}",
+    "sameWeightForAll": "Same weight for all",
+    "apply": "Apply"
   }
 }

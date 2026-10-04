@@ -3,7 +3,11 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { documentApi } from '../api/documentApi'
-import type { DocumentListParams, DocumentScope, KbDocument, UpdateDocumentInput, UploadDocumentInput } from '../types'
+import { autoConvert } from '../editor/autoConvert'
+import type {
+  CreateOnlineDocumentInput, DocumentListParams, DocumentScope, KbDocument, SharePermission, UpdateDocumentInput,
+  UploadDocumentInput,
+} from '../types'
 
 const KEY = 'documents'
 
@@ -70,10 +74,14 @@ function useDocMutation<TVars, TData>(fn: (vars: TVars) => Promise<TData>, succe
   })
 }
 
+/** Tải lên; tệp Word / Markdown tự chuyển sang tài liệu soạn trực tuyến (tệp gốc vào tab Phiên bản). */
 export function useUploadDocument() {
   const { t } = useTranslation('documents')
-  return useDocMutation((input: UploadDocumentInput) => documentApi.upload(input),
-    t('toast.uploaded'), t('toast.uploadFailed'))
+  return useDocMutation(async (input: UploadDocumentInput) => {
+    const r = await autoConvert(await documentApi.upload(input))
+    if (r.convertFailed) toast.warning(t('toast.autoConvertFailed'))
+    return r.doc
+  }, t('toast.uploaded'), t('toast.uploadFailed'))
 }
 
 export function useUpdateDocument() {
@@ -89,10 +97,36 @@ export function useToggleDocumentAi() {
     null, t('toast.saveFailed'))
 }
 
+/** Tạo tài liệu soạn trực tuyến. Không toast thành công — bên gọi mở thẳng trình soạn. */
+export function useCreateOnlineDocument() {
+  const { t } = useTranslation('documents')
+  return useDocMutation((input: CreateOnlineDocumentInput) => documentApi.createOnline(input), null, t('toast.saveFailed'))
+}
+
+/**
+ * Nội dung chữ để mở trong trình soạn. Khoá nằm NGOÀI tiền tố `documents`: mọi mutation tài liệu làm mới cả tiền tố đó,
+ * và nạp lại nội dung giữa lúc đang gõ sẽ xoá mất chữ chưa lưu. Chỉ tải lại khi trình soạn chủ động yêu cầu.
+ */
+export function useDocumentContent(id: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['document-content', id],
+    queryFn: () => documentApi.content(id!),
+    enabled: !!id && enabled,
+    retry: false,
+    staleTime: Infinity,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+  })
+}
+
+/** Thay tệp; tệp mới là Word / Markdown thì cũng tự chuyển sang dạng soạn trực tuyến như khi tải lên. */
 export function useReplaceDocumentFile() {
   const { t } = useTranslation('documents')
-  return useDocMutation(({ id, file }: { id: string; file: File }) => documentApi.replaceFile(id, file),
-    t('toast.fileReplaced'), t('toast.uploadFailed'))
+  return useDocMutation(async ({ id, file }: { id: string; file: File }) => {
+    const r = await autoConvert(await documentApi.replaceFile(id, file))
+    if (r.convertFailed) toast.warning(t('toast.autoConvertFailed'))
+    return r.doc
+  }, t('toast.fileReplaced'), t('toast.uploadFailed'))
 }
 
 export function useDeleteDocument() {
@@ -244,8 +278,17 @@ export function useShareTargets(q: string, enabled: boolean) {
 
 export function useShareDocument() {
   const { t } = useTranslation('documents')
-  return useDocMutation(({ id, userIds, unitIds }: { id: string; userIds: string[]; unitIds: string[] }) =>
-    documentApi.share(id, { userIds, unitIds }), t('toast.shared'), t('toast.shareFailed'))
+  return useDocMutation(
+    ({ id, userIds, unitIds, permission }: { id: string; userIds: string[]; unitIds: string[]; permission?: SharePermission }) =>
+      documentApi.share(id, { userIds, unitIds, permission }),
+    t('toast.shared'), t('toast.shareFailed'))
+}
+
+/** Đổi quyền một lượt chia sẻ (xem ↔ chỉnh sửa). */
+export function useUpdateSharePermission() {
+  const { t } = useTranslation('documents')
+  return useDocMutation(({ id, shareId, permission }: { id: string; shareId: string; permission: SharePermission }) =>
+    documentApi.updateShare(id, shareId, permission), t('toast.sharePermissionUpdated'), t('toast.shareFailed'))
 }
 
 export function useUnshareDocument() {

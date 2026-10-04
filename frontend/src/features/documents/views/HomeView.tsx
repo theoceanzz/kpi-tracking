@@ -1,7 +1,8 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { forwardRef, useMemo, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Bot, Clock, FileText, FolderPlus, LayoutGrid, List, Share2, Star, Upload, UserRound } from 'lucide-react'
+import { Bot, Clock, FilePlus2, FileSpreadsheet, FileText, FolderPlus, LayoutGrid, List, Plus, Share2, Star, Upload, UserRound } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import FilterBar, { SegmentedControl } from '@/components/common/FilterBar'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
@@ -36,16 +37,18 @@ interface Props {
   canCreateFolder: boolean
   onUpload: () => void
   onNewFolder: () => void
+  onNewDoc: (kind: 'doc' | 'sheet') => void
 }
 
 /**
  * Trang chủ kiểu Lark Docs: thẻ thao tác nhanh, rồi các tab Gần đây · Của tôi · Được chia sẻ · Yêu thích. Tab nằm
  * trong URL (`?view=`) để quay lại đúng chỗ.
  */
-export default function HomeView({ layout, onLayoutChange, canUpload, canCreateFolder, onUpload, onNewFolder }: Props) {
+export default function HomeView({ layout, onLayoutChange, canUpload, canCreateFolder, onUpload, onNewFolder, onNewDoc }: Props) {
   const { t } = useTranslation('documents')
   const navigate = useNavigate()
   const aiAvailable = useAiAvailable()
+  const [createOpen, setCreateOpen] = useState(false)
   const [params, setParams] = useSearchParams()
   const raw = params.get('view') as HomeTab | null
   const tab: HomeTab = raw && TABS.some(x => x.key === raw) ? raw : 'recent'
@@ -79,9 +82,23 @@ export default function HomeView({ layout, onLayoutChange, canUpload, canCreateF
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
+      {/* Ba ô gom đủ việc: Tạo mới (tài liệu / bảng tính / thư mục), Tải lên, Hỏi K.AI — ít ô để không xuống dòng. */}
+      <div className={aiAvailable ? 'grid gap-3 sm:grid-cols-3' : 'grid gap-3 sm:grid-cols-2'}>
+        <Popover open={createOpen} onOpenChange={setCreateOpen}>
+          <PopoverTrigger asChild>
+            <QuickCard icon={<Plus />} title={t('home.cardCreate')} hint={t('home.cardCreateHint')} disabled={!canUpload && !canCreateFolder}
+                       aria-haspopup="menu" />
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-60 p-1.5" role="menu">
+            <CreateItem icon={<FilePlus2 />} label={t('actions.newDoc')} disabled={!canUpload}
+                        onClick={() => { setCreateOpen(false); onNewDoc('doc') }} />
+            <CreateItem icon={<FileSpreadsheet />} label={t('actions.newSheet')} disabled={!canUpload}
+                        onClick={() => { setCreateOpen(false); onNewDoc('sheet') }} />
+            <CreateItem icon={<FolderPlus />} label={t('actions.newFolder')} disabled={!canCreateFolder}
+                        onClick={() => { setCreateOpen(false); onNewFolder() }} />
+          </PopoverContent>
+        </Popover>
         <QuickCard icon={<Upload />} title={t('home.cardUpload')} hint={t('home.cardUploadHint')} onClick={onUpload} disabled={!canUpload} />
-        <QuickCard icon={<FolderPlus />} title={t('home.cardFolder')} hint={t('home.cardFolderHint')} onClick={onNewFolder} disabled={!canCreateFolder} />
         {aiAvailable && (
           <QuickCard icon={<Bot />} title={t('home.cardAsk')} hint={t('home.cardAskHint')} onClick={() => navigate('/ai-assistant')} ai />
         )}
@@ -135,14 +152,15 @@ export default function HomeView({ layout, onLayoutChange, canUpload, canCreateF
   )
 }
 
-function QuickCard({ icon, title, hint, onClick, disabled, ai }: {
-  icon: ReactNode; title: string; hint: string; onClick: () => void; disabled?: boolean; ai?: boolean
-}) {
+type QuickCardProps = ButtonHTMLAttributes<HTMLButtonElement> & { icon: ReactNode; title: string; hint: string; ai?: boolean }
+
+/** Ô thao tác nhanh; nhận ref + props để làm nút mở menu (PopoverTrigger asChild). */
+const QuickCard = forwardRef<HTMLButtonElement, QuickCardProps>(function QuickCard({ icon, title, hint, ai, ...rest }, ref) {
   return (
     <button
+      ref={ref}
       type="button"
-      onClick={onClick}
-      disabled={disabled}
+      {...rest}
       className="flex items-center gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4 text-left transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] disabled:pointer-events-none disabled:opacity-50"
     >
       <span className={ai
@@ -153,8 +171,22 @@ function QuickCard({ icon, title, hint, onClick, disabled, ai }: {
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-[var(--color-foreground)]">{title}</span>
-        <span className="block text-caption">{hint}</span>
+        <span className="block truncate text-caption">{hint}</span>
       </span>
+    </button>
+  )
+})
+
+function CreateItem({ icon, label, onClick, disabled }: { icon: ReactNode; label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] focus-visible:bg-[var(--color-muted)] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]"
+    >
+      {icon}{label}
     </button>
   )
 }

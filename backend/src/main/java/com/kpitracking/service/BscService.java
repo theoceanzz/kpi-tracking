@@ -197,6 +197,7 @@ public class BscService {
     public PerspectiveResponse updatePerspective(UUID perspectiveId, PerspectiveRequest request) {
         BscPerspective perspective = perspectiveRepository.findById(perspectiveId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.item")));
+        assertCanChangePerspective(perspective);
 
         // Mã sinh tự động và tổ chức không cho ghi đè ⇒ giữ nguyên mã cũ, bỏ qua giá trị gửi lên.
         String code = orgCodeRuleService.resolveOnUpdate(perspective.getOrganization().getId(),
@@ -245,10 +246,35 @@ public class BscService {
     public void deletePerspective(UUID perspectiveId) {
         BscPerspective perspective = perspectiveRepository.findById(perspectiveId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.item")));
+        assertCanChangePerspective(perspective);
         // Soft-delete: KPI đã gán lĩnh vực này sẽ được DB set NULL (ON DELETE SET NULL không chạy khi soft-delete),
         // nên chỉ đánh dấu xoá mềm để giữ lịch sử điểm.
         perspective.setDeletedAt(Instant.now());
         perspectiveRepository.save(perspective);
+    }
+
+    /**
+     * Hạng mục là danh mục DÙNG CHUNG cả tổ chức: trưởng đơn vị (BSC:MANAGE_UNIT) chỉ được sửa/xoá
+     * khi mọi bộ tiêu chí đang dùng nó đều là bộ họ sửa được — không thì một phòng đổi tên / mục tiêu
+     * hay xoá luôn hạng mục mà phòng khác đang chấm theo. Quản trị BSC toàn tổ chức không bị giới hạn.
+     * Hạng mục hệ thống của phân rã cả bộ thì không ai sửa qua đây.
+     */
+    private void assertCanChangePerspective(BscPerspective perspective) {
+        if (perspective.getSourceScorecard() != null) {
+            throw new BusinessException(ErrorCode.SYSTEM_PERSPECTIVE_READ_ONLY);
+        }
+        if (accessGuard.canManageAll()) return;
+        String others = scorecardPerspectiveRepository.findLiveByPerspectiveId(perspective.getId()).stream()
+                .map(BscScorecardPerspective::getScorecard)
+                .filter(sc -> {
+                    try { accessGuard.assertCanEdit(sc); return false; } catch (RuntimeException e) { return true; }
+                })
+                .map(BscScorecard::getName)
+                .distinct()
+                .collect(Collectors.joining(", "));
+        if (!others.isEmpty()) {
+            throw new BusinessException(ErrorCode.PERSPECTIVE_USED_BY_OTHER_UNITS, others);
+        }
     }
 
     // ============================================================
