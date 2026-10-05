@@ -35,6 +35,11 @@ public interface BscScorecardPerspectiveRepository extends JpaRepository<BscScor
      * Các dòng "Kết quả cấp trên" đang lấy điểm từ một thẻ nguồn (phân rã cả bộ). Lọc thẻ đã xoá
      * mềm tường minh, cùng lý do như {@link #findByParentItemId}.
      */
+    /** Các dòng của bộ tiêu chí CÒN SỐNG đang dùng một hạng mục — để gác quyền sửa/xoá hạng mục. */
+    @Query("SELECT sp FROM BscScorecardPerspective sp JOIN sp.scorecard s "
+            + "WHERE sp.perspective.id = :perspectiveId AND s.deletedAt IS NULL")
+    List<BscScorecardPerspective> findLiveByPerspectiveId(@Param("perspectiveId") UUID perspectiveId);
+
     @Query("SELECT sp FROM BscScorecardPerspective sp JOIN sp.scorecard s JOIN sp.perspective p "
             + "WHERE p.sourceScorecard.id = :sourceId AND s.deletedAt IS NULL")
     List<BscScorecardPerspective> findBySourceScorecardId(@Param("sourceId") UUID sourceId);

@@ -29,7 +29,13 @@
     "pin": "Ghim lên thanh bên",
     "unpin": "Bỏ ghim",
     "share": "Chia sẻ",
-    "move": "Di chuyển"
+    "move": "Di chuyển",
+    "newDoc": "Tài liệu mới",
+    "editOnline": "Soạn trực tuyến",
+    "readOnline": "Đọc trực tuyến",
+    "convertOnline": "Chuyển thành tài liệu trực tuyến",
+    "details": "Chi tiết",
+    "newSheet": "Bảng tính mới"
   },
   "common": {
     "cancel": "Huỷ",
@@ -208,7 +214,11 @@
     "proposed": "Đã gửi đề xuất",
     "promotionApproved": "Đã duyệt — tài liệu đã được đưa lên",
     "promotionRejected": "Đã từ chối đề xuất",
-    "promotionCancelled": "Đã rút đề xuất"
+    "promotionCancelled": "Đã rút đề xuất",
+    "convertedOnline": "Đã chuyển thành tài liệu trực tuyến — tệp cũ nằm trong tab Phiên bản",
+    "convertFailed": "Chưa chuyển được tài liệu",
+    "sharePermissionUpdated": "Đã đổi quyền chia sẻ",
+    "autoConvertFailed": "Đã tải lên nhưng chưa chuyển được sang dạng soạn trực tuyến — tệp vẫn xem và tải về được."
   },
   "settingsCard": {
     "title": "Tài liệu của trợ lý AI đã chuyển sang trang Tài liệu",
@@ -272,7 +282,7 @@
     "intro": {
       "PERSONAL": "Tài liệu cá nhân chỉ bạn xem được. Chia sẻ để người khác cùng xem, tải về — và K.AI đọc tài liệu này khi trả lời họ.",
       "UNIT": "Thành viên đơn vị đã xem được. Chia sẻ thêm cho người hoặc đơn vị khác để họ cùng xem — K.AI đọc tài liệu này khi trả lời họ.",
-      "COMPANY": "Tài liệu công ty mọi người trong công ty đã xem được, không cần chia sẻ thêm."
+      "COMPANY": "Mọi người trong công ty đã xem được tài liệu công ty. Với tài liệu soạn trực tuyến, chia sẻ quyền chỉnh sửa cho người cần cùng soạn."
     },
     "searchPlaceholder": "Tìm người hoặc đơn vị…",
     "noTargets": "Không tìm thấy người hay đơn vị nào",
@@ -295,7 +305,15 @@
     "wholeUnit": "Cả đơn vị",
     "loadingMembers": "Đang tải danh sách người…",
     "owner": "Chủ sở hữu",
-    "you": "Bạn"
+    "you": "Bạn",
+    "permission": {
+      "VIEW": "Có thể xem",
+      "EDIT": "Có thể chỉnh sửa"
+    },
+    "newPermission": "Quyền cho người được thêm",
+    "permissionHint": "Người có quyền chỉnh sửa sửa được nội dung như Google Docs — không xoá, không di chuyển, không chia sẻ tiếp.",
+    "permissionOf": "Quyền của {{name}}",
+    "youAreEditor": "{{name}} đã chia sẻ tài liệu này với bạn — bạn xem và chỉnh sửa nội dung được."
   },
   "versions": {
     "intro": "Mỗi lần thay tệp, bản cũ được giữ lại (tối đa 10 bản). Khôi phục một bản cũ không làm mất bản hiện tại.",
@@ -343,11 +361,9 @@
       "favorites": "Yêu thích"
     },
     "cardUpload": "Tải lên",
-    "cardUploadHint": "Word, PDF, Excel, .txt, .md — K.AI đọc ngay",
-    "cardFolder": "Thư mục mới",
-    "cardFolderHint": "Sắp xếp tài liệu theo chủ đề",
+    "cardUploadHint": "Word, Excel, PDF… mở ra sửa ngay",
     "cardAsk": "Hỏi K.AI về tài liệu",
-    "cardAskHint": "Trả lời dựa trên tài liệu bạn xem được",
+    "cardAskHint": "Trả lời từ tài liệu bạn xem được",
     "empty": {
       "recentTitle": "Chưa mở tài liệu nào",
       "recentDescription": "Tài liệu bạn mở hoặc tải lên gần đây sẽ hiện ở đây.",
@@ -357,7 +373,9 @@
       "sharedDescription": "Khi ai đó chia sẻ tài liệu cho bạn hoặc đơn vị của bạn, nó sẽ hiện ở đây.",
       "favoritesTitle": "Chưa có tài liệu yêu thích",
       "favoritesDescription": "Bấm ⋯ → “Thêm vào yêu thích” trên một tài liệu để gom về đây."
-    }
+    },
+    "cardCreate": "Tạo mới",
+    "cardCreateHint": "Tài liệu, bảng tính, thư mục"
   },
   "layout": {
     "label": "Kiểu hiển thị",
@@ -437,5 +455,42 @@
     "person": "Người",
     "deletedUser": "Tài khoản đã xoá",
     "deactivated": "Đã vô hiệu hoá"
+  },
+  "online": {
+    "createTitle": "Tài liệu mới",
+    "createDescription": "Soạn ngay trên trình duyệt như Lark Docs — tự lưu, có lịch sử phiên bản, K.AI đọc được.",
+    "create": "Tạo và mở",
+    "createSheetTitle": "Bảng tính mới",
+    "createSheetDescription": "Bảng tính như Lark Sheets / Google Sheets — công thức, định dạng, lọc, sắp xếp, nhiều trang tính; tự lưu và K.AI đọc được."
+  },
+  "editor": {
+    "placeholder": "Bắt đầu soạn…",
+    "titlePlaceholder": "Tài liệu không tên",
+    "contentLabel": "Nội dung tài liệu",
+    "back": "Quay lại",
+    "backToLibrary": "Về thư viện tài liệu",
+    "details": "Chi tiết",
+    "notFoundTitle": "Không mở được tài liệu",
+    "readOnly": "Chỉ xem",
+    "retry": "Thử lại",
+    "conflict": "Tài liệu vừa được người khác lưu một bản mới.",
+    "reloadLatest": "Tải bản mới (bỏ thay đổi của tôi)",
+    "overwrite": "Ghi đè bằng bản của tôi",
+    "leaveBlocked": "Chưa lưu được thay đổi — hãy thử lưu lại trước khi rời trang.",
+    "aiNote": "Mọi thay đổi được tự lưu. Các lần lưu trong cùng một phiên soạn gộp thành một phiên bản; K.AI đọc lại nội dung vài phút sau khi bạn ngừng soạn.",
+    "status": {
+      "idle": "Tự lưu",
+      "dirty": "Chưa lưu",
+      "saving": "Đang lưu…",
+      "saved": "Đã lưu lúc {{time}}",
+      "error": "Chưa lưu được",
+      "conflict": "Có bản mới hơn"
+    },
+    "exportMarkdown": "Tải về Markdown (.md)",
+    "exportHtml": "Tải về HTML (mở được bằng Word)",
+    "markdownNotice": "Tệp .md chỉ giữ được định dạng Markdown — màu chữ, màu nền, căn lề sẽ mất khi lưu. Chuyển thành tài liệu trực tuyến để giữ đủ định dạng (tệp .md vẫn còn trong tab Phiên bản).",
+    "sheetTitlePlaceholder": "Bảng tính không tên",
+    "exportXlsx": "Tải về Excel (.xlsx)",
+    "exportCsv": "Tải về CSV (trang tính đầu)"
   }
 }

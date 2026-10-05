@@ -39,10 +39,12 @@ public interface DocumentMapper {
     }
 
     @Mapping(target = "ownerId", source = "ownerUserId")
+    @Mapping(target = "contentHash", source = "contentSha256")
     @Mapping(target = "orgUnitName", ignore = true)
     @Mapping(target = "createdByName", ignore = true)
     @Mapping(target = "aiError", ignore = true)
     @Mapping(target = "canEdit", ignore = true)
+    @Mapping(target = "canEditContent", ignore = true)
     @Mapping(target = "inherited", ignore = true)
     @Mapping(target = "orphan", ignore = true)
     @Mapping(target = "legacy", ignore = true)
@@ -64,6 +66,7 @@ public interface DocumentMapper {
         LocalizedText error = LocalizedText.fromJson(document.getAiErrorI18n());
         r.setAiError(error == null ? null : error.render());
         r.setCanEdit(ctx.access().canEdit(document));
+        r.setCanEditContent(ctx.access().canEditContent(document));
         r.setOrphan(ctx.access().isOrphan(document));
         r.setInherited(document.getScope() == DocumentScope.UNIT
                 && ctx.isStrictAncestorOfFilter().test(document.getOrgUnitId()));

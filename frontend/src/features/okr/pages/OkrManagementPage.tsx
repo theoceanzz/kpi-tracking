@@ -1,5 +1,5 @@
 import { dateFnsLocale } from '@/i18n/format'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useObjectives, useOkrMutations } from '../hooks/useOkr'
 import { useNavLabels } from '@/features/organization/hooks/useNavLabels'
@@ -10,8 +10,11 @@ import EmptyState from '@/components/common/EmptyState'
 import {
   Plus, Target, ChevronDown, ChevronRight,
   Edit2, Trash2, Calendar,
-  BarChart3, PlusCircle, CheckCircle2, Clock, FileUp
+  BarChart3, PlusCircle, CheckCircle2, Clock, FileUp, Search
 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { OrgTimeFilterControls } from '@/components/common/OrgTimeFilters'
+import { rangesOverlap, useOrgTimeFilters } from '@/hooks/useOrgTimeFilters'
 import { cn } from '@/lib/utils'
 import { OkrStatus, ObjectiveResponse, KeyResultResponse } from '../types'
 import { format } from 'date-fns'
@@ -69,6 +72,23 @@ export default function OkrManagementPage() {
   }
 
   const [expandedObjectives, setExpandedObjectives] = useState<Record<string, boolean>>({})
+
+  // Cùng bộ lọc với Quản lý BSC: đơn vị (mặc định gốc, chọn đơn vị là gồm cả đơn vị con) và một ô
+  // kỳ / đợt. Mục tiêu OKR không gắn kỳ/đợt mà chỉ có ngày bắt đầu–kết thúc, nên lọc theo thời
+  // gian là "khoảng ngày của mục tiêu chạm vào kỳ / đợt đã chọn".
+  const [query, setQuery] = useState('')
+  const filters = useOrgTimeFilters(organizationId)
+  const visibleObjectives = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const { unitIds, time } = filters
+    return (objectives ?? []).filter(o => {
+      if (q && !(o.name.toLowerCase().includes(q) || (o.code ?? '').toLowerCase().includes(q)
+        || o.keyResults.some(kr => kr.name.toLowerCase().includes(q)))) return false
+      if (unitIds && !(o.orgUnitIds ?? []).some(id => unitIds.has(id))) return false
+      if (time && !rangesOverlap(o.startDate, o.endDate, time.start, time.end)) return false
+      return true
+    })
+  }, [objectives, query, filters])
 
   // Modal states
   const [isObjectiveModalOpen, setIsObjectiveModalOpen] = useState(false)
@@ -144,8 +164,25 @@ export default function OkrManagementPage() {
         }
       />
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder={t('OkrManagementPage.searchObjectives')}
+          aria-label={t('OkrManagementPage.searchObjectives')}
+          prefix={<Search size={16} aria-hidden="true" />}
+          className="w-full sm:w-[28rem]"
+        />
+        <OrgTimeFilterControls filters={filters} />
+      </div>
+
       <div id="tour-okr-list" className="grid gap-4">
-        {objectives?.map(objective => (
+        {(objectives?.length ?? 0) > 0 && visibleObjectives.length === 0 && (
+          <div className="rounded-card border border-dashed border-[var(--color-border)] px-6 py-8 text-center">
+            <p className="text-sm text-[var(--color-muted-foreground)]">{t('OkrManagementPage.noObjectiveMatches')}</p>
+          </div>
+        )}
+        {visibleObjectives.map(objective => (
           <ObjectiveCard
             key={objective.id}
             objective={objective}

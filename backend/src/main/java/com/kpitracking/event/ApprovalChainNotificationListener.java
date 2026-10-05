@@ -116,7 +116,7 @@ public class ApprovalChainNotificationListener {
         LocalizedText title = LocalizedText.of("notif.approval.adjustmentDecided.title." + outcome);
         LocalizedText message = LocalizedText.of("notif.approval.adjustmentDecided.message." + outcome, kpi.getName(), by, reason);
         dispatcher.dispatch(flow.getOrganizationId(), approved ? "kpi_approved" : "kpi_rejected",
-                flow.getRequester(), kpi.getOrgUnit(), title, message, "ADJUSTMENT_REQUEST", adj.getId());
+                flow.getRequester(), kpi.getOrgUnit(), title, message, "ADJUSTMENT_DECIDED", adj.getId());
     }
 
     /** Bước cuối không còn ai giữ — báo mọi admin tổ chức để gán lại. */

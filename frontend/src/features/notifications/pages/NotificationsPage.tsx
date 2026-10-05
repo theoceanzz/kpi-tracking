@@ -31,6 +31,7 @@ const typeConfig = perLanguage((): Record<string, { icon: LucideIcon; color: str
   REWARD_GRANT: { icon: Award, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: i18n.t('notifications:NotificationsPage.rewardProposals') },
   REWARD_POINT: { icon: Coins, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: i18n.t('notifications:NotificationsPage.rewardPoints') },
   REWARD_GIFT: { icon: Gift, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: i18n.t('notifications:NotificationsPage.giftRedemption') },
+  REWARD_GIFT_REQUEST: { icon: Gift, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.giftRedemption') },
   WALLET: { icon: Wallet, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: i18n.t('notifications:NotificationsPage.wallet') },
   FEEDBACK360: { icon: Users, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]', label: i18n.t('notifications:NotificationsPage.n360Feedback') },
   KPI_CYCLE_LOCKED: { icon: Lock, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.cycleLock') },

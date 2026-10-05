@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, FileText, FolderPlus, LayoutGrid, List, Plus } from 'lucide-react'
+import { ChevronRight, FilePlus2, FileSpreadsheet, FileText, FolderPlus, LayoutGrid, List, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import FilterBar, { SegmentedControl } from '@/components/common/FilterBar'
@@ -36,13 +36,15 @@ interface Props {
   onLayoutChange: (l: DocLayout) => void
   onUpload: (ctx: DriveContext) => void
   onNewFolder: (ctx: DriveContext) => void
+  /** Soạn tài liệu trực tuyến mới ngay tại đây. */
+  onNewDoc: (ctx: DriveContext, kind: 'doc' | 'sheet') => void
 }
 
 /**
  * "Drive" của một phạm vi (của tôi / một đơn vị / công ty): breadcrumb, thư mục, tài liệu. Thư mục và đơn vị đang
  * mở nằm trong URL (`?folder=`, `?unit=`). Gõ tìm kiếm thì tìm trong CẢ phạm vi (mọi thư mục), như Lark.
  */
-export default function DriveView({ scope, caps, layout, onLayoutChange, onUpload, onNewFolder }: Props) {
+export default function DriveView({ scope, caps, layout, onLayoutChange, onUpload, onNewFolder, onNewDoc }: Props) {
   const { t } = useTranslation('documents')
   const [params, setParams] = useSearchParams()
   const setParam = (key: string, value: string | null) => setParams(prev => {
@@ -157,6 +159,8 @@ export default function DriveView({ scope, caps, layout, onLayoutChange, onUploa
           {canCreate && (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => onNewFolder(ctx)}><FolderPlus aria-hidden="true" /> {t('actions.newFolder')}</Button>
+              <Button variant="outline" size="sm" onClick={() => onNewDoc(ctx, 'doc')}><FilePlus2 aria-hidden="true" /> {t('actions.newDoc')}</Button>
+              <Button variant="outline" size="sm" onClick={() => onNewDoc(ctx, 'sheet')}><FileSpreadsheet aria-hidden="true" /> {t('actions.newSheet')}</Button>
               <Button size="sm" onClick={() => onUpload(ctx)}><Plus aria-hidden="true" /> {t('actions.upload')}</Button>
             </div>
           )}
@@ -201,7 +205,11 @@ export default function DriveView({ scope, caps, layout, onLayoutChange, onUploa
             title={filtered ? t('empty.filteredTitle') : current ? t('empty.folderTitle') : t(`empty.${scope === 'PERSONAL' ? 'mine' : scope === 'UNIT' ? 'unit' : 'company'}Title`)}
             description={filtered ? t('empty.filteredDescription') : current ? t('empty.folderDescription') : t(`empty.${scope === 'PERSONAL' ? 'mine' : scope === 'UNIT' ? 'unit' : 'company'}Description`)}
             action={!filtered && canCreate ? (
-              <Button variant="outline" onClick={() => onUpload(ctx)}><Plus aria-hidden="true" /> {t('actions.upload')}</Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button variant="outline" onClick={() => onNewDoc(ctx, 'doc')}><FilePlus2 aria-hidden="true" /> {t('actions.newDoc')}</Button>
+                <Button variant="outline" onClick={() => onNewDoc(ctx, 'sheet')}><FileSpreadsheet aria-hidden="true" /> {t('actions.newSheet')}</Button>
+                <Button variant="outline" onClick={() => onUpload(ctx)}><Plus aria-hidden="true" /> {t('actions.upload')}</Button>
+              </div>
             ) : undefined}
           />
         ) : (

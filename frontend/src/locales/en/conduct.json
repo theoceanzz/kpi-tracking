@@ -171,11 +171,11 @@
     "rowNo": "No."
   },
   "ConductTargetPicker": {
-    "byCycle": "By cycle",
-    "byPeriod": "By period",
-    "chooseEvaluationCycle": "Choose evaluation cycle",
-    "chooseEvaluationPeriod": "Choose evaluation period",
-    "cycle": "cycle"
+    "chooseCyclePeriod": "Choose cycle / period",
+    "wholeCycle": "Whole cycle {{name}}",
+    "periodsWithoutCycle": "Periods without a cycle",
+    "showPastCycles": "Show {{count}} past cycles",
+    "hidePastCycles": "Hide past cycles"
   },
   "MyConductPage": {
     "anAdministratorEnablesThisFeatureIn": "An administrator enables this feature in Tool setup, under Modules & features.",

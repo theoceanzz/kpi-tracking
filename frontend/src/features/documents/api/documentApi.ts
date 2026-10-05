@@ -3,9 +3,10 @@ import { ENV } from '@/config/env'
 import type { ApiResponse, PageResponse } from '@/types/api'
 import type { RagChunk, RagSearchHit } from '@/features/analytics/api/aiApi'
 import type {
+  CreateOnlineDocumentInput, DocumentContent,
   DocumentCapabilities, DocumentFolder, DocumentFolderList, DocumentListParams, DocumentScope, DocumentShare,
   DocumentUsage, DocumentVersion, KbDocument, PersonalSummary, ShareTarget, UpdateDocumentInput, UploadDocumentInput,
-  DocumentPromotion, DocumentStorageStats, ShareUnit,
+  DocumentPromotion, DocumentStorageStats, ShareUnit, SharePermission,
 } from '../types'
 
 const BASE = '/documents'
@@ -68,6 +69,20 @@ export const documentApi = {
       .put<ApiResponse<KbDocument>>(`${BASE}/${id}/file`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
       .then(r => r.data.data)
   },
+
+  // ── Soạn trực tuyến ──
+  createOnline: (input: CreateOnlineDocumentInput) =>
+    axiosInstance.post<ApiResponse<KbDocument>>(`${BASE}/online`, input).then(r => r.data.data),
+  content: (id: string) =>
+    axiosInstance.get<ApiResponse<DocumentContent>>(`${BASE}/${id}/content`).then(r => r.data.data),
+  /** Tệp gốc dạng byte — chuyển .docx thành bản soạn trực tuyến ngay trên trình duyệt. */
+  fileBytes: (id: string) =>
+    axiosInstance.get<ArrayBuffer>(`${BASE}/${id}/download`, { responseType: 'arraybuffer' }).then(r => r.data),
+  /** Chuyển tại chỗ .docx / .md thành tài liệu trực tuyến; tệp cũ vào lịch sử phiên bản. */
+  convertOnline: (id: string, content: string, baseHash: string) =>
+    axiosInstance.post<ApiResponse<KbDocument>>(`${BASE}/${id}/convert-online`, { content, baseHash }).then(r => r.data.data),
+  saveContent: (id: string, content: string, baseHash: string) =>
+    axiosInstance.put<ApiResponse<KbDocument>>(`${BASE}/${id}/content`, { content, baseHash }).then(r => r.data.data),
 
   remove: (id: string) => axiosInstance.delete<ApiResponse<void>>(`${BASE}/${id}`).then(r => r.data),
 
@@ -151,8 +166,10 @@ export const documentApi = {
 
   // ── Chia sẻ ──
   shares: (id: string) => axiosInstance.get<ApiResponse<DocumentShare[]>>(`${BASE}/${id}/shares`).then(r => r.data.data),
-  share: (id: string, input: { userIds: string[]; unitIds: string[] }) =>
+  share: (id: string, input: { userIds: string[]; unitIds: string[]; permission?: SharePermission }) =>
     axiosInstance.post<ApiResponse<DocumentShare[]>>(`${BASE}/${id}/shares`, input).then(r => r.data.data),
+  updateShare: (id: string, shareId: string, permission: SharePermission) =>
+    axiosInstance.patch<ApiResponse<DocumentShare[]>>(`${BASE}/${id}/shares/${shareId}`, { permission }).then(r => r.data.data),
   unshare: (id: string, shareId: string) =>
     axiosInstance.delete<ApiResponse<void>>(`${BASE}/${id}/shares/${shareId}`).then(r => r.data),
   shareUnits: () => axiosInstance.get<ApiResponse<ShareUnit[]>>(`${BASE}/share-units`).then(r => r.data.data),

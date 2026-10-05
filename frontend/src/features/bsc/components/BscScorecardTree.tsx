@@ -12,6 +12,8 @@ import {
 import { cn } from '@/lib/utils'
 import { usePermission } from '@/hooks/usePermission'
 import { getApiErrorCode } from '@/lib/apiError'
+import { OrgTimeFilterControls } from '@/components/common/OrgTimeFilters'
+import { useOrgTimeFilters } from '@/hooks/useOrgTimeFilters'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import {
   useScorecardTree, useScorecardCoverage, useCascadeMutations,
@@ -77,13 +79,20 @@ const COVERAGE_META = perLanguage((): Record<string, { label: string; className:
 const num = (v?: number | null, d = 1) => (v == null ? '—' : v.toFixed(d))
 
 /** Giữ lại nhánh nào có node khớp từ khoá — cha của node khớp vẫn phải hiện để còn đường đi tới nó. */
-function filterTree(nodes: ScorecardTreeNodeResponse[], q: string): ScorecardTreeNodeResponse[] {
-  if (!q.trim()) return nodes
+/**
+ * Giữ nút khớp (tìm chữ + bộ lọc), và giữ luôn nút CHA của nút khớp để còn thấy nó nằm ở nhánh nào.
+ */
+function filterTree(
+  nodes: ScorecardTreeNodeResponse[],
+  q: string,
+  matches: (n: ScorecardTreeNodeResponse) => boolean,
+): ScorecardTreeNodeResponse[] {
   const needle = q.trim().toLowerCase()
   const walk = (list: ScorecardTreeNodeResponse[]): ScorecardTreeNodeResponse[] =>
     list.flatMap(n => {
       const children = walk(n.children)
-      const hit = `${n.name} ${n.orgUnitName ?? ''} ${n.periodLabel ?? ''}`.toLowerCase().includes(needle)
+      const textHit = !needle || `${n.name} ${n.orgUnitName ?? ''} ${n.periodLabel ?? ''}`.toLowerCase().includes(needle)
+      const hit = textHit && matches(n)
       return hit || children.length > 0 ? [{ ...n, children }] : []
     })
   return walk(nodes)
@@ -108,9 +117,6 @@ export default function BscScorecardTree({
   const canManage = hasPermission('BSC:MANAGE')
   const canApprove = hasPermission('BSC:APPROVE')
 
-  // KHÔNG có bộ lọc đợt ở đây nữa: đợt là chuyện của TỪNG bộ tiêu chí (mỗi thẻ gắn đợt riêng),
-  // nên nó nằm trong mục "Kết quả đợt" của chính nhánh đó — bấm vào là ra số luôn, không phải
-  // chọn trước ở thanh trên rồi mới có gì để xem.
   const { data: tree, isLoading } = useScorecardTree(organizationId)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [openId, setOpenId] = useState<string | null>(null)
@@ -121,7 +127,25 @@ export default function BscScorecardTree({
     [scorecards],
   )
 
-  const visible = useMemo(() => filterTree(tree || [], query), [tree, query])
+  // Lọc đơn vị + kỳ/đợt dùng chung với Quản lý OKR (components/common/OrgTimeFilters).
+  const filters = useOrgTimeFilters(organizationId)
+  const { filtering } = filters
+  const visible = useMemo(() => {
+    const { unitIds, time, periodCycle } = filters
+    const matches = (n: ScorecardTreeNodeResponse) => {
+      if (!filtering) return true
+      const sc = scorecardById.get(n.id)
+      if (!sc) return false
+      if (unitIds && !(sc.orgUnits ?? []).some(u => unitIds.has(u.id))) return false
+      const periodIds = (sc.periods ?? []).map(p => p.id)
+      // Bộ gắn cả KỲ hay gắn từng ĐỢT trong kỳ đều tính là thuộc kỳ đó.
+      if (time?.kind === 'cycle' && sc.kpiCycleId !== time.id
+        && !periodIds.some(id => periodCycle.get(id) === time.id)) return false
+      if (time?.kind === 'period' && !periodIds.includes(time.id)) return false
+      return true
+    }
+    return filterTree(tree || [], query, matches)
+  }, [tree, query, filtering, filters, scorecardById])
 
   // Có quyền MANAGE_UNIT mới chỉ là điều kiện cần; điều kiện đủ nằm ở canEditScorecard theo từng thẻ.
   const hasUnitRight = hasPermission('BSC:MANAGE_UNIT') || canManage
@@ -149,7 +173,9 @@ export default function BscScorecardTree({
           />
         </div>
 
-        <p className="text-caption flex-1 min-w-[16rem]">
+        <OrgTimeFilterControls filters={filters} />
+
+        <p className="text-caption w-full">
           {t('BscScorecardTree.clickAScorecardToOpenIts')}
         </p>
       </div>
@@ -172,14 +198,16 @@ export default function BscScorecardTree({
 
       {!isLoading && (tree || []).length > 0 && visible.length === 0 && (
         <div className="rounded-card border border-dashed border-[var(--color-border)] px-6 py-8 text-center">
-          <p className="text-sm text-[var(--color-muted-foreground)]">{t('BscScorecardTree.noScorecardMatches')}{query}”.</p>
+          <p className="text-sm text-[var(--color-muted-foreground)]">
+            {query.trim() ? <>{t('BscScorecardTree.noScorecardMatches')}{query}”.</> : t('BscScorecardTree.noScorecardMatchesFilters')}
+          </p>
         </div>
       )}
 
       <div className="space-y-2">
         {visible.map(node => (
           <TreeNode key={node.id} node={node} depth={0} isRoot
-            expanded={expanded} onToggle={toggle} forceOpen={!!query.trim()}
+            expanded={expanded} onToggle={toggle} forceOpen={!!query.trim() || filtering}
             openId={openId} onOpen={setOpenId}
             scorecardById={scorecardById} fixedPerspectives={fixedPerspectives}
             canManage={canManage} canApprove={canApprove} canPublish={canPublish}
@@ -229,6 +257,10 @@ function TreeNode(props: TreeNodeProps) {
   const selfCount = node.itemCount - node.assignedCount
   const weightOk = Math.abs(node.totalWeight - 100) <= 0.01
   const isCompany = node.level === BscScorecardLevel.COMPANY
+  // Dòng "Kết quả cấp trên" (giao cả bộ): nói rõ nó chiếm bao nhiêu trong 100% của CHÍNH thẻ này.
+  // Chỉ in "trọng số 30%" thì ba phòng cùng nhận đọc như công ty chia 30% cho mỗi phòng.
+  const sourceRow = sc?.perspectives.find(p => p.sourceScorecardId)
+  const unallocated = Math.max(0, Math.round((100 - node.totalWeight) * 10) / 10)
 
   return (
     <div>
@@ -267,9 +299,16 @@ function TreeNode(props: TreeNodeProps) {
               {node.assignedCount > 0 && t('BscScorecardTree.assignedByParentAddedByUnit', { assignedCount: node.assignedCount, selfCount })}
               {node.gateCount > 0 && t('BscScorecardTree.gate', { gateCount: node.gateCount })}
               {' · '}
-              <span className={weightOk ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'}>
-                {t('BscScorecardTree.weights')} {num(node.totalWeight)}%
-              </span>
+              {sourceRow ? (
+                <span className={weightOk ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'}>
+                  {t('BscScorecardTree.sourceRowShare', { name: sourceRow.sourceScorecardName, value: num(sourceRow.weightPercentage) })}
+                  {!weightOk && unallocated > 0 && ` · ${t('BscScorecardTree.unallocated', { value: num(unallocated) })}`}
+                </span>
+              ) : (
+                <span className={weightOk ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'}>
+                  {t('BscScorecardTree.weights')} {num(node.totalWeight)}%
+                </span>
+              )}
             </p>
           </button>
 

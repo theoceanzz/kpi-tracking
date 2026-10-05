@@ -1299,5 +1299,12 @@
     "emptySheet": "The sheet is empty.",
     "truncated": "Only the first {{rows}} rows and {{cols}} columns are shown — download to see everything.",
     "download": "Download"
+  },
+  "OrgTimeFilters": {
+    "filterUnit": "Filter by unit",
+    "filterCyclePeriod": "Filter by cycle / period",
+    "allCyclesPeriods": "All cycles / periods",
+    "wholeCycle": "Whole cycle {{name}}",
+    "clearFilters": "Clear filters"
   }
 }

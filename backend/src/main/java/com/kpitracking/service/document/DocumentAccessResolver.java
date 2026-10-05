@@ -73,9 +73,10 @@ public class DocumentAccessResolver {
         // con) — tức các đơn vị tổ tiên-hoặc-chính của đơn vị họ. KHÔNG mở theo cây con người đó quản lý: chia sẻ cho
         // tổ con không có nghĩa trưởng phòng ở trên được xem.
         Set<UUID> memberChain = memberChain(memberships, units);
-        List<UUID> shared = shares.findSharedDocumentIds(orgId, userId,
-                memberChain.isEmpty() ? List.of(NO_UNIT) : memberChain);
-        return shared.isEmpty() ? access : access.withShared(Set.copyOf(shared));
+        Collection<UUID> chain = memberChain.isEmpty() ? List.of(NO_UNIT) : memberChain;
+        List<UUID> shared = shares.findSharedDocumentIds(orgId, userId, chain);
+        if (shared.isEmpty()) return access;
+        return access.withShared(Set.copyOf(shared), Set.copyOf(shares.findEditSharedDocumentIds(orgId, userId, chain)));
     }
 
     /** Đơn vị gốc của tổ chức: path nông nhất (ít đoạn nhất). Một tổ chức có một gốc; trả tập cho chắc. */

@@ -1,7 +1,11 @@
 import { LocaleNumberInput } from '@/components/ui/number-input'
 import { intlLocale } from '@/i18n/format'
 import { useMemo, useState } from 'react'
-import { Loader2, AlertTriangle, Check } from 'lucide-react'
+import { Loader2, AlertTriangle, Check, ChevronDown } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { getApiErrorMessage } from '@/lib/apiError'
+import { bscApi } from '../api/bscApi'
+import { useBscInvalidator } from '../hooks/useBsc'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -54,13 +58,18 @@ interface TargetRow {
 export default function CascadeModal({ open, onClose, scorecard }: CascadeModalProps) {
   const { t } = useTranslation('bsc')
   const { data: orgUnitTreeData } = useOrgUnitTree()
-  const { cascade, cascadeWhole } = useCascadeMutations()
+  const { cascadeWhole } = useCascadeMutations()
 
+  const invalidate = useBscInvalidator()
   const [mode, setMode] = useState<CascadeMode>('item')
-  const [itemId, setItemId] = useState<string>('')
+  /** Các chỉ tiêu đang giao (chọn được nhiều); null = chưa đụng tới ⇒ mặc định chỉ tiêu đầu tiên. */
+  const [pickedIds, setPickedIds] = useState<string[] | null>(null)
+  /** Chỉ tiêu đang mở bảng đơn vị — mỗi chỉ tiêu có đóng góp / trọng số riêng cho từng đơn vị. */
+  const [activeId, setActiveId] = useState<string>('')
   const [linkType, setLinkType] = useState<BscLinkType>(BscLinkType.SUM)
-  /** CHỈ chứa thay đổi người dùng vừa gõ. Phần đã giao trước đó đọc thẳng từ độ phủ (xem rowOf). */
-  const [rows, setRows] = useState<Record<string, TargetRow>>({})
+  /** CHỈ chứa thay đổi người dùng vừa gõ, theo từng chỉ tiêu. Phần đã giao đọc thẳng từ độ phủ (xem rowOf). */
+  const [rows, setRows] = useState<Record<string, Record<string, TargetRow>>>({})
+  const [submitting, setSubmitting] = useState(false)
 
   const { data: coverage } = useScorecardCoverage(open ? scorecard?.id : undefined)
 
@@ -72,8 +81,18 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
   )
   // Mặc định chọn chỉ tiêu đầu tiên thay vì để trống: modal này chỉ có một việc để làm, bắt người
   // dùng mở dropdown chọn thêm một bước là thừa. Suy ra ở đây chứ không setState trong effect —
-  // và cũng nhờ vậy id trỏ tới chỉ tiêu đã bị xoá thì tự rơi về chỉ tiêu đầu thay vì kẹt ô trống.
-  const selectedItem = items.find(i => i.id === itemId) ?? items[0]
+  // và cũng nhờ vậy id trỏ tới chỉ tiêu đã bị xoá thì tự rơi khỏi danh sách thay vì kẹt lại.
+  const picked = useMemo(() => {
+    const ids = pickedIds ?? (items[0] ? [items[0].id] : [])
+    return items.filter(i => ids.includes(i.id))
+  }, [pickedIds, items])
+  const selectedItem = picked.find(i => i.id === activeId) ?? picked[0]
+  const togglePick = (id: string) => {
+    const cur = picked.map(i => i.id)
+    const next = cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]
+    setPickedIds(next)
+    if (!cur.includes(id)) setActiveId(id)
+  }
 
   // Cây đơn vị phẳng, GỒM cả node gốc — mirror cách ScorecardFormModal đang làm.
   const flatUnits = useMemo(() => {
@@ -96,18 +115,23 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
    * Thiếu cái này thì mở lại modal sau khi đã phân rã sẽ thấy trắng trơn và báo "còn thiếu 100"
    * trong khi bảng độ phủ ngay trên nói "đủ" — tệ hơn nữa, bấm lưu là ghi đè đóng góp về rỗng.
    */
-  const assigned = useMemo(() => {
-    const map = new Map<string, { contribution: string; weight: string }>()
-    const item = coverage?.items.find(i => i.scorecardPerspectiveId === selectedItem?.id)
-    for (const child of item?.children ?? []) {
-      if (!child.orgUnitId) continue
-      map.set(child.orgUnitId, {
-        contribution: child.contributionValue != null ? String(child.contributionValue) : '',
-        weight: child.weightPercentage != null ? String(child.weightPercentage) : '',
-      })
+  const assignedByItem = useMemo(() => {
+    const out = new Map<string, Map<string, { contribution: string; weight: string }>>()
+    for (const item of coverage?.items ?? []) {
+      const map = new Map<string, { contribution: string; weight: string }>()
+      for (const child of item.children ?? []) {
+        if (!child.orgUnitId) continue
+        map.set(child.orgUnitId, {
+          contribution: child.contributionValue != null ? String(child.contributionValue) : '',
+          weight: child.weightPercentage != null ? String(child.weightPercentage) : '',
+        })
+      }
+      out.set(item.scorecardPerspectiveId, map)
     }
-    return map
-  }, [coverage, selectedItem])
+    return out
+  }, [coverage])
+  const assignedOf = (itemId?: string) => (itemId && assignedByItem.get(itemId)) || new Map<string, { contribution: string; weight: string }>()
+  const assigned = assignedOf(selectedItem?.id)
 
   // Đơn vị đang giữ thẻ cha thì không phân rã xuống chính nó được.
   const ownUnitIds = useMemo(
@@ -152,55 +176,85 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
 
   if (!open || !scorecard) return null
 
-  const rowOf = (u: { id: string; name: string; level: number }): TargetRow => {
-    const draft = rows[u.id]
+  const rowOfItem = (itemId: string, u: { id: string; name: string; level: number }): TargetRow => {
+    const draft = rows[itemId]?.[u.id]
     if (draft) return draft
-    const prev = assigned.get(u.id)
+    const prev = assignedOf(itemId).get(u.id)
     return prev
       ? { orgUnitId: u.id, name: u.name, level: u.level, selected: true, ...prev }
       : { orgUnitId: u.id, name: u.name, level: u.level, selected: false, contribution: '', weight: '' }
   }
+  const rowOf = (u: { id: string; name: string; level: number }) => rowOfItem(selectedItem?.id ?? '', u)
 
   const patch = (u: { id: string; name: string; level: number }, next: Partial<TargetRow>) => {
+    if (!selectedItem) return
+    const itemId = selectedItem.id
     const base = rowOf(u)
-    setRows(prev => ({ ...prev, [u.id]: { ...base, ...next } }))
+    setRows(prev => ({ ...prev, [itemId]: { ...(prev[itemId] ?? {}), [u.id]: { ...base, ...next } } }))
   }
 
   // Duyệt TOÀN BỘ đơn vị chứ không chỉ các dòng đang có bản nháp — dòng đã giao từ trước
   // cũng phải được tính vào tổng, nếu không thanh độ phủ trong modal lại nói sai.
-  const selected = flatUnits.map(rowOf).filter(r => r.selected)
+  const selectedOf = (itemId: string) => flatUnits.map(u => rowOfItem(itemId, u)).filter(r => r.selected)
+  const selected = selectedOf(selectedItem?.id ?? '')
   const totalContribution = selected.reduce((s, r) => s + (Number(r.contribution) || 0), 0)
   const parentTarget = selectedItem?.targetValue ?? null
   // Chỉ SUM mới cộng dồn — với SHARED/SUPPORT thì so tổng với mục tiêu cha là vô nghĩa.
   const showCoverage = linkType === BscLinkType.SUM && parentTarget != null && parentTarget > 0
   const gap = showCoverage ? parentTarget - totalContribution : null
 
-  const submit = () => {
-    if (!selectedItem || selected.length === 0) return
-    // Trọng số của dòng được giao là do CẤP TRÊN đặt và bị khoá ở phía đơn vị. Bỏ trống ở đây là
-    // dồn đơn vị vào ngõ cụt: dòng đó nằm im ở 0%, họ không sửa được, mà tổng thì không bao giờ
-    // đủ 100% nên cũng không trình duyệt được.
-    const missingWeight = selected.filter(r => r.weight.trim() === '' || Number(r.weight) <= 0)
-    if (missingWeight.length > 0) {
-      toast.error(t('CascadeModal.enterWeightsFor') + missingWeight.map(r => r.name).join(', ')
-        + t('CascadeModal.unitsCannotEditTheWeightOf'))
-      return
+  /**
+   * Giao lần lượt từng chỉ tiêu đã chọn. Kiểm tra HẾT trước khi gửi cái nào — dừng giữa chừng vì
+   * chỉ tiêu thứ ba thiếu trọng số là để hai chỉ tiêu đầu đã giao mà người dùng tưởng chưa có gì.
+   */
+  const submit = async () => {
+    if (picked.length === 0) return
+    for (const item of picked) {
+      const sel = selectedOf(item.id)
+      if (sel.length === 0) {
+        setActiveId(item.id)
+        toast.error(t('CascadeModal.chooseUnitsFor', { name: item.name }))
+        return
+      }
+      // Trọng số của dòng được giao là do CẤP TRÊN đặt và bị khoá ở phía đơn vị. Bỏ trống ở đây là
+      // dồn đơn vị vào ngõ cụt: dòng đó nằm im ở 0%, họ không sửa được, mà tổng thì không bao giờ
+      // đủ 100% nên cũng không trình duyệt được.
+      const missingWeight = sel.filter(r => r.weight.trim() === '' || Number(r.weight) <= 0)
+      if (missingWeight.length > 0) {
+        setActiveId(item.id)
+        toast.error(`${item.name}: ` + t('CascadeModal.enterWeightsFor') + missingWeight.map(r => r.name).join(', ')
+          + t('CascadeModal.unitsCannotEditTheWeightOf'))
+        return
+      }
     }
-    cascade.mutate({
-      scorecardId: scorecard.id,
-      data: {
-        scorecardPerspectiveId: selectedItem.id,
-        linkType,
-        targets: selected.map(r => ({
-          orgUnitId: r.orgUnitId,
-          contributionValue: r.contribution.trim() === '' ? null : Number(r.contribution),
-          weightPercentage: r.weight.trim() === '' ? null : Number(r.weight),
-        })),
-      },
-    }, { onSuccess: () => { setRows({}); onClose() } })
+    setSubmitting(true)
+    let done = 0
+    try {
+      for (const item of picked) {
+        await bscApi.cascade(scorecard.id, {
+          scorecardPerspectiveId: item.id,
+          linkType,
+          targets: selectedOf(item.id).map(r => ({
+            orgUnitId: r.orgUnitId,
+            contributionValue: r.contribution.trim() === '' ? null : Number(r.contribution),
+            weightPercentage: r.weight.trim() === '' ? null : Number(r.weight),
+          })),
+        })
+        done++
+      }
+      toast.success(t('CascadeModal.cascadedItems', { count: done }))
+      setRows({})
+      onClose()
+    } catch (e) {
+      // Báo rõ đã giao được mấy chỉ tiêu trước khi lỗi, để người dùng biết phần nào cần làm lại.
+      toast.error(`${getApiErrorMessage(e, t('CascadeModal.cascadeFailed'))}${done > 0 ? ` ${t('CascadeModal.cascadedBeforeError', { count: done })}` : ''}`)
+    } finally {
+      setSubmitting(false)
+      invalidate()
+    }
   }
 
-  const pending = cascade.isPending || cascadeWhole.isPending
+  const pending = submitting || cascadeWhole.isPending
 
   /** Tổng thẻ con lệch 100% sau khi giao ⇒ đơn vị phải chia lại trước khi trình; báo ngay cho người giao. */
   const submitWhole = (data: Parameters<typeof cascadeWhole.mutate>[0]['data']) =>
@@ -246,9 +300,11 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
               {t('CascadeModal.saveWhole')}
             </Button>
           ) : (
-            <Button onClick={submit} disabled={!selectedItem || selected.length === 0 || pending}>
-              {cascade.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {assigned.size > 0 ? t('CascadeModal.update') : t('CascadeModal.cascade')} {t('CascadeModal.forUnits', { count: selected.length })}
+            <Button onClick={submit} disabled={picked.length === 0 || pending}>
+              {submitting && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {picked.length > 1
+                ? t('CascadeModal.cascadeNItems', { count: picked.length })
+                : <>{assigned.size > 0 ? t('CascadeModal.update') : t('CascadeModal.cascade')} {t('CascadeModal.forUnits', { count: selected.length })}</>}
             </Button>
           )}
         />
@@ -266,19 +322,39 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <label className="text-label">{t('CascadeModal.kpiToAssign')}</label>
-            {/* value rỗng bị Radix hiểu là "đã chọn giá trị rỗng" nên nó nuốt luôn placeholder —
-                truyền undefined mới ra được ô có chữ gợi ý khi bộ tiêu chí chưa có chỉ tiêu nào. */}
-            <Select value={selectedItem?.id ?? undefined}
-              onValueChange={v => { setItemId(v); setRows({}) }}>
-              <SelectTrigger className="w-full"><SelectValue placeholder={t('CascadeModal.noKpisYet')} /></SelectTrigger>
-              <SelectContent className="z-[1100]">
-                {items.map(i => (
-                  <SelectItem key={i.id} value={i.id}>
-                    {i.name}{i.targetValue != null ? ` · ${i.targetValue}${i.unit ? ` ${i.unit}` : ''}` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Chọn được nhiều chỉ tiêu cùng lúc; mỗi chỉ tiêu vẫn có bảng đơn vị riêng ở dưới. */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" type="button" className="w-full justify-between font-normal" disabled={items.length === 0}>
+                  <span className="truncate text-left">
+                    {items.length === 0 ? t('CascadeModal.noKpisYet')
+                      : picked.length === 1 ? picked[0]!.name
+                        : t('CascadeModal.nItemsPicked', { count: picked.length })}
+                  </span>
+                  <ChevronDown aria-hidden="true" className="opacity-50 shrink-0" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-2 w-[var(--radix-popover-trigger-width)] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">
+                <div className="space-y-1">
+                  {items.map(i => {
+                    const on = picked.some(p => p.id === i.id)
+                    return (
+                      <div key={i.id} onClick={() => togglePick(i.id)}
+                        className={cn('flex items-center gap-3 px-3 py-2 rounded-card cursor-pointer transition-colors',
+                          on ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' : 'hover:bg-[var(--color-muted)]')}>
+                        <div className={cn('w-4 h-4 rounded border flex items-center justify-center shrink-0',
+                          on ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'border-[var(--color-border)]')}>
+                          {on && <Check size={10} strokeWidth={4} />}
+                        </div>
+                        <span className="text-xs font-medium truncate">
+                          {i.name}{i.targetValue != null ? ` · ${i.targetValue}${i.unit ? ` ${i.unit}` : ''}` : ''}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="space-y-1.5">
             <label className="text-label">{t('CascadeModal.linkType')}</label>
@@ -293,6 +369,20 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
             <p className="text-caption ml-1">{LINK_LABELS()[linkType].hint}</p>
           </div>
         </div>
+
+        {/* Nhiều chỉ tiêu ⇒ mỗi chỉ tiêu một thẻ; bấm thẻ để mở bảng đơn vị của chỉ tiêu đó. */}
+        {picked.length > 1 && (
+          <div className="flex flex-wrap gap-1.5">
+            {picked.map(i => {
+              const n = selectedOf(i.id).length
+              return (
+                <ChoiceChip key={i.id} selected={i.id === selectedItem?.id} variant="solid" onClick={() => setActiveId(i.id)}>
+                  {i.name}{n > 0 ? ` · ${n}` : ''}
+                </ChoiceChip>
+              )
+            })}
+          </div>
+        )}
 
         {showCoverage && (
           <div className={cn('rounded-card px-4 py-3 text-xs font-medium flex items-center gap-2',

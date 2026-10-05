@@ -20,6 +20,8 @@ export interface KbDocument {
   contentType: string | null
   fileSize: number | null
   version: number
+  /** Băm nội dung tệp hiện hành — trình soạn gửi lại khi lưu để phát hiện người khác lưu chen. */
+  contentHash: string | null
   aiEnabled: boolean
   aiStatus: DocumentAiStatus
   aiChunkCount: number
@@ -30,7 +32,10 @@ export interface KbDocument {
   createdByName: string | null
   createdAt: string
   updatedAt: string
+  /** Quản lý: sửa thông tin, thay tệp, xoá, di chuyển, chia sẻ. */
   canEdit: boolean
+  /** Sửa nội dung trong trình soạn trực tuyến: người quản lý, hoặc được chia sẻ quyền chỉnh sửa. */
+  canEditContent: boolean
   /** Tài liệu của đơn vị cha của đơn vị đang lọc — chỉ đọc, hiện "Kế thừa từ …". */
   inherited: boolean
   /** Đơn vị của tài liệu đã bị xoá. */
@@ -131,12 +136,16 @@ export interface DocumentFolderList {
   canCreate: boolean
 }
 
+/** Mức quyền khi chia sẻ: chỉ xem, hoặc sửa nội dung (tài liệu soạn trực tuyến). */
+export type SharePermission = 'VIEW' | 'EDIT'
+
 export interface DocumentShare {
   id: string
   type: 'USER' | 'UNIT'
   granteeId: string
   name: string | null
   detail: string | null
+  permission: SharePermission
   grantedByName: string | null
   createdAt: string
 }
@@ -192,6 +201,30 @@ export interface UpdateDocumentInput {
   datesSet?: boolean
   reviewDate?: string | null
   expiryDate?: string | null
+}
+
+/** Định dạng soạn trực tuyến: .kgdoc = khối BlockNote (đủ định dạng), .kgsheet = bảng tính Univer, .md = Markdown, .txt = chữ thuần. */
+export type OnlineFormat = 'blocks' | 'sheet' | 'markdown' | 'text'
+
+/** Nội dung chữ của tài liệu .md / .txt mở trong trình soạn. */
+export interface DocumentContent {
+  content: string
+  format: OnlineFormat
+  contentHash: string
+  version: number
+}
+
+export interface CreateOnlineDocumentInput {
+  scope?: DocumentScope
+  orgUnitId?: string | null
+  folderId?: string | null
+  title?: string
+  /** Tài liệu: mảng khối JSON của BlockNote; bảng tính: snapshot Univer. Rỗng = trống. */
+  content?: string
+  /** `doc` (mặc định) hay `sheet`. */
+  kind?: 'doc' | 'sheet'
+  category?: DocumentCategory
+  aiEnabled?: boolean
 }
 
 export type PromotionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'

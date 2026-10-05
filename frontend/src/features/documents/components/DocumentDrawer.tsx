@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, ArrowUpFromLine, Download, Eye, Loader2, Pin, RefreshCw, Star, Trash2, Upload } from 'lucide-react'
+import { AlertTriangle, ArrowUpFromLine, Download, Eye, FilePen, Loader2, Pin, RefreshCw, Star, Trash2, Upload } from 'lucide-react'
 import { Drawer, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,7 +23,7 @@ import {
 } from '../hooks/useDocuments'
 import { DOCUMENT_CATEGORIES, type DocumentCapabilities, type DocumentCategory, type DocumentScope, type KbDocument } from '../types'
 import { AiStatusBadge, FileTypeIcon } from './docUi'
-import { DOCUMENT_ACCEPT_ATTR, creatableScopes, formatBytes, promotionTargets } from '../utils'
+import { DOCUMENT_ACCEPT_ATTR, creatableScopes, editorPath, formatBytes, onlineFormat, promotionTargets } from '../utils'
 import { useDocumentActions, type DrawerTab } from './DocumentActions'
 import { locationLabel } from './docMenu'
 import SharePanel from './SharePanel'
@@ -82,6 +83,8 @@ export default function DocumentDrawer({ doc, caps, onClose, initialTab = 'info'
   const targets = useMemo(() => promotionTargets(doc, caps), [doc, caps])
   const pendingPromotions = useDocumentPromotions(doc.id, doc.canEdit && !doc.legacy)
   const cancelPromotion = useCancelPromotion()
+  const navigate = useNavigate()
+  const online = onlineFormat(doc)
 
   // Tab nào có tuỳ quyền: chia sẻ / phiên bản / đoạn AI chỉ người sửa được mới thấy (backend cũng chặn).
   const tabs = useMemo(() => {
@@ -256,12 +259,18 @@ export default function DocumentDrawer({ doc, caps, onClose, initialTab = 'info'
         </dl>
 
         <div className="mt-3 flex flex-wrap gap-2">
-          {!doc.legacy && (
+          {!doc.legacy && online !== 'blocks' && online !== 'sheet' && (
             <Button asChild variant="outline" size="sm">
               <a href={documentFileUrl(doc.id)} download><Download aria-hidden="true" /> {t('actions.download')}</a>
             </Button>
           )}
-          {previewable && (
+          {online && (
+            <Button size="sm" onClick={() => navigate(editorPath(doc.id))}>
+              {doc.canEditContent ? <FilePen aria-hidden="true" /> : <Eye aria-hidden="true" />}
+              {doc.canEditContent ? t('actions.editOnline') : t('actions.readOnline')}
+            </Button>
+          )}
+          {previewable && !online && (
             <Button variant="outline" size="sm" onClick={() => setPreviewing(true)}>
               <Eye aria-hidden="true" /> {t('actions.preview')}
             </Button>
@@ -377,7 +386,7 @@ export default function DocumentDrawer({ doc, caps, onClose, initialTab = 'info'
         )}
 
         {doc.sharedWithMe && (
-          <p className="mt-4 text-caption">{t('share.youAreViewer', { name: doc.createdByName ?? '—' })}</p>
+          <p className="mt-4 text-caption">{t(doc.canEditContent ? 'share.youAreEditor' : 'share.youAreViewer', { name: doc.createdByName ?? '—' })}</p>
         )}
         </>}
       </Drawer>

@@ -95,8 +95,6 @@
     "updateKr": "Cập nhật KR"
   },
   "MyOkrPage": {
-    "allPeriods": "Tất cả các đợt",
-    "aPeriod": "Đợt",
     "area": "Lĩnh vực {{perspectiveName}}",
     "averageProgressOfKeyResults": "Tiến độ trung bình các kết quả then chốt",
     "cancelled": "Đã huỷ",
@@ -113,20 +111,22 @@
     "okrLinkedKpis": "KPI gắn OKR",
     "okrManagement": "Quản lý OKR",
     "running": "Đang chạy",
-    "scope": "Phạm vi",
     "searchObjectivesKeyResults": "Tìm mục tiêu, kết quả then chốt…",
     "target": "Mục tiêu",
     "thisObjectiveHasNoKeyResults": "Mục tiêu này chưa có kết quả then chốt.",
     "toSubmit": "Cần nộp",
-    "tryChangingTheScopePeriodOr": "Thử đổi phạm vi, đợt hoặc từ khoá.",
     "unit": "Đơn vị",
     "viewAnalytics": "Xem phân tích",
     "viewMyUnitsObjectives": "Xem mục tiêu đơn vị tôi",
     "whenYourKpisAreLinkedTo": "Khi chỉ tiêu của bạn được gắn vào một kết quả then chốt, mục tiêu đó sẽ hiện ở đây. Chuyển sang \"Đơn vị tôi\" để xem mục tiêu của đơn vị.",
-    "wholeCompany": "Toàn công ty",
     "youContribute": "Bạn góp",
     "youHaveNoKpisLinkedTo": "Bạn chưa có KPI nào gắn vào OKR",
-    "youHaveNoKpisLinkedTo2": "Bạn chưa có KPI gắn vào kết quả này."
+    "youHaveNoKpisLinkedTo2": "Bạn chưa có KPI gắn vào kết quả này.",
+    "level": "Cấp",
+    "levelMine": "{{name}} (đơn vị của bạn)",
+    "levelParent": "{{name}} (cấp trên)",
+    "levelCompany": "{{name}} (toàn công ty)",
+    "tryAnotherLevel": "Cấp này chưa có mục tiêu nào khớp. Thử chọn cấp khác hoặc đổi từ khoá tìm kiếm."
   },
   "ObjectiveFormModal": {
     "bscItem": "Hạng mục BSC",
@@ -219,7 +219,9 @@
     "noObjectivesYet": "Chưa có mục tiêu nào",
     "okrManagement": "Quản lý OKR",
     "setStrategicObjectivesAndMeasureKey": "Thiết lập mục tiêu chiến lược và đo lường kết quả then chốt.",
-    "target": "Mục tiêu:"
+    "target": "Mục tiêu:",
+    "searchObjectives": "Tìm mục tiêu, kết quả then chốt…",
+    "noObjectiveMatches": "Không có mục tiêu nào khớp tìm kiếm / bộ lọc."
   },
   "okrSchema": {
     "pleaseChooseAnEndDate": "Vui lòng chọn ngày kết thúc",

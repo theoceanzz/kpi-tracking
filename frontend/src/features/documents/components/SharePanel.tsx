@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Building2, ChevronRight, Loader2, Search, UserRound, X } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -10,8 +11,10 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import {
   useDocumentShares, useShareDocument, useShareTargets, useShareUnitMembers, useShareUnits, useUnshareDocument,
+  useUpdateSharePermission,
 } from '../hooks/useDocuments'
-import type { DocumentShare, KbDocument, ShareTarget, ShareUnit } from '../types'
+import type { DocumentShare, KbDocument, SharePermission, ShareTarget, ShareUnit } from '../types'
+import { onlineFormat } from '../utils'
 
 /** Trạng thái tích của một đơn vị / một người trong cây. */
 interface ShareState {
@@ -28,7 +31,8 @@ interface ShareState {
  * các đơn vị con xem được; mở đơn vị ra để tích từng người. Gõ tìm thì hiện kết quả phẳng (đơn vị + người). Đơn vị gốc
  * không có trong cây — chia sẻ cho cả công ty là việc của "Đề xuất lên Công ty".
  *
- * Người nhận đọc, tải về và K.AI đọc tài liệu khi trả lời họ — không sửa, không chia sẻ tiếp.
+ * Người nhận đọc, tải về và K.AI đọc tài liệu khi trả lời họ. Tài liệu soạn trực tuyến có thêm mức "Chỉnh sửa" như Google
+ * Docs: người nhận sửa được NỘI DUNG — vẫn không xoá, không di chuyển, không chia sẻ tiếp.
  */
 export default function SharePanel({ doc }: { doc: KbDocument }) {
   const { t } = useTranslation('documents')
@@ -40,7 +44,11 @@ export default function SharePanel({ doc }: { doc: KbDocument }) {
   const search = useShareTargets(debounced, !!debounced)
   const share = useShareDocument()
   const unshare = useUnshareDocument()
-  const busy = share.isPending || unshare.isPending
+  const updatePermission = useUpdateSharePermission()
+  const busy = share.isPending || unshare.isPending || updatePermission.isPending
+  // Chỉ tài liệu soạn trực tuyến mới có quyền "Chỉnh sửa"; tệp khác (PDF, Excel…) chia sẻ là để xem.
+  const editable = !!onlineFormat(doc)
+  const [permission, setPermission] = useState<SharePermission>('VIEW')
 
   // Tích / bỏ tích hiện NGAY (lạc quan), yêu cầu chạy ngầm. Trước đây khoá mọi ô trong lúc chờ nên ô nháy sang con trỏ
   // "cấm" rồi mới tích. Giữ trạng thái chờ tới khi danh sách chia sẻ tải lại xong — xoá sớm hơn thì ô nháy về trạng
@@ -89,7 +97,7 @@ export default function SharePanel({ doc }: { doc: KbDocument }) {
     const done = { onSuccess: () => { void shares.refetch().finally(() => clearPending(key)) }, onError: () => clearPending(key) }
     setPending(prev => new Map(prev).set(key, !state.direct))
     if (state.direct) unshare.mutate({ id: doc.id, shareId: state.direct.id }, done)
-    else share.mutate({ id: doc.id, userIds: type === 'USER' ? [id] : [], unitIds: type === 'UNIT' ? [id] : [] }, done)
+    else share.mutate({ id: doc.id, userIds: type === 'USER' ? [id] : [], unitIds: type === 'UNIT' ? [id] : [], permission }, done)
   }
 
   const ctx: TreeCtx = { tree, unitState, userState, toggle, ownerId: doc.ownerId, me }
@@ -98,15 +106,27 @@ export default function SharePanel({ doc }: { doc: KbDocument }) {
     <div className="space-y-4">
       <p className="text-caption">{t(`share.intro.${doc.scope}`)}</p>
 
-      <Input
-        type="search"
-        value={q}
-        onChange={e => setQ(e.target.value)}
-        placeholder={t('share.searchPlaceholder')}
-        aria-label={t('share.searchPlaceholder')}
-        prefix={<Search aria-hidden="true" />}
-        suffix={busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : undefined}
-      />
+      <div className="flex gap-2">
+        <Input
+          type="search"
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder={t('share.searchPlaceholder')}
+          aria-label={t('share.searchPlaceholder')}
+          prefix={<Search aria-hidden="true" />}
+          suffix={busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : undefined}
+        />
+        {editable && (
+          <Select value={permission} onValueChange={v => setPermission(v as SharePermission)}>
+            <SelectTrigger className="w-44 shrink-0" aria-label={t('share.newPermission')}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="VIEW">{t('share.permission.VIEW')}</SelectItem>
+              <SelectItem value="EDIT">{t('share.permission.EDIT')}</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+      {editable && <p className="-mt-2 text-caption">{t('share.permissionHint')}</p>}
 
       <div className="max-h-[420px] overflow-y-auto rounded-card border border-[var(--color-border)]">
         {debounced ? (
@@ -155,7 +175,16 @@ export default function SharePanel({ doc }: { doc: KbDocument }) {
                     {t('share.grantedBy', { name: s.grantedByName ?? '—', time: formatDateTime(s.createdAt) })}
                   </span>
                 </span>
-                <span className="shrink-0 text-caption">{t('share.canView')}</span>
+                {editable ? (
+                  <Select value={s.permission} disabled={busy}
+                          onValueChange={v => updatePermission.mutate({ id: doc.id, shareId: s.id, permission: v as SharePermission })}>
+                    <SelectTrigger className="h-8 w-36 shrink-0" aria-label={t('share.permissionOf', { name: s.name ?? '' })}><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="VIEW">{t('share.permission.VIEW')}</SelectItem>
+                      <SelectItem value="EDIT">{t('share.permission.EDIT')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : <span className="shrink-0 text-caption">{t('share.canView')}</span>}
                 <button type="button" onClick={() => unshare.mutate({ id: doc.id, shareId: s.id })} disabled={busy}
                         aria-label={t('share.remove', { name: s.name ?? '' })} title={t('share.remove', { name: s.name ?? '' })}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]">

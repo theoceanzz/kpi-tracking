@@ -1,5 +1,5 @@
 import { formatNumber } from '@/i18n/format'
-import type { DocumentCapabilities, DocumentScope, KbDocument } from './types'
+import type { DocumentCapabilities, DocumentScope, KbDocument, OnlineFormat } from './types'
 
 /** Dung lượng tệp — số qua `formatNumber` để đúng dấu thập phân theo ngôn ngữ. */
 export function formatBytes(bytes: number | null | undefined): string {
@@ -17,6 +17,18 @@ export function creatableScopes(caps: DocumentCapabilities): DocumentScope[] {
   if (caps.manageableUnits.length > 0) out.push('UNIT')
   if (caps.canManageCompany) out.push('COMPANY')
   return out
+}
+
+/** Lưu một tệp sinh ngay trên trình duyệt (xuất Excel…). */
+export function saveBlob(fileName: string, blob: Blob) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName.replace(/[\\/:*?"<>|]/g, '-')
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 /** Tải một tệp qua link (cookie xác thực đi kèm) — dùng từ menu, nơi không đặt được thẻ <a download>. */
@@ -74,4 +86,21 @@ export function promotionTargets(doc: KbDocument, caps: DocumentCapabilities): P
 export function listableUnits(caps: DocumentCapabilities) {
   const roots = new Set(caps.rootUnitIds ?? [])
   return caps.visibleUnits.filter(u => !roots.has(u.id))
+}
+
+/** Định dạng soạn trực tuyến của tài liệu (.kgdoc / .kgsheet / .md / .txt), hoặc null nếu chỉ xem / thay tệp được — khớp `DocumentEditService.formatOf`. */
+export function onlineFormat(doc: Pick<KbDocument, 'fileName' | 'legacy'>): OnlineFormat | null {
+  if (doc.legacy || !doc.fileName) return null
+  const name = doc.fileName.toLowerCase()
+  if (name.endsWith('.kgdoc')) return 'blocks'
+  if (name.endsWith('.kgsheet')) return 'sheet'
+  if (name.endsWith('.md')) return 'markdown'
+  if (name.endsWith('.txt')) return 'text'
+  return null
+}
+
+
+/** Đường dẫn trang soạn / đọc trực tuyến của một tài liệu. */
+export function editorPath(id: string): string {
+  return `/documents/${id}/edit`
 }

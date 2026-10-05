@@ -299,7 +299,8 @@
     "youHaveApprovedAllAssignedKpis": "Bạn đã duyệt hết KPI đã giao. Bạn có muốn tự đánh giá luôn không?",
     "yourOwn": "(riêng của bạn)",
     "chooseLevelsForQualitativeKpis": "chọn mức cho KPI định tính",
-    "scoreConductAbove": "chấm hạnh kiểm ở trên"
+    "scoreConductAbove": "chấm hạnh kiểm ở trên",
+    "bscNotApplied": "Chưa áp dụng BSC (đơn vị chưa có bộ tiêu chí riêng)"
   },
   "StaffPerformanceDetailModal": {
     "approved": "Đã duyệt",

@@ -28,6 +28,8 @@ public class DocumentResponse {
     private String contentType;
     private Long fileSize;
     private Integer version;
+    /** Băm nội dung tệp hiện hành — trình soạn trực tuyến gửi lại khi lưu để phát hiện lưu chen. */
+    private String contentHash;
     private Boolean aiEnabled;
     private DocumentAiStatus aiStatus;
     private Integer aiChunkCount;
@@ -39,7 +41,10 @@ public class DocumentResponse {
     private Instant createdAt;
     private Instant updatedAt;
 
+    /** Quản lý tài liệu: sửa thông tin, thay tệp, xoá, di chuyển, chia sẻ. */
     private boolean canEdit;
+    /** Sửa NỘI DUNG trong trình soạn trực tuyến: người quản lý, hoặc được chia sẻ quyền chỉnh sửa. */
+    private boolean canEditContent;
     /** Tài liệu của một đơn vị CHA của đơn vị đang lọc — hiện "Kế thừa từ …", chỉ đọc với người xem đó. */
     private boolean inherited;
     /** Đơn vị của tài liệu đã bị xoá; chỉ người quản lý tài liệu công ty thấy, để chuyển đi hoặc xoá. */

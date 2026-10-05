@@ -13,6 +13,9 @@ public class MyKpiProgressResponse {
     private long rejectedSubmissions;
     private long lateSubmissions;
     private long pendingTaskCount;
+    /** Như pendingTaskCount / rejectedSubmissions nhưng chỉ trong (các) đợt hiện tại — dùng cho số đỏ. */
+    private long currentPendingTaskCount;
+    private long currentRejectedSubmissions;
     private Double averageScore;
     private PageResponse<KpiTaskResponse> tasks;
 }

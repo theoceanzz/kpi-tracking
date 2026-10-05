@@ -29,7 +29,13 @@
     "pin": "Pin to sidebar",
     "unpin": "Unpin",
     "share": "Share",
-    "move": "Move"
+    "move": "Move",
+    "newDoc": "New document",
+    "editOnline": "Edit online",
+    "readOnline": "Read online",
+    "convertOnline": "Convert to online document",
+    "details": "Details",
+    "newSheet": "New sheet"
   },
   "common": {
     "cancel": "Cancel",
@@ -212,7 +218,11 @@
     "proposed": "Proposal sent",
     "promotionApproved": "Approved — the document has been moved up",
     "promotionRejected": "Proposal declined",
-    "promotionCancelled": "Proposal withdrawn"
+    "promotionCancelled": "Proposal withdrawn",
+    "convertedOnline": "Converted to an online document — the old file is in the Versions tab",
+    "convertFailed": "Could not convert the document",
+    "sharePermissionUpdated": "Sharing access updated",
+    "autoConvertFailed": "Uploaded, but it could not be turned into an online document — you can still view and download it."
   },
   "settingsCard": {
     "title": "AI assistant documents have moved to the Documents page",
@@ -279,7 +289,7 @@
     "intro": {
       "PERSONAL": "Personal documents are visible only to you. Share to let others view and download it — and K.AI reads it when answering them.",
       "UNIT": "Unit members can already view it. Share with other people or units so they can view it too — K.AI reads it when answering them.",
-      "COMPANY": "Everyone in the company can already view company documents; no extra sharing is needed."
+      "COMPANY": "Everyone in the company can already view company documents. For online documents, share edit access with people who should write it with you."
     },
     "searchPlaceholder": "Search people or units…",
     "noTargets": "No people or units found",
@@ -303,7 +313,15 @@
     "wholeUnit": "Whole unit",
     "loadingMembers": "Loading people…",
     "owner": "Owner",
-    "you": "You"
+    "you": "You",
+    "permission": {
+      "VIEW": "Can view",
+      "EDIT": "Can edit"
+    },
+    "newPermission": "Access for people you add",
+    "permissionHint": "Editors can change the content, like Google Docs — they cannot delete, move or re-share it.",
+    "permissionOf": "Access for {{name}}",
+    "youAreEditor": "{{name}} shared this document with you — you can view and edit its content."
   },
   "versions": {
     "intro": "Every time the file is replaced, the old one is kept (up to 10 versions). Restoring an old version does not lose the current one.",
@@ -353,11 +371,9 @@
       "favorites": "Favorites"
     },
     "cardUpload": "Upload",
-    "cardUploadHint": "Word, PDF, Excel, .txt, .md — read by K.AI right away",
-    "cardFolder": "New folder",
-    "cardFolderHint": "Organize documents by topic",
+    "cardUploadHint": "Word, Excel, PDF… edit right away",
     "cardAsk": "Ask K.AI about documents",
-    "cardAskHint": "Answers based on the documents you can view",
+    "cardAskHint": "Answers from documents you can see",
     "empty": {
       "recentTitle": "No documents opened yet",
       "recentDescription": "Documents you recently opened or uploaded will appear here.",
@@ -367,7 +383,9 @@
       "sharedDescription": "When someone shares a document with you or your unit, it will appear here.",
       "favoritesTitle": "No favorite documents yet",
       "favoritesDescription": "Click ⋯ → “Add to favorites” on a document to collect it here."
-    }
+    },
+    "cardCreate": "Create",
+    "cardCreateHint": "Document, sheet or folder"
   },
   "layout": {
     "label": "View",
@@ -452,5 +470,42 @@
     "person": "Person",
     "deletedUser": "Deleted account",
     "deactivated": "Deactivated"
+  },
+  "online": {
+    "createTitle": "New document",
+    "createDescription": "Write right in the browser, like Lark Docs — autosaved, with version history, readable by K.AI.",
+    "create": "Create and open",
+    "createSheetTitle": "New sheet",
+    "createSheetDescription": "A spreadsheet like Lark Sheets / Google Sheets — formulas, formatting, filters, sorting, multiple sheets; autosaved and readable by K.AI."
+  },
+  "editor": {
+    "placeholder": "Start writing…",
+    "titlePlaceholder": "Untitled document",
+    "contentLabel": "Document content",
+    "back": "Back",
+    "backToLibrary": "Back to documents",
+    "details": "Details",
+    "notFoundTitle": "Cannot open this document",
+    "readOnly": "View only",
+    "retry": "Retry",
+    "conflict": "Someone else has just saved a newer version of this document.",
+    "reloadLatest": "Load the latest (discard my changes)",
+    "overwrite": "Overwrite with mine",
+    "leaveBlocked": "Your changes are not saved yet — try saving again before leaving.",
+    "aiNote": "Changes are saved automatically. Saves within one editing session are merged into one version; K.AI re-reads the content a few minutes after you stop editing.",
+    "status": {
+      "idle": "Autosave",
+      "dirty": "Unsaved",
+      "saving": "Saving…",
+      "saved": "Saved at {{time}}",
+      "error": "Not saved",
+      "conflict": "Newer version exists"
+    },
+    "exportMarkdown": "Download Markdown (.md)",
+    "exportHtml": "Download HTML (opens in Word)",
+    "markdownNotice": "A .md file only keeps Markdown formatting — text colors, highlights and alignment are lost on save. Convert to an online document to keep full formatting (the .md file stays in the Versions tab).",
+    "sheetTitlePlaceholder": "Untitled sheet",
+    "exportXlsx": "Download Excel (.xlsx)",
+    "exportCsv": "Download CSV (first sheet)"
   }
 }

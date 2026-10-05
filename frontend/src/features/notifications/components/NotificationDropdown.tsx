@@ -1,11 +1,18 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useNotifications, useMarkAllRead, useMarkAsRead } from '../hooks/useNotifications'
 import { formatDateTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { CheckCheck, Bell, Send, FileSearch, ShieldCheck, Target, Inbox, Layers, GitBranch, Calculator, Award, Coins, Gift, Wallet, Scale, Users, Lock, FileText, Share2, ArrowUpFromLine, CalendarClock } from 'lucide-react'
+import { CheckCheck, Bell, Send, FileSearch, ShieldCheck, Target, Inbox, Layers, GitBranch, Calculator, Award, Coins, Gift, Wallet, Scale, Users, Lock, FileText, Share2, ArrowUpFromLine, CalendarClock, Volume2, VolumeX, MonitorUp } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { notificationLink } from '../notificationLink'
+import {
+  desktopNotificationPermission,
+  isNotificationSoundEnabled,
+  playNotificationSound,
+  requestDesktopNotificationPermission,
+  setNotificationSoundEnabled,
+} from '../notificationAlert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
@@ -30,6 +37,7 @@ const typeConfig: Record<string, { icon: LucideIcon; color: string }> = {
   REWARD_GRANT: { icon: Award, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
   REWARD_POINT: { icon: Coins, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
   REWARD_GIFT: { icon: Gift, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
+  REWARD_GIFT_REQUEST: { icon: Gift, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
   WALLET: { icon: Wallet, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
   FEEDBACK360: { icon: Users, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' },
   KPI_CYCLE_LOCKED: { icon: Lock, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
@@ -47,6 +55,15 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
   const { data, isLoading } = useNotifications()
   const markAllRead = useMarkAllRead()
   const markRead = useMarkAsRead()
+  const [soundOn, setSoundOn] = useState(isNotificationSoundEnabled)
+  const [desktopPerm, setDesktopPerm] = useState(desktopNotificationPermission)
+
+  const toggleSound = () => {
+    const next = !soundOn
+    setNotificationSoundEnabled(next)
+    setSoundOn(next)
+    if (next) playNotificationSound()
+  }
 
   const notifications = data?.content || []
   const unreadCount = notifications.filter(n => !n.isRead).length
@@ -141,12 +158,38 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
               </span>
             )}
           </div>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" type="button" onClick={() => markAllRead.mutate()} disabled={markAllRead.isPending}>
-            <CheckCheck aria-hidden="true" />
-              {t('NotificationDropdown.markAllAsRead')}
+          <div className="flex items-center gap-0.5">
+            {unreadCount > 0 && (
+              <Button variant="ghost" size="sm" type="button" onClick={() => markAllRead.mutate()} disabled={markAllRead.isPending}>
+              <CheckCheck aria-hidden="true" />
+                {t('NotificationDropdown.markAllAsRead')}
+              </Button>
+            )}
+            {/* Chỉ hiện khi trình duyệt chưa hỏi lần nào: đã từ chối thì chỉ đổi được trong cài đặt trình duyệt. */}
+            {desktopPerm === 'default' && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                type="button"
+                onClick={() => requestDesktopNotificationPermission().then(setDesktopPerm)}
+                title={t('NotificationDropdown.enableDesktopNotifications')}
+                aria-label={t('NotificationDropdown.enableDesktopNotifications')}
+              >
+                <MonitorUp aria-hidden="true" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              type="button"
+              onClick={toggleSound}
+              aria-pressed={soundOn}
+              title={soundOn ? t('NotificationDropdown.muteSound') : t('NotificationDropdown.unmuteSound')}
+              aria-label={soundOn ? t('NotificationDropdown.muteSound') : t('NotificationDropdown.unmuteSound')}
+            >
+              {soundOn ? <Volume2 aria-hidden="true" /> : <VolumeX aria-hidden="true" />}
             </Button>
-          )}
+          </div>
         </div>
 
         {/* Content */}

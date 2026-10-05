@@ -37,6 +37,7 @@ import ReportDetailPage from '@/features/reports/pages/ReportDetailPage'
 import AnalyticsPage from '@/features/analytics/pages/AnalyticsPage'
 import AiAssistantPage from '@/features/analytics/pages/AiAssistantPage'
 import DocumentsPage from '@/features/documents/DocumentsPage'
+import DocumentEditorPage from '@/features/documents/LazyDocumentEditorPage'
 import ToolSettingsPage from '@/features/orgunits/pages/ToolSettingsPage'
 
 import DashboardPage from '@/features/dashboard/pages/DashboardPage'
@@ -213,6 +214,7 @@ export const router = createBrowserRouter([
           { path: '/ai-assistant', element: <AiAssistantPage /> },
           // Quyền theo từng tài liệu do backend quyết (DocumentAccess) — không gác ở route.
           { path: '/documents', element: <DocumentsPage /> },
+          { path: '/documents/:id/edit', element: <DocumentEditorPage /> },
 
           // Không gian cá nhân gom về một trang. Không gác quyền ở route: bốn mục công
           // việc vốn mở cho mọi vai trò, còn hai mục ví tự lọc theo quyền và cờ tính năng.

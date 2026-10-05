@@ -1,11 +1,12 @@
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { Download, Eye, FileSearch, FolderInput, Pin, PinOff, Share2, Star, StarOff, Trash2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Download, Eye, FilePen, FileSearch, FolderInput, Info, Pin, PinOff, Share2, Star, StarOff, Trash2 } from 'lucide-react'
 import { canPreview } from '@/lib/filePreview'
 import { documentFileUrl } from '../api/documentApi'
 import { useToggleFavorite, useTogglePin } from '../hooks/useDocuments'
 import type { KbDocument } from '../types'
-import { downloadUrl } from '../utils'
+import { downloadUrl, editorPath, onlineFormat } from '../utils'
 import { useDocumentActions } from './DocumentActions'
 import type { RowMenuItem } from './RowMenu'
 
@@ -23,15 +24,27 @@ export function useDocMenu(): (d: KbDocument) => RowMenuItem[] {
   const actions = useDocumentActions()
   const favorite = useToggleFavorite()
   const pin = useTogglePin()
+  const navigate = useNavigate()
   return d => {
-    const items: RowMenuItem[] = [
-      { key: 'open', icon: <Eye />, label: t('actions.open'), onSelect: () => actions.open(d) },
-    ]
-    if (!d.legacy && canPreview(d.fileName, d.contentType)) {
+    const online = onlineFormat(d)
+    const items: RowMenuItem[] = online
+      ? [
+          {
+            key: 'open', icon: d.canEditContent ? <FilePen /> : <Eye />,
+            label: d.canEditContent ? t('actions.editOnline') : t('actions.readOnline'),
+            onSelect: () => navigate(editorPath(d.id)),
+          },
+          { key: 'details', icon: <Info />, label: t('actions.details'), onSelect: () => actions.open(d, 'info') },
+        ]
+      : [{ key: 'open', icon: <Eye />, label: t('actions.open'), onSelect: () => actions.open(d) }]
+    if (!d.legacy && !online && canPreview(d.fileName, d.contentType)) {
       items.push({ key: 'preview', icon: <FileSearch />, label: t('actions.preview'), onSelect: () => actions.preview(d) })
     }
     if (!d.legacy) {
-      items.push({ key: 'download', icon: <Download />, label: t('actions.download'), onSelect: () => downloadUrl(documentFileUrl(d.id)) })
+      // Tài liệu / bảng tính trực tuyến là JSON nội bộ — tải về (Markdown, HTML, Excel, CSV) ngay trong trình soạn.
+      if (online !== 'blocks' && online !== 'sheet') {
+        items.push({ key: 'download', icon: <Download />, label: t('actions.download'), onSelect: () => downloadUrl(documentFileUrl(d.id)) })
+      }
       items.push({
         key: 'favorite', separated: true,
         icon: d.favorite ? <StarOff /> : <Star />,

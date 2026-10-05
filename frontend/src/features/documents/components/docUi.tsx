@@ -6,7 +6,7 @@ import type { DocumentAiStatus, KbDocument } from '../types'
 export function FileTypeIcon({ doc, size = 18 }: { doc: Pick<KbDocument, 'fileName' | 'contentType'>; size?: number }) {
   const name = doc.fileName?.toLowerCase() ?? ''
   const pdf = doc.contentType === 'application/pdf' || name.endsWith('.pdf')
-  const sheet = /\.(xlsx|xls|csv)$/.test(name)
+  const sheet = /\.(xlsx|xls|csv|kgsheet)$/.test(name)
   const text = /\.(txt|md)$/.test(name)
   const Icon = pdf ? FileType2 : sheet ? FileSpreadsheet : text ? FileCode2 : FileText
   const tone = pdf
