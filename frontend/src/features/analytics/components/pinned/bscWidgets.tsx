@@ -102,7 +102,6 @@ export function BscOverviewMetrics({ filter }: { filter?: PinnedFilter }) {
   const { t } = useTranslation('analytics')
   const scope = useBscScope(filter)
   const { data: o } = useBscOverview(scope)
-  const mode = o?.scoringMode
   const statusEntries = Object.entries(o?.unitStatusCounts ?? {})
   const active = o?.unitStatusCounts?.ACTIVE ?? 0
   const pending = o?.unitStatusCounts?.SUBMITTED ?? 0
@@ -113,17 +112,10 @@ export function BscOverviewMetrics({ filter }: { filter?: PinnedFilter }) {
 
   return (
     <div className="flex-1 min-h-0 space-y-3">
+      {/* Huy hiệu "Chạy song song (SHADOW)" đã bỏ: đó là thuật ngữ cấu hình nội bộ (thẻ điểm đang
+          chạy thử hay đã dùng chính thức), người xem báo cáo không hiểu và cũng không làm gì được
+          với nó. `scoringMode` vẫn còn trong payload cho công cụ AI và màn hình quản lý BSC. */}
       <div className="flex flex-wrap items-center gap-2">
-        {mode && (
-          <span className={cn(
-            'inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full',
-            mode === 'SHADOW'
-              ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-              : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-          )}>
-            {mode === 'SHADOW' ? t('bscWidgets.runningInParallelShadow') : t('bscWidgets.officialOfficial')}
-          </span>
-        )}
         {o?.periodName && (
           <span className="text-xs font-medium text-slate-400">
             {t('bscWidgets.aPeriod')} {o.periodName}

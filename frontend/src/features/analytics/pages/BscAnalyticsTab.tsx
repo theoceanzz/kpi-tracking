@@ -29,25 +29,25 @@ import { perLanguage } from '@/i18n/perLanguage'
  * để ẩn mặc định.
  */
 const DEFAULT_WIDGETS = perLanguage((): DashboardWidget[] => ([
-  // Bản đồ chiến lược đứng đầu: BRD coi đây là màn hình mặc định — nhìn toàn cảnh trước, rồi mới
-  // xuống chi tiết. Ba cách xem (bản đồ / cây / xương cá) đọc chung một payload goal-graph.
-  { i: 'bsc-strategy-map', type: 'BSC_STRATEGY_MAP', title: i18n.t('analytics:BscAnalyticsTab.strategyMapByPerspective'), x: 0, y: 0, w: 12, h: 16, visible: true },
-  { i: 'bsc-overview', type: 'STATS', title: i18n.t('analytics:BscAnalyticsTab.bscHealthOfThePeriod'), x: 0, y: 16, w: 12, h: 5, visible: true },
+  // Hàng thẻ chỉ số đứng ĐẦU ở mọi tab Thống kê — người dùng liếc mấy con số trước rồi mới đọc
+  // hình. Bản đồ chiến lược đứng ngay sau, là hình đầu tiên.
+  { i: 'bsc-overview', type: 'STATS', title: i18n.t('analytics:BscAnalyticsTab.bscHealthOfThePeriod'), x: 0, y: 0, w: 12, h: 5, visible: true },
+  { i: 'bsc-strategy-map', type: 'BSC_STRATEGY_MAP', title: i18n.t('analytics:BscAnalyticsTab.strategyMapByPerspective'), x: 0, y: 5, w: 12, h: 16, visible: true },
   // Tên ô là nguồn duy nhất (renderWidget lấy `w.title`, trang chủ đặt đúng chuỗi này); chữ đầu
   // mỗi ô khác nhau — "Mức đạt BSC của các đơn vị" cạnh "Mức đạt từng chỉ tiêu" từng lẫn nhau.
-  { i: 'bsc-units', type: 'BSC_UNITS', title: i18n.t('analytics:BscAnalyticsTab.scorecardAchievementOfEachUnit'), x: 0, y: 5, w: 12, h: 11, visible: true },
-  { i: 'bsc-items', type: 'BSC_ITEMS', title: i18n.t('analytics:BscAnalyticsTab.eachKpiAgainstTargetAndFloor'), x: 0, y: 16, w: 12, h: 10, visible: true },
-  { i: 'bsc-trend', type: 'BSC_TREND', title: i18n.t('analytics:BscAnalyticsTab.achievementAcrossPeriods'), x: 0, y: 26, w: 7, h: 12, visible: true },
-  { i: 'bsc-cascade', type: 'BSC_CASCADE', title: i18n.t('analytics:BscAnalyticsTab.kpiCascadeCoverage'), x: 7, y: 26, w: 5, h: 12, visible: true },
+  { i: 'bsc-units', type: 'BSC_UNITS', title: i18n.t('analytics:BscAnalyticsTab.scorecardAchievementOfEachUnit'), x: 0, y: 21, w: 12, h: 11, visible: true },
+  { i: 'bsc-items', type: 'BSC_ITEMS', title: i18n.t('analytics:BscAnalyticsTab.eachKpiAgainstTargetAndFloor'), x: 0, y: 32, w: 12, h: 10, visible: true },
+  { i: 'bsc-trend', type: 'BSC_TREND', title: i18n.t('analytics:BscAnalyticsTab.achievementAcrossPeriods'), x: 0, y: 42, w: 7, h: 12, visible: true },
+  { i: 'bsc-cascade', type: 'BSC_CASCADE', title: i18n.t('analytics:BscAnalyticsTab.kpiCascadeCoverage'), x: 7, y: 42, w: 5, h: 12, visible: true },
   // Ẩn mặc định: điểm đánh giá cá nhân, có ích khi cần xem ai kéo điểm BSC của đơn vị.
-  { i: 'bsc-ranking', type: 'BSC_RANKING', title: i18n.t('analytics:BscAnalyticsTab.peopleRankingByBscScore'), x: 0, y: 38, w: 12, h: 14, visible: false },
+  { i: 'bsc-ranking', type: 'BSC_RANKING', title: i18n.t('analytics:BscAnalyticsTab.peopleRankingByBscScore'), x: 0, y: 54, w: 12, h: 14, visible: false },
 ]))
 
 /**
  * Tab này gác bằng BSC:MANAGE nên gần như chỉ ban giám đốc mở; ai mở cũng cần trọn thẻ điểm.
  * Khai đủ bốn vị trí để cùng khuôn với các tab khác — bộ y hệt nhau thì thư viện gộp thành một nút.
  */
-const BSC_SET = ['bsc-strategy-map', 'bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade'] as const
+const BSC_SET = ['bsc-overview', 'bsc-strategy-map', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade'] as const
 const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
   DIRECTOR: BSC_SET, HEAD: BSC_SET, DEPUTY: BSC_SET, STAFF: BSC_SET,
 }

@@ -98,7 +98,7 @@ public class BscGoalGraphService {
 
         BscUnitResult result = unitResultRepository.findByScorecardIdAndKpiPeriodId(root.getId(), period.getId()).orElse(null);
         Map<UUID, BscUnitResultItem> resultByRow = resultItems(result);
-        Map<UUID, BscUnitResultItem> previousByRow = previousResultItems(orgId, orgUnitId, periodIds, period, root);
+        Map<UUID, BscUnitResultItem> previousByPerspective = previousResultItems(orgId, orgUnitId, periodIds, period, root);
         ScorecardCoverageResponse coverage = treeService.coverage(root.getId());
         Map<UUID, CoverageItemResponse> coverageByRow = new HashMap<>();
         if (coverage.getItems() != null) {
@@ -120,7 +120,8 @@ public class BscGoalGraphService {
             String code = fp == null ? UNCLASSIFIED : fp.name();
             int ordinal = perspectiveCounters.computeIfAbsent(code, k -> new int[]{0})[0]++ + 1;
             all.add(toObjective(row, code, labels.get(fp), ordinal, root,
-                    resultByRow.get(row.getId()), previousByRow.get(row.getId()),
+                    resultByRow.get(row.getId()),
+                    row.getPerspective() == null ? null : previousByPerspective.get(row.getPerspective().getId()),
                     coverageByRow.get(row.getId()), result));
         }
 
@@ -399,7 +400,11 @@ public class BscGoalGraphService {
         return out;
     }
 
-    /** Kết quả của đợt LIỀN TRƯỚC trong lựa chọn — để tính mũi tên xu hướng của từng mục tiêu. */
+    /**
+     * Kết quả của đợt LIỀN TRƯỚC, khoá theo HẠNG MỤC (`bsc_perspectives.id`) chứ không theo id dòng
+     * chỉ tiêu: mỗi đợt là một thẻ điểm riêng với bộ dòng riêng, nên khoá theo id dòng thì không
+     * đợt nào khớp đợt nào và mũi tên xu hướng luôn hiện "đợt đầu".
+     */
     private Map<UUID, BscUnitResultItem> previousResultItems(UUID orgId, UUID orgUnitId, Collection<UUID> periodIds,
                                                             KpiPeriod current, BscScorecard root) {
         List<KpiPeriod> ordered = orderedPeriods(orgId, periodIds);
@@ -411,7 +416,18 @@ public class BscGoalGraphService {
         if (prev == null) return Map.of();
         BscScorecard prevRoot = resolveRoot(orgId, orgUnitId, prev.getId());
         if (prevRoot == null) return Map.of();
-        return resultItems(unitResultRepository.findByScorecardIdAndKpiPeriodId(prevRoot.getId(), prev.getId()).orElse(null));
+        return itemsByPerspective(unitResultRepository.findByScorecardIdAndKpiPeriodId(prevRoot.getId(), prev.getId()).orElse(null));
+    }
+
+    /** Dòng kết quả khoá theo hạng mục — khoá DUY NHẤT so sánh được giữa hai đợt. */
+    private Map<UUID, BscUnitResultItem> itemsByPerspective(BscUnitResult result) {
+        if (result == null) return Map.of();
+        Map<UUID, BscUnitResultItem> out = new HashMap<>();
+        for (BscUnitResultItem it : unitResultItemRepository.findByUnitResultId(result.getId())) {
+            var row = it.getScorecardPerspective();
+            if (row != null && row.getPerspective() != null) out.put(row.getPerspective().getId(), it);
+        }
+        return out;
     }
 
     private static int hiddenUnits(ScorecardCoverageResponse coverage, List<UUID> allowedUnits) {
