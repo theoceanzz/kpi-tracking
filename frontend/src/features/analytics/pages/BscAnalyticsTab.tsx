@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
-import { Gauge, Building2, Target, TrendingUp, GitBranch, ShieldAlert, Medal, Layers } from 'lucide-react'
+import { Gauge, Building2, Target, TrendingUp, GitBranch, Medal, Layers } from 'lucide-react'
 import {
   BscOverviewMetrics, BscUnitAttainmentWidget, BscItemAttainmentWidget, BscAttainmentTrendWidget,
-  BscCascadeCoverageWidget, BscGateWidget, BscRankingWidget,
+  BscCascadeCoverageWidget, BscRankingWidget,
 } from '../components/pinned/bscWidgets'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
@@ -31,8 +31,7 @@ const DEFAULT_WIDGETS = perLanguage((): DashboardWidget[] => ([
   { i: 'bsc-overview', type: 'STATS', title: i18n.t('analytics:BscAnalyticsTab.bscHealthOfThePeriod'), x: 0, y: 0, w: 12, h: 5, visible: true },
   // Tên ô là nguồn duy nhất (renderWidget lấy `w.title`, trang chủ đặt đúng chuỗi này); chữ đầu
   // mỗi ô khác nhau — "Mức đạt BSC của các đơn vị" cạnh "Mức đạt từng chỉ tiêu" từng lẫn nhau.
-  { i: 'bsc-units', type: 'BSC_UNITS', title: i18n.t('analytics:BscAnalyticsTab.scorecardAchievementOfEachUnit'), x: 0, y: 5, w: 7, h: 11, visible: true },
-  { i: 'bsc-gates', type: 'BSC_GATES', title: i18n.t('analytics:BscAnalyticsTab.unitsBlockedByGateItems'), x: 7, y: 5, w: 5, h: 11, visible: true },
+  { i: 'bsc-units', type: 'BSC_UNITS', title: i18n.t('analytics:BscAnalyticsTab.scorecardAchievementOfEachUnit'), x: 0, y: 5, w: 12, h: 11, visible: true },
   { i: 'bsc-items', type: 'BSC_ITEMS', title: i18n.t('analytics:BscAnalyticsTab.eachKpiAgainstTargetAndFloor'), x: 0, y: 16, w: 12, h: 10, visible: true },
   { i: 'bsc-trend', type: 'BSC_TREND', title: i18n.t('analytics:BscAnalyticsTab.achievementAcrossPeriods'), x: 0, y: 26, w: 7, h: 12, visible: true },
   { i: 'bsc-cascade', type: 'BSC_CASCADE', title: i18n.t('analytics:BscAnalyticsTab.kpiCascadeCoverage'), x: 7, y: 26, w: 5, h: 12, visible: true },
@@ -44,7 +43,7 @@ const DEFAULT_WIDGETS = perLanguage((): DashboardWidget[] => ([
  * Tab này gác bằng BSC:MANAGE nên gần như chỉ ban giám đốc mở; ai mở cũng cần trọn thẻ điểm.
  * Khai đủ bốn vị trí để cùng khuôn với các tab khác — bộ y hệt nhau thì thư viện gộp thành một nút.
  */
-const BSC_SET = ['bsc-overview', 'bsc-units', 'bsc-gates', 'bsc-items', 'bsc-trend', 'bsc-cascade'] as const
+const BSC_SET = ['bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade'] as const
 const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
   DIRECTOR: BSC_SET, HEAD: BSC_SET, DEPUTY: BSC_SET, STAFF: BSC_SET,
 }
@@ -52,7 +51,6 @@ const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
 const GROUP_OF = perLanguage((): Record<string, string> => ({
   'bsc-overview': i18n.t('analytics:BscAnalyticsTab.figures'),
   'bsc-units': i18n.t('analytics:BscAnalyticsTab.rankingCharts'),
-  'bsc-gates': i18n.t('analytics:BscAnalyticsTab.figures'),
   'bsc-items': i18n.t('analytics:BscAnalyticsTab.comparisonCharts'),
   'bsc-trend': i18n.t('analytics:BscAnalyticsTab.trendCharts'),
   'bsc-cascade': i18n.t('analytics:BscAnalyticsTab.comparisonCharts'),
@@ -61,7 +59,6 @@ const GROUP_OF = perLanguage((): Record<string, string> => ({
 const PREVIEW_OF: Record<string, 'metricCard' | 'table' | 'line' | 'bullet' | 'lollipop' | 'bar'> = {
   'bsc-overview': 'metricCard',
   'bsc-units': 'lollipop',
-  'bsc-gates': 'table',
   'bsc-items': 'bullet',
   'bsc-trend': 'line',
   'bsc-cascade': 'bar',
@@ -70,7 +67,6 @@ const PREVIEW_OF: Record<string, 'metricCard' | 'table' | 'line' | 'bullet' | 'l
 const DESC_OF = perLanguage((): Record<string, string> => ({
   'bsc-overview': i18n.t('analytics:BscAnalyticsTab.thePeriodsBscAchievementNumberOf'),
   'bsc-units': i18n.t('analytics:BscAnalyticsTab.whichUnitsAchieveAndWhichFall'),
-  'bsc-gates': i18n.t('analytics:BscAnalyticsTab.whichUnitsAreBlockedByGate'),
   'bsc-items': i18n.t('analytics:BscAnalyticsTab.whichKpisAreMetAndWhich'),
   'bsc-trend': i18n.t('analytics:BscAnalyticsTab.whetherAchievementIsGoingUpOr'),
   'bsc-cascade': i18n.t('analytics:BscAnalyticsTab.whetherEachKpiCascadedToUnits'),
@@ -114,14 +110,9 @@ export default function BscAnalyticsTab() {
       case 'BSC_UNITS': return (
         <div id="tour-bsc-balance" className="h-full">
           <ChartWrapper title={w.title} icon={<Building2 size={20} className="text-slate-400" />}>
-            <BscUnitAttainmentWidget filter={pf} variant={widgetVariant(w) === 'tree' ? 'tree' : 'lollipop'} meta={meta} />
+            <BscUnitAttainmentWidget filter={pf} gate={optionOf(w, 'gate') as 'ALL' | 'FAILED' | 'NO_GATE'} meta={meta} />
           </ChartWrapper>
         </div>
-      )
-      case 'BSC_GATES': return (
-        <ChartWrapper title={w.title} icon={<ShieldAlert size={20} className="text-slate-400" />}>
-          <BscGateWidget filter={pf} meta={meta} />
-        </ChartWrapper>
       )
       case 'BSC_ITEMS': return (
         <ChartWrapper title={w.title} icon={<Target size={20} className="text-slate-400" />}>

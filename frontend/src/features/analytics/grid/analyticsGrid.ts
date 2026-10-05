@@ -255,9 +255,13 @@ const BSC_TREND_VARIANTS = perLanguage((): ChartVariantOption[] => ([
 ]))
 
 /** Mức đạt đơn vị: xếp hạng lollipop, hay bảng đủ trạng thái thẻ và hạng mục chặn. */
+/**
+ * Mức đạt đơn vị chỉ còn MỘT cách vẽ. Biến thể "theo cây" đã bỏ: ô "Cây liên kết mục tiêu" thay
+ * thế và còn đi xuống được tới người và KPI. Ô nào đang lưu biến thể `tree` tự rơi về `lollipop`
+ * ({@link widgetVariant} đối chiếu với danh sách còn lại).
+ */
 const BSC_UNIT_VARIANTS = perLanguage((): ChartVariantOption[] => ([
   { key: 'lollipop', label: i18n.t('analytics:analyticsGrid.ranking'), shape: 'lollipop', hint: i18n.t('analytics:analyticsGrid.oneAchievementDotPerUnitThe') },
-  { key: 'tree', label: i18n.t('analytics:analyticsGrid.asATree'), shape: 'table', hint: i18n.t('analytics:analyticsGrid.keepsTheCompanyDepartmentTeamOrder') },
 ]))
 
 /** Xếp loại đơn vị: bell curve của đợt/kỳ đang xét, hay tỉ trọng các mức qua các đợt. */
@@ -317,6 +321,19 @@ const SHARED_FIELD = perLanguage((): OptionField => ({
   choices: [{ value: 'ALL', label: i18n.t('analytics:analyticsGrid.all') }, { value: 'SHARED', label: i18n.t('analytics:analyticsGrid.shared') }, { value: 'PERSONAL', label: i18n.t('analytics:analyticsGrid.own') }],
 }))
 
+/**
+ * Lọc theo cổng chặn — thay cho ô "Đơn vị vướng hạng mục chặn" đã bỏ: ô đó gọi đúng hai endpoint
+ * của ô này và vẽ lại tập con mà dòng phụ của lollipop đã nói.
+ */
+const BSC_GATE_FIELD = perLanguage((): OptionField => ({
+  key: 'gate', label: i18n.t('analytics:analyticsGrid.gateItems'), kind: 'pills', default: 'ALL',
+  choices: [
+    { value: 'ALL', label: i18n.t('analytics:analyticsGrid.all') },
+    { value: 'FAILED', label: i18n.t('analytics:analyticsGrid.gateFailedOnly') },
+    { value: 'NO_GATE', label: i18n.t('analytics:analyticsGrid.noGateOnly') },
+  ],
+}))
+
 const BSC_SORT_FIELD = perLanguage((): OptionField => ({
   key: 'sort', label: i18n.t('analytics:analyticsGrid.sortBy'), kind: 'pills', default: 'bscScore',
   choices: [{ value: 'bscScore', label: i18n.t('analytics:analyticsGrid.bscScore') }, { value: 'systemScore', label: i18n.t('analytics:analyticsGrid.systemScore') }],
@@ -329,6 +346,7 @@ export const WIDGET_OPTIONS = perLanguage((): Record<string, OptionField[]> => (
   'rank-table': [METRIC_FIELD(), DIR_FIELD()],
   'mykpi-detail': [SHARED_FIELD()],
   'myobj-detail': [SHARED_FIELD()],
+  'bsc-units': [BSC_GATE_FIELD()],
   'bsc-ranking': [BSC_SORT_FIELD()],
 }))
 
@@ -341,7 +359,7 @@ export const WIDGET_HAS_UNIT: ReadonlySet<string> = new Set([
   'sub-detail',
   // Tab Thẻ điểm BSC: cùng cách, mỗi ô tự thu phạm vi. (Tab So sánh giữa các đơn vị KHÔNG có mặt
   // ở đây: đơn vị ở đó là cây điều hướng của trang.)
-  'bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade', 'bsc-gates', 'bsc-ranking',
+  'bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade', 'bsc-ranking',
 ])
 
 /** Đơn vị của ô (phạm vi con) — `undefined` = toàn bộ phạm vi quyền của người dùng. */

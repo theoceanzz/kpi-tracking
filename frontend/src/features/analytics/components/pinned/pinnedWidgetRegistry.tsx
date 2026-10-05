@@ -20,7 +20,7 @@ import {
 } from './drillWidgets'
 import {
   BscOverviewMetrics, BscUnitAttainmentWidget, BscItemAttainmentWidget, BscAttainmentTrendWidget,
-  BscCascadeCoverageWidget, BscGateWidget, BscRankingWidget,
+  BscCascadeCoverageWidget, BscRankingWidget,
 } from './bscWidgets'
 import { useTranslation } from 'react-i18next'
 
@@ -195,7 +195,6 @@ export const PINNED_REGISTRY: Record<string, ComponentType<{ filter?: PinnedFilt
   // Tab "Thẻ điểm BSC" (mô hình thẻ điểm)
   'bsc-overview': wrap(BscOverviewMetrics),
   'bsc-units': wrap(BscUnitAttainmentWidget),
-  'bsc-gates': wrap(BscGateWidget),
   'bsc-items': wrap(BscItemAttainmentWidget),
   'bsc-trend': wrap(BscAttainmentTrendWidget),
   'bsc-cascade': wrap(BscCascadeCoverageWidget),
