@@ -68,7 +68,14 @@ export interface KpiTask {
   status: 'NOT_STARTED' | 'PENDING' | 'OVERDUE' | 'APPROVED' | 'REJECTED' | 'EDIT'
   submissionCount: number
   expectedSubmissions: number
+  /** Điểm quản lý CHO (thang của chỉ tiêu, tối đa = `managerScoreMax`) — không phải phần trăm. */
   managerScore?: number | null
+  managerScoreMax?: number | null
+  /**
+   * % đạt theo đúng bộ tính điểm của lõi (0..150). `null` = chỉ tiêu không tham gia tính điểm,
+   * hoặc chỉ tiêu định tính chưa chấm — hiện "chưa chấm", đừng vẽ vòng rỗng như thể đạt 0%.
+   */
+  attainmentPercent?: number | null
   managerName?: string | null
   kpiType?: 'QUANTITATIVE' | 'QUALITATIVE'
   qualitativeLevelName?: string | null

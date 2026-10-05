@@ -216,12 +216,29 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     // ============================================================
 
     /** BSC vs hệ thống theo NHÂN SỰ → [userId, fullName, email, avgBsc, avgSystem, count]. */
+    /**
+     * @deprecated Gộp TRUNG BÌNH mọi dòng phiếu của một người — kể cả phiếu TỰ ĐÁNH GIÁ, vì mỗi
+     * người chấm sinh một dòng {@code Evaluation}. Lõi chỉ công nhận MỘT phiếu cho mỗi (người,
+     * đợt) qua {@code EvaluationService.getEffectiveEvaluation} (thác nước → quản lý trực tiếp,
+     * không thì người chấm cao cấp nhất). Dùng {@link #findUserRowsForRanking} thay thế.
+     */
+    @Deprecated
     @Query("SELECT u.id, u.fullName, u.email, AVG(e.bscScore), AVG(e.systemScore), COUNT(e.id) " +
            "FROM Evaluation e JOIN e.user u " +
            "WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds AND u.deletedAt IS NULL " +
            "GROUP BY u.id, u.fullName, u.email")
     java.util.List<Object[]> bscOverallByUser(@Param("unitIds") java.util.Collection<UUID> unitIds,
                                               @Param("periodIds") java.util.Collection<UUID> periodIds);
+
+    /**
+     * Danh sách (người, đợt) có phiếu trong phạm vi — service tự hỏi lõi phiếu nào là phiếu hiệu
+     * lực của từng cặp, thay vì để SQL lấy trung bình mọi người chấm.
+     */
+    @Query("SELECT DISTINCT u.id, u.fullName, u.email, e.kpiPeriod.id " +
+           "FROM Evaluation e JOIN e.user u " +
+           "WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds AND u.deletedAt IS NULL")
+    java.util.List<Object[]> findUserRowsForRanking(@Param("unitIds") java.util.Collection<UUID> unitIds,
+                                                    @Param("periodIds") java.util.Collection<UUID> periodIds);
 
     // ============================================================
     // Thống kê MA TRẬN xếp loại (tab "Ma trận đánh giá"): gộp matrix_rating /

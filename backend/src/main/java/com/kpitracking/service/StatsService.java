@@ -505,19 +505,16 @@ public class StatsService {
 
             Double mScore = null;
             String mName = null;
-            Double achievementForCircle = null;
+            /*
+              Vòng tiến độ đọc % ĐẠT của lõi, không phải điểm quản lý chia trọng số. null = chỉ
+              tiêu không tính điểm hoặc định tính chưa chấm ⇒ giao diện nói "chưa chấm" thay vì vẽ
+              một vòng rỗng như thể đạt 0%.
+             */
+            Double attainment = metrics.bscAttainmentPercent(criteria, userId, false);
 
             if (bestSubmission != null) {
                 mScore = bestSubmission.getManagerScore();
                 mName = bestSubmission.getReviewedBy() != null ? bestSubmission.getReviewedBy().getFullName() : null;
-                
-                // % đạt = điểm chấm / trọng số: trọng số chính là điểm tối đa của KPI đó,
-                // không còn nhân theo thang điểm tổ chức (xem EvaluationService.SCORING_POOL).
-                if (criteria.getWeight() != null && criteria.getWeight() > 0) {
-                    achievementForCircle = Math.min(100.0, (mScore / criteria.getWeight()) * 100.0);
-                } else {
-                    achievementForCircle = mScore;
-                }
             }
 
             allTasks.add(KpiTaskResponse.builder()
@@ -529,7 +526,9 @@ public class StatsService {
                     .status(status)
                     .submissionCount(criteriaSubs.size())
                     .expectedSubmissions(criteria.getExpectedSubmissions() != null ? criteria.getExpectedSubmissions() : calculateExpectedSubmissions(criteria))
-                    .managerScore(achievementForCircle) // Only non-null when manager has scored
+                    .managerScore(mScore)
+                    .managerScoreMax(criteria.getWeight())
+                    .attainmentPercent(attainment)
                     .managerName(mName)
                     .kpiType(criteria.getKpiType())
                     .qualitativeLevelName(bestSubmission != null && bestSubmission.getQualitativeLevel() != null

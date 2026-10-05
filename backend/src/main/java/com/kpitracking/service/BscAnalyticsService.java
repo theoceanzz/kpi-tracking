@@ -31,6 +31,8 @@ public class BscAnalyticsService {
 
     private final AnalyticsScopeResolver scopeResolver;
     private final EvaluationRepository evaluationRepository;
+    /** Phiếu hiệu lực của mỗi (người, đợt) là quyết định của lõi, không phải của bảng xếp hạng. */
+    private final EvaluationService evaluationService;
     private final EvaluationPerspectiveScoreRepository perspectiveScoreRepository;
 
     // ============================================================
@@ -55,13 +57,41 @@ public class BscAnalyticsService {
             if (avg != null) breakdown.computeIfAbsent(uid, k -> new LinkedHashMap<>()).put(persId.toString(), round1(avg));
         }
 
-        List<RankingRow> all = new ArrayList<>();
-        for (Object[] r : evaluationRepository.bscOverallByUser(s.unitIds(), s.periodIds())) {
+        /*
+          Mỗi người CHẤM sinh một dòng Evaluation, nên lấy AVG mọi dòng là trộn cả phiếu tự đánh
+          giá vào điểm của người được chấm. Lõi chỉ công nhận MỘT phiếu cho mỗi (người, đợt) —
+          `getEffectiveEvaluation` (thác nước → quản lý trực tiếp; không thì người chấm cao cấp
+          nhất). Bảng xếp hạng phải đứng trên đúng những phiếu đó, nếu không nó mâu thuẫn với
+          chính màn hình đánh giá.
+
+          `evaluationCount` nay là SỐ ĐỢT có phiếu hiệu lực, không phải số người đã chấm.
+         */
+        Map<UUID, String[]> names = new LinkedHashMap<>();
+        Map<UUID, List<UUID>> periodsByUser = new LinkedHashMap<>();
+        for (Object[] r : evaluationRepository.findUserRowsForRanking(s.unitIds(), s.periodIds())) {
             UUID uid = (UUID) r[0];
+            names.putIfAbsent(uid, new String[]{(String) r[1], (String) r[2]});
+            periodsByUser.computeIfAbsent(uid, k -> new ArrayList<>()).add((UUID) r[3]);
+        }
+
+        List<RankingRow> all = new ArrayList<>();
+        for (Map.Entry<UUID, List<UUID>> e : periodsByUser.entrySet()) {
+            UUID uid = e.getKey();
+            double bscSum = 0, sysSum = 0;
+            int bscCount = 0, sysCount = 0, periods = 0;
+            for (UUID periodId : e.getValue()) {
+                var eff = evaluationService.getEffectiveEvaluation(uid, periodId);
+                if (eff == null) continue;
+                periods++;
+                if (eff.getBscScore() != null) { bscSum += eff.getBscScore(); bscCount++; }
+                if (eff.getSystemScore() != null) { sysSum += eff.getSystemScore(); sysCount++; }
+            }
+            String[] n = names.getOrDefault(uid, new String[]{null, null});
             all.add(RankingRow.builder()
-                    .userId(uid).fullName((String) r[1]).email((String) r[2])
-                    .bscScore(round1(dbl(r[3]))).systemScore(round1(dbl(r[4])))
-                    .evaluationCount(r[5] == null ? 0 : ((Number) r[5]).intValue())
+                    .userId(uid).fullName(n[0]).email(n[1])
+                    .bscScore(bscCount > 0 ? round1(bscSum / bscCount) : null)
+                    .systemScore(sysCount > 0 ? round1(sysSum / sysCount) : null)
+                    .evaluationCount(periods)
                     .perspectiveScores(breakdown.getOrDefault(uid, Collections.emptyMap()))
                     .build());
         }
