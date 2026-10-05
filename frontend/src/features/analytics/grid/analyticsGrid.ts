@@ -334,6 +334,20 @@ const BSC_GATE_FIELD = perLanguage((): OptionField => ({
   ],
 }))
 
+/** Bản đồ chiến lược: lọc theo trạng thái và giới hạn số mục tiêu (BRD: đừng đổ cả đồ thị lớn). */
+const GOAL_STATUS_FIELD = perLanguage((): OptionField => ({
+  key: 'status', label: i18n.t('analytics:analyticsGrid.goalStatus'), kind: 'pills', default: 'ALL',
+  choices: [
+    { value: 'ALL', label: i18n.t('analytics:analyticsGrid.all') },
+    { value: 'BEHIND', label: i18n.t('analytics:analyticsGrid.behindOnly') },
+    { value: 'NO_DATA', label: i18n.t('analytics:analyticsGrid.noDataOnly') },
+  ],
+}))
+const GOAL_LIMIT_FIELD = perLanguage((): OptionField => ({
+  key: 'limit', label: i18n.t('analytics:analyticsGrid.objectiveCount'), kind: 'pills', default: '20',
+  choices: [{ value: '10', label: '10' }, { value: '20', label: '20' }, { value: '50', label: '50' }],
+}))
+
 const BSC_SORT_FIELD = perLanguage((): OptionField => ({
   key: 'sort', label: i18n.t('analytics:analyticsGrid.sortBy'), kind: 'pills', default: 'bscScore',
   choices: [{ value: 'bscScore', label: i18n.t('analytics:analyticsGrid.bscScore') }, { value: 'systemScore', label: i18n.t('analytics:analyticsGrid.systemScore') }],
@@ -346,6 +360,7 @@ export const WIDGET_OPTIONS = perLanguage((): Record<string, OptionField[]> => (
   'rank-table': [METRIC_FIELD(), DIR_FIELD()],
   'mykpi-detail': [SHARED_FIELD()],
   'myobj-detail': [SHARED_FIELD()],
+  'bsc-strategy-map': [GOAL_STATUS_FIELD(), GOAL_LIMIT_FIELD()],
   'bsc-units': [BSC_GATE_FIELD()],
   'bsc-ranking': [BSC_SORT_FIELD()],
 }))
@@ -359,7 +374,7 @@ export const WIDGET_HAS_UNIT: ReadonlySet<string> = new Set([
   'sub-detail',
   // Tab Thẻ điểm BSC: cùng cách, mỗi ô tự thu phạm vi. (Tab So sánh giữa các đơn vị KHÔNG có mặt
   // ở đây: đơn vị ở đó là cây điều hướng của trang.)
-  'bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade', 'bsc-ranking',
+  'bsc-strategy-map', 'bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade', 'bsc-ranking',
 ])
 
 /** Đơn vị của ô (phạm vi con) — `undefined` = toàn bộ phạm vi quyền của người dùng. */

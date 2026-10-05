@@ -3,11 +3,13 @@ package com.kpitracking.controller;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.bsc.ScorecardCoverageResponse;
 import com.kpitracking.dto.response.stats.BscAnalyticsResponses.RankingResponse;
+import com.kpitracking.dto.response.stats.BscGoalGraphResponses;
 import com.kpitracking.dto.response.stats.BscOverviewResponses.AttainmentTrendResponse;
 import com.kpitracking.dto.response.stats.BscOverviewResponses.ItemAttainmentResponse;
 import com.kpitracking.dto.response.stats.BscOverviewResponses.OverviewResponse;
 import com.kpitracking.dto.response.stats.BscOverviewResponses.UnitAttainmentRow;
 import com.kpitracking.service.BscAnalyticsService;
+import com.kpitracking.service.BscGoalGraphService;
 import com.kpitracking.service.BscOverviewService;
 import com.kpitracking.service.analytics.AnalyticsPeriodHelper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,6 +42,7 @@ public class BscAnalyticsController {
 
     private final BscAnalyticsService service;
     private final BscOverviewService overviewService;
+    private final BscGoalGraphService goalGraphService;
     private final AnalyticsPeriodHelper periodHelper;
 
     @GetMapping("/overview")
@@ -94,6 +98,38 @@ public class BscAnalyticsController {
             @RequestParam(required = false) UUID periodIdTo) {
         return ResponseEntity.ok(ApiResponse.success(
                 overviewService.cascadeCoverage(orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
+    }
+
+    /*
+      Đồ thị mục tiêu — MỘT nguồn cho ba cách xem của BRD (bản đồ chiến lược, cây liên kết, xương
+      cá). Ghép ở client từ ba endpoint sẵn có thì mỗi cái một luật chọn thẻ điểm và một cách chọn
+      đợt, lại không có trạng thái/xu hướng theo mục tiêu — đúng kiểu lệch vừa dọn xong.
+     */
+    @GetMapping("/goal-graph")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    @Operation(summary = "Đồ thị mục tiêu BSC: lĩnh vực, mục tiêu, cạnh phân rã")
+    public ResponseEntity<ApiResponse<BscGoalGraphResponses.BscGoalGraphResponse>> getGoalGraph(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) java.util.List<String> perspective,
+            @RequestParam(required = false) Integer limit) {
+        return ResponseEntity.ok(ApiResponse.success(goalGraphService.goalGraph(
+                orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo), status, perspective, limit)));
+    }
+
+    /** Một lần bung một nút trên cây = một lời gọi ở đây; không đổ sẵn cả cây xuống client. */
+    @GetMapping("/goal-graph/{itemId}/contributors")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    @Operation(summary = "Đơn vị, người và KPI đóng góp vào một mục tiêu BSC")
+    public ResponseEntity<ApiResponse<BscGoalGraphResponses.BscObjectiveContributorsResponse>> getContributors(
+            @PathVariable UUID itemId,
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(goalGraphService.contributors(
+                itemId, orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
     }
 
     @GetMapping("/rankings")

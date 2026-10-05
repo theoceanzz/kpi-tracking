@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { Gauge, Building2, Target, TrendingUp, GitBranch, Medal, Layers } from 'lucide-react'
+import { Gauge, Building2, Target, TrendingUp, GitBranch, Medal, Layers, Map } from 'lucide-react'
 import {
   BscOverviewMetrics, BscUnitAttainmentWidget, BscItemAttainmentWidget, BscAttainmentTrendWidget,
   BscCascadeCoverageWidget, BscRankingWidget,
@@ -13,6 +13,7 @@ import {
 import { usePinToHome } from '../grid/usePinToHome'
 import WidgetConfigPanel from '../grid/WidgetConfigPanel'
 import WidgetConfigSummary from '../grid/WidgetConfigSummary'
+import StrategyMapWidget from '../components/bsc/StrategyMapWidget'
 import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
@@ -28,7 +29,10 @@ import { perLanguage } from '@/i18n/perLanguage'
  * để ẩn mặc định.
  */
 const DEFAULT_WIDGETS = perLanguage((): DashboardWidget[] => ([
-  { i: 'bsc-overview', type: 'STATS', title: i18n.t('analytics:BscAnalyticsTab.bscHealthOfThePeriod'), x: 0, y: 0, w: 12, h: 5, visible: true },
+  // Bản đồ chiến lược đứng đầu: BRD coi đây là màn hình mặc định — nhìn toàn cảnh trước, rồi mới
+  // xuống chi tiết. Ba cách xem (bản đồ / cây / xương cá) đọc chung một payload goal-graph.
+  { i: 'bsc-strategy-map', type: 'BSC_STRATEGY_MAP', title: i18n.t('analytics:BscAnalyticsTab.strategyMapByPerspective'), x: 0, y: 0, w: 12, h: 16, visible: true },
+  { i: 'bsc-overview', type: 'STATS', title: i18n.t('analytics:BscAnalyticsTab.bscHealthOfThePeriod'), x: 0, y: 16, w: 12, h: 5, visible: true },
   // Tên ô là nguồn duy nhất (renderWidget lấy `w.title`, trang chủ đặt đúng chuỗi này); chữ đầu
   // mỗi ô khác nhau — "Mức đạt BSC của các đơn vị" cạnh "Mức đạt từng chỉ tiêu" từng lẫn nhau.
   { i: 'bsc-units', type: 'BSC_UNITS', title: i18n.t('analytics:BscAnalyticsTab.scorecardAchievementOfEachUnit'), x: 0, y: 5, w: 12, h: 11, visible: true },
@@ -43,12 +47,13 @@ const DEFAULT_WIDGETS = perLanguage((): DashboardWidget[] => ([
  * Tab này gác bằng BSC:MANAGE nên gần như chỉ ban giám đốc mở; ai mở cũng cần trọn thẻ điểm.
  * Khai đủ bốn vị trí để cùng khuôn với các tab khác — bộ y hệt nhau thì thư viện gộp thành một nút.
  */
-const BSC_SET = ['bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade'] as const
+const BSC_SET = ['bsc-strategy-map', 'bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade'] as const
 const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
   DIRECTOR: BSC_SET, HEAD: BSC_SET, DEPUTY: BSC_SET, STAFF: BSC_SET,
 }
 
 const GROUP_OF = perLanguage((): Record<string, string> => ({
+  'bsc-strategy-map': i18n.t('analytics:BscAnalyticsTab.diagrams'),
   'bsc-overview': i18n.t('analytics:BscAnalyticsTab.figures'),
   'bsc-units': i18n.t('analytics:BscAnalyticsTab.rankingCharts'),
   'bsc-items': i18n.t('analytics:BscAnalyticsTab.comparisonCharts'),
@@ -56,7 +61,8 @@ const GROUP_OF = perLanguage((): Record<string, string> => ({
   'bsc-cascade': i18n.t('analytics:BscAnalyticsTab.comparisonCharts'),
   'bsc-ranking': i18n.t('analytics:BscAnalyticsTab.rankingCharts'),
 }))
-const PREVIEW_OF: Record<string, 'metricCard' | 'table' | 'line' | 'bullet' | 'lollipop' | 'bar'> = {
+const PREVIEW_OF: Record<string, 'metricCard' | 'table' | 'line' | 'bullet' | 'lollipop' | 'bar' | 'treemap'> = {
+  'bsc-strategy-map': 'treemap',
   'bsc-overview': 'metricCard',
   'bsc-units': 'lollipop',
   'bsc-items': 'bullet',
@@ -65,6 +71,7 @@ const PREVIEW_OF: Record<string, 'metricCard' | 'table' | 'line' | 'bullet' | 'l
   'bsc-ranking': 'lollipop',
 }
 const DESC_OF = perLanguage((): Record<string, string> => ({
+  'bsc-strategy-map': i18n.t('analytics:BscAnalyticsTab.whereEachObjectiveStandsByPerspective'),
   'bsc-overview': i18n.t('analytics:BscAnalyticsTab.thePeriodsBscAchievementNumberOf'),
   'bsc-units': i18n.t('analytics:BscAnalyticsTab.whichUnitsAchieveAndWhichFall'),
   'bsc-items': i18n.t('analytics:BscAnalyticsTab.whichKpisAreMetAndWhich'),
@@ -106,6 +113,19 @@ export default function BscAnalyticsTab() {
           {meta}
           <BscOverviewMetrics filter={pf} />
         </div>
+      )
+      case 'BSC_STRATEGY_MAP': return (
+        <ChartWrapper title={w.title} icon={<Map size={20} className="text-slate-400" />}>
+          {/* `relative` để bảng chi tiết phủ bên phải nằm gọn trong ô, không tràn ra lưới. */}
+          <div className="relative flex-1 min-h-0 flex flex-col">
+            <StrategyMapWidget
+              scope={{ orgUnitId: widgetUnit(w), periodId: pf.periodId, periodIdTo: pf.periodIdTo }}
+              limit={Number(optionOf(w, 'limit') ?? 20)}
+              status={optionOf(w, 'status')}
+              meta={meta}
+            />
+          </div>
+        </ChartWrapper>
       )
       case 'BSC_UNITS': return (
         <div id="tour-bsc-balance" className="h-full">
