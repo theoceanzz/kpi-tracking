@@ -23,17 +23,17 @@ import java.util.List;
 @Component
 public class ReviewScoreCalculator {
 
-    /** Thang mặc định khi tổ chức chưa cấu hình mức định tính — cùng bộ với dữ liệu mẫu. */
-    public static final List<ReviewContext.QualityLevel> DEFAULT_SCALE = List.of(
-            new ReviewContext.QualityLevel("KÉM", 0.0, 1),
-            new ReviewContext.QualityLevel("YẾU", 20.0, 2),
-            new ReviewContext.QualityLevel("TRUNG BÌNH", 50.0, 3),
-            new ReviewContext.QualityLevel("KHÁ", 75.0, 4),
-            new ReviewContext.QualityLevel("TỐT", 100.0, 5));
-
-    /** Thang dùng cho lượt này: của tổ chức, hoặc mặc định khi trống. */
+    /**
+     * Thang chất lượng của lượt này — ĐÚNG thang tổ chức đã cấu hình, không có thang mặc định.
+     *
+     * <p>Trước đây trống thì thay bằng một thang dựng sẵn (KÉM/YẾU/.../TỐT): mô hình chọn một mức
+     * trong thang không ai cấu hình, rồi mức đó thành % và thành điểm. Core
+     * ({@code KpiAchievementCalculator.qualitativeRatio}) trả {@code null} khi mức chưa có
+     * {@code scorePercent} và LOẠI chỉ tiêu khỏi cả tử lẫn mẫu — ở đây cũng vậy: thang trống thì
+     * không hỏi mức, phần "chất lượng" rụng và 60/30/10 chia lại cho hai phần còn lại.
+     */
     public static List<ReviewContext.QualityLevel> scaleOf(ReviewContext ctx) {
-        return ctx.scale() == null || ctx.scale().isEmpty() ? DEFAULT_SCALE : ctx.scale();
+        return ctx.scale() == null ? List.of() : ctx.scale();
     }
 
     /** % đáp ứng (0..150), {@code null} khi chỉ tiêu không đo được bằng số. */
@@ -52,16 +52,15 @@ public class ReviewScoreCalculator {
     }
 
     /**
-     * % chất lượng của mức mô hình chọn: {@code scorePercent} do HR cấu hình; mức chưa cấu hình thì theo
-     * vị trí trong thang (thang xếp từ kém tới tốt). Mức không có trong thang -> {@code null}.
+     * % chất lượng của mức mô hình chọn — CHỈ từ {@code scorePercent} do HR cấu hình.
+     *
+     * <p>{@code null} khi mức không có trong thang HOẶC mức chưa được cấu hình %; trước đây chỗ
+     * thiếu % được suy theo vị trí trong thang, tức là bịa ra một con số rồi tính thành điểm.
      */
     public Double qualityPercent(String levelName, List<ReviewContext.QualityLevel> scale) {
         if (levelName == null || scale == null || scale.isEmpty()) return null;
-        for (int i = 0; i < scale.size(); i++) {
-            ReviewContext.QualityLevel l = scale.get(i);
-            if (l.name().equalsIgnoreCase(levelName.strip())) {
-                return l.scorePercent() != null ? l.scorePercent() : (i + 1) * 100.0 / scale.size();
-            }
+        for (ReviewContext.QualityLevel l : scale) {
+            if (l.name().equalsIgnoreCase(levelName.strip())) return l.scorePercent();
         }
         return null;
     }
@@ -109,6 +108,9 @@ public class ReviewScoreCalculator {
         BigDecimal ach = achievementPercent(c);
         BigDecimal onTime = onTimePercent(c);
 
+        // Trần 100 cho RIÊNG phần "đạt chỉ tiêu" là có chủ ý (quyết định 30/09): 60/30/10 là ba
+        // cấu phần độc lập, vượt chỉ tiêu không được lấn sang phần chất lượng và đúng hạn. Cột
+        // `system` bên dưới là thang khác (tỉ lệ đạt × tối đa) nên vẫn giữ tới 150 như core.
         Double target = ach == null ? null : max * w.target() / 100.0 * Math.min(ach.doubleValue(), 100.0) / 100.0;
         Double quality = qualityPercent == null ? null
                 : max * w.quality() / 100.0 * Math.min(qualityPercent, 100.0) / 100.0;

@@ -62,9 +62,19 @@ public final class BscOverviewResponses {
         /** Thẻ điểm đơn vị nằm dưới thẻ gốc (toàn cây con). */
         private int unitScorecardCount;
         private Map<String, Integer> unitStatusCounts;
+        /** Chỉ đếm kết quả ĐÃ CHỐT — kết quả nháp nằm ở {@link #unitsProvisional}. */
         private int unitsWithResult;
         private int unitsGatePassed;
         private int unitsGateFailed;
+        /**
+         * Thẻ có cổng chặn nhưng chưa kết luận được (mọi hạng mục chặn đều chưa có %đạt).
+         * Trước đây gộp vào "đạt", làm số đơn vị qua cổng cao hơn sự thật.
+         */
+        private int unitsGateUnknown;
+        /** Thẻ đã có kết quả nhưng còn DRAFT — hiện riêng, không cộng vào số tổng hợp. */
+        private int unitsProvisional;
+        /** Kết quả của chính thẻ gốc còn là nháp (DRAFT) hay đã chốt. */
+        private boolean provisional;
         private CoverageCounts coverage;
     }
 
@@ -87,6 +97,8 @@ public final class BscOverviewResponses {
         private int assignedCount;
         private int gateCount;
         private Double totalWeight;
+        /** Kết quả đợt còn DRAFT — số liệu có thể đổi sau khi "Tính lại". */
+        private boolean provisional;
     }
 
     /** Một chỉ tiêu của thẻ điểm với kết quả đợt — đủ để vẽ bullet thực tế / mục tiêu / sàn. */
@@ -130,6 +142,9 @@ public final class BscOverviewResponses {
         private List<ItemRow> items;
     }
 
+    /** Khoá rổ "chưa phân loại lĩnh vực" trong {@link TrendPoint#byPerspective}. */
+    public static final String UNCLASSIFIED = "UNCLASSIFIED";
+
     /** Một mốc đợt trên đường xu hướng %đạt. */
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class TrendPoint {
@@ -137,9 +152,15 @@ public final class BscOverviewResponses {
         private String label;
         private UUID scorecardId;
         private boolean hasResult;
+        /** Kết quả đợt còn DRAFT — mốc này vẽ nhạt/đứt để không bị đọc như số đã chốt. */
+        private boolean provisional;
         private Double achievementPercent;
         private Boolean gatePassed;
-        /** Mã lĩnh vực cố định → %đạt bình quân theo trọng số của các chỉ tiêu thuộc lĩnh vực đó. */
+        /**
+         * Mã lĩnh vực cố định → %đạt bình quân theo trọng số của các chỉ tiêu thuộc lĩnh vực đó.
+         * Chỉ tiêu không gắn lĩnh vực nào nằm ở khoá {@link #UNCLASSIFIED} — bỏ hẳn chúng đi thì
+         * tổng các lĩnh vực không bao giờ khớp đường tổng.
+         */
         private Map<String, Double> byPerspective;
     }
 

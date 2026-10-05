@@ -4,6 +4,7 @@ import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.*;
 import com.kpitracking.repository.*;
+import com.kpitracking.service.analytics.AnalyticsKpiMetrics;
 import com.kpitracking.service.analytics.KpiMetricsCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,8 @@ public class OrgUnitStatisticService {
     private final EvaluationRepository evaluationRepository;
     private final KpiSubmissionRepository kpiSubmissionRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
+    /** Mọi con số về KPI đi qua đây — xem {@link AnalyticsKpiMetrics}. */
+    private final AnalyticsKpiMetrics metrics;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final UserRepository userRepository;
     private final KpiPeriodRepository kpiPeriodRepository;
@@ -173,12 +176,9 @@ public class OrgUnitStatisticService {
             performance = kpi.getCompensatedAchievementPercent();
         } else {
             boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
-            completion = reverse
-                    ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
-                    : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
-            performance = reverse
-                    ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
-                    : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+            completion = nz(metrics.attainmentPercentFromActual(kpi, KpiMetricsCalculator.sum(complSubs)));
+            performance = nz(metrics.pacePercentFromActual(kpi, KpiMetricsCalculator.sum(perfSubs),
+                    targetValue > 0 ? expectedValueFilter / targetValue : 0));
         }
 
         return new double[]{completion, performance};
@@ -1922,4 +1922,9 @@ public class OrgUnitStatisticService {
         result.put("members", filtered);
         return result;
     }
+    /** null (KPI không tham gia tính điểm) → 0 cho các ô chỉ hiện một con số. */
+    private static double nz(Double v) {
+        return v == null ? 0.0 : v;
+    }
+
 }

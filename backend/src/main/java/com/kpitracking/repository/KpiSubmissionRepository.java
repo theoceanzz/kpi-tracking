@@ -25,6 +25,12 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     java.util.List<KpiSubmission> findReviewedHistory(@Param("userId") UUID userId, @Param("name") String name,
                                                       @Param("periodId") UUID periodId, Pageable pageable);
 
+    /** Mọi bài (chưa xoá) một người nộp cho các chỉ tiêu của một đợt. */
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM KpiSubmission s WHERE s.submittedBy.id = :userId " +
+           "AND s.kpiCriteria.kpiPeriod.id = :kpiPeriodId AND s.deletedAt IS NULL")
+    java.util.List<KpiSubmission> findByUserAndKpiPeriod(@Param("userId") UUID userId,
+                                                         @Param("kpiPeriodId") UUID kpiPeriodId);
+
     @org.springframework.data.jpa.repository.Query("SELECT s FROM KpiSubmission s WHERE " +
            "(s.submittedBy.id = :currentUserId OR EXISTS (SELECT 1 FROM OrgUnit au WHERE s.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
            "(s.status = COALESCE(:status, s.status)) AND " +
@@ -120,6 +126,10 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     // ===== Latest APPROVED actualValue (cho KPI ngược — tỉ lệ không cộng dồn) =====
     @Query("SELECT s.actualValue FROM KpiSubmission s WHERE s.submittedBy.id = :userId AND s.kpiCriteria.id = :kpiId AND s.status = 'APPROVED' AND s.createdAt >= :from AND s.createdAt <= :to ORDER BY COALESCE(s.periodStart, s.createdAt) DESC")
     java.util.List<Double> latestActualValueByUserIdAndKpiIdInPeriod(@Param("userId") UUID userId, @Param("kpiId") UUID kpiId, @Param("from") java.time.Instant from, @Param("to") java.time.Instant to, org.springframework.data.domain.Pageable pageable);
+
+    /** Phạm vi ĐƠN VỊ, cùng bộ trạng thái với lõi (duyệt + chờ duyệt + bị từ chối), mốc periodStart ?? createdAt. */
+    @Query("SELECT COALESCE(SUM(s.actualValue), 0) FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.kpiCriteria.id = :kpiId AND s.status IN ('APPROVED','PENDING','REJECTED') AND COALESCE(s.periodStart, s.createdAt) >= :from AND COALESCE(s.periodStart, s.createdAt) <= :to")
+    double sumActualValueByOrgUnitIdsAndKpiIdInPeriodAllStatuses(@Param("orgUnitIds") java.util.List<UUID> orgUnitIds, @Param("kpiId") UUID kpiId, @Param("from") java.time.Instant from, @Param("to") java.time.Instant to);
 
     // ===== Cùng công thức tiến độ với bảng Rủi ro: gồm APPROVED+PENDING+REJECTED, mốc periodStart ?? createdAt =====
     @Query("SELECT COALESCE(SUM(s.actualValue), 0) FROM KpiSubmission s WHERE s.submittedBy.id = :userId AND s.kpiCriteria.id = :kpiId AND s.status IN ('APPROVED','PENDING','REJECTED') AND COALESCE(s.periodStart, s.createdAt) >= :from AND COALESCE(s.periodStart, s.createdAt) <= :to")

@@ -27,7 +27,7 @@ class ReviewBasisTest {
 
     private static ReviewContext ctx() {
         return new ReviewContext(UUID.randomUUID(), UUID.randomUUID(), "Tháng 10/2026", UUID.randomUUID(), "An",
-                List.of(), ReviewScoreCalculator.DEFAULT_SCALE, List.of(), ReviewFixtures.W,
+                List.of(), ReviewFixtures.SCALE, List.of(), ReviewFixtures.W,
                 // Đoạn kho mang dòng đường dẫn "[tài liệu › mục]" đầu đoạn như bước nạp kho gắn vào.
                 List.of(new ReviewContext.Excerpt("Sổ tay vận hành", "Mục 2 › Sự cố",
                         "[Sổ tay vận hành › Mục 2]\nSự cố mức 1 phải báo trong 2 giờ.")),

@@ -301,14 +301,14 @@ public class SubmissionReviewService {
         }
     }
 
-    /** Thang chất lượng của tổ chức (xếp từ kém tới tốt), hoặc thang mặc định khi chưa cấu hình. */
+    /** Thang chất lượng của tổ chức (xếp từ kém tới tốt); TRỐNG khi chưa cấu hình — xem {@link ReviewScoreCalculator#scaleOf}. */
     private List<ReviewContext.QualityLevel> qualityScale(UUID organizationId) {
         List<ReviewContext.QualityLevel> levels = qualitativeLevelRepository
                 .findByOrganizationIdOrderByPositionAsc(organizationId).stream()
                 .map(l -> new ReviewContext.QualityLevel(l.getName(), l.getScorePercent(),
                         l.getPosition() == null ? 0 : l.getPosition()))
                 .toList();
-        return levels.isEmpty() ? ReviewScoreCalculator.DEFAULT_SCALE : levels;
+        return levels;
     }
 
     /** Mức có % gần nhất với điểm (thang 100); bằng nhau thì lấy mức thấp hơn (gợi ý thận trọng). */

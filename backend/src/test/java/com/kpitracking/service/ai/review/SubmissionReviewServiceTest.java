@@ -122,7 +122,7 @@ class SubmissionReviewServiceTest {
     @Test
     @DisplayName("mức gợi ý cho định tính: mức có % gần nhất với điểm hành vi; bằng nhau thì lấy mức thấp hơn")
     void nearestLevel() {
-        var scale = ReviewScoreCalculator.DEFAULT_SCALE;   // KÉM 0 · YẾU 20 · TRUNG BÌNH 50 · KHÁ 75 · TỐT 100
+        var scale = ReviewFixtures.SCALE;   // KÉM 0 · YẾU 20 · TRUNG BÌNH 50 · KHÁ 75 · TỐT 100
         assertThat(SubmissionReviewService.nearestLevel(scale, 92.5)).isEqualTo("TỐT");
         assertThat(SubmissionReviewService.nearestLevel(scale, 81)).isEqualTo("KHÁ");
         assertThat(SubmissionReviewService.nearestLevel(scale, 87.5)).isEqualTo("KHÁ");   // cách đều 75 và 100

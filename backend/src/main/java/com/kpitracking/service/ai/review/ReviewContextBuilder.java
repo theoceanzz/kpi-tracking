@@ -38,9 +38,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ReviewContextBuilder {
 
-    /** Chỉ tiêu còn hiệu lực trong đợt — cùng bộ trạng thái với điểm hệ thống ({@code EvaluationService}). */
-    private static final List<KpiStatus> ACTIVE = List.of(
-            KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE);
+    /**
+     * Chỉ tiêu còn hiệu lực trong đợt — đi qua {@code scoringStatuses} của core để chính sách KPI
+     * khoá kỳ (CLOSED_BY_LOCK) đổi ở MỘT chỗ là cả điểm hệ thống lẫn bộ chấm AI đổi theo.
+     */
+    private static final List<KpiStatus> ACTIVE = KpiAchievementCalculator.scoringStatuses(List.of(
+            KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE));
 
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final KpiPeriodRepository kpiPeriodRepository;
@@ -103,7 +106,13 @@ public class ReviewContextBuilder {
 
         List<ReviewContext.Criterion> criteria = new ArrayList<>();
         for (KpiCriteria kpi : kpis) {
-            if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;   // ngoài pool trọng số
+            /*
+              Pool trọng số phải TRÙNG pool của core, nếu không `normFactor` (= 100/Σw) chia trên
+              một mẫu số lớn hơn thang điểm thật của quản lý. Một vị từ của core loại hết: KPI
+              khoá kỳ, KPI huỷ không bù, KPI cha phân rã, KPI thưởng, KPI thiếu trọng số và KPI
+              định lượng thiếu chỉ tiêu. Trước đây ở đây chỉ loại KPI thưởng.
+             */
+            if (!achievementCalculator.countsTowardBscScore(kpi)) continue;
             List<ReviewContext.Submission> subs = new ArrayList<>();
             kpi.getSubmissions().stream()
                     .filter(s -> s.getDeletedAt() == null && s.getSubmittedBy() != null

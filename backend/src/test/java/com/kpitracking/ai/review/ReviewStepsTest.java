@@ -1,5 +1,6 @@
 package com.kpitracking.ai.review;
 
+import com.kpitracking.service.ai.review.ReviewFixtures;
 import com.kpitracking.ai.agent.CriterionReviewAgent;
 import com.kpitracking.ai.agent.ReviewSummaryAgent;
 import com.kpitracking.entity.Organization;
@@ -84,7 +85,7 @@ class ReviewStepsTest {
 
     private void withCriteria(ReviewContext.Criterion... cs) {
         run.setContext(new ReviewContext(run.getOrganizationId(), run.getKpiPeriodId(), "Tháng 9", run.getUserId(),
-                "An", List.of(cs), ReviewScoreCalculator.DEFAULT_SCALE, List.of(), new ReviewContext.Weights(60, 30, 10)));
+                "An", List.of(cs), ReviewFixtures.SCALE, List.of(), new ReviewContext.Weights(60, 30, 10)));
     }
 
     @Test

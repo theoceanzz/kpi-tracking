@@ -36,7 +36,7 @@ class ReviewPromptsTest {
     void criterionBlockCarriesPhase2And3Sources() {
         ReviewContext.Criterion c = criterionWithFiles();
         ReviewContext ctx = new ReviewContext(UUID.randomUUID(), UUID.randomUUID(), "Tháng 9/2026", UUID.randomUUID(),
-                "An", List.of(c), ReviewScoreCalculator.DEFAULT_SCALE, List.of(), ReviewFixtures.W,
+                "An", List.of(c), ReviewFixtures.SCALE, List.of(), ReviewFixtures.W,
                 List.of(new ReviewContext.Excerpt("Quy chế 2026", "Điều 3", "Sản phẩm phải có minh chứng")),
                 new ReviewContext.CriteriaSet(UUID.randomUUID(), 2, "Quy chế mẫu",
                         List.of(new ReviewContext.CriteriaRow("Chất lượng sản phẩm", null, 30.0, "Tốt\nĐạt", null))),
@@ -58,7 +58,7 @@ class ReviewPromptsTest {
     void selfCheckBlockHasNoScaleNorHistory() {
         ReviewContext.Criterion c = criterionWithFiles();
         ReviewContext ctx = new ReviewContext(UUID.randomUUID(), UUID.randomUUID(), "Tháng 9/2026", UUID.randomUUID(),
-                "An", List.of(c), ReviewScoreCalculator.DEFAULT_SCALE, List.of(), ReviewFixtures.W,
+                "An", List.of(c), ReviewFixtures.SCALE, List.of(), ReviewFixtures.W,
                 List.of(new ReviewContext.Excerpt("Quy chế 2026", "Điều 3", "Sản phẩm phải có minh chứng")),
                 null, List.of());
 

@@ -5,6 +5,7 @@ import com.kpitracking.dto.response.stats.PersonalObjectiveResponses.*;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.SubmissionStatus;
 import com.kpitracking.repository.*;
+import com.kpitracking.service.analytics.AnalyticsKpiMetrics;
 import com.kpitracking.service.analytics.KpiMetricsCalculator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,6 +30,8 @@ public class PersonalKpiAnalyticsService {
     private final UserRepository userRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final EvaluationService evaluationService;
+    /** Mọi con số về KPI đi qua đây — xem {@link AnalyticsKpiMetrics}. */
+    private final AnalyticsKpiMetrics metrics;
     private final com.kpitracking.mapper.SoftDeletedRefs softDeletedRefs;
 
     private User getCurrentUser() {
@@ -46,7 +49,7 @@ public class PersonalKpiAnalyticsService {
 
     private List<KpiCriteria> getMyStandaloneKpis(java.util.Collection<UUID> periodIds) {
         User user = getCurrentUser();
-        return kpiCriteriaRepository.findApprovedByAssigneeIdWithoutKeyResult(user.getId())
+        return kpiCriteriaRepository.findByAssigneeIdWithoutKeyResultAndStatusIn(user.getId(), AnalyticsKpiMetrics.SCORING_STATUSES)
                 .stream()
                 // Đợt đã xoá mềm: proxy KpiPeriod ném EntityNotFoundException khi chạm getStartDate()
                 // ⇒ bỏ KPI đó khỏi thống kê thay vì đổ 500 cả trang (cùng lý do với thống kê đơn vị).
@@ -96,42 +99,28 @@ public class PersonalKpiAnalyticsService {
         double totalKpiTime     = Math.max(1, kpiEnd.toEpochMilli() - kpiStart.toEpochMilli());
         double validFilterTime  = endCalc.toEpochMilli() - startCalc.toEpochMilli();
         double timeRatio        = Math.min(1.0, validFilterTime / totalKpiTime);
-        double targetValue      = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
-        double expectedValue    = targetValue * timeRatio;
+        boolean approvedOnly    = Boolean.TRUE.equals(onlyApproved);
 
-        List<KpiSubmission> complSubs = kpi.getSubmissions().stream()
-                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
-                        : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
-                .filter(s -> {
-                    Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
-                    return !t.isBefore(kpiStart) && (B == null || !t.isAfter(B));
-                })
-                .collect(Collectors.toList());
+        /*
+          Công thức là của lõi; ở đây chỉ chọn KHOẢNG. Tiến độ tính từ đầu kỳ KPI (cộng dồn cả kỳ),
+          nhịp tính trong đúng khoảng người dùng chọn rồi chia cho phần thời gian đã trôi.
 
-        List<KpiSubmission> perfSubs = kpi.getSubmissions().stream()
-                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
-                        : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
-                .filter(s -> {
-                    Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
-                    return (A == null || !t.isBefore(A)) && (B == null || !t.isAfter(B));
-                })
-                .collect(Collectors.toList());
+          `null` = KPI không tham gia tính điểm (thưởng, cha phân rã, thiếu trọng số, định lượng
+          thiếu chỉ tiêu, huỷ không bù, khoá kỳ) hoặc định tính chưa chấm ⇒ cờ "active" = 0 và KPI
+          rụng khỏi mọi trung bình, thay vì bị gán `target = 1.0` rồi ra hàng nghìn phần trăm.
 
-        boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
-        double completion, performance, actualReturn;
-        if (reverse) {
-            completion  = KpiMetricsCalculator.reversePercent(complSubs, targetValue);
-            performance = KpiMetricsCalculator.reversePercent(perfSubs, targetValue);
-            actualReturn = KpiMetricsCalculator.latest(complSubs);
-        } else {
-            double actualCompletion  = KpiMetricsCalculator.sum(complSubs);
-            double actualPerformance = KpiMetricsCalculator.sum(perfSubs);
-            // Cap 150%: không KPI nào (kể cả KPI thường) được vượt 150%.
-            completion  = targetValue > 0   ? KpiMetricsCalculator.cap((actualCompletion   / targetValue)   * 100) : 0;
-            performance = expectedValue > 0 ? KpiMetricsCalculator.cap((actualPerformance  / expectedValue) * 100) : 0;
-            actualReturn = actualCompletion;
-        }
-        return new double[]{completion, performance, 1.0, actualReturn};
+          Phạm vi bài nộp giữ nguyên như trước (mọi người nộp, không lọc theo người) vì KPI dùng
+          chung có MỘT chỉ tiêu chung — đổi sang "chỉ bài của tôi" sẽ làm KPI chung trông dở dang
+          với từng người.
+         */
+        var complWindow = new AnalyticsKpiMetrics.Window(kpiStart, B, approvedOnly);
+        var paceWindow  = new AnalyticsKpiMetrics.Window(A, B, approvedOnly);
+
+        Double completion = metrics.attainmentPercent(kpi, null, complWindow, false);
+        if (completion == null) return new double[]{0, 0, 0, 0};
+        Double pace = metrics.pacePercent(kpi, null, paceWindow, false, timeRatio);
+        double actualReturn = metrics.actualValue(kpi, null, complWindow, false);
+        return new double[]{completion, pace == null ? 0 : pace, 1.0, actualReturn};
     }
 
     /** Dựng danh sách KPI con (kèm metrics) cho KPI cha/thác nước để FE expand. Trả null nếu không có con. */
@@ -145,7 +134,7 @@ public class PersonalKpiAnalyticsService {
             result.add(KpiDetail.builder()
                     .kpiId(child.getId())
                     .kpiName(child.getName())
-                    .targetValue(child.getTargetValue() != null ? child.getTargetValue() : 1.0)
+                    .targetValue(child.getTargetValue())
                     .actualValue(cm[3])
                     .unit(child.getUnit())
                     .progress(childBonus ? null : cm[0])
@@ -323,9 +312,7 @@ public class PersonalKpiAnalyticsService {
                             && (to   == null || !sub.getCreatedAt().isAfter(to))
                             && sub.getSubmittedBy() != null && sub.getSubmittedBy().getId().equals(currentUser.getId())) {
                         double subActual   = sub.getActualValue() != null ? sub.getActualValue() : 0.0;
-                        double subProgress = Boolean.TRUE.equals(kpi.getIsReverseKpi())
-                                ? KpiMetricsCalculator.reversePercent(subActual, totalTarget)
-                                : (subActual / totalTarget) * 100;
+                        double subProgress = nz(metrics.attainmentPercentFromActual(kpi, subActual));
                         mySubmissions.add(SubmissionHistory.builder()
                                 .id(sub.getId())
                                 .code("SUB#" + sub.getId().toString().substring(0, 4).toUpperCase())
@@ -356,10 +343,8 @@ public class PersonalKpiAnalyticsService {
                             })
                             .collect(Collectors.toList());
                     boolean assigneeReverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
-                    double assigneeActual = assigneeReverse ? KpiMetricsCalculator.latest(assigneeSubs) : KpiMetricsCalculator.sum(assigneeSubs);
-                    double assigneeProgress = assigneeReverse
-                            ? KpiMetricsCalculator.reversePercent(assigneeSubs, totalTarget)
-                            : (totalTarget > 0 ? (assigneeActual / totalTarget) * 100 : 0);
+                    double assigneeActual = KpiMetricsCalculator.sum(assigneeSubs);   // lõi cộng cho cả hai hướng KPI
+                    double assigneeProgress = nz(metrics.attainmentPercentFromActual(kpi, assigneeActual));
                     String teammateLevel = assigneeSubs.stream()
                             .filter(s -> s.getQualitativeLevel() != null)
                             .max(java.util.Comparator.comparing(
@@ -532,4 +517,9 @@ public class PersonalKpiAnalyticsService {
         }
         return pts;
     }
+    /** null (KPI không tham gia tính điểm) → 0 cho các ô chỉ hiện một con số. */
+    private static double nz(Double v) {
+        return v == null ? 0.0 : v;
+    }
+
 }

@@ -189,14 +189,38 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
      @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED'")
     List<KpiCriteria> findApprovedByAssigneeId(@Param("userId") UUID userId);
 
+    /*
+      Bản "theo bộ trạng thái" của mấy truy vấn ngay trên. Thống kê phải dùng BẢN NÀY với
+      {@code AnalyticsKpiMetrics.SCORING_STATUSES}: bảng điểm tính cả KPI EDITED/EDIT/INACTIVE-có-bù,
+      nên lọc cứng 'APPROVED' làm các số trung bình trên Thống kê đứng trên một tập KPI khác hẳn
+      tập đã sinh ra điểm. Bản 'APPROVED' giữ lại cho những chỗ thật sự chỉ muốn KPI đã duyệt.
+     */
+    @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status IN :statuses")
+    List<KpiCriteria> findByAssigneeIdAndStatusIn(@Param("userId") UUID userId,
+                                                  @Param("statuses") Collection<KpiStatus> statuses);
+
     @Query("SELECT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.keyResult IS NOT NULL")
     List<KpiCriteria> findApprovedByAssigneeIdWithKeyResult(@Param("userId") UUID userId);
+
+    @Query("SELECT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status IN :statuses AND k.keyResult IS NOT NULL")
+    List<KpiCriteria> findByAssigneeIdWithKeyResultAndStatusIn(@Param("userId") UUID userId,
+                                                               @Param("statuses") Collection<KpiStatus> statuses);
 
     @Query("SELECT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.keyResult IS NULL")
     List<KpiCriteria> findApprovedByAssigneeIdWithoutKeyResult(@Param("userId") UUID userId);
 
+    @Query("SELECT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status IN :statuses AND k.keyResult IS NULL")
+    List<KpiCriteria> findByAssigneeIdWithoutKeyResultAndStatusIn(@Param("userId") UUID userId,
+                                                                  @Param("statuses") Collection<KpiStatus> statuses);
+
     @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.createdAt >= :from AND k.createdAt <= :to")
     List<KpiCriteria> findApprovedByAssigneeIdAndPeriod(@Param("userId") UUID userId, @Param("from") Instant from, @Param("to") Instant to);
+
+    /** Bản nhiều trạng thái — Thống kê dùng {@code AnalyticsKpiMetrics.SCORING_STATUSES}. */
+    @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status IN :statuses AND k.createdAt >= :from AND k.createdAt <= :to")
+    List<KpiCriteria> findByAssigneeIdAndStatusInAndCreatedAtBetween(@Param("userId") UUID userId,
+                                                                     @Param("statuses") Collection<KpiStatus> statuses,
+                                                                     @Param("from") Instant from, @Param("to") Instant to);
 
     @Query("SELECT COUNT(DISTINCT k) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId")
     long countByAssigneeId(@Param("userId") UUID userId);
@@ -212,6 +236,11 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.status = :status")
     List<KpiCriteria> findByOrgUnitIdInAndStatus(@Param("orgUnitIds") List<UUID> orgUnitIds, @Param("status") KpiStatus status);
+
+    /** Bản nhiều trạng thái — Thống kê dùng {@code AnalyticsKpiMetrics.SCORING_STATUSES}. */
+    @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.status IN :statuses")
+    List<KpiCriteria> findByOrgUnitIdInAndStatusIn(@Param("orgUnitIds") List<UUID> orgUnitIds,
+                                                   @Param("statuses") Collection<KpiStatus> statuses);
 
     @Query(value = "SELECT COUNT(k.id) FROM kpi_criteria k " +
             "JOIN org_units ou ON k.org_unit_id = ou.id " +
@@ -301,6 +330,11 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     /** MỌI KPI approved của (các) đơn vị — dùng cho analytics "KPI đơn vị" khi org TẮT OKR (KPI gắn KeyResult vẫn tính). */
     @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.status = 'APPROVED'")
     List<KpiCriteria> findApprovedByOrgUnitIds(@Param("orgUnitIds") List<UUID> orgUnitIds);
+
+    /** Bản nhiều trạng thái — Thống kê dùng {@code AnalyticsKpiMetrics.SCORING_STATUSES}. */
+    @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.status IN :statuses")
+    List<KpiCriteria> findByOrgUnitIdsAndStatusIn(@Param("orgUnitIds") List<UUID> orgUnitIds,
+                                                  @Param("statuses") Collection<KpiStatus> statuses);
 
     @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.orgHierarchyLevel.organization.id = :orgId " +
            "AND (:keyword IS NULL OR :keyword = '' OR LOWER(CAST(k.name AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +

@@ -138,7 +138,7 @@ class ReviewScoreCalculatorTest {
     }
 
     @Test
-    @DisplayName("% chất lượng: lấy score_percent của mức; mức chưa cấu hình -> theo vị trí; mức lạ -> null")
+    @DisplayName("% chất lượng: lấy score_percent của mức; mức chưa cấu hình % -> null (loại khỏi điểm, như core); mức lạ -> null")
     void qualityPercent() {
         var scale = List.of(
                 new ReviewContext.QualityLevel("KÉM", null, 1),
@@ -146,7 +146,9 @@ class ReviewScoreCalculatorTest {
                 new ReviewContext.QualityLevel("TỐT", null, 3));
 
         assertThat(calc.qualityPercent("khá", scale)).isEqualTo(75.0);
-        assertThat(calc.qualityPercent("TỐT", scale)).isEqualTo(100.0);
+        // Trước đây suy theo vị trí trong thang (3/3 -> 100%). Đó là bịa ra một con số rồi tính
+        // thành điểm; KpiAchievementCalculator.qualitativeRatio trả null và loại chỉ tiêu.
+        assertThat(calc.qualityPercent("TỐT", scale)).isNull();
         assertThat(calc.qualityPercent("XUẤT SẮC", scale)).isNull();
     }
 }

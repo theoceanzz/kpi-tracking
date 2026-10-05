@@ -65,6 +65,9 @@ class ReviewContextBuilderTest {
         assignments = mock(UserRoleOrgUnitRepository.class);
         kpiRepository = mock(KpiCriteriaRepository.class);
         calculator = mock(KpiAchievementCalculator.class);
+        // Pool trọng số nay hỏi core "chỉ tiêu này có tính điểm không"; mock mặc định trả false
+        // nên không khai báo là rụng sạch chỉ tiêu.
+        when(calculator.countsTowardBscScore(any())).thenReturn(true);
         UserRepository users = mock(UserRepository.class);
         KpiPeriodRepository periods = mock(KpiPeriodRepository.class);
         QualitativeLevelRepository levels = mock(QualitativeLevelRepository.class);

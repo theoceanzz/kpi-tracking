@@ -28,11 +28,16 @@ public final class ReviewPrompts {
     /** Khối cho {@code CriterionReviewAgent}: thang chất lượng, chỉ tiêu, bài nộp. */
     public static String criterionBlock(ReviewContext ctx, ReviewContext.Criterion c) {
         StringBuilder sb = new StringBuilder();
-        sb.append("## THANG CHẤT LƯỢNG (chọn đúng một tên, từ kém tới tốt)\n");
-        for (ReviewContext.QualityLevel l : ReviewScoreCalculator.scaleOf(ctx)) {
-            sb.append("- ").append(l.name());
-            if (l.scorePercent() != null) sb.append(" (").append(num(l.scorePercent())).append("%)");
-            sb.append('\n');
+        // Tổ chức chưa cấu hình thang thì KHÔNG hỏi mức: in tiêu đề rỗng là mời mô hình tự nghĩ ra
+        // một thang, mà mức bịa ra sẽ thành % rồi thành điểm.
+        List<ReviewContext.QualityLevel> scale = ReviewScoreCalculator.scaleOf(ctx);
+        if (!scale.isEmpty()) {
+            sb.append("## THANG CHẤT LƯỢNG (chọn đúng một tên, từ kém tới tốt)\n");
+            for (ReviewContext.QualityLevel l : scale) {
+                sb.append("- ").append(l.name());
+                if (l.scorePercent() != null) sb.append(" (").append(num(l.scorePercent())).append("%)");
+                sb.append('\n');
+            }
         }
 
         appendCriterion(sb, c);

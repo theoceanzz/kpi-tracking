@@ -2,6 +2,7 @@ package com.kpitracking.service;
 
 import com.kpitracking.dto.response.bsc.ScorecardCoverageResponse;
 import com.kpitracking.dto.response.stats.BscOverviewResponses.*;
+import static com.kpitracking.dto.response.stats.BscOverviewResponses.UNCLASSIFIED;
 import com.kpitracking.entity.BscFixedPerspectiveEntity;
 import com.kpitracking.entity.BscScorecard;
 import com.kpitracking.entity.BscScorecardPerspective;
@@ -11,13 +12,13 @@ import com.kpitracking.entity.KpiPeriod;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.enums.BscFixedPerspective;
 import com.kpitracking.enums.BscScorecardLevel;
-import com.kpitracking.enums.BscScorecardStatus;
 import com.kpitracking.repository.BscFixedPerspectiveRepository;
 import com.kpitracking.repository.BscScorecardPerspectiveRepository;
 import com.kpitracking.repository.BscScorecardRepository;
 import com.kpitracking.repository.BscUnitResultItemRepository;
 import com.kpitracking.repository.BscUnitResultRepository;
 import com.kpitracking.repository.KpiPeriodRepository;
+import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.service.analytics.AnalyticsScopeResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -59,6 +60,9 @@ public class BscOverviewService {
     private final BscFixedPerspectiveRepository fixedPerspectiveRepository;
     private final KpiPeriodRepository kpiPeriodRepository;
     private final BscTreeService treeService;
+    private final OrgUnitRepository orgUnitRepository;
+    /** Luật chọn thẻ điểm là của core — tab chỉ gọi lại, không tự suy. */
+    private final BscScoringService scoringService;
 
     // ============================================================
     // Thẻ số liệu
@@ -70,7 +74,7 @@ public class BscOverviewService {
         UUID orgId = scope.orgId();
         if (orgId == null) return OverviewResponse.builder().unitStatusCounts(Map.of()).coverage(emptyCoverage()).build();
 
-        KpiPeriod period = pickPeriod(orgId, periodIds);
+        KpiPeriod period = pickPeriod(orgId, orgUnitId, periodIds);
         if (period == null) return OverviewResponse.builder().unitStatusCounts(Map.of()).coverage(emptyCoverage()).build();
 
         BscScorecard root = resolveRoot(orgId, orgUnitId, period.getId());
@@ -85,16 +89,23 @@ public class BscOverviewService {
         List<BscScorecardPerspective> rows = itemRepository.findByScorecardIdOrderByDisplayOrderAsc(root.getId());
         BscUnitResult rootResult = results.get(root.getId());
 
+        /*
+          Kết quả còn DRAFT đếm riêng: nó sẽ đổi sau lần "Tính lại" kế tiếp, nên gộp vào số tổng
+          hợp là báo cáo một bức tranh chưa chốt như thể đã chốt. Cổng chặn chia BA rổ — trước đây
+          `else gateOk++` gộp cả thẻ chưa kết luận được (gatePassed = null) vào "đạt".
+         */
         Map<String, Integer> statusCounts = new LinkedHashMap<>();
-        int withResult = 0, gateOk = 0, gateFail = 0;
+        int withResult = 0, gateOk = 0, gateFail = 0, gateUnknown = 0, provisional = 0;
         for (BscScorecard s : subtree) {
             if (s.getId().equals(root.getId())) continue;
             statusCounts.merge(s.getStatus() == null ? "DRAFT" : s.getStatus().name(), 1, Integer::sum);
             BscUnitResult r = results.get(s.getId());
             if (r == null) continue;
+            if (isProvisional(r)) { provisional++; continue; }
             withResult++;
             if (Boolean.FALSE.equals(r.getGatePassed())) gateFail++;
-            else gateOk++;
+            else if (Boolean.TRUE.equals(r.getGatePassed())) gateOk++;
+            else gateUnknown++;
         }
 
         ScorecardCoverageResponse cov = treeService.coverage(root.getId());
@@ -110,6 +121,8 @@ public class BscOverviewService {
                 .unitScorecardCount(subtree.size() - 1)
                 .unitStatusCounts(statusCounts)
                 .unitsWithResult(withResult).unitsGatePassed(gateOk).unitsGateFailed(gateFail)
+                .unitsGateUnknown(gateUnknown).unitsProvisional(provisional)
+                .provisional(isProvisional(rootResult))
                 .coverage(CoverageCounts.builder()
                         .total(cov.getItems() == null ? 0 : cov.getItems().size())
                         .notCascaded(cov.getNotCascadedCount()).under(cov.getUnderCount())
@@ -126,7 +139,7 @@ public class BscOverviewService {
         var scope = scopeResolver.resolve(orgUnitId, periodIds);
         UUID orgId = scope.orgId();
         if (orgId == null) return List.of();
-        KpiPeriod period = pickPeriod(orgId, periodIds);
+        KpiPeriod period = pickPeriod(orgId, orgUnitId, periodIds);
         if (period == null) return List.of();
         BscScorecard root = resolveRoot(orgId, orgUnitId, period.getId());
         if (root == null) return List.of();
@@ -150,6 +163,7 @@ public class BscOverviewService {
                 .resultStatus(r != null ? r.getStatus() : null)
                 .gatePassed(r != null ? r.getGatePassed() : null)
                 .gateFailedItems(r != null ? r.getGateFailedItems() : null)
+                .provisional(isProvisional(r))
                 .itemCount(rows.size())
                 .assignedCount((int) rows.stream().filter(x -> x.getOrigin() == com.kpitracking.enums.BscItemOrigin.ASSIGNED).count())
                 .gateCount((int) rows.stream().filter(x -> Boolean.TRUE.equals(x.getIsGate())).count())
@@ -170,7 +184,7 @@ public class BscOverviewService {
         var scope = scopeResolver.resolve(orgUnitId, periodIds);
         UUID orgId = scope.orgId();
         if (orgId == null) return ItemAttainmentResponse.builder().items(List.of()).build();
-        KpiPeriod period = pickPeriod(orgId, periodIds);
+        KpiPeriod period = pickPeriod(orgId, orgUnitId, periodIds);
         if (period == null) return ItemAttainmentResponse.builder().items(List.of()).build();
         BscScorecard root = resolveRoot(orgId, orgUnitId, period.getId());
         ItemAttainmentResponse.ItemAttainmentResponseBuilder b = ItemAttainmentResponse.builder()
@@ -258,23 +272,32 @@ public class BscOverviewService {
             BscUnitResult r = unitResultRepository.findByScorecardIdAndKpiPeriodId(root.getId(), p.getId()).orElse(null);
             if (r == null) { points.add(tp.build()); continue; }
 
-            // %đạt theo lĩnh vực = bình quân có trọng số của các chỉ tiêu thuộc lĩnh vực đó.
-            Map<String, double[]> acc = new LinkedHashMap<>(); // code → [sum(w*a), sum(w)]
+            /*
+              %đạt theo lĩnh vực phải dùng ĐÚNG phép gộp mà BscCascadeService.recompute dùng cho
+              %đạt tổng, nếu không bốn đường lĩnh vực không bao giờ cộng khớp đường tổng:
+              - trọng số 0/null đóng góp 0 (trước đây thay bằng 1.0 ⇒ hàng trọng số 0 vẫn kéo đường);
+              - ZERO_FILL chia cho TỔNG trọng số, RENORMALIZE chia cho trọng số CÓ mặt;
+              - chỉ tiêu không gắn lĩnh vực vào rổ UNCLASSIFIED thay vì bị bỏ đi;
+              - không làm tròn ở đây (tròn một lần ở lớp hiển thị).
+             */
+            boolean zeroFill = root.getEmptyPerspectivePolicy() == com.kpitracking.enums.BscEmptyPerspectivePolicy.ZERO_FILL;
+            Map<String, double[]> acc = new LinkedHashMap<>(); // code → [Σ(w·a), Σw có mặt, Σw tất cả]
             for (BscUnitResultItem it : unitResultItemRepository.findByUnitResultId(r.getId())) {
                 BscScorecardPerspective row = it.getScorecardPerspective();
                 BscFixedPerspective fp = row != null && row.getPerspective() != null ? row.getPerspective().getFixedPerspective() : null;
-                if (fp == null || it.getAchievementPercent() == null) continue;
-                double w = it.getWeightPercentage() != null && it.getWeightPercentage() > 0 ? it.getWeightPercentage() : 1.0;
-                double[] a = acc.computeIfAbsent(fp.name(), k -> new double[2]);
+                double w = it.getWeightPercentage() != null ? it.getWeightPercentage() : 0.0;
+                if (w <= 0) continue;
+                double[] a = acc.computeIfAbsent(fp == null ? UNCLASSIFIED : fp.name(), k -> new double[3]);
+                a[2] += w;
+                if (it.getAchievementPercent() == null) continue;
                 a[0] += w * it.getAchievementPercent();
                 a[1] += w;
             }
             Map<String, Double> byP = new LinkedHashMap<>();
-            for (BscFixedPerspective fp : BscFixedPerspective.values()) {
-                double[] a = acc.get(fp.name());
-                if (a != null && a[1] > 0) byP.put(fp.name(), Math.round(a[0] / a[1] * 10.0) / 10.0);
-            }
-            points.add(tp.hasResult(true).achievementPercent(r.getAchievementPercent())
+            for (BscFixedPerspective fp : BscFixedPerspective.values()) putPerspective(byP, acc, fp.name(), zeroFill);
+            putPerspective(byP, acc, UNCLASSIFIED, zeroFill);
+            points.add(tp.hasResult(true).provisional(isProvisional(r))
+                    .achievementPercent(r.getAchievementPercent())
                     .gatePassed(r.getGatePassed()).byPerspective(byP).build());
         }
         return b.points(points).build();
@@ -289,7 +312,7 @@ public class BscOverviewService {
         var scope = scopeResolver.resolve(orgUnitId, periodIds);
         UUID orgId = scope.orgId();
         if (orgId == null) return emptyCoverageResponse();
-        KpiPeriod period = pickPeriod(orgId, periodIds);
+        KpiPeriod period = pickPeriod(orgId, orgUnitId, periodIds);
         if (period == null) return emptyCoverageResponse();
         BscScorecard root = resolveRoot(orgId, orgUnitId, period.getId());
         if (root == null) return emptyCoverageResponse();
@@ -301,41 +324,49 @@ public class BscOverviewService {
     // ============================================================
 
     /**
-     * Thẻ gốc của phạm vi trong một đợt: thẻ ĐƠN VỊ áp cho đơn vị được chọn (ưu tiên ACTIVE, rồi
-     * mới nhất), nếu không có thì thẻ công ty / thẻ mặc định toàn tổ chức của đợt.
+     * Thẻ gốc của phạm vi trong một đợt — ĐÚNG luật mà {@link BscScoringService#resolveScorecard}
+     * dùng khi chấm điểm cá nhân: từ đơn vị đi ngược lên cây đơn vị, hết thì lấy thẻ mặc định của
+     * tổ chức; hoà thì thẻ gắn thẳng đợt thắng.
+     *
+     * <p>Trước đây tab tự suy một luật khác (đơn vị → thẻ CÔNG TY → mặc định, ưu tiên ACTIVE rồi
+     * mới nhất). Tổ chức có nhiều thẻ khớp thì hai luật chọn hai thẻ, và tab báo cáo trên một thẻ
+     * khác với thẻ đã sinh ra điểm của nhân viên.
      */
     private BscScorecard resolveRoot(UUID orgId, UUID orgUnitId, UUID periodId) {
-        if (orgUnitId != null) {
-            BscScorecard unitCard = preferActive(scorecardRepository.findByOrgUnitAndPeriod(orgId, orgUnitId, periodId));
-            if (unitCard != null) return unitCard;
-        }
-        BscScorecard company = preferActive(scorecardRepository.findCompanyByPeriod(orgId, periodId));
-        if (company != null) return company;
-        return preferActive(scorecardRepository.findDefaultByPeriod(orgId, periodId));
-    }
-
-    private static BscScorecard preferActive(List<BscScorecard> cards) {
-        if (cards == null || cards.isEmpty()) return null;
-        return cards.stream()
-                .sorted(Comparator
-                        .comparing((BscScorecard s) -> s.getStatus() == BscScorecardStatus.ACTIVE ? 0 : 1)
-                        .thenComparing(s -> s.getCreatedAt() == null ? Instant.EPOCH : s.getCreatedAt(), Comparator.reverseOrder()))
-                .findFirst().orElse(null);
+        OrgUnit unit = orgUnitId == null ? null : orgUnitRepository.findById(orgUnitId).orElse(null);
+        return scoringService.resolveScorecard(unit, orgId, periodId);
     }
 
     /**
-     * Đợt để soi cho các ô "một đợt": đợt MUỘN NHẤT trong lựa chọn (không chọn thì trong toàn tổ
-     * chức) mà đã có kết quả BSC; không đợt nào có kết quả thì lấy đợt muộn nhất — để ô còn nói
-     * được "đợt X chưa tính" thay vì trống trơn.
+     * Đợt để soi cho các ô "một đợt": đợt MUỘN NHẤT trong lựa chọn mà CHÍNH THẺ GỐC của phạm vi
+     * đã có kết quả; không đợt nào có thì lấy đợt muộn nhất — để ô còn nói được "đợt X chưa tính"
+     * thay vì trống trơn.
+     *
+     * <p>Trước đây chỉ hỏi "đợt này có kết quả nào trong toàn tổ chức không", nên kết quả của một
+     * đơn vị khác đủ để kéo tab sang một đợt mà thẻ gốc chưa tính.
      */
-    private KpiPeriod pickPeriod(UUID orgId, Collection<UUID> periodIds) {
+    private KpiPeriod pickPeriod(UUID orgId, UUID orgUnitId, Collection<UUID> periodIds) {
         List<KpiPeriod> ordered = orderedPeriods(orgId, periodIds);
         if (ordered.isEmpty()) return null;
         for (int i = ordered.size() - 1; i >= 0; i--) {
             KpiPeriod p = ordered.get(i);
-            if (!unitResultRepository.findByOrganizationAndPeriod(orgId, p.getId()).isEmpty()) return p;
+            BscScorecard root = resolveRoot(orgId, orgUnitId, p.getId());
+            if (root != null && unitResultRepository.findByScorecardIdAndKpiPeriodId(root.getId(), p.getId()).isPresent()) return p;
         }
         return ordered.get(ordered.size() - 1);
+    }
+
+    /** Kết quả đợt còn DRAFT = số liệu chưa chốt. Null (chưa tính) KHÔNG phải là nháp. */
+    private static boolean isProvisional(BscUnitResult r) {
+        return r != null && r.getStatus() == com.kpitracking.enums.BscUnitResultStatus.DRAFT;
+    }
+
+    /** Một rổ lĩnh vực trên đường xu hướng; mẫu số theo chính sách của thẻ điểm. */
+    private static void putPerspective(Map<String, Double> out, Map<String, double[]> acc, String code, boolean zeroFill) {
+        double[] a = acc.get(code);
+        if (a == null) return;
+        double denom = zeroFill ? a[2] : a[1];
+        if (denom > 0) out.put(code, a[0] / denom);
     }
 
     /** Các đợt trong lựa chọn (hoặc cả tổ chức), sắp theo ngày bắt đầu tăng dần. */
