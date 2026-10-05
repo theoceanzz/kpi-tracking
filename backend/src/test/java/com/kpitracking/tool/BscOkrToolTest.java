@@ -83,7 +83,8 @@ class BscOkrToolTest {
                 new ObjectMapper());
         support.initToolMapper();
 
-        bscTool = new BscTool(bscService, overviewService, mock(AnalyticsPeriodHelper.class), support);
+        bscTool = new BscTool(bscService, mock(com.kpitracking.service.BscGoalGraphService.class), overviewService,
+                mock(AnalyticsPeriodHelper.class), support);
         okrTool = new OkrTool(okrService, support);
     }
 
@@ -123,7 +124,7 @@ class BscOkrToolTest {
         @DisplayName("thiếu view -> liệt kê ĐỦ năm giá trị hợp lệ để model tự sửa")
         void missingViewListsAll() {
             String out = bscTool.getBsc(
-                    new BscRequest(null, null, null, null, null, null, null), ctx());
+                    new BscRequest(null, null, null, null, null, null, null, null), ctx());
 
             assertRejected(out, "overview", "units", "items", "trend", "cascade", "rankings");
             verify(overviewService, never()).overview(any(), any());
@@ -133,7 +134,7 @@ class BscOkrToolTest {
         @DisplayName("level (tham số cũ) -> lỗi CỨNG chỉ về view=units, không lờ đi")
         void levelIsRejected() {
             String out = bscTool.getBsc(
-                    new BscRequest("overview", null, null, null, null, "MEMBER", null), ctx());
+                    new BscRequest("overview", null, null, null, null, "MEMBER", null, null), ctx());
 
             // Lờ tham số đi thì model tưởng đã xem theo cấp nhân sự rồi kết luận trên số liệu cấp đơn vị.
             assertRejected(out, "level", "units");
@@ -141,10 +142,29 @@ class BscOkrToolTest {
         }
 
         @Test
+        @DisplayName("view=objective thiếu itemName -> lỗi CỨNG, không đoán bừa chỉ tiêu")
+        void objectiveNeedsItemName() {
+            String out = bscTool.getBsc(
+                    new BscRequest("objective", null, null, null, null, null, null, null), ctx());
+
+            assertRejected(out, "itemName");
+        }
+
+        @Test
+        @DisplayName("itemName truyền vào view khác objective -> lỗi CỨNG")
+        void itemNameOnlyForObjective() {
+            String out = bscTool.getBsc(
+                    new BscRequest("overview", null, null, null, null, null, null, "Doanh thu"), ctx());
+
+            assertRejected(out, "itemName", "objective");
+            verify(overviewService, never()).overview(any(), any());
+        }
+
+        @Test
         @DisplayName("limit truyền vào view khác rankings -> lỗi CỨNG")
         void limitOnlyForRankings() {
             String out = bscTool.getBsc(
-                    new BscRequest("trend", null, null, null, null, null, 10), ctx());
+                    new BscRequest("trend", null, null, null, null, null, 10, null), ctx());
 
             assertRejected(out, "limit", "rankings");
         }
@@ -153,7 +173,7 @@ class BscOkrToolTest {
         @DisplayName("có kỳ CUỐI mà thiếu kỳ ĐẦU -> chặn, vì khoảng kỳ khuyết một biên là vô nghĩa")
         void periodRangeNeedsBothEnds() {
             String out = bscTool.getBsc(
-                    new BscRequest("trend", null, null, null, "Tháng 6/2026", null, null), ctx());
+                    new BscRequest("trend", null, null, null, "Tháng 6/2026", null, null, null), ctx());
 
             assertRejected(out, "periodName");
         }
@@ -164,7 +184,7 @@ class BscOkrToolTest {
             UUID other = unitAt("/cty/truyenthong/");
 
             String out = bscTool.getBsc(
-                    new BscRequest("overview", null, other.toString(), null, null, null, null), ctx());
+                    new BscRequest("overview", null, other.toString(), null, null, null, null, null), ctx());
 
             assertRejected(out, "quyền");
             verify(overviewService, never()).overview(any(), any());
@@ -175,7 +195,7 @@ class BscOkrToolTest {
         void defaultsToCallerUnit() {
             when(overviewService.overview(any(), any())).thenReturn(null);
 
-            bscTool.getBsc(new BscRequest("overview", null, null, null, null, null, null), ctx());
+            bscTool.getBsc(new BscRequest("overview", null, null, null, null, null, null, null), ctx());
 
             verify(overviewService).overview(eq(myUnitId), any());
         }

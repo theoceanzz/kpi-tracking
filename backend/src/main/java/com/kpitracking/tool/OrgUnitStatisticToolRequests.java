@@ -218,7 +218,8 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String periodName,    // một đợt, hoặc đợt ĐẦU của khoảng
             @JsonProperty(required = false) String periodNameTo,  // đợt CUỐI của khoảng
             @JsonProperty(required = false) String level,         // không còn dùng
-            @JsonProperty(required = false) Integer limit         // CHỈ view=rankings
+            @JsonProperty(required = false) Integer limit,        // CHỈ view=rankings
+            @JsonProperty(required = false) String itemName       // CHỈ view=objective: tên chỉ tiêu trên thẻ điểm
     ) {}
 
     /**

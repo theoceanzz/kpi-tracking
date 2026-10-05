@@ -31,6 +31,7 @@ import java.util.UUID;
 public class BscTool {
 
     private final BscAnalyticsService bscAnalyticsService;
+    private final com.kpitracking.service.BscGoalGraphService goalGraphService;
     private final BscOverviewService overviewService;
     private final AnalyticsPeriodHelper periodHelper;
     private final ToolSupport support;
@@ -42,6 +43,9 @@ public class BscTool {
             + "view=trend: %đạt BSC qua các đợt, kèm %đạt theo 4 lĩnh vực. "
             + "view=cascade: độ phủ phân rã chỉ tiêu xuống đơn vị (đủ / thiếu / vượt / chưa phân rã). "
             + "view=rankings: xếp hạng nhân sự theo điểm BSC kèm điểm từng lĩnh vực; limit = số dòng. "
+            + "view=objective: MỘT chỉ tiêu trên thẻ điểm (truyền itemName) — thực tế/mục tiêu/sàn, cổng chặn, "
+            + "xu hướng so đợt trước, và ai kéo kết quả: đơn vị nhận phân rã, người, KPI kèm %đạt. "
+            + "Dùng khi người dùng hỏi VÌ SAO một chỉ tiêu chưa đạt. "
             + "Nêu đợt thì truyền periodName; muốn một KHOẢNG đợt thì truyền cả periodName (đợt đầu) và "
             + "periodNameTo (đợt cuối). Bỏ trống: view một đợt lấy đợt muộn nhất có kết quả, view=trend lấy mọi đợt. "
             + "Mặc định là đơn vị hiện tại của bạn, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName. "
@@ -51,7 +55,7 @@ public class BscTool {
             String view = normalizeView(request.view());
             if (view == null) {
                 throw new IllegalArgumentException("Thiếu hoặc sai view. Chỉ nhận: "
-                        + "overview, units, items, trend, cascade, rankings.");
+                        + "overview, units, items, trend, cascade, rankings, objective.");
             }
             rejectWrongParams(view, request);
             UnitRef u = support.resolveUnit(request.unitId(), request.unitName(), context);
@@ -65,6 +69,7 @@ public class BscTool {
                 case "items" -> overviewService.itemAttainment(u.id(), periodIds);
                 case "trend" -> overviewService.attainmentTrend(u.id(), periodIds);
                 case "cascade" -> overviewService.cascadeCoverage(u.id(), periodIds);
+                case "objective" -> objectiveView(u.id(), periodIds, request.itemName());
                 case "rankings" -> bscAnalyticsService.getRankings(
                         u.id(), periodIds, null, null, 0,
                         request.limit() != null && request.limit() > 0 ? request.limit() : 20);
@@ -74,6 +79,28 @@ public class BscTool {
         } catch (Exception e) {
             return support.toolError("get_bsc", e);
         }
+    }
+
+    /**
+     * Tra chỉ tiêu theo TÊN trong chính thẻ điểm gốc của phạm vi — cùng kỷ luật với
+     * {@code resolveUnit}: không nhận id thô từ mô hình, và tên không khớp thì nói ra những tên
+     * đang có thay vì đoán bừa.
+     */
+    private Object objectiveView(UUID unitId, List<UUID> periodIds, String itemName) {
+        var graph = goalGraphService.goalGraph(unitId, periodIds, null, null, 500);
+        String needle = itemName.trim().toLowerCase();
+        var match = graph.getObjectives().stream()
+                .filter(o -> o.getName() != null && o.getName().toLowerCase().contains(needle))
+                .findFirst().orElse(null);
+        if (match == null) {
+            String available = graph.getObjectives().stream()
+                    .map(o -> o.getName() == null ? "" : o.getName())
+                    .filter(n -> !n.isBlank()).limit(20)
+                    .collect(java.util.stream.Collectors.joining(", "));
+            throw new IllegalArgumentException("Không có chỉ tiêu nào tên giống \"" + itemName
+                    + "\" trên thẻ điểm của đợt này." + (available.isBlank() ? "" : " Đang có: " + available + "."));
+        }
+        return goalGraphService.contributors(match.getId(), unitId, periodIds);
     }
 
     private static String normalizeView(String raw) {
@@ -86,6 +113,7 @@ public class BscTool {
             case "trend", "trends", "over_time" -> "trend";
             case "cascade", "cascade_coverage", "coverage" -> "cascade";
             case "rankings", "ranking", "rank" -> "rankings";
+            case "objective", "item", "goal", "drill" -> "objective";
             default -> null;
         };
     }
@@ -101,6 +129,13 @@ public class BscTool {
         if (r.limit() != null && !"rankings".equals(view)) {
             throw new IllegalArgumentException("limit chỉ dùng với view=rankings, không dùng với view="
                     + view + ".");
+        }
+        if (ToolSupport.notBlank(r.itemName()) && !"objective".equals(view)) {
+            throw new IllegalArgumentException("itemName chỉ dùng với view=objective, không dùng với view="
+                    + view + ".");
+        }
+        if ("objective".equals(view) && !ToolSupport.notBlank(r.itemName())) {
+            throw new IllegalArgumentException("view=objective cần itemName — tên chỉ tiêu trên thẻ điểm.");
         }
         if (ToolSupport.notBlank(r.periodNameTo()) && !ToolSupport.notBlank(r.periodName())) {
             throw new IllegalArgumentException("Có periodNameTo thì phải có periodName làm đợt ĐẦU của khoảng.");
