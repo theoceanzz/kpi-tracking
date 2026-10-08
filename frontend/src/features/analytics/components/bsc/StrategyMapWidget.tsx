@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowDownRight, ArrowUpRight, Minus, ShieldAlert, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useFormat } from '@/i18n/useFormat'
 import type { GraphObjective } from '../../api/bscGoalGraphApi'
 import { useBscGoalGraph } from '../../hooks/useBscGoalGraph'
 import {
@@ -26,6 +27,7 @@ export default function StrategyMapWidget({ scope, limit, status, meta }: {
   meta?: React.ReactNode
 }) {
   const { t } = useTranslation('analytics')
+  const { percent } = useFormat()
   const { data: graph, isLoading } = useBscGoalGraph({ ...scope, limit, status: status as never })
   const [hovered, setHovered] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
@@ -33,6 +35,7 @@ export default function StrategyMapWidget({ scope, limit, status, meta }: {
   const adj = useMemo(() => buildAdjacency(graph), [graph])
   const related = useMemo(() => relatedIds(hovered, adj), [hovered, adj])
   const byPerspective = useMemo(() => objectivesByPerspective(graph), [graph])
+  const fmt = (v?: number | null) => (v == null ? '—' : percent(v))
 
   if (!isLoading && (!graph?.scorecardId || graph.objectives.length === 0)) {
     return (
@@ -110,8 +113,11 @@ function ObjectiveCard({ objective: o, dimmed, onHover, onSelect }: {
   onSelect: (id: string) => void
 }) {
   const { t } = useTranslation('analytics')
+  const { percent, number } = useFormat()
   const tone = statusTone(o.status)
   const origin = originKey(o.origin)
+  const fmt = (v?: number | null) => (v == null ? '—' : percent(v))
+  const num = (v?: number | null) => (v == null ? '—' : number(v))
   return (
     <button
       type="button"
@@ -158,19 +164,17 @@ function ObjectiveCard({ objective: o, dimmed, onHover, onSelect }: {
 
 function TrendMark({ trend, delta }: { trend: string; delta?: number | null }) {
   const { t } = useTranslation('analytics')
+  const { number } = useFormat()
   if (trend === 'NEW') return <span>{t('goalGraph.firstPeriod')}</span>
   const Icon = trend === 'UP' ? ArrowUpRight : trend === 'DOWN' ? ArrowDownRight : Minus
   const color = trend === 'UP' ? 'text-emerald-600' : trend === 'DOWN' ? 'text-rose-500' : ''
   return (
     <span className={cn('inline-flex items-center gap-0.5 tabular-nums', color)}>
       <Icon size={11} aria-hidden="true" />
-      {delta != null ? `${delta > 0 ? '+' : ''}${Math.round(delta * 10) / 10}` : ''}
+      {delta != null ? `${delta > 0 ? '+' : ''}${number(delta, { maximumFractionDigits: 1 })}` : ''}
     </span>
   )
 }
 
 /** Nút "Phân tích bằng AI" của BRD — đặt ở bảng chi tiết, dùng lối tắt AI sẵn có. */
 export { Sparkles as StrategyMapAiIcon }
-
-const fmt = (v?: number | null) => (v == null ? '—' : `${Math.round(v * 10) / 10}%`)
-const num = (v?: number | null) => (v == null ? '—' : new Intl.NumberFormat().format(Math.round(v * 100) / 100))

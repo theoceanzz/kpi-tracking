@@ -19,6 +19,7 @@ export type ChartShape =
   | 'sankey'
   | 'histogram' | 'boxplot' | 'heatmap'
   | 'dumbbell' | 'table' | 'metricCard'
+  | 'fishbone'
 
 const AXIS = 'stroke-current opacity-25'
 const INK = 'fill-current opacity-90'
@@ -241,6 +242,17 @@ const SHAPES: Record<ChartShape, ReactNode> = {
       <rect x="29" y="24" width="21" height="4" rx="1.5" className={INK3} />
       <rect x="6" y="31" width="19" height="4" rx="1.5" className={INK2} />
       <rect x="29" y="31" width="21" height="4" rx="1.5" className={INK3} />
+    </>
+  ),
+
+  // Xương sống + bốn nhánh so le + đầu cá. Không vẽ xương con: ở khổ 56×40 chúng thành một đám
+  // gạch không đọc ra gì, mà hình này chỉ cần nói "đây là sơ đồ xương cá".
+  fishbone: (
+    <>
+      <path d="M5 20h38" className="stroke-current opacity-35" strokeWidth="2" strokeLinecap="round" />
+      <path d="M43 20l-6-4v8z" className={INK2} />
+      <path d="M17 20l7-11M29 20l7-11M14 20l7 11M26 20l7 11" fill="none" className="stroke-current opacity-80" strokeWidth="2" strokeLinecap="round" />
+      <rect x="44" y="13" width="9" height="14" rx="3" className={INK} />
     </>
   ),
 

@@ -21,6 +21,20 @@ export function statusLabelKey(status: GoalStatus): string {
   return `goalGraph.status${status.charAt(0)}${status.slice(1).toLowerCase()}`
 }
 
+/**
+ * Trạng thái của một con số %đạt mà server KHÔNG kèm trạng thái sẵn — hiện chỉ dùng cho tổng thẻ
+ * điểm khi nó làm "đầu cá".
+ *
+ * <p>Vẫn là ngưỡng của server (`graph.thresholds`), chỉ là xếp bậc ở client; không có ngưỡng nào
+ * viết cứng ở đây. Mục tiêu thì đã có `objective.status` do server xếp — đừng tính lại bằng hàm này.
+ */
+export function statusOf(percent: number | null | undefined, t: GoalThresholds): GoalStatus {
+  if (percent == null) return 'NO_DATA'
+  if (percent >= t.good) return 'GOOD'
+  if (percent >= t.warn) return 'WARN'
+  return 'BEHIND'
+}
+
 /** Mô tả ngưỡng để người đọc biết màu dựa trên cái gì — ngưỡng do server quyết. */
 export function thresholdHint(t: GoalThresholds): string {
   return `≥ ${t.good}% · ${t.warn}–${t.good}% · < ${t.warn}%`

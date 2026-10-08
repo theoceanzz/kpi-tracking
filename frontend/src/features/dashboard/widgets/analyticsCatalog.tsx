@@ -250,6 +250,10 @@ const ANALYTICS_WIDGETS = perLanguage((): AnalyticsWidgetDef[] => ([
   },
 
   // ── Thẻ điểm BSC (cùng component với tab; mô hình thẻ điểm) ──
+  // Hai ô SƠ ĐỒ của tab — bản đồ chiến lược và xương cá — cố ý KHÔNG có mặt ở đây: chúng cần trọn
+  // chiều ngang, có bảng chi tiết phủ bên phải và một chế độ trình chiếu, nên đặt vào lưới trang
+  // chủ (nơi ô hay bị thu còn 6 cột) là biến chúng thành một đám chữ chồng nhau. Mở ở tab Thống kê
+  // → Thẻ điểm BSC.
   {
     i: 'bsc-overview', title: i18n.t('dashboard:analyticsCatalog.bscHealthOfThePeriod'), groupLabel: GROUP().bsc, bsc: true,
     description: i18n.t('dashboard:analyticsCatalog.thePeriodsBscAchievementNumberOf'),

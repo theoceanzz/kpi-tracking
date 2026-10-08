@@ -86,8 +86,13 @@ export const ChartWrapper = ({ children, title, icon, extraHeaderContent, chrome
           <span className="shrink-0">{icon}</span>
           <span className="truncate">{title}</span>
         </h3>
-        {/* Chừa chỗ cho menu của ô — nó nằm đè lên góc phải trên của thẻ. */}
-        <div className="flex items-center gap-2 shrink-0 pr-9">
+        {/*
+          Chừa chỗ cho cụm điều khiển của ô — nó nằm đè lên góc phải trên của thẻ: nút kéo và nút
+          menu, mỗi cái `w-8`, cộng `gap-0.5` và `right-3` là ~80px. Cụm đó `opacity-0` lúc nghỉ
+          nhưng VẪN nhận chuột (opacity không tắt hit-test), nên chừa thiếu thì mọi thứ đặt trong
+          `extraHeaderContent` bấm không được — không phải bị che, mà bị cướp sự kiện.
+        */}
+        <div className="flex items-center gap-2 shrink-0 pr-20">
           {extraHeaderContent}
         </div>
       </div>

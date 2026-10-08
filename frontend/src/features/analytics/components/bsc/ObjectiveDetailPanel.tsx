@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useFormat } from '@/i18n/useFormat'
 import AiShortcutButton from '../AiShortcutButton'
 import { useBscObjectiveContributors } from '../../hooks/useBscGoalGraph'
 import { statusLabelKey, statusTone } from './goalGraphModel'
@@ -18,9 +19,12 @@ export default function ObjectiveDetailPanel({ itemId, scope, onClose }: {
   onClose: () => void
 }) {
   const { t } = useTranslation('analytics')
+  const { percent, number } = useFormat()
   const { data, isLoading } = useBscObjectiveContributors(itemId, scope)
   const o = data?.objective
   const tone = statusTone(o?.status ?? 'NO_DATA')
+  const fmt = (v?: number | null) => (v == null ? '—' : percent(v))
+  const num = (v?: number | null) => (v == null ? '—' : number(v))
 
   return (
     <div className="absolute inset-y-0 right-0 w-full sm:w-[26rem] z-10 flex flex-col bg-[var(--color-card)] border-l border-[var(--color-border)] shadow-lg">
@@ -120,6 +124,3 @@ function Row({ name, sub, value, danger }: { name: string; sub?: string; value: 
     </div>
   )
 }
-
-const fmt = (v?: number | null) => (v == null ? '—' : `${Math.round(v * 10) / 10}%`)
-const num = (v?: number | null) => (v == null ? '—' : new Intl.NumberFormat().format(Math.round(v * 100) / 100))

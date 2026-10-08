@@ -191,6 +191,7 @@
     "figures": "Figures",
     "figuresAreReadFromTheScorecards": "Figures are read from the scorecard's computed period results (BSC management → Period results); periods not yet \"Recalculated\" show no results.",
     "kpiCascadeCoverage": "KPI cascade coverage",
+    "objectiveFlowFishbone": "Objective flow by branch (fishbone)",
     "peopleRankedByBscScoreOr": "People ranked by BSC score or system score, with scores for each area.",
     "peopleRankingByBscScore": "People ranking by BSC score",
     "rankingCharts": "Ranking charts",
@@ -202,6 +203,7 @@
     "whereEachObjectiveStandsByPerspective": "Where each objective stands, grouped by BSC perspective; click a card for the units, people and KPIs behind it.",
     "whetherAchievementIsGoingUpOr": "Whether achievement is going up or down across periods, splittable by the 4 areas.",
     "whetherEachKpiCascadedToUnits": "Whether each KPI cascaded to units is complete, under or over target.",
+    "whichBranchesPushOrDragTheTarget": "Which branches push the target and which drag it",
     "whichKpisAreMetAndWhich": "Which KPIs are met and which fall short: actual next to target and floor for each scorecard row.",
     "whichUnitsAchieveAndWhichFall": "Which units achieve and which fall short: one dot per unit against the 100% target, red means failing the gate.",
     "whichUnitsAreBlockedByGate": "Which units are blocked by gate KPIs in the period, and on which KPIs."
@@ -1196,14 +1198,18 @@
     "contributingUnits": "Contributing units",
     "draftResult": "Draft result",
     "firstPeriod": "First period",
+    "fishboneHint": "Hover to highlight the related branch · click a bone for details",
     "gateItem": "Gate item",
+    "headChoice": "Fish head",
     "kpiCount": "{{count}} KPIs",
     "kpisInThisObjective": "KPIs under this item",
     "loading": "Loading…",
+    "moreObjectivesOnBranch": "{{count}} more objectives",
     "noDataYet": "No data yet",
     "noKpiLinked": "No KPI is linked to this item yet.",
     "noObjectiveMatchesFilter": "No objective matches this filter.",
     "noPersonYet": "Nobody owns a KPI under this item yet.",
+    "northStar": "North star",
     "noScorecardForThisPeriod": "No BSC scorecard for this period yet.",
     "noUnitCascaded": "This item has not been cascaded to any unit.",
     "notScored": "Not scored",
@@ -1221,6 +1227,11 @@
     "thresholdsComeFromServer": "Colour thresholds come from the server, not the UI",
     "unitsOutsideYourScope": "{{count}} units are outside your scope and are not shown.",
     "weight": "Weight",
-    "weightShare": "Weight {{value}}"
+    "weightShare": "Weight {{value}}",
+    "wholeScorecard": "Whole scorecard"
+  },
+  "presentation": {
+    "exit": "Exit presentation",
+    "open": "Present full screen"
   }
 }

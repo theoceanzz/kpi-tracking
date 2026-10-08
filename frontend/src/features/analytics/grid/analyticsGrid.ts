@@ -361,6 +361,9 @@ export const WIDGET_OPTIONS = perLanguage((): Record<string, OptionField[]> => (
   'mykpi-detail': [SHARED_FIELD()],
   'myobj-detail': [SHARED_FIELD()],
   'bsc-strategy-map': [GOAL_STATUS_FIELD(), GOAL_LIMIT_FIELD()],
+  // Xương cá đọc chung payload với bản đồ nên dùng chung đúng hai tuỳ chọn này; để lệch thì hai ô
+  // sinh hai khoá truy vấn khác nhau và gọi mạng hai lần cho cùng một bộ số.
+  'bsc-fishbone': [GOAL_STATUS_FIELD(), GOAL_LIMIT_FIELD()],
   'bsc-units': [BSC_GATE_FIELD()],
   'bsc-ranking': [BSC_SORT_FIELD()],
 }))
@@ -374,7 +377,8 @@ export const WIDGET_HAS_UNIT: ReadonlySet<string> = new Set([
   'sub-detail',
   // Tab Thẻ điểm BSC: cùng cách, mỗi ô tự thu phạm vi. (Tab So sánh giữa các đơn vị KHÔNG có mặt
   // ở đây: đơn vị ở đó là cây điều hướng của trang.)
-  'bsc-strategy-map', 'bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade', 'bsc-ranking',
+  'bsc-strategy-map', 'bsc-fishbone', 'bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade',
+  'bsc-ranking',
 ])
 
 /** Đơn vị của ô (phạm vi con) — `undefined` = toàn bộ phạm vi quyền của người dùng. */

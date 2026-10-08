@@ -190,6 +190,7 @@
     "figures": "Số liệu",
     "figuresAreReadFromTheScorecards": "Số liệu đọc từ kết quả đợt đã tính của thẻ điểm (Quản lý BSC → Kết quả đợt); đợt chưa \"Tính lại\" thì ô báo chưa có kết quả.",
     "kpiCascadeCoverage": "Độ phủ phân rã chỉ tiêu",
+    "objectiveFlowFishbone": "Luồng mục tiêu theo nhánh (xương cá)",
     "peopleRankedByBscScoreOr": "Nhân sự xếp theo điểm BSC hoặc điểm hệ thống, kèm điểm từng lĩnh vực.",
     "peopleRankingByBscScore": "Xếp hạng nhân sự theo điểm BSC",
     "rankingCharts": "Biểu đồ xếp hạng",
@@ -201,6 +202,7 @@
     "whereEachObjectiveStandsByPerspective": "Từng mục tiêu đang ở đâu, xếp theo lĩnh vực BSC; bấm một thẻ để xem đơn vị, người và KPI đóng góp.",
     "whetherAchievementIsGoingUpOr": "Mức đạt đang lên hay xuống qua các đợt, tách được theo 4 lĩnh vực.",
     "whetherEachKpiCascadedToUnits": "Từng chỉ tiêu đã phân rã xuống đơn vị đủ, thiếu hay vượt mục tiêu.",
+    "whichBranchesPushOrDragTheTarget": "Nhánh nào đang đẩy, nhánh nào đang kéo cái đích",
     "whichKpisAreMetAndWhich": "Chỉ tiêu nào đạt, chỉ tiêu nào hụt: thực tế đặt cạnh mục tiêu và sàn của từng dòng trên thẻ điểm.",
     "whichUnitsAchieveAndWhichFall": "Đơn vị nào đạt, đơn vị nào hụt: mỗi đơn vị một chấm so với mục tiêu 100%, đỏ là không qua cửa chặn.",
     "whichUnitsAreBlockedByGate": "Đơn vị nào đang vướng chỉ tiêu chặn trong đợt, vướng ở chỉ tiêu nào."
@@ -1184,14 +1186,18 @@
     "contributingUnits": "Đơn vị đóng góp",
     "draftResult": "Kết quả còn nháp",
     "firstPeriod": "Đợt đầu",
+    "fishboneHint": "Rê chuột để nổi nhánh liên quan · bấm một xương để xem chi tiết",
     "gateItem": "Hạng mục chặn",
+    "headChoice": "Đầu cá",
     "kpiCount": "{{count}} KPI",
     "kpisInThisObjective": "KPI thuộc chỉ tiêu",
     "loading": "Đang tải…",
+    "moreObjectivesOnBranch": "còn {{count}} mục tiêu",
     "noDataYet": "Chưa có dữ liệu",
     "noKpiLinked": "Chưa có KPI nào gắn vào chỉ tiêu này.",
     "noObjectiveMatchesFilter": "Không mục tiêu nào khớp bộ lọc này.",
     "noPersonYet": "Chưa có ai nhận KPI thuộc chỉ tiêu này.",
+    "northStar": "Đích ngắm",
     "noScorecardForThisPeriod": "Đợt này chưa có thẻ điểm BSC nào.",
     "noUnitCascaded": "Chỉ tiêu này chưa phân rã xuống đơn vị nào.",
     "notScored": "Chưa chấm",
@@ -1209,6 +1215,11 @@
     "thresholdsComeFromServer": "Ngưỡng màu do hệ thống cấp, không đặt ở giao diện",
     "unitsOutsideYourScope": "{{count}} đơn vị ngoài phạm vi quyền của bạn, không hiện ở đây.",
     "weight": "Trọng số",
-    "weightShare": "Trọng số {{value}}"
+    "weightShare": "Trọng số {{value}}",
+    "wholeScorecard": "Cả thẻ điểm"
+  },
+  "presentation": {
+    "exit": "Thoát trình chiếu",
+    "open": "Trình chiếu toàn màn hình"
   }
 }
