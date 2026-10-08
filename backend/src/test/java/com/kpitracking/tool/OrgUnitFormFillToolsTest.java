@@ -1,14 +1,11 @@
 package com.kpitracking.tool;
 
-import com.kpitracking.entity.OrgHierarchyLevel;
-import com.kpitracking.repository.OrgHierarchyLevelRepository;
 import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.service.ai.form.FormPatch;
 import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.service.ai.form.FormSpec.Field;
 import com.kpitracking.tool.KpiAdjustmentFormFillTool.KpiAdjustmentFormFillRequest;
 import com.kpitracking.tool.OrgUnitDrawerFormFillTool.OrgUnitDrawerFormFillRequest;
-import com.kpitracking.tool.OrgUnitFormFillTool.OrgUnitFormFillRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,19 +18,14 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
 import com.kpitracking.service.ai.agent.AgentState;
 import java.util.HashMap;
 import com.kpitracking.service.ai.AiTurn;
 
 /**
- * Test cho ba tool điền form thêm ở đợt này: xin điều chỉnh chỉ tiêu, tạo/sửa đơn vị, và drawer sửa
- * đơn vị.
+ * Test cho hai tool điền form: xin điều chỉnh chỉ tiêu và drawer tạo/sửa đơn vị.
  *
- * <p>Trọng tâm vẫn là các phép so NGƯỢC — thứ chặn tính năng điền bừa. Riêng hai form đơn vị còn
- * phải chứng minh chúng KHÔNG lẫn vào nhau: khai báo khác nhau nên mở form này mà gọi tool kia phải
- * bị từ chối.
+ * <p>Trọng tâm vẫn là các phép so NGƯỢC — thứ chặn tính năng điền bừa.
  */
 class OrgUnitFormFillToolsTest {
 
@@ -51,18 +43,14 @@ class OrgUnitFormFillToolsTest {
     }
 
     private OrgUnitStatisticService service;
-    private OrgHierarchyLevelRepository hierarchy;
     private KpiAdjustmentFormFillTool adjustment;
-    private OrgUnitFormFillTool orgUnit;
     private OrgUnitDrawerFormFillTool drawer;
 
     @BeforeEach
     void setUp() {
         var deps = FormFillTestFixture.create();
         service = deps.service();
-        hierarchy = deps.hierarchyLevels();
         adjustment = new KpiAdjustmentFormFillTool(new FormRegistry(), deps.fill());
-        orgUnit = new OrgUnitFormFillTool(new FormRegistry(), deps.fill());
         drawer = new OrgUnitDrawerFormFillTool(new FormRegistry(), deps.fill());
     }
 
@@ -188,63 +176,6 @@ class OrgUnitFormFillToolsTest {
     }
 
     @Nested
-    @DisplayName("Tạo/sửa đơn vị")
-    class OrgUnitForm {
-
-        @Test
-        @DisplayName("tra cấp bậc theo tên ra UUID thật, hiện TÊN cho người đọc")
-        void resolvesHierarchyLevel() {
-            UUID id = UUID.randomUUID();
-            when(hierarchy.findByOrganizationIdOrderByLevelOrderAsc(any())).thenReturn(List.of(
-                    OrgHierarchyLevel.builder().id(id).unitTypeName("Phòng ban").build(),
-                    OrgHierarchyLevel.builder().id(UUID.randomUUID()).unitTypeName("Nhóm").build()));
-
-            orgUnit.suggestOrgUnitForm(new OrgUnitFormFillRequest(
-                    "Phòng Marketing", "MKT", null, null, null, "phong ban", null, null),
-                    form(FormRegistry.ORG_UNIT_FORM, Map.of()));
-
-            assertThat(st.getFormPatch().entries())
-                    .anySatisfy(e -> {
-                        assertThat(e.field()).isEqualTo("orgHierarchyId");
-                        assertThat(e.value()).as("bỏ dấu vẫn phải khớp").isEqualTo(id.toString());
-                        assertThat(e.display()).isEqualTo("Phòng ban");
-                    });
-        }
-
-        @Test
-        @DisplayName("cấp bậc không có thật thì LIỆT KÊ các cấp đang có, không bịa id")
-        void unknownHierarchyListsAvailable() {
-            when(hierarchy.findByOrganizationIdOrderByLevelOrderAsc(any())).thenReturn(List.of(
-                    OrgHierarchyLevel.builder().id(UUID.randomUUID()).unitTypeName("Phòng ban").build()));
-
-            assertThat(orgUnit.suggestOrgUnitForm(new OrgUnitFormFillRequest(
-                    "X", "X", null, null, null, "Chi nhánh vùng", null, null),
-                    form(FormRegistry.ORG_UNIT_FORM, Map.of())))
-                    .contains("\"error\"").contains("Phòng ban");
-            assertThat(st.getFormPatch()).isNull();
-        }
-
-        @Test
-        @DisplayName("mở form DRAWER mà gọi tool này thì từ chối — hai form khai báo khác nhau")
-        void refusesWhenTheOtherOrgUnitFormIsOpen() {
-            assertThat(orgUnit.suggestOrgUnitForm(new OrgUnitFormFillRequest(
-                    "Phòng Marketing", "MKT", null, null, null, null, null, null),
-                    form(FormRegistry.ORG_UNIT_DRAWER_FORM, Map.of())))
-                    .contains("\"error\"");
-            assertThat(st.getFormPatch()).isNull();
-        }
-
-        @Test
-        @DisplayName("nhắc đủ ô bắt buộc còn thiếu")
-        void reportsStillMissing() {
-            assertThat(orgUnit.suggestOrgUnitForm(new OrgUnitFormFillRequest(
-                    "Phòng Marketing", null, null, null, null, null, null, null),
-                    form(FormRegistry.ORG_UNIT_FORM, Map.of())))
-                    .contains("Còn thiếu bắt buộc").contains("mã đơn vị").contains("cấp bậc");
-        }
-    }
-
-    @Nested
     @DisplayName("Drawer sửa đơn vị")
     class Drawer {
 
@@ -252,7 +183,7 @@ class OrgUnitFormFillToolsTest {
         @DisplayName("trạng thái nhận cả hằng số lẫn nhãn tiếng Việt")
         void statusAcceptsVietnameseLabel() {
             drawer.suggestOrgUnitDrawerForm(new OrgUnitDrawerFormFillRequest(
-                    null, null, null, null, null, null, "Tạm dừng", null),
+                    null, null, null, null, null, null, "Tạm dừng", null, null),
                     form(FormRegistry.ORG_UNIT_DRAWER_FORM, Map.of()));
 
             assertThat(st.getFormPatch().entries())
@@ -266,7 +197,7 @@ class OrgUnitFormFillToolsTest {
         @DisplayName("trạng thái không có thật bị chặn và liệt kê giá trị đúng")
         void unknownStatusRejected() {
             assertThat(drawer.suggestOrgUnitDrawerForm(new OrgUnitDrawerFormFillRequest(
-                    null, null, null, null, null, null, "Đang nghỉ lễ", null),
+                    null, null, null, null, null, null, "Đang nghỉ lễ", null, null),
                     form(FormRegistry.ORG_UNIT_DRAWER_FORM, Map.of())))
                     .contains("\"error\"").contains("ACTIVE");
             assertThat(st.getFormPatch()).isNull();
@@ -280,24 +211,143 @@ class OrgUnitFormFillToolsTest {
                     .as("khai báo drawer không được lẫn ô của form kia").isNull();
         }
 
+        // ── Quan hệ với đơn vị cấp trên (chỉ để vẽ sơ đồ) ──────────────────────────────
+
+        /** Drawer đang mở, có câu người dùng thật; {@code fields} = ô đang hiện (null = client cũ, không lọc). */
+        private InvocationParameters drawerAsked(String question, List<String> fields) {
+            Map<String, Object> m = new HashMap<>(Map.of(
+                    "orgUnitId", UUID.randomUUID().toString(),
+                    "organizationId", UUID.randomUUID().toString(),
+                    "openFormId", FormRegistry.ORG_UNIT_DRAWER_FORM,
+                    "openFormValues", Map.of()));
+            if (fields != null) m.put("openFormFields", fields);
+            st = new AgentState(new AiTurn(question, null, null)); // lượt có câu người dùng thật
+            m.put(AgentState.CONTEXT_KEY, st);
+            return new InvocationParameters(m);
+        }
+
+        private OrgUnitDrawerFormFillRequest relation(String name, String parentRelation) {
+            return new OrgUnitDrawerFormFillRequest(name, null, null, null, null, null, null, parentRelation, null);
+        }
+
+        private Object proposed(String field) {
+            return st.getFormPatch() == null ? null : st.getFormPatch().entries().stream()
+                    .filter(e -> e.field().equals(field)).map(FormPatch.Entry::value).findFirst().orElse(null);
+        }
+
+        @Test
+        @DisplayName("người dùng nói rõ 'ban tham mưu' thì nhận ADVISORY")
+        void advisoryWhenUserSaysSo() {
+            drawer.suggestOrgUnitDrawerForm(relation(null, "ADVISORY"),
+                    drawerAsked("Đơn vị này là ban tham mưu cho giám đốc", null));
+            assertThat(proposed("parentRelation")).isEqualTo("ADVISORY");
+        }
+
+        @Test
+        @DisplayName("người dùng nói 'ban kiểm soát độc lập' thì nhận SUPERVISORY")
+        void supervisoryWhenUserSaysSo() {
+            drawer.suggestOrgUnitDrawerForm(relation(null, "SUPERVISORY"),
+                    drawerAsked("Đặt đơn vị này là ban kiểm soát độc lập", null));
+            assertThat(proposed("parentRelation")).isEqualTo("SUPERVISORY");
+        }
+
+        @Test
+        @DisplayName("DIRECT (cả nhãn tiếng Việt) luôn nhận, không cần từ khoá")
+        void directAlwaysAccepted() {
+            drawer.suggestOrgUnitDrawerForm(relation(null, "Trực tuyến"), drawerAsked("Sửa lại cho đúng", null));
+            assertThat(proposed("parentRelation")).isEqualTo("DIRECT");
+        }
+
+        @Test
+        @DisplayName("NGƯỢC — chỉ có TÊN 'Ban Kiểm soát' thì không suy ra SUPERVISORY; ô khác vẫn điền")
+        void doesNotGuessFromUnitName() {
+            String out = drawer.suggestOrgUnitDrawerForm(relation("Ban Kiểm soát", "SUPERVISORY"),
+                    drawerAsked("Đổi tên đơn vị thành Ban Kiểm soát", null));
+
+            assertThat(proposed("parentRelation")).isNull();
+            assertThat(proposed("name")).isEqualTo("Ban Kiểm soát");
+            assertThat(out).contains("Bỏ qua ô quan hệ").doesNotContain("\"error\"");
+        }
+
+        @Test
+        @DisplayName("NGƯỢC — 'hạch toán độc lập' không phải giám sát độc lập")
+        void independentAccountingIsNotSupervisory() {
+            drawer.suggestOrgUnitDrawerForm(relation("Chi nhánh Đà Nẵng", "SUPERVISORY"),
+                    drawerAsked("Đổi tên thành Chi nhánh Đà Nẵng, đây là chi nhánh hạch toán độc lập", null));
+            assertThat(proposed("parentRelation")).isNull();
+            assertThat(proposed("name")).isEqualTo("Chi nhánh Đà Nẵng");
+        }
+
+        @Test
+        @DisplayName("NGƯỢC — 'phòng tư vấn khách hàng' là đơn vị trực tuyến, không phải tham mưu")
+        void customerAdvisoryDeptIsNotAdvisory() {
+            drawer.suggestOrgUnitDrawerForm(relation("Phòng tư vấn khách hàng", "ADVISORY"),
+                    drawerAsked("Đổi tên thành Phòng tư vấn khách hàng", null));
+            assertThat(proposed("parentRelation")).isNull();
+            assertThat(proposed("name")).isEqualTo("Phòng tư vấn khách hàng");
+        }
+
+        @Test
+        @DisplayName("NGƯỢC — 'phòng giám sát chất lượng' không phải giám sát độc lập")
+        void qualityControlDeptIsNotSupervisory() {
+            drawer.suggestOrgUnitDrawerForm(relation(null, "SUPERVISORY"),
+                    drawerAsked("Đây là phòng giám sát chất lượng", null));
+            assertThat(proposed("parentRelation")).isNull();
+        }
+
+        @Test
+        @DisplayName("NGƯỢC — không đọc được câu người dùng thì không nhận ADVISORY/SUPERVISORY")
+        void noQuestionNoSideRelation() {
+            drawer.suggestOrgUnitDrawerForm(relation("Phòng A", "ADVISORY"),
+                    form(FormRegistry.ORG_UNIT_DRAWER_FORM, Map.of()));
+            assertThat(proposed("parentRelation")).isNull();
+            assertThat(proposed("name")).isEqualTo("Phòng A");
+        }
+
+        @Test
+        @DisplayName("giá trị sai bị BỎ QUA — không làm hỏng các ô còn lại, không báo lỗi")
+        void invalidValueIgnored() {
+            String out = drawer.suggestOrgUnitDrawerForm(relation("Phòng A", "SONG_SONG"),
+                    drawerAsked("Đổi tên thành Phòng A, đơn vị song song", null));
+
+            assertThat(out).doesNotContain("\"error\"").contains("không hợp lệ");
+            assertThat(proposed("parentRelation")).isNull();
+            assertThat(proposed("name")).isEqualTo("Phòng A");
+        }
+
+        @Test
+        @DisplayName("chỉ đề xuất mỗi ô quan hệ mà sai thì không có bản đề xuất, nói rõ lý do")
+        void onlyInvalidRelationGivesNoPatch() {
+            String out = drawer.suggestOrgUnitDrawerForm(relation(null, "khong biet"),
+                    drawerAsked("Đổi quan hệ", null));
+            assertThat(st.getFormPatch()).isNull();
+            assertThat(out).contains("không hợp lệ").doesNotContain("\"error\"");
+        }
+
+        @Test
+        @DisplayName("đơn vị GỐC: màn hình không có ô quan hệ nên không điền ô đó")
+        void rootUnitHasNoRelationField() {
+            drawer.suggestOrgUnitDrawerForm(relation("Công ty mẹ", "ADVISORY"),
+                    drawerAsked("Đổi tên thành Công ty mẹ, là ban tham mưu", List.of("name", "email", "phone", "address", "unitTypeName")));
+
+            assertThat(proposed("parentRelation")).isNull();
+            assertThat(proposed("name")).isEqualTo("Công ty mẹ");
+        }
+
         @Test
         @DisplayName("KHÔNG mở form thì từ chối")
         void refusesWhenNoFormOpen() {
             assertThat(drawer.suggestOrgUnitDrawerForm(new OrgUnitDrawerFormFillRequest(
-                    "X", "X", "Nhóm", null, null, null, null, null), noForm()))
+                    "X", "X", "Nhóm", null, null, null, null, null, null), noForm()))
                     .contains("\"error\"");
             assertThat(st.getFormPatch()).isNull();
         }
     }
 
     @Test
-    @DisplayName("tỉnh/huyện và vai trò cố ý KHÔNG khai báo ở cả hai form đơn vị")
+    @DisplayName("tỉnh/huyện và vai trò cố ý KHÔNG khai báo ở form đơn vị")
     void addressAndRoleFieldsAreNotFillable() {
-        FormRegistry registry = new FormRegistry();
-        for (String id : List.of(FormRegistry.ORG_UNIT_FORM, FormRegistry.ORG_UNIT_DRAWER_FORM)) {
-            assertThat(registry.find(id).fields()).extracting(Field::name)
-                    .as("form %s", id)
-                    .doesNotContain("provinceId", "districtId", "roleIds");
-        }
+        assertThat(new FormRegistry().find(FormRegistry.ORG_UNIT_DRAWER_FORM).fields()).extracting(Field::name)
+                .doesNotContain("provinceId", "districtId", "roleIds");
     }
 }

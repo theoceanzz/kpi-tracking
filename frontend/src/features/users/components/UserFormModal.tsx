@@ -32,6 +32,8 @@ import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 interface UserFormModalProps {
   open: boolean
@@ -159,9 +161,9 @@ export default function UserFormModal({ open, onClose, editUser }: UserFormModal
   if (!open) return null
 
   return isEdit ? (
-    <EditUserForm editUser={editUser!} onClose={onClose} onSubmit={(data) => updateMutation.mutate(data)} isPending={updateMutation.isPending} canAssignRoles={canAssignRoles} dynamicRoles={dynamicRoles} flattenedUnits={flattenedUnits} orgTree={orgTree || []} rolesData={rolesData || []} />
+    <EditUserForm editUser={editUser!} onClose={onClose} onSubmit={(data) => { if (blockedByTour()) return; updateMutation.mutate(data) }} isPending={updateMutation.isPending} canAssignRoles={canAssignRoles} dynamicRoles={dynamicRoles} flattenedUnits={flattenedUnits} orgTree={orgTree || []} rolesData={rolesData || []} />
   ) : (
-    <CreateUserForm onClose={onClose} onSubmit={(data) => createMutation.mutate(data, { onSuccess: () => onClose() })} isPending={createMutation.isPending} canAssignRoles={canAssignRoles} dynamicRoles={dynamicRoles} flattenedUnits={flattenedUnits} orgTree={orgTree || []} />
+    <CreateUserForm onClose={onClose} onSubmit={(data) => { if (blockedByTour()) return; createMutation.mutate(data, { onSuccess: () => onClose() }) }} isPending={createMutation.isPending} canAssignRoles={canAssignRoles} dynamicRoles={dynamicRoles} flattenedUnits={flattenedUnits} orgTree={orgTree || []} />
   )
 }
 
@@ -267,7 +269,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
 
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('users.form')}
       open
       onClose={onClose}
       size="md"
@@ -277,7 +279,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>{t('UserFormModal.cancel')}</Button>}
           primary={
-            <Button type="submit" form="create-user-form" disabled={isPending}>
+            <Button {...tourAnchor('users.form.submit')} type="submit" form="create-user-form" disabled={isPending}>
               {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
               {t('UserFormModal.create')}
             </Button>
@@ -287,21 +289,21 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
     >
       <DraftNotice draft={draft} className="mb-4" />
       <form id="create-user-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div>
+        <div {...tourAnchor('users.form.name')}>
           <label className="text-label block font-medium mb-1.5">{t('UserFormModal.fullName')} <span className="text-[var(--color-error)]">*</span></label>
           <Input {...register('fullName')} invalid={!!errors.fullName} placeholder={t('UserFormModal.johnDoe')} />
           {errors.fullName && <p className="text-[var(--color-error)] text-xs mt-1">{errors.fullName.message}</p>}
         </div>
-        <div>
+        <div {...tourAnchor('users.form.code')}>
           <label className="text-label block font-medium mb-1.5">{t('UserFormModal.employeeCode')}</label>
           <Input {...register('employeeCode')} placeholder="VD: NV001" />
         </div>
-        <div>
+        <div {...tourAnchor('users.form.email')}>
           <label className="text-label block font-medium mb-1.5">Email <span className="text-[var(--color-error)]">*</span></label>
           <Input {...register('email')} type="email" invalid={!!errors.email} placeholder="name@tochuc.com" />
           {errors.email && <p className="text-[var(--color-error)] text-xs mt-1">{errors.email.message}</p>}
         </div>
-        <div>
+        <div {...tourAnchor('users.form.password')}>
           <label className="text-label block font-medium mb-1.5">{t('UserFormModal.password')} <span className="text-[var(--color-error)]">*</span></label>
           <Input
             {...register('password')}
@@ -365,12 +367,12 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
           )}
           {errors.password && <p className="text-[var(--color-error)] text-xs mt-1">{errors.password.message}</p>}
         </div>
-        <div>
+        <div {...tourAnchor('users.form.phone')}>
           <label className="text-label block font-medium mb-1.5">{t('UserFormModal.phoneNumber')}</label>
           <Input {...register('phone')} invalid={!!errors.phone} placeholder="0912 345 678" />
           {errors.phone && <p className="text-[var(--color-error)] text-xs mt-1">{errors.phone.message}</p>}
         </div>
-        <div>
+        <div {...tourAnchor('users.form.unit')}>
           <label className="text-label block font-medium mb-1.5">{t('UserFormModal.unit')} <span className="text-[var(--color-error)]">*</span></label>
           <Controller
             name="orgUnitId"
@@ -395,7 +397,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
           />
           {errors.orgUnitId && <p className="text-[var(--color-error)] text-xs mt-1">{errors.orgUnitId.message}</p>}
         </div>
-        <div>
+        <div {...tourAnchor('users.form.role')}>
           <label className="text-label block font-medium mb-1.5">{t('UserFormModal.role')} <span className="text-[var(--color-error)]">*</span></label>
           <Controller
             name="role"

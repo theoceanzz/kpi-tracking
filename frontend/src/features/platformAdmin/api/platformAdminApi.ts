@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse, PageResponse } from '@/types/api'
 import { AI_TIMEOUT, type RagChunk, type RagDocument, type RagSearchHit } from '@/features/analytics/api/aiApi'
 
@@ -82,11 +83,7 @@ export const platformAdminApi = {
     const form = new FormData()
     form.append('file', file)
     if (title) form.append('title', title)
-    return axiosInstance
-      .post<ApiResponse<RagDocument>>('/admin/rag/documents', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: AI_TIMEOUT,
-      })
+    return sendMultipart<ApiResponse<RagDocument>>('/admin/rag/documents', form, { responseTimeoutMs: AI_TIMEOUT })
       .then((r) => r.data.data)
   },
 

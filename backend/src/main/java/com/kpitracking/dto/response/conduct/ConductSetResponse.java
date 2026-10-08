@@ -24,5 +24,8 @@ public class ConductSetResponse {
     private List<UUID> kpiCycleIds;
     /** Tổng trọng số hiện tại — UI cảnh báo khi khác 100. */
     private Double totalWeight;
+    /** Mọi tiêu chí, phẳng. Bộ có nhóm thì weight là % trong nhóm và groupId chỉ ra nhóm. */
     private List<ConductCriteriaResponse> criteria;
+    /** Rỗng = bộ không chia nhóm. */
+    private List<ConductGroupResponse> groups;
 }

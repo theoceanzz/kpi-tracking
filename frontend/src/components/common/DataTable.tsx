@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 interface DataTableColumn<T> {
   key: string
@@ -81,7 +82,7 @@ export default function DataTable<T>({
 
   if (data.length === 0) {
     return (
-      <div className="rounded-card border border-dashed border-[var(--color-border)] py-12 text-center text-sm text-[var(--color-muted-foreground)]">
+      <div {...tourAnchor('data.table')} className="rounded-card border border-dashed border-[var(--color-border)] py-12 text-center text-sm text-[var(--color-muted-foreground)]">
         {emptyMessage}
       </div>
     )
@@ -89,7 +90,7 @@ export default function DataTable<T>({
 
   return (
     <>
-      <div className="hidden overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] md:block">
+      <div {...tourAnchor('data.table')} className="hidden overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] md:block">
         <table className="w-full">
           <thead>
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
@@ -159,7 +160,7 @@ export default function DataTable<T>({
         </table>
       </div>
 
-      <div className="space-y-2 md:hidden">
+      <div {...tourAnchor('data.table')} className="space-y-2 md:hidden">
         {data.map((row) => {
           const key = keyExtractor(row)
           const canSelect = selectable && (isRowSelectable?.(row) ?? true)

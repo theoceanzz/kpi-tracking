@@ -1,10 +1,10 @@
-import { useAuthStore } from '@/store/authStore'
+import { useAuthStore, resetSession } from '@/store/authStore'
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi } from '@/features/auth/api/authApi'
 
 export function useAuth() {
-  const { user, isAuthenticated, setAuth, setUser, logout: storeLogout } = useAuthStore()
+  const { user, isAuthenticated, setAuth, setUser } = useAuthStore()
   const navigate = useNavigate()
 
   // Phải gọi server: chỉ backend mới xoá được cookie HttpOnly và thu hồi refresh token.
@@ -15,9 +15,9 @@ export function useAuth() {
     } catch {
       // bỏ qua: dù server không phản hồi, vẫn phải dọn phiên cục bộ
     }
-    storeLogout()
+    resetSession()
     navigate('/login')
-  }, [storeLogout, navigate])
+  }, [navigate])
 
   const refreshUser = useCallback(async () => {
     if (!isAuthenticated) return

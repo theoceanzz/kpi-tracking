@@ -7,6 +7,7 @@ import { useKpiWorkflow } from '../hooks/useKpiWorkflow'
 import { stageIcon, STAGE_HINTS } from '../workflowStageIcons'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /**
  * Thiết lập hiển thị của RIÊNG người đang đăng nhập.
@@ -33,7 +34,7 @@ export default function MyWorkflowPanel() {
   if (!userId || visibleToMe.length === 0) return null
 
   return (
-    <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)] shadow-sm">
+    <div {...tourAnchor('workflow.mine')} className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)] shadow-sm">
       <div className="flex flex-col gap-4 border-b border-[var(--color-border)] p-6 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-card bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)]">
@@ -69,7 +70,7 @@ export default function MyWorkflowPanel() {
                 <p className="mt-1 text-xs font-medium text-[var(--color-muted-foreground)]">{STAGE_HINTS()[stage.code]}</p>
               </div>
 
-              <button
+              <button {...tourAnchor('workflow.mine-toggle')}
                 type="button"
                 onClick={() => toggleStage(userId, stage.code)}
                 title={hidden ? t('MyWorkflowPanel.showThisStepAgain') : t('MyWorkflowPanel.hideThisStepFromMyScreen')}

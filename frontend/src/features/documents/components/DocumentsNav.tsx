@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import type { KbDocument } from '../types'
 import { FileTypeIcon } from './docUi'
 import { useDocumentActions } from './DocumentActions'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 export interface NavItem<K extends string> {
   key: K
@@ -89,7 +90,7 @@ export default function DocumentsNav<K extends string>({ items, active, onSelect
 function NavButton<K extends string>({ item, selected, onSelect }: { item: NavItem<K>; selected: boolean; onSelect: (k: K) => void }) {
   const Icon = item.icon
   return (
-    <button
+    <button {...tourAnchor(`docs.nav.${item.key}`)}
       type="button"
       onClick={() => onSelect(item.key)}
       aria-current={selected ? 'page' : undefined}

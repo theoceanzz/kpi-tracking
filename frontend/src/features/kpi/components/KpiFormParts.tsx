@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
-import { Switch } from '@/components/ui/switch'
+import { SwitchIndicator } from '@/components/ui/switch'
 import { useTranslation } from 'react-i18next'
 
 /**
@@ -75,7 +75,8 @@ export function ToggleCard({ on, onToggle, tone, title, desc }: { on: boolean; o
         <span className={cn('block text-sm font-medium', on && (tone === 'warning' ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]'))}>{title}</span>
         <span className="text-caption block">{desc}</span>
       </span>
-      <Switch checked={on} onCheckedChange={onToggle} size="sm" tabIndex={-1} />
+      {/* Cả thẻ là nút (aria-pressed) — công tắc chỉ để nhìn, xem `SwitchIndicator`. */}
+      <SwitchIndicator checked={on} size="sm" />
     </button>
   )
 }

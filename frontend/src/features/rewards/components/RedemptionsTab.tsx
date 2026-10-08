@@ -12,6 +12,7 @@ import { RedemptionStatus, type Redemption } from '../types'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString(intlDateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -36,7 +37,7 @@ export default function RedemptionsTab() {
 
   return (
     <div id="tour-redemptions-root">
-      <div id="tour-redemptions-filters" className="mb-4 flex flex-wrap gap-1.5">
+      <div {...tourAnchor('redemptions.filters')} id="tour-redemptions-filters" className="mb-4 flex flex-wrap gap-1.5">
         {([['', t('RedemptionsTab.all')], ...Object.entries(REDEMPTION_STATUS_STYLE()).map(([k, v]) => [k, v.label])] as [
           string,
           string,
@@ -53,7 +54,7 @@ export default function RedemptionsTab() {
       {isLoading ? (
         <LoadingSkeleton type="table" rows={4} />
       ) : rows.length === 0 ? (
-        <div className="rounded-card border border-dashed border-[var(--color-border)]">
+        <div {...tourAnchor('data.table')} className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
             title={status ? t('RedemptionsTab.noRequestsInThisStatus') : t('RedemptionsTab.noGiftRedemptionRequestsYet')}
             description={
@@ -222,7 +223,7 @@ export default function RedemptionsTab() {
                     {(row.status === RedemptionStatus.PENDING ||
                       row.status === RedemptionStatus.APPROVED) && (
                       <>
-                        <Button variant="ghost" size="icon-sm" aria-label={
+                        <Button {...tourAnchor('redemptions.retry')} variant="ghost" size="icon-sm" aria-label={
                             row.externalProvider
                               ? t('RedemptionsTab.askTheProviderAgainAndFetch')
                               : t('RedemptionsTab.markTheGiftAsHandedOver')
@@ -233,7 +234,7 @@ export default function RedemptionsTab() {
                           }>
                           <PackageCheck aria-hidden="true" />
                         </Button>
-                        <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={t('RedemptionsTab.rejectAndRefundPoints')} onClick={() => setRejecting(row)} title={t('RedemptionsTab.rejectAndRefundPoints')}>
+                        <Button {...tourAnchor('redemptions.reject')} variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={t('RedemptionsTab.rejectAndRefundPoints')} onClick={() => setRejecting(row)} title={t('RedemptionsTab.rejectAndRefundPoints')}>
                           <XIcon aria-hidden="true" />
                         </Button>
                       </>

@@ -52,6 +52,7 @@ public class KpiApprovalChainService {
 
     private final KpiApprovalFlowRepository flowRepository;
     private final KpiApprovalEventRepository eventRepository;
+    private final com.kpitracking.service.discussion.KpiDiscussionTimeline discussionTimeline;
     private final KpiApprovalStepRepository stepRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final RolePermissionRepository rolePermissionRepository;
@@ -610,6 +611,8 @@ public class KpiApprovalChainService {
                 .reasonI18n(reasonI18n)
                 .detail(detail)
                 .build());
+        // Cùng transaction: dòng hệ thống trong khung thảo luận KPI commit cùng sự kiện duyệt.
+        discussionTimeline.onApprovalEvent(flow, step, action, actor, blankToNull(reason));
     }
 
     private static UUID flowIdOf(KpiApprovalStep s) {

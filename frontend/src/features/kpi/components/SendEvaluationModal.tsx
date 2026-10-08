@@ -6,6 +6,8 @@ import { Search, Mail, Loader2, AlertTriangle, Check, FileSpreadsheet } from 'lu
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 /**
  * Chọn nhân viên để gửi kết quả đánh giá kỳ qua email.
@@ -57,6 +59,7 @@ export default function SendEvaluationModal({
   }
 
   const handleSend = async () => {
+    if (blockedByTour()) return
     if (!selected.size) return
     try {
       await onSend([...selected])
@@ -65,7 +68,7 @@ export default function SendEvaluationModal({
   }
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('send.dialog')}
       open
       onClose={onClose}
       size="lg"
@@ -78,7 +81,7 @@ export default function SendEvaluationModal({
           note={<span className="flex items-center gap-1.5"><FileSpreadsheet size={13} className="shrink-0" aria-hidden="true" /> {t('SendEvaluationModal.eachRecipientGetsAnExcelFile')}</span>}
           secondary={<Button variant="outline" onClick={onClose} disabled={isSending}>{t('SendEvaluationModal.cancel')}</Button>}
           primary={
-            <Button onClick={handleSend} disabled={!selected.size || isSending}>
+            <Button {...tourAnchor('send.submit')} onClick={handleSend} disabled={!selected.size || isSending}>
               {isSending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Mail aria-hidden="true" />}
               {isSending ? t('SendEvaluationModal.sending') : t('SendEvaluationModal.sendToPeople', { count: selected.size })}
             </Button>
@@ -96,7 +99,7 @@ export default function SendEvaluationModal({
       )}
 
       {/* Tìm kiếm + chọn tất cả */}
-      <div className="px-5 pt-4 pb-3 space-y-3">
+      <div {...tourAnchor('send.picker')} className="px-5 pt-4 pb-3 space-y-3">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" size={16} />
           <input
@@ -124,7 +127,7 @@ export default function SendEvaluationModal({
       </div>
 
       {/* Danh sách */}
-      <div className="px-5 pb-5">
+      <div {...tourAnchor('send.list')} className="px-5 pb-5">
         {filtered.length === 0 ? (
           <p className="text-sm text-[var(--color-subtle-foreground)] italic text-center py-10">{t('SendEvaluationModal.noMatchingEmployeesFound')}</p>
         ) : (

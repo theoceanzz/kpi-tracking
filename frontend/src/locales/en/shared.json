@@ -1,129 +1,4 @@
 {
-  "ai_assistant": {
-    "askInPlainLanguage": "🤖 Ask in plain language",
-    "conversationsKeepTheirThreadSoYou": "Conversations keep their thread, so you can follow up with \"what about department B\" without restating the context.",
-    "eachQuestionUsesQuota": "🪙 Each question uses quota",
-    "figuresSummarizedByTheAssistantShould": "Figures summarized by the assistant should still be checked in Analytics before going into official reports.",
-    "kAiCanReadKpiData": "K.AI can read KPI data within the scope you are allowed to see. Ask like you would ask a colleague: \"which department is slowest this cycle\", \"compare last quarter with this quarter\".",
-    "suggestionsAndPastConversations": "💡 Suggestions and past conversations",
-    "theAssistantSeesExactlyWhatYou": "The assistant sees exactly what you are allowed to see — it does not bypass permissions.",
-    "theAssistantUsesTheTokenQuota": "The assistant uses the token quota your unit is allocated each month. When the quota runs out, K.AI stops answering until the next cycle or until more is granted.",
-    "theSuggestionCardsAtTheTop": "The suggestion cards at the top are findings the assistant draws from current figures — click one to dig deeper. The left column keeps past conversations."
-  },
-  "analytics": {
-    "aBoldChipMeansTheCard": "A bold chip means the card has its own range; a faded chip means it follows the default.",
-    "aCardSayingResultsNotComputed": "A card saying \"results not computed\" means that period has not been Recalculated on the scorecard's Period results tab. Figures here read computed results; nothing is made up.",
-    "achievementTrend": "Achievement trend",
-    "addChart": "Add chart",
-    "addsMoreFromTheLibraryOn": "adds more from the library; on a card, grab the dot handle to drag and drop, drag the edge to resize, use the top-right menu to configure, pin or delete.",
-    "againstThe100TargetTheNumber": "against the 100% target, the number of",
-    "aKpiSummaryOfTheUnit": "A KPI summary of the unit you are responsible for: overall progress, late rate, people ranking and risk points — all over the filtered time range.",
-    "alreadyFiltersForLowProgressAnd": "already filters for low progress and near deadlines — that is the first thing worth checking every week.",
-    "amIImprovingOrDeclining": "am I improving or declining.",
-    "amILateOnAnySubmission": "am I late on any submission.",
-    "and": ", and",
-    "atRiskObjectives": "At-risk objectives",
-    "bscAchievement": "BSC achievement",
-    "bscHealthOfThePeriod": "🧭 BSC health of the period",
-    "capturesExactlyTheCardYouAre": ": captures exactly the card you are viewing to paste straight into an email or meeting slide, no screenshot and cropping needed.",
-    "cascadeCoverage": "cascade coverage",
-    "cascadeCoverage2": "Cascade coverage",
-    "changeTheCycleRightOnEach": "⏱️ Change the cycle right on each card",
-    "checkBeforeAsking": "🧾 Check before asking",
-    "childUnitsPerformanceProgressSubmissions": "Child units: performance, progress, submissions",
-    "chooseTheChartsYouWantTo": "🧱 Choose the charts you want to see",
-    "comparesChildUnitsWithEachOther": "compares child units with each other.",
-    "copyImage": "Copy image",
-    "distributionMattersMoreThanTheAverage": "🔲 Distribution matters more than the average",
-    "doNotRankUnitsByAn": "Do not rank units by an average alone — the shape of the distribution tells you what needs fixing.",
-    "dotIsAUnitFailingThe": "dot is a unit failing the gate even if its total may still be high. Switch to \"As a tree\" in the settings panel to see the exact company → department → team order with scorecard status.",
-    "downToEachPerson": "🧑‍🤝‍🧑 Down to each person",
-    "eachCardHasItsOwnTime": "🗓️ Each card has its own time range",
-    "eachCardIsComputedOverThe": "Each card is computed over the time range in the chip row under its title — click the chip to change it. To compare two cycles, change the range and reread the same card; do not compare this cycle's card with another cycle's card.",
-    "eachCardPicksItsOwnTime": "🗓️ Each card picks its own time range",
-    "eachCardPicksItsOwnUnit": "Each card picks its own unit and period in the settings panel. A \"one period\" card takes the latest period with results in the range you chose.",
-    "eachCardsPeriodCycleOrDate": "Each card's period, cycle or date range is shown in the chip row under its title — click to change it for that card alone. To review an old period, open exactly the card you want.",
-    "eachKpiAgainstTargetAndFloor": "Each KPI against target and floor",
-    "eachViewHasAPeriodOr": "Each view has a period or cycle selector. Figures only mean something when you know which time range they belong to.",
-    "evaluationScoresAcrossPeriods": "Evaluation scores across periods:",
-    "evaluationScoresAcrossPeriods2": "Evaluation scores across periods",
-    "everyFigureIsPerCycle": "📅 Every figure is per cycle",
-    "fiveCardsOverallProgressOverallPerformance": "Five cards: overall progress, overall performance, objectives completed, objectives at risk, and total people within your management scope.",
-    "fiveSummaryCardsKpisYouHold": "Five summary cards: KPIs you hold, progress, score and submission status across scored periods.",
-    "fourScorecardFiguresForThePeriod": "Four scorecard figures for the period:",
-    "hoverOverACardAndGrab": "Hover over a card and grab the dot handle to drag it, drag the edge to resize; click",
-    "hoverOverACardOpenThe": "Hover over a card, open the top-right menu and choose",
-    "inEffectHowManyUnits": "in effect, how many units",
-    "isTheBscScorecardIsThe": "is the BSC scorecard: is the company on strategy. The “For” line on each card tells whether that section is yours.",
-    "isTheUnitYouManageAnd": "is the unit you manage, and how that unit compares with others.",
-    "isYourOwnResultsOnlyPeople": "is your own results — only people who submit reports have it.",
-    "kpisTrendsAndCascading": "🎯 KPIs, trends and cascading",
-    "lookAtTheRiskCardFirst": "🚨 Look at the risk card first",
-    "myKpiList": "My KPI list:",
-    "objectivesOfTheWholeUnit": "👥 Objectives of the whole unit",
-    "objectivesThatFallIntoTheRisk": "Objectives that fall into the risk zone rarely get out on their own. Act at mid-cycle and there is time; leave it to the end and all that is left is explaining.",
-    "okrOff": "OKR off",
-    "okrOn": "OKR on",
-    "oneAchievementDotPerUnitThe": "One achievement dot per unit, the vertical line is the 100% target. A",
-    "onNarrowScreensTheTreeIs": "On narrow screens, the tree is behind the \"Choose unit\" button at the top of the content.",
-    "passTheGateItems": "pass the gate items",
-    "peopleByRole": "People by role",
-    "peopleRanking": "People ranking",
-    "personal": "Personal",
-    "plotsAchievementAcrossPeriodsSplittableBy": "plots achievement across periods, splittable by the 4 areas;",
-    "putsActualsNextToTheTarget": "puts actuals next to the target and floor of each scorecard row;",
-    "recordsTheScoreAndCommentsOf": "records the score and comments of each period. If a score is not what you expected, look here before asking your manager — the reason is usually already in the comments.",
-    "red": "red",
-    "scorecardAchievementOfEachUnit": "🏢 Scorecard achievement of each unit",
-    "seeAnEmptyChartCheckThe": "See an empty chart? Check the period selector before concluding there is no data — usually you are on a period where nobody has submitted anything.",
-    "seeOkrOrSeeKpi": "🔀 See OKR or see KPI",
-    "showsAFewIndividualsPullingThe": "shows a few individuals pulling the rest down.",
-    "showsAWholeDepartmentBehindPlan": "shows a whole department behind plan.",
-    "showsKpis": "shows KPIs.",
-    "showsObjectivesAndKeyResults": "shows objectives and key results;",
-    "showsWhichKpisAssignedToUnits": "shows which KPIs assigned to units are complete, short or over.",
-    "showsWhoCarriesWhichObjectiveSo": "shows who carries which objective, so you can spot who is overloaded and who has nothing assigned. The block",
-    "startAtTheTopLevelAnd": "Start at the top level and click a unit to go down to its lower units — all the way to each person.",
-    "submissionApprovalStatus": "Submission approval status:",
-    "takeFiguresOffTheScreen": "📋 Take figures off the screen",
-    "theBlock": "The block",
-    "theCard": "The card",
-    "theCardFollowsClickItTo": "the card follows. Click it to open the settings panel: choose by period, by cycle, or a free date range for that card alone.",
-    "theCardIsViewingClickIt": "the card is viewing. Click it to change it for that card alone — there is no page-wide filter.",
-    "theChipRowUnderEachCards": "The chip row under each card's title shows which",
-    "theColoredStripShowsTheSelected": "The colored strip shows the selected unit's name, level, headcount and total KPIs. It tells you which scope all the figures below refer to.",
-    "theFirstTwoGroupsChangeWith": "The first two groups change with the organization's configuration:",
-    "theFixesAreCompletelyDifferentThe": "The fixes are completely different: the first is a problem of targets set too high or missing resources, the second is about individuals.",
-    "theLayoutIsRememberedForYour": "The layout is remembered for your account only and does not affect anyone else. If you make a mistake, there is a reset-to-default button.",
-    "theLayoutIsRememberedForYour2": "The layout is remembered for your account and does not affect others. If you make a mistake, there is a reset-to-default button in the library.",
-    "theMemberTableAndRatingMatrix": "The member table and rating matrix show how people are spread across ranks. A unit with a nice average but everyone bunched in the middle is very different from a unit with both outstanding and weak people.",
-    "thePictureOfYourUnit": "🏛️ The picture of your unit",
-    "theTrendMattersMoreThanTodays": "📈 The trend matters more than today's number",
-    "theUnitObjectiveAndKrTree": "The \"Unit objective and KR tree\" table below links objectives to the specific KPIs driving them.",
-    "theUnitTreeOnTheLeft": "🌳 The unit tree on the left",
-    "theyAreNotTwoParallelSets": "They are not two parallel sets of cards — only one pair shows at a time, so you will not see all four cards.",
-    "thisIsViewOnlyToAdd": "This is view-only. To add or remove KPIs, change weights, cascade to units or recalculate period results, go to \"Tool setup › BSC management\".",
-    "thisRowOfCardsSummarizesAll": "This row of cards summarizes all the objectives you hold. An objective's progress is aggregated from the key results below it, not entered by hand.",
-    "thisScreenCanBeRearranged": "🧱 This screen can be rearranged",
-    "threeBlocksAnswerThreeQuestions": "🥧 Three blocks answer three questions",
-    "threeGroupsThreeViews": "🔭 Three groups, three views",
-    "timeRange": "time range",
-    "toAddMoreFromTheLibrary": "to add more from the library. All changes save automatically.",
-    "trendChartsShowWhetherYouAre": "Trend charts show whether you are speeding up or stalling. Being at 60% mid-cycle with a flat line is more worrying than 40% on an upward slope.",
-    "twoKindsOfSlowDoNot": "⚠️ Two kinds of slow, do not mix them up",
-    "underEachCardsTitleAChip": "Under each card's title a chip row shows which",
-    "unit": "Unit",
-    "unit2": "unit",
-    "unitAndTimeRangeLiveOn": "🗓️ Unit and time range live on each card",
-    "unitScorecards": "unit scorecards",
-    "whereMyWorkIsStuck": "where my work is stuck.",
-    "whereToEditScorecards": "🔧 Where to edit scorecards",
-    "whereYouAre": "📍 Where you are",
-    "whereYourObjectivesStand": "🎯 Where your objectives stand",
-    "whetherKpisAssignedToUnitsAre": "— whether KPIs assigned to units are complete or short.",
-    "wholeCompany": "Whole company",
-    "yourOwnResults": "📊 Your own results"
-  },
   "AssigneeAvatars": {
     "assignees": "Assignees:"
   },
@@ -223,40 +98,45 @@
     "imageCopiedToTheClipboard": "Image copied to the clipboard!"
   },
   "dashboard": {
-    "addAndRemoveContent": "➕ Add and remove content",
-    "addChart": "Add chart",
+    "addBody": "Click this button to open the chart library — or click Next and the guide will open it for you.",
+    "addTitle": "Add chart",
     "aDeputyBothManagesAnArea": "A deputy both manages an area and has their own KPIs, so the default layout includes one unit-level widget and one personal widget.",
-    "atTheTopOfTheLibrary": "at the top of the library, then adjust it. If you make a mistake there is still an Undo button in the notification that appears.",
-    "click": "Click",
-    "customize": "Customize",
-    "customizeRightOnTheTitleBar": "⚙️ Customize right on the title bar",
-    "eachCardHereIs": "Each card here is",
-    "exactlyTheChartAndExactlyThe": "exactly the chart and exactly the figures",
-    "hideShow": "Hide/Show",
-    "inEditMode": "In edit mode,",
-    "keepsTheWidgetButTemporarilyPuts": "keeps the widget but temporarily puts it away from the grid.",
-    "notSureWhereToStartChoose": "Not sure where to start? Choose a",
-    "onTheAnalyticsStatisticsPageNot": "on the Analytics & Statistics page, not a rebuild — so the numbers always match in both places.",
-    "opensTheWidgetLibraryClickA": "opens the widget library: click a card to add it, click again to remove it.",
+    "autosaveBody": "No Save button needed: the layout is saved when you let go, and Saving / Saved shows here. Each person and role has their own layout.",
+    "autosaveTitle": "Saved automatically",
+    "cardBody": "Click a card to add the chart to the page, click again to remove it. The \"Suggested for you\" label marks charts that fit your position.",
+    "cardTitle": "Click a card to add it",
+    "cellBody": "The figures come straight from the Analytics & Statistics page, so both places always match. Hover over a chart to see details.",
+    "cellTitle": "Each tile is a chart",
+    "doneBody": "Close the library. Everything you added or removed is already saved.",
+    "doneTitle": "Done",
+    "dragBody": "Hold this dotted handle and drag the tile to a new spot. The other tiles shift to make room.",
+    "dragTitle": "Drag to move",
+    "filterBody": "Pick the suggestion chip to see only the charts that fit your position; pick All to see every chart.",
+    "filterTitle": "Filter by your position",
+    "groupsBody": "Click a group name to scroll to it. The number shows how many charts the group has.",
+    "groupsTitle": "Jump to a group",
+    "helpBody": "You now know the Overview page. Click this button to see the guide again — every screen has its own.",
+    "helpTitle": "Review the guide",
+    "introDeputyTitle": "The board for deputy heads",
+    "introDirectorTitle": "The board for directors",
+    "introHeadTitle": "The board for unit heads",
+    "introStaffTitle": "The board for you",
+    "menuBody": "The ⋮ button has Settings, Copy image, Move up/down, Change width and Remove from page. You can rearrange tiles with this menu without a mouse.",
+    "menuTitle": "Tile menu",
     "overviewDeputyHead": "Overview (Deputy head)",
     "overviewDirector": "Overview (Director)",
     "overviewPersonal": "Overview (Personal)",
     "overviewUnitHead": "Overview (Unit head)",
-    "rememberToClickSaveLeavingWith": "Remember to click Save — leaving with Cancel discards all changes from that editing session.",
-    "submissionsAndKpisPendingApprovalAre": "Submissions and KPIs pending approval are under Performance management on the sidebar.",
-    "submittingReportsAndViewingYourEvaluations": "Submitting reports and viewing your evaluations are under \"Mine\" on the sidebar.",
-    "suggestedLayout": "suggested layout",
-    "theBoardForDeputyHeads": "🤝 The board for deputy heads",
-    "theBoardForDirectors": "📊 The board for directors",
-    "theBoardForUnitHeads": "👥 The board for unit heads",
-    "theBoardForYou": "⭐ The board for you",
-    "theHomePageIsYourWidget": "🧩 The home page is your widget grid",
+    "presetsBody": "Apply a whole ready-made set of charts in one click. You are asked to confirm first, and an Undo button is still offered afterwards.",
+    "presetsTitle": "Suggested layouts",
+    "resetBody": "Return the page to the default layout for your role. You are asked to confirm before it resets.",
+    "resetTitle": "Reset layout",
+    "resizeBody": "Drag a corner or edge of the tile to make it bigger or smaller.",
+    "resizeTitle": "Drag a corner to resize",
+    "searchBody": "Type a name or description to filter quickly. Feel free to try it now.",
+    "searchTitle": "Search charts",
     "theHomePageShowsTheKpis": "The home page shows the KPIs you hold: trends over time and a detailed table of each KPI — click a row to see all its submissions and scores.",
-    "theLayoutIsSavedPerPerson": "The layout is saved per person and per role, so however you arrange it, it stays that way next time.",
-    "toEnterEditModeDragAnd": "to enter edit mode: drag and drop to move, drag an edge to resize, or use the arrow buttons on each card if you do not use a mouse.",
     "unitLevelWidgetsHereFollowThe": "Unit-level widgets here follow the scope you manage: the department's progress, who is late, and the ranking of people under you.",
-    "wantToGoDeeperIntoA": "Want to go deeper into a card? Open Analytics — same data, with more time and period filters.",
-    "wantToSeeOnlyYourOwn": "Want to see only your own results? Use the \"Personal dashboard\" switch at the top of the page.",
     "youSeeBothUnitLevelWidgets": "You see both unit-level widgets (KPI trends, performance of each unit, risks, rankings) and your own personal widgets."
   },
   "DashboardCustomizeChrome": {
@@ -347,7 +227,12 @@
     "noFlowsInThisScopeYet": "No flows in this scope yet"
   },
   "GlobalUploadProgress": {
+    "dismiss": "Dismiss",
+    "filesDone": "{{done}}/{{total}} files",
     "processing": "Processing",
+    "reload": "Reload",
+    "retry": "Retry",
+    "takingLong": "This is taking longer than usual. Click Reload if it never finishes.",
     "uploadComplete": "Upload complete",
     "uploadError": "Upload error",
     "uploading": "Uploading..."
@@ -374,105 +259,6 @@
     "noDataToBuildTheDistribution": "No data to build the distribution yet",
     "ofTotal": "% of total",
     "quantity": "Quantity"
-  },
-  "inherited": {
-    "adjustFigures": "adjust figures",
-    "adjustmentRequestsAreUsuallyTimeSensitive": "Adjustment requests are usually time-sensitive. Prioritize items whose",
-    "agreeOnAndApproveGoalsRight": "💡 Agree on and approve goals right from the start of the cycle so employees have a clear work path.",
-    "andEmployeesProgressOverTime": "and employees' progress over time.",
-    "andTheKpiIsInStatus": "and the KPI is in status",
-    "aPowerfulFilteringToolThatLets": "A powerful filtering tool that lets managers easily find and track the KPIs of any employee in the evaluation cycle.",
-    "approvalFlow": "🔄 Approval flow",
-    "approved": "Approved",
-    "approved2": "Approved",
-    "assignWork": "assign work",
-    "atTheEndInIt": "at the end. In it,",
-    "bulkApprove": "Bulk approve",
-    "buttonAsSoonAsYouFinish": "button as soon as you finish part or all of the KPI to update the result.",
-    "cascadeGoals": "🌿 Cascade goals",
-    "cascadeKpi": "Cascade KPI",
-    "centralizedKpiManagement": "🎯 Centralized KPI management",
-    "changeControl": "🔄 Change control",
-    "checkCarefullyTheTargetsYourManager": "💡 Check carefully the \"Targets\" your manager assigned to plan your work effectively.",
-    "clickARequestToSeeThe": "Click a request to see the",
-    "clickEachRowToSeeThe": "Click each row to see the",
-    "clickThe": "Click the",
-    "closelyTrackTheStatusOfEach": "Closely track the status of each KPI from creation to completion.",
-    "closelyTrackYourManagersApprovalProgress": "Closely track your manager's approval progress on your result reports.",
-    "competencyGrowthChart": "competency growth chart",
-    "countdown": "countdown",
-    "detailedReason": "Detailed reason",
-    "duringTheWorkIfObjectiveChanges": "During the work, if objective changes occur in the market or organization, employees can send a request to",
-    "eachRowHasAMenu": "Each row has a menu",
-    "easilyLookUpResultsFromMany": "Easily look up results from many previous cycles to track the",
-    "evaluationDetails": "Evaluation details",
-    "evidenceDocuments": "Evidence documents",
-    "evidenceForTheChange": "📎 Evidence for the change",
-    "fairEvaluation": "🔍 Fair evaluation",
-    "filterByUnit": "🏢 Filter by unit",
-    "filterPrioritize": "⚡ Filter & prioritize",
-    "filterUrgentRequests": "🚥 Filter urgent requests",
-    "forTheManagerToApprove": "for the manager to approve.",
-    "hereYouCanCompareTheGap": "Here you can compare the gap between the employee's self-score and the manager's final approved score.",
-    "historyLookup": "📂 History lookup",
-    "howMuchThisGoalAffectsYour": "How much this goal affects your end-of-cycle total score.",
-    "howTheResultIsMeasuredVnd": "How the result is measured (VND, %, hours, products...).",
-    "ifASubmissionIs": "If a submission is",
-    "ifOverdueTheRequestClosesAutomatically": "⚠️ If overdue, the request closes automatically to keep system data disciplined. If rejected, read the comments carefully to give a more convincing reason next time.",
-    "importantMakeSureTheTotalWeight": "⚠️ IMPORTANT: Make sure the total weight (%) of an employee's KPIs is exactly 100% so the system scores correctly.",
-    "isAboutToRunOutTo": "is about to run out to keep data discipline.",
-    "isAShortcutTo": "is a shortcut to",
-    "kpisThatMeetTheStandardTo": "KPIs that meet the standard to speed up goal setting for the whole department.",
-    "n24Hours": "24 hours",
-    "noteEachRequestOnlyHas": "Note: Each request only has",
-    "onlyAcceptWhenTheReasonIs": "💡 Only accept when the reason is truly reasonable and objective, with evidence attached if needed.",
-    "onlyShownWhenTheOrganizationHas": "Only shown when the organization has turned on",
-    "performanceResults": "📈 Performance results",
-    "personalObjectivesBoard": "📝 Personal objectives board",
-    "progress": "Progress:",
-    "quickHandling": "⚡ Quick handling",
-    "rankingBoard": "🏆 Ranking board",
-    "readYourManagersFeedbackCarefullyThen": ", read your manager's feedback carefully, then edit and resubmit right away.",
-    "rejected": "Rejected",
-    "rememberOnlyKpisInThe": "💡 Remember: only KPIs in the",
-    "reviewDepartmentByDepartmentToEnsure": "Review department by department to ensure fairness and consistent workloads among people in equivalent positions.",
-    "reviewGoals": "🤝 Review goals",
-    "reviewOverview": "📊 Review overview",
-    "setGoals": "✍️ Set goals",
-    "specificMeasurableAchievableRelevantTimeBound": "(Specific, Measurable, Achievable, Relevant, Time-bound).",
-    "startAssigningKpisToYourTeam": "Start assigning KPIs to your team. Keep in mind the principle",
-    "statusOfficiallyTakeEffectAndCount": "status officially take effect and count toward the end-of-cycle evaluation result.",
-    "submissionStatus": "🚥 Submission status",
-    "submit": "\"Submit\"",
-    "summaryFiguresToQuicklyGraspThe": "Summary figures to quickly grasp the workload waiting to be handled and the overall approval progress of the whole unit.",
-    "theEmployeeAttached": "the employee attached.",
-    "theEmployeeGave": "the employee gave.",
-    "theKeyParametersYouNeedTo": "The key parameters you need to master to optimize your score:",
-    "thisIsTheArchiveOfThe": "This is the archive of the full history of reports and evidence you have sent.",
-    "thisIsTheFinalScoreSheet": "This is the final \"score sheet\" reflecting your or your team's effort throughout the evaluation cycle.",
-    "thisIsTheMostImportantStep": "This is the most important step to make sure employees do not set goals too low or too far from reality.",
-    "thisResultIsTheMostImportant": "💡 This result is the most important basis for the company's Reward, Promotion and Training policies.",
-    "tipIfAGoalNoLonger": "Tip: If a goal no longer fits reality, use the \"Request adjustment\" feature to send a proposal to your manager.",
-    "tipLeaveSincereCommentsFeedbackPositive": "💡 Tip: Leave sincere comments (feedback). Positive feedback or constructive suggestions help employees improve their performance noticeably in the next periods.",
-    "tipOnlyApproveWhenYouAre": "Tip: Only approve when you are sure the KPIs follow the company's direction.",
-    "tipTheSystemAutomaticallyCreatesA": "Tip: The system automatically creates a child KPI linked to this KPI, making the KPI flow fully transparent and automatic.",
-    "toSubordinates": "to subordinates.",
-    "trackExecute": "🚀 Track & execute",
-    "trackTheHandlingDeadline": "⏳ Track the handling deadline",
-    "unitOfMeasure": "Unit of measure:",
-    "useFiltersToPrioritizeApprovingImportant": "Use filters to prioritize approving important reports or people with the nearest deadlines.",
-    "waterfall": "waterfall",
-    "weight": "Weight:",
-    "welcomeAllTheTasksAndGoals": "Welcome! All the tasks and goals you need to deliver this cycle are gathered here.",
-    "whenApprovingSubmissionsClickEachRow": "When approving submissions, click each row to see the details of the",
-    "whereTheTargetAdjustmentRequestsYou": "Where the target adjustment requests you have sent to your manager are stored and tracked.",
-    "workLog": "📂 Work log",
-    "youCan": "You can",
-    "youCanFilterByDepartmentKpi": "You can filter by department, KPI status, or search for a specific employee by name.",
-    "youCanQuicklyFilterByEach": "💡 You can quickly filter by each child department for more focused management.",
-    "youCanUseThisDataTo": "💡 You can use this data to cross-check scores or as evidence to defend your work results at the end of the evaluation cycle.",
-    "youMakeTheFinalDecisionOn": "⚠️ You make the final decision on whether to accept these changes.",
-    "yourRequests": "🔄 Your requests"
   },
   "Lollipop": {
     "value": "Value ({{trim}})",
@@ -501,104 +287,6 @@
     "readAloud": "Read aloud",
     "stopReading": "Stop reading"
   },
-  "my_space": {
-    "above": "above",
-    "aCardWithARedDot": "A card with a red dot has unfinished work — usually a submission that is due.",
-    "adjustmentRequest": "adjustment request",
-    "aRedDotIsWorkWaiting": "🔴 A red dot is work waiting on you",
-    "breakingADailyStreakLosesThe": "Breaking a daily streak loses the streak reward and you have to start over.",
-    "certificates": "Certificates",
-    "choose": "Choose",
-    "clickingRedeemDeductsPointsImmediatelyBefore": "Clicking redeem deducts points immediately, before the gift is delivered. The request moves to the tab",
-    "conversionIsOneWayMoneyTo": "Conversion is one-way: money to points is possible, points back to money is not.",
-    "convertAtTheCurrentRate": "🔁 Convert at the current rate",
-    "convertToPoints": "Convert to points",
-    "eachCardShowsThePointPrice": "Each card shows the point price and the remaining quantity. Items you cannot afford yet show clearly how much you are",
-    "eachCriterionHasAScoreField": "Each criterion has a score field and an",
-    "eachRowShowsTheReasonThe": "Each row shows the reason, the giver and the time. This is where to cross-check when your balance does not match what you remember.",
-    "eachTopUpHasItsOwn": "Each top-up has its own transfer description and a validity period. Transfer with the exact description and the system matches it and credits the money automatically, usually within minutes.",
-    "enterTheAmountYouWantTo": "Enter the amount you want to convert and the system immediately shows the points you get. The rate is set by the organization and may change — points are computed at the rate at the exact moment you click convert.",
-    "evaluations": "evaluations",
-    "everyBalanceMovement": "🧾 Every balance movement",
-    "everythingThatIsYours": "👤 Everything that is yours",
-    "evidence": "evidence",
-    "evidenceMattersMoreThanTheScore": "📝 Evidence matters more than the score",
-    "exportExcel": "Export Excel",
-    "exportsTheWholeFormToA": "exports the whole form to a file to save or print.",
-    "fieldTheManagerScoresBasedOn": "field. The manager scores based on the evidence you give, so leaving it empty throws away your own argument.",
-    "fourTabsSpendViewShowOff": "🗂️ Four tabs: spend, view, show off, receive",
-    "giftShop": "Gift shop",
-    "ifAKpiNoLongerFits": ". If a KPI no longer fits, send an",
-    "ifAnItemStaysPendingToo": "If an item stays pending too long, remind the reward manager — your points have already been deducted.",
-    "ifTheCompanyHasNotBuilt": "If the company has not built its own templates, the print screen still offers several designs to choose from.",
-    "ifTheTransferDescriptionIsWrong": "If the transfer description is wrong, the order cannot be matched automatically and an administrator must reconcile it manually.",
-    "inTheTopCornerIsAlways": "in the top corner is always there, whichever tab you are on. Click it to show the transfer QR code with the description to enter.",
-    "isSeparateBecauseTheyAreTwo": "is separate because they are two different balances: reward points and real money.",
-    "isTheKpisAssignedToYou": "is the KPIs assigned to you, submissions sent, evaluation results and adjustment requests you have created.",
-    "itemsWaitingToBeReceived": "📦 Items waiting to be received",
-    "kpis": "KPIs",
-    "longListsArePaginatedUseThe": "Long lists are paginated — use the pagination bar at the bottom to go back to earlier months.",
-    "missingACardTheWalletGroup": "Missing a card? The Wallet group only shows when the organization has turned on the rewards or wallet module.",
-    "noMentalMathNeeded": ", no mental math needed.",
-    "notEveryRewardComesWithA": "Not every reward comes with a certificate — only those where the manager chose to attach one appear here, for you to download or print.",
-    "onceConvertedItCannotBeReversed": "Once converted, it cannot be reversed. Convert just enough for the gift you plan to get, do not convert everything at once.",
-    "onceTheUnitHasFinalizedThe": "Once the unit has finalized the cycle evaluation, the form becomes view-only — then you must ask the manager to unlock it in Cycle evaluation.",
-    "onePeriod": "one period",
-    "or": "or",
-    "outOfStockAndNotEnough": "Out of stock and not enough points are two different things: out of stock means waiting is pointless, not enough points means you can earn more and redeem.",
-    "overdueOrdersAreCancelledAutomaticallyCreate": "Overdue orders are cancelled automatically — create a new order and transfer again. Do not transfer using an old expired QR code, or the money will end up waiting for manual reconciliation.",
-    "pointHistory": "Point history",
-    "pointsAreDeductedTheMomentYou": "⚠️ Points are deducted the moment you click",
-    "receive": "→ receive",
-    "redeemedGifts": "Redeemed gifts",
-    "redeemPointsForGifts": "🛍️ Redeem points for gifts",
-    "reports": "reports",
-    "saveAndExport": "💾 Save and export",
-    "saveSelfAssessment": "Save self-assessment",
-    "savesYourPart": "saves your part.",
-    "selfScoreConduct": "🤝 Self-score conduct",
-    "short": "short",
-    "submit": "→ submit",
-    "theButton": "The button",
-    "theCheckInCardIsPlaced": "The check-in card is placed right below the balance,",
-    "theCheckInCardSitsOutside": "📅 The check-in card sits outside the tabs",
-    "theFeedAboveIsTheReward": "The feed above is the reward activity of the whole organization — see what others are recognized for.",
-    "theFigureBoxesOnTheCard": "The figure boxes on the card show your self-score, the manager's score, the scale, and the criteria set applied this cycle.",
-    "theFourCardsOfTheWork": "The four cards of the Work group run in a loop: receive",
-    "theGroup": "The group",
-    "theNumberOnEachTabIs": "The number on each tab is the number of records in that tab.",
-    "theQrCodeExpires": "⏳ The QR code expires",
-    "thereIsNoRefundButtonThink": "There is no refund button. Think before clicking, especially for expensive items.",
-    "theStatusOfEachRedemptionFrom": "The status of each redemption, from sending the request to being confirmed as delivered.",
-    "theTabRowOnPurposeIf": "the tab row — on purpose: if it were inside a tab, any day you did not open that tab you would lose your streak.",
-    "theWalletHoldsYourRealCash": "The wallet holds your real cash balance: top up by bank transfer, and convert to reward points at the organization's exchange rate.",
-    "theWeightColumnShowsWhichCriteria": "The weight column shows which criteria carry the most weight — put your evidence into those first.",
-    "theWholeCycle": "the whole cycle",
-    "thisCardIsYourCurrentPoint": "This card is your current point balance. Points come from three sources: manager awards, automatic programs and daily check-ins.",
-    "thisIsMoneyNotPoints": "💰 This is money, not points",
-    "thisIsTheSourceLedgerFor": "This is the source ledger for any complaint: the current balance always equals the sum of the rows here.",
-    "toConvert": "to convert,",
-    "toDownloadCertificates": "to download certificates,",
-    "toLookUpEveryMovement": "to look up every movement.",
-    "toOpenTheFormUntilYou": "to open the form. Until you choose, no form appears.",
-    "topUp": "Top up",
-    "topUpByBankTransfer": "🏦 Top up by bank transfer",
-    "topUpFromAnywhere": "➕ Top up from anywhere",
-    "topUpOrders": "Top-up orders",
-    "topUpsConversionsToPointsAnd": "Top-ups, conversions to points and other adjustments, with time and reason.",
-    "toRedeemPoints": "to redeem points,",
-    "toSeeWherePointsComeFrom": "to see where points come from and go,",
-    "toTrackItemsWaitingToBe": "to track items waiting to be received.",
-    "toTrackTopUpsWaitingTo": "to track top-ups waiting to be matched,",
-    "waitingForThePersonInCharge": "waiting for the person in charge to confirm.",
-    "wallet": "Wallet",
-    "walletHistory": "Wallet history",
-    "wherePointsComeFromAndGo": "🧾 Where points come from and go",
-    "work": "Work",
-    "yourCertificates": "🏅 Your certificates",
-    "yourRewardPoints": "🎁 Your reward points",
-    "yourWorkLoop": "🔁 Your work loop"
-  },
   "OnboardingTour": {
     "eachPageHasItsOwnGuide": "Each page has its own guide the first time you visit it. You can also review a guide at any time with the button",
     "onTheTitleBar": "on the title bar.",
@@ -617,57 +305,6 @@
     "of": "of",
     "pageN": "Page {{page}}",
     "nextPage": "Next page"
-  },
-  "performance": {
-    "aLockedRowShowsWhichUnit": "A locked row shows which unit locked it. To edit, you must choose that exact unit and unlock it — there is no way around it.",
-    "and": "and",
-    "andOnlyThenDoesTheNext": ", and only then does the next level approve. Click a level to jump straight to that unit.",
-    "aRedNumberIsWorkWaiting": "🔢 A red number is work waiting on you",
-    "assignKpisToPeopleAndUnits": "Assign KPIs to people and units, then approve the KPIs subordinates propose themselves. Only after this step does the cycle have something to measure.",
-    "avgRatingAndAvgQualitativeAre": "Avg. rating and avg. qualitative are the inputs to rate the whole unit by the standards set in \"Tool setup › Unit rating\".",
-    "chooseTheCycleAndUnitFirst": "🎯 Choose the cycle and unit first",
-    "combinesSeveralPeriodsIntoASummary": "combines several periods into a summary result and rating.",
-    "cycle": "cycle",
-    "cycleEvaluation": "Cycle evaluation",
-    "directManagerAssessment": "Direct manager assessment:",
-    "emailsTheResultsToEachEmployee": "emails the results to each employee.",
-    "employeeSelfAssessment": "Employee self-assessment:",
-    "evaluation": "Evaluation",
-    "exportExcel": "Export Excel",
-    "exportSendAndFinalize": "📤 Export, send and finalize",
-    "exportsTheWholeTableToA": "exports the whole table to a file.",
-    "finalizeDepartmentEvaluation": "Finalize department evaluation",
-    "finalizedScore": "Finalized score:",
-    "isScoringEachSubmissionOfA": "is scoring each submission of a period.",
-    "isTheScoringPartByPeriod": "is the scoring part: by period, then combined into the whole cycle's result.",
-    "isTheSettingAndApprovalPart": "is the setting and approval part: set up KPIs, approve KPIs submitted by subordinates, and handle mid-way adjustment requests.",
-    "kpis": "KPIs",
-    "kpisNotYetApprovedDoNot": "KPIs not yet approved do not count toward results. Clear the approval queue at the start of the cycle.",
-    "lettingTheFirstTwoColumnsDiffer": "Letting the first two columns differ a lot without comments is the most common source of complaints. Write the reason in the comments field.",
-    "locked": "locked",
-    "lockingByLevel": "🔒 Locking by level",
-    "locksTheCycleAndCapturesThe": "locks the cycle and captures the unit rating.",
-    "metricRowAndUnitRating": "📊 Metric row and unit rating",
-    "n1StartOfCycleSetAnd": "1️⃣ Start of cycle: set and lock in KPIs",
-    "n2EndOfPeriodScoring": "2️⃣ End of period: scoring",
-    "nextToItIsTheFinal": "next to it is the final result the manager reads — clearly marked \"provisional\" or \"finalized\".",
-    "periodEvaluation": "Period evaluation",
-    "periodEvaluationScoresEachSubmissionThis": "Period evaluation scores each submission. This screen combines the periods of a cycle into a summary result and official rating.",
-    "sendEvaluations": "Send evaluations",
-    "theGroup": "The group",
-    "theLifeCycleOfAKpi": "📈 The life cycle of a KPI",
-    "theMetricCardsAreTheAverage": "The metric cards are the average scores of the whole unit in the cycle. The block",
-    "theRedNumberOnCardsAnd": "The red number on cards and tabs is the number of items in your own queue. No number means it is clear.",
-    "theResultRecordedForTheCycle": "the result recorded for the cycle.",
-    "theScoreTheyGaveThemselves": "the score they gave themselves.",
-    "theScoreYouGive": "the score you give.",
-    "theWholeScreenIsEmptyThese": "the whole screen is empty. These two selectors decide every figure below; the search box on the left filters within the chosen list.",
-    "thisStripIsTheApprovalChain": "This strip is the approval chain: unit head → higher levels → director. Once a lower level finalizes, the result is",
-    "threeScoreColumnsThreeScorers": "👤 Three score columns, three scorers",
-    "unit": "unit",
-    "unitRating": "Unit rating",
-    "unlockingToEditOverwritesWhatThe": "Unlocking to edit overwrites what the lower level signed off. Only do it for a real mistake, and let them know.",
-    "withoutChoosingA": "Without choosing a"
   },
   "PeriodFilterSelect": {
     "allPeriods": "All periods"
@@ -695,526 +332,6 @@
     "for": "For:",
     "noItemsAreAvailableToYour": "No items are available to your account on this page.",
     "theCurrentRoleHasNoPermission": "The current role has no permission yet, or the related features are off."
-  },
-  "setup_company": {
-    "addEmployees": "add employees",
-    "addingOrRemovingATierAffects": "Adding or removing a tier affects every unit created under the old structure.",
-    "addOneAtATime": "➕ Add one at a time",
-    "aDefaultThatIsTooBroad": "A default that is too broad means a stranger who signs in immediately gets permission to view the whole unit's data. Choose the narrowest role and raise it later.",
-    "administration": "administration",
-    "allAccounts": "👥 All accounts",
-    "alwaysPreviewBeforeSavingSentMail": "Always preview before saving: sent mail cannot be recalled.",
-    "and": "and",
-    "andAssignThemToThoseTwo": "and assign them to those two things.",
-    "approval": "approval",
-    "aRoleIsBothAStandardized": "A role is both a standardized title across the company and the permission set that comes with it.",
-    "asFor": ". As for",
-    "assign": "Assign",
-    "assignTo": "Assign to",
-    "aUnitWithoutAPersonIn": "A unit without a person in charge blocks the KPI approval chain of that whole unit — nobody receives the approvals to handle.",
-    "automaticallyFilledVariables": "🧩 Automatically filled variables",
-    "beCarefulWithPowerfulPermissions": "🔑 Be careful with powerful permissions",
-    "buildTheOrganization": "🏗️ Build the organization",
-    "businessProfile": "🏢 Business profile",
-    "callEverythingByYourNames": "🏷️ Call everything by your names",
-    "chart": "Chart:",
-    "checkConnection": "Check connection",
-    "clearingAFieldReturnsThatItem": "Clearing a field returns that item to its default label — no need to remember the original name.",
-    "click": "Click",
-    "clickACardToOpenIt": "Click a card to open it. The grid shrinks into a thin tab row to make room for the content, and the URL records the section you are viewing so it can be bookmarked.",
-    "clickEachPersonToCompleteTheir": "Click each person to complete their profile:",
-    "companyLevels": "Company levels",
-    "connectToLark": "🔗 Connect to Lark",
-    "connectToLark2": "Connect to Lark",
-    "createAUnitPlaceItUnder": "Create a unit, place it under its parent unit, then assign",
-    "default": "default",
-    "defaultsForTheWholeOrganization": "🔔 Defaults for the whole organization",
-    "doItInTheWrongOrder": "Do it in the wrong order and when you add employees there will be no unit or role to choose.",
-    "doNotGrantTheFullAdministration": "Do not grant the full administration set to a role with many people just for convenience — later configuration changes will be hard to trace to whoever made them.",
-    "eachRowIsAnEventA": "Each row is an event — a KPI needing approval, a new submission, an upcoming deadline. The two switches on the right are",
-    "eachRowIsATierIn": "Each row is a tier in the unit tree, ordered from the top down. You name the unit type of that tier (Division, Branch, Department, Team...) and the title of the person in charge.",
-    "eachRowShowsTheDefaultLabel": "Each row shows the default label, its group, and the technical key faintly below. A label is only how it is displayed: renaming loses no data and changes no permissions.",
-    "editProfile": "Edit profile",
-    "filterByUnitRoleOrAccount": "Filter by unit, role or account status.",
-    "filtersByBothTheDefaultLabels": "filters by both the default labels and the labels you set. After editing, click",
-    "finalizeTheLevelStructureAsSoon": "Finalize the level structure as soon as the organization is created, before building the unit tree and importing people.",
-    "findQuicklyAndEditInBulk": "find quickly and edit in bulk.",
-    "firstBuildThe": "first, build the",
-    "followTheStepsInOrder": "🪜 Follow the steps in order",
-    "forEveryEmployeeAfterEditingRemember": "for every employee. After editing, remember to click",
-    "forLargeStaffListsUse": "For large staff lists, use",
-    "forPeopleWhoJoinAfterThe": "For people who join after the initial import.",
-    "grant": "Grant",
-    "groupedByWhereTheItemAppears": "📍 Grouped by WHERE the item appears",
-    "hereClick": "here → click",
-    "hierarchyChart": "📐 Hierarchy chart",
-    "howManyTiersTheCompanyHas": "— how many tiers the company has and what each is called (Division, Department, Team...).",
-    "howManyTiersYourCompanyHas": "🪜 How many tiers your company has",
-    "howTheAppTalksToEmployees": "— how the app talks to employees.",
-    "importALargeUnitTreeFrom": "Import a large unit tree from Excel instead of creating units one by one — there is an import button right on this screen.",
-    "importFromExcel": "📥 Import from Excel",
-    "importFromExcel2": "import from Excel",
-    "inHtmlModeScriptAndIframe": "In HTML mode, script and iframe tags and onclick handlers are removed on save — this is mail sent outside, so no code is allowed to run.",
-    "insteadOfCreatingByHandDownload": "instead of creating by hand. Download the sample file in the dialog to get the right column order.",
-    "inTheOrganizationTree": "in the organization tree.",
-    "inTheRightCornerOfThis": "in the right corner of this card.",
-    "inTheRightCornerToEdit": "in the right corner to edit them along with the industry, tax code, company size and description.",
-    "inYourCompanysOwnTermsChoose": "in your company's own terms, choose which events send notifications, edit system email content, and connect to Lark.",
-    "isTheSidebarRowsAndEach": "is the sidebar rows, and each following block is the items inside a specific page.",
-    "itIsSplitThisWayBecause": "It is split this way because most screens are now items within a page — a flat list would have over twenty rows without knowing where each one lives.",
-    "leavingTheScreenWithoutSavingLoses": "Leaving the screen without saving loses everything you just typed, with no reminder dialog.",
-    "levelsDecideTheShapeOfThe": "Levels decide the shape of the unit tree. Set them before building the structure; changing them later affects units already created.",
-    "linkWithYourOwnAccount": "👤 Link with your own account",
-    "list": "List:",
-    "listOfEnabledFeatures": "🔎 List of enabled features",
-    "mailCatalogGrouped": "✉️ Mail catalog, grouped",
-    "mailContentIsInAnotherSection": "✉️ Mail content is in another section",
-    "mailToTheInboxAnd": "(mail to the inbox) and",
-    "missingEitherOfTheseThePerson": "Missing either of these, the person receives no KPIs and appears in no report.",
-    "n1BasicDeclarations": "1️⃣ Basic declarations",
-    "n2RolesStructureEmployees": "2️⃣ Roles → Structure → Employees",
-    "n3TheGroupFewPeopleNotice": "3️⃣ The group few people notice",
-    "nameBusinessCodeThen": "Name, business code, then",
-    "navigationBar": "Navigation bar",
-    "nextAndOnlyThen": "next, and only then",
-    "notAssignedMeansNotUsableYet": "📝 Not assigned means not usable yet",
-    "notRequiredToRunButIt": "Not required to run, but it is what makes the app look like your organization's own.",
-    "openTheChartToSeeThe": "Open the chart to see the ranking between titles. This ranking decides the reporting line and the approval chain: who approves whom.",
-    "organization": "Organization",
-    "people": "People",
-    "peopleSigningInFromLarkFor": "People signing in from Lark for the first time get an account created automatically and placed in the unit and role declared in this step. Each person can still be adjusted later.",
-    "permissions": "permissions",
-    "permissionsJustAddedOnLarkOnly": "Permissions just added on Lark only take effect after the app version is approved. Seeing \"Added\" is not enough.",
-    "permissionsOfThe": "Permissions of the",
-    "preview": "Preview",
-    "previewSaveOrResetToDefault": "👁️ Preview, save, or reset to default",
-    "renameAnyItemOnTheMenu": "Rename any item on the menu and inside each page — \"KPI\" to \"Objective\", \"Period\" to \"Month\", however your organization is used to calling them.",
-    "renameEveryMenuItem": "rename every menu item",
-    "renamingDoesNotChangeFunction": "↩️ Renaming does not change function",
-    "rendersATrialMailWithSample": "renders a trial mail with sample data.",
-    "restoreDefault": "Restore default",
-    "returnsTheTemplateToTheOriginal": "returns the template to the original — this button is faded when the template has never been edited.",
-    "rightNextToItAllFields": "right next to it — all fields are saved together.",
-    "roles": "roles",
-    "rolesAndPermissions": "🛡️ Roles and permissions",
-    "sameDataTwoViewsDependingOn": "Same data, two views depending on what you are doing:",
-    "saveChanges": "Save changes",
-    "saveSettings": "Save settings",
-    "searchAndFilter": "🔍 Search and filter",
-    "searchBeforeEditingAndRememberTo": "🔍 Search before editing, and remember to Save",
-    "searchItems": "Search items",
-    "seeTheOverallManagementFlowAnd": "see the overall management flow and relationships between units.",
-    "setEarlyChangeLate": "⏳ Set early, change late",
-    "settingsHereApplyAsThe": "Settings here apply as the",
-    "signInOnceAndTheSystem": ", sign in once, and the system recognizes your company and remembers it — no need to type the organization name or code.",
-    "someItemDisappearedFromTheMenu": "Some item disappeared from the menu? Check this list first.",
-    "someVariablesAreRequiredWithoutThem": "Some variables are required: without them the system refuses to save and shows red right under the editor. Remove the password reset link and the recipient has no way to finish what the mail asks.",
-    "switchBetweenTheVisualEditorAnd": "Switch between the visual editor and full HTML mode without losing content — both modes share the same HTML string.",
-    "system": "System",
-    "thatAreReplacedWhenSendingThe": "that are replaced when sending — the recipient's name, the period name, a link to the task to handle. The list of usable variables appears right next to the editor.",
-    "thatMatchesTheirWork": "that matches their work.",
-    "theBusinessNameAndCodeAppear": "The business name and code appear on exported reports, in system emails and at the top of printouts. Click",
-    "theCard": "The card",
-    "theCentralPlaceToManageEvery": "The central place to manage every user account in the organization.",
-    "theFourSystemSectionsLetYou": "The four System sections let you",
-    "theInAppBellEachTurned": "(the in-app bell), each turned on/off separately.",
-    "theLastCardListsTheModules": "The last card lists the modules the organization is using. This is only where you",
-    "theLeftColumnListsEveryType": "The left column lists every type of mail the system sends. A green dot means the template has been customized; a ✕ means that mail type is off and the system will not send it.",
-    "theLogoAndCoverImageAre": "The logo and cover image are changed separately with the camera button right on the image, without entering edit mode.",
-    "theMailSubjectAndContentThat": "— the mail subject and content — that is in the \"Email settings\" section right next to it.",
-    "theNamesYouSetHereAre": "The names you set here are used throughout the app: when creating new units, on reports, in filters. Use the words employees actually use every day so nobody has to translate in their head.",
-    "theNumberOfPeopleAssignedTo": "The number of people assigned to each main role group, to quickly check whether anyone was missed.",
-    "theNumberOfTiersYouMay": ". The number of tiers you may create follows the structure declared in \"Company levels\".",
-    "thePeopleGroupHasTheRight": "The People group has the right order: create",
-    "thePersonInCharge": "the person in charge",
-    "thereIsAButtonInThe": "There is a button in the previous step that opens Lark's admin page directly — working in two windows side by side is faster.",
-    "theStepsAreNumberedAndUnlock": "The steps are numbered and unlock gradually: declare the app on Lark → paste the",
-    "theSubjectAndContentUse": "The subject and content use",
-    "theSubtitleRightUnderTheHeading": "The subtitle right under the heading counts the items being renamed — a glance tells you how far the company has customized.",
-    "theTableIsSplitIntoBlocks": "The table is split into blocks: the block",
-    "theTopStripShowsTheStatus": "The top strip shows the status right away: whether Lark sign-in is on, and which Lark organization is linked. Once connected, employees sign in with their Lark account, with no extra password to remember.",
-    "thisDecides": "This decides",
-    "thisIsNotJustAChart": "This is not just a chart to look at. The unit tree decides who sees whose data, which path KPIs flow down, and how summary reports roll up.",
-    "thisTreeDecidesALot": "🔗 This tree decides a lot",
-    "threeGroupsThreeQuestions": "🗂️ Three groups, three questions",
-    "tipFilterByStatusToReview": "Tip: filter by status to review locked accounts before each evaluation cycle.",
-    "toRolesThenAssignRolesTo": "to roles, then assign roles to people — do not grant individual permissions to each person.",
-    "toTurnThemOnOffGo": "— to turn them on/off go to \"Tool setup › Modules & features\".",
-    "turnOnBothForUrgentMatters": "Turn on both for urgent matters; for things that repeat often keep only the bell, or employees' inboxes fill up with system mail and they start ignoring the important ones.",
-    "twoChannelsToggledIndependently": "📨 Two channels, toggled independently",
-    "twoWaysToViewTheSame": "👁️ Two ways to view the same tree",
-    "typeAllowInterferingWithOtherPeoples": "type allow interfering with other people's data and changing organization-wide configuration.",
-    "unit": "unit",
-    "unitAndRoleForNewPeople": "🗺️ Unit and role for new people",
-    "unitTree": "unit tree",
-    "useYourCompanysOwnNames": "🏷️ Use your company's own names",
-    "variables": "variables",
-    "visualEditingOrHtmlEditing": "🖊️ Visual editing or HTML editing",
-    "whatToSend": "what to send",
-    "whetherToSend": "whether to send",
-    "whoHoldsWhichRole": "📊 Who holds which role",
-    "whoThisCompanyIsAndHow": "— who this company is and how many levels it has.",
-    "whoWorksWhereAndWhatThey": "— who works where and what they may do.",
-    "view": "view"
-  },
-  "setup_tools": {
-    "aBudgetSoYouDoNot": "💰 A budget so you do not need approval",
-    "aConductCriteriaSetIsA": "A conduct criteria set is a list of conduct criteria with",
-    "aCycle": "A cycle",
-    "aCycleGroupsPeriods": "🗓️ A cycle groups periods",
-    "aCycleGroupsPeriods2": "📆 A cycle groups periods",
-    "aCycleIsAMonthQuarter": "A cycle is a Month / Quarter / Half-year / Year. The two numbers on the card show how many cycles the organization has and how many periods have been grouped into them.",
-    "addAndRemoveLevels": "➕ Add and remove levels",
-    "addAProfileWhenTheSales": "Add a profile when the sales and support divisions need different standards. Each profile is assigned to a group of units (child units inherit) and to a cycle.",
-    "addGift": "Add gift",
-    "addLevel": "Add level",
-    "aKeyResultLinkedToA": "A Key Result linked to a KPI follows that KPI's progress in real time — manual edits will be overwritten.",
-    "aKpiPeriodIsOneOfficial": "A \"KPI period\" is one official round of work and evaluation for the company.",
-    "all": "all",
-    "all2": "All",
-    "allSixStatusesAreShownAs": "All six statuses are shown as chips, not hidden in a dropdown. Pending approval is your work; the other statuses are for looking things up later.",
-    "alwaysKeepADefaultProfileA": "Always keep a default profile. A unit that matches no profile and has no default gets no rating.",
-    "aMissingCardMeansTheOrganization": "A missing card means the organization has that tool turned off — turn it back on in \"Modules & features\".",
-    "aMissingTabMeansTheOrganization": "A missing tab means the organization has the corresponding module off in \"Modules & features\" — not that you lack permission.",
-    "and": "and",
-    "andFillInTheCellValues": ", and fill in the cell values again.",
-    "andQuantitative": "and quantitative",
-    "anObjectivesProgressIsComputedAutomatically": "An Objective's progress is computed automatically from the Key Results under it.",
-    "answersWhichRulesTheOrganizationScores": "answers \"which rules the organization scores by\" — tool toggles, scoring scales, matrix, rating standards. Set once, changed occasionally.",
-    "aPeriod": "A period",
-    "aPeriodIsOneRoundOf": "🗓️ A period is one round of submission and scoring",
-    "applyStandardsToWholeDepartments": "apply standards to whole departments.",
-    "approvingPutsThePointsIntoThe": "Approving puts the points into the employee's wallet immediately. It can be revoked, but the employee has already seen the notification — read the reason before clicking.",
-    "aRatingOnlyComesOutWhen": "A rating only comes out when BOTH AXES exist. A person with only one KPI type is missing an axis — unless the organization turns on Conduct scoring to fill it.",
-    "aResultFallsIntoTheLevel": ". A result falls into the level with the highest threshold it passes — so thresholds must cover everything from 0 upward.",
-    "aSetIsAssignedToOne": ". A set is assigned to one or more cycles; unassigned cycles use the",
-    "asTheOpenOneToJump": "as the open one. To jump to another group, go back to the card grid with the arrow button in the top-left corner.",
-    "atTheBottomSkipSavingAnd": "at the bottom — skip saving and the changes are lost when you leave the screen.",
-    "atTheTopOfTheList": "at the top of the list. When done, click",
-    "automatic": "Automatic:",
-    "automaticButYouStillClickRun": "⚙️ \"Automatic\" but you still click run",
-    "automaticPrograms": "Automatic programs",
-    "automaticProgramsCheckIns": "Automatic programs, Check-ins.",
-    "aWalletOutOfBalanceIs": "A wallet out of balance is a monetary data error, not a business warning. It must be checked immediately, not left pending.",
-    "aWeightedConductCriteriaSetScored": "a weighted conduct criteria set, scored separately on its own form.",
-    "behavioralKpis": "Behavioral KPIs:",
-    "bscScoresAreStillComputedAnd": ": BSC scores are still computed and stored for comparison, but the official score stays the old system score.",
-    "budgets": "Budgets",
-    "byDefaultTheScreenIsIn": "By default the screen is in",
-    "byTheShareOfItsPeople": "by the share of its people reaching each level.",
-    "cardView": "card view",
-    "cellValuesMustBeIntegersOf": "Cell values must be integers of 1 or more, labels must not repeat or be empty — the system blocks saving if violated.",
-    "certificateTemplates": "Certificate templates.",
-    "certificateTemplates2": "Certificate templates",
-    "changingTheScaleMidCycleMeans": "Changing the scale mid-cycle means scored periods and upcoming periods no longer share the same unit of measurement. Finalize it before opening the first cycle.",
-    "changingTheScoringScaleMidCycle": "Changing the scoring scale mid-cycle skews periods already scored. Finalize it before opening the first cycle.",
-    "checkedInToday": "Checked in today",
-    "checkIns": "Check-ins",
-    "choosesALevelDirectly": "chooses a level directly",
-    "chooseThePeriodCyclePreviewThe": ", choose the period/cycle, preview the ranking, and only then award points.",
-    "click": "Click",
-    "clickThePencilIconHereTo": "Click the pencil icon here to enter edit mode: rename the two axes, rename each band, add rows or columns with the buttons",
-    "color": "color",
-    "column": "+ Column",
-    "columnOrderWhenExportingSpreadsheets": "column order when exporting spreadsheets.",
-    "columnsIntoAPersonsFinalRating": "(columns) into a person's final rating. Doing the job well with a poor attitude, or the reverse, never automatically becomes the top rating.",
-    "combineConductScoreWithKpiInto": "combine conduct score with KPI % into an individual rating, then",
-    "conditionsOfSoLevelOrderMatters": "conditions of — so level order matters; use the up/down arrows to reorder.",
-    "conduct": "Conduct:",
-    "conductCriteriaSets": "Conduct criteria sets",
-    "conductScore": "conduct score",
-    "configuration": "Configuration",
-    "convertedToPoints": "Converted to points",
-    "convertResultsIntoScores": "convert results into scores,",
-    "countsPeopleWhoHaveToppedUp": "counts people who have topped up at least once.",
-    "createAnInspiring": "Create an inspiring",
-    "createProgram": "Create program",
-    "createTheCycleFirstThenGo": "Create the cycle first, then go to the \"Evaluation periods\" tab to assign periods to it — a period in no cycle cannot enter the combined evaluation.",
-    "datesDecideEverything": "⚙️ Dates decide everything",
-    "defaultSet": "default set",
-    "deletingACycleDoesNotDelete": "Deleting a cycle does not delete the periods inside — they are only removed from the cycle and become standalone periods.",
-    "doesTheLedgerBalance": "🧾 Does the ledger balance",
-    "doNotConfuseTheTwoBalances": "Do not confuse the two balances. Money can be converted into points, but points CANNOT be converted back into money.",
-    "doNotRunOnASchedule": "do not run on a schedule",
-    "duplicate": "duplicate",
-    "duplicateInsteadOfRetyping": "📑 Duplicate instead of retyping",
-    "each": "Each",
-    "eachCyclesOperations": "each cycle's operations",
-    "eachLevelHasA": "Each level has a",
-    "eachPerson": "each person",
-    "eachScorecardHasTwoModes": "Each scorecard has two modes.",
-    "eachSwitchOpensAnAreaOf": "Each switch opens an area of features: OKR, BSC, behavioral KPIs, waterfall, reward points, wallet. Turn one off and it disappears from the sidebar, the card grid and the evaluation steps.",
-    "edit": "Edit",
-    "editLabelsAddOrRemoveBands": "✏️ Edit labels, add or remove bands",
-    "employeesClickEveryDayThemselves": "📅 Employees click every day themselves",
-    "employeesSubmitReportsByPeriodRatings": "Employees submit reports by period; ratings and rewards are computed by cycle.",
-    "employeesWillSee": "\"Employees will see\"",
-    "evaluationCycle": "evaluation cycle",
-    "evaluationCycles": "Evaluation cycles",
-    "evaluationMatrix": "Evaluation matrix",
-    "evaluationPeriods": "Evaluation periods",
-    "everyKpiActivityIsAttachedTo": "— every KPI activity is attached to a period within a cycle. With no open period, employees cannot submit reports.",
-    "exchangeRate": "💱 Exchange rate",
-    "expiredBudgetsDoNotRenewAutomatically": "Expired budgets do not renew automatically. Review this list at the start of each new cycle.",
-    "filterByNameCycleTypeAnd": "Filter by name, cycle type and time range. The two buttons at the end of the bar switch between",
-    "filterByStatus": "🔖 Filter by status",
-    "filterByStatusToSeparateThe": "Filter by status to separate the",
-    "findAndFilterOldCycles": "🔍 Find and filter old cycles",
-    "findPeopleByNameFilterBy": "Find people by name, filter by role and status, then set each person's quota. Anyone who uses up their allocation stops getting answers from K.AI until more is granted.",
-    "firstLevelFromTheTop": "first level from the top",
-    "firstThenAddSpecific": "first, then add specific",
-    "forgettingToOpenAPeriodMeans": "Forgetting to open a period means the whole organization cannot submit reports — the symptom is often reported as \"the system is broken\".",
-    "forThePeriodEmployeesCanOnly": "for the period. Employees can only submit reports within this range, and the system reminds them automatically when the deadline approaches.",
-    "fromTheListYouDeclareHere": "from the list you declare here. This blue help box explains each column on the spot.",
-    "giftCatalogForPoints": "🛍️ Gift catalog for points",
-    "giftDeliveryQueue": "📦 Gift delivery queue",
-    "giftRedemption": "Gift redemption:",
-    "giftRedemptionRequests": "Gift redemption requests",
-    "gifts": "Gifts",
-    "giftsGiftRedemptionRequests": "Gifts, Gift redemption requests.",
-    "giveApprove": "Give & approve:",
-    "giveNewPoints": "✍️ Give new points",
-    "givingPointsToEmployeesSettingBudgets": ": giving points to employees, setting budgets for managers, and letting points be redeemed for gifts. Real money is in \"Wallet management\".",
-    "groupsSeveralPeriodsIntoOneCombined": "groups several periods into one combined result (quarter, half-year, year).",
-    "happenOpenEvaluationCyclesBuildOkr": "happen: open evaluation cycles, build OKR/BSC, give rewards, manage wallets, allocate AI quotas.",
-    "holding": "Holding",
-    "howManyPointsIsTheScale": "🔢 How many points is the scale",
-    "ifNextCycleOnlyDiffersIn": "If next cycle only differs in a few criteria, use",
-    "ifNothingEverComesInAfter": "If nothing ever comes in after filling them in, it is usually a mistyped account number, or SePay has not been linked. Sending a small test transfer is the fastest way to know the whole chain works.",
-    "ifTheTableIsWiderThan": "If the table is wider than the screen, swipe horizontally inside it — the row label column is pinned so you do not lose track.",
-    "ifTheTotalIsNot100": "If the total is not 100%, the total score can never reach the full scale — the scoring form shows a yellow warning at the top of the table.",
-    "inEditModeEachLevelHas": "In edit mode, each level has a trash button to delete it, and there is",
-    "inEffect": "in effect",
-    "inOfficialModeEvaluationsAreBlocked": "In official mode, evaluations are blocked while any KPI has no item. Clean them all up before switching.",
-    "inTheRightCornerOfThis": "in the right corner of this card to open the fields; the button",
-    "inTheSameGroup": "in the same group",
-    "isAttachedToACycleAnd": "is attached to a cycle and a unit scope. Inside are items split across the four fixed BSC areas, each item with a weight.",
-    "isMoneyToppedUpButNot": "is money topped up but not yet converted into points — this is what the organization owes employees.",
-    "isOneRoundOfSubmissionAnd": "is one round of submission and scoring (usually monthly).",
-    "isOnTheCardAtThe": "is on the card at the top of the section. Choose people, enter points and write a reason — the reason appears on the feed for the whole organization to read, so describe the work specifically.",
-    "isThePartAlreadySpent": "is the part already spent.",
-    "isTheRealCostOfThe": "is the real cost of the feature. Look at these two figures before raising the points per check-in.",
-    "isWhere": "is where",
-    "itTakesEffectImmediatelyAboveThe": "it takes effect immediately. Above the budget, or above the per-time maximum, it becomes a proposal waiting here.",
-    "keyResults": "Key Results",
-    "kpiCompletion": "KPI completion %",
-    "letLowerLevelsAllocateThemselves": "🔁 Let lower levels allocate themselves",
-    "levelScaleForReference": "🎨 Level scale for reference",
-    "limitsAndQrCodeLifetime": "⏲️ Limits and QR code lifetime",
-    "limitsTheAmountPerTopUp": "Limits the amount per top-up and the lifetime of the QR code. When the code expires the top-up order is cancelled automatically and employees create a new one — setting it too short creates many hanging orders.",
-    "lookUpWhenThereIsA": "🔍 Look up when there is a complaint",
-    "maximumScore": "maximum score",
-    "measurableByNumbersRevenueNumberOf": "measurable by numbers — revenue, number of files, error rate.",
-    "mineMyPoints": "Mine › My points",
-    "modeClick": "mode. Click",
-    "monthQuarterYear": "Month, Quarter, Year",
-    "moveWithinTheGroup": "↔️ Move within the group",
-    "mustBeOnForTheQualitative": "must be on for the qualitative scale and the Evaluation matrix to exist.",
-    "n1CreateTheScorecardThenAdd": "1️⃣ Create the scorecard, then add items",
-    "n1StartHere": "1️⃣ Start here",
-    "n2ScoringRules": "2️⃣ Scoring rules",
-    "n3ThenOperations": "3️⃣ Then operations",
-    "name": "name",
-    "nameLevelsInYourCompanysLanguage": "💬 Name levels in your company's language",
-    "newOrganizationsShouldGo": "New organizations should go:",
-    "newOrganizationsShouldGoThroughThe": "New organizations should go through the cards left to right, top to bottom — they are ordered by dependency.",
-    "newScorecard": "New scorecard",
-    "nextToItConvertsAFew": "next to it converts a few common amounts in advance, so you immediately see the effect of the number you enter.",
-    "nextToItReturnsTheWhole": "next to it returns the whole scale to the system defaults.",
-    "noFormulaOnlyLevels": "🗣️ No formula, only levels",
-    "notDeductedFromAnyManagersPersonal": ", not deducted from any manager's personal budget.",
-    "notIncludingExpiredOnesEachBudget": ", not including expired ones. Each budget has its own time range and a progress bar showing how much has been used.",
-    "numberOfPeriodsOnEachRow": "🔗 Number of periods on each row",
-    "objectiveFirstKeyResultsAfter": "➕ Objective first, Key Results after",
-    "objectives": "Objectives",
-    "ofAQuantitativeKpiEveryCompletion": "of a quantitative KPI. Every completion % is converted to this scale, so changing it changes the meaning of every existing score.",
-    "official": "Official",
-    "okrHelpsTheWholeOrganizationFocus": "OKR helps the whole organization focus on the few things that truly have a big impact.",
-    "onceConfiguredOpenAn": "Once configured, open an",
-    "oneCriteriaSetPerCycle": "🤝 One criteria set per cycle",
-    "oneProfilePerGroupOfUnits": "🎯 One profile per group of units",
-    "oneSetOfRulesPerProfile": "📋 One set of rules per profile",
-    "onTheOldSetAndEdit": "on the old set and edit it, instead of creating an empty one. The old set stays unchanged for cycles already scored.",
-    "openAProfileToSeeThe": "Open a profile to see the",
-    "openASetToEditCriterion": "Open a set to edit criterion names and weights. Each criterion's score times its weight, added up, is the conduct score.",
-    "orByShortTermCampaignDepending": "or by short-term campaign, depending on the business's operating model.",
-    "orderedFromHighToLowEach": "ordered from high to low, each level a chain of conditions like \"≥ 30% of people reach Type 4 or above\".",
-    "organizationsCommonFund": "organization's common fund",
-    "outOfStockLocksAutomatically": "📦 Out of stock locks automatically",
-    "parallel": "Parallel",
-    "partFromTheDeliveredPartThe": "part from the delivered part. The number on the tab counts exactly the pending part.",
-    "pastTransactionsKeepTheOldRate": "Past transactions keep the old rate in the history, so changing this number does not falsify past figures.",
-    "pending": "pending",
-    "peopleBalances": "People balances",
-    "peopleWithABudgetCanReward": "People with a budget can reward right away. Above the budget or the per-time maximum, that award becomes a proposal waiting for approval.",
-    "periods": "Periods",
-    "points": "points",
-    "pointsAreDeductedOnRedemption": "⏱️ Points are deducted on redemption",
-    "pointsAwardedByProgramsComeFrom": "Points awarded by programs come from the",
-    "pointsComeFromTheCommonFund": "🏦 Points come from the common fund",
-    "pointsGivenThisMonth": "Points given this month",
-    "pointsPerCheckInTimesHeadcount": "Points per check-in times headcount times working days — a small number here adds up very quickly.",
-    "position": "Position:",
-    "positionValueBsc": "📊 Position · Value · BSC %",
-    "programs": "Programs",
-    "progressUpdatesItself": "📊 Progress updates itself",
-    "qualitative": "Qualitative:",
-    "qualitativeScale": "Qualitative scale",
-    "quantitative": "Quantitative:",
-    "quantitativeScale": "Quantitative scale",
-    "queue": "Queue",
-    "queueOrAll": "🔀 Queue or all",
-    "quotasResetMonthlyUnusedAmountsDo": "Quotas reset monthly — unused amounts do not carry over to the next month.",
-    "rating": "rating",
-    "ratingForTheWholeUnit": "🏢 Rating for the whole unit",
-    "ratingLevels": "🪜 Rating levels",
-    "ratingLevels2": "rating levels",
-    "readTheTableInTwoDirections": "📐 Read the table in two directions",
-    "receivingAccount": "🏧 Receiving account",
-    "recognition": "Recognition:",
-    "resettingToDefaultOverwritesEveryLevel": "Resetting to default overwrites every level you declared, without asking twice and without undo.",
-    "reviewOldPeriods": "🔍 Review old periods",
-    "rewardBudgets": "Reward budgets",
-    "rewardPoints": "Reward points",
-    "rewardPointsNotMoney": "🎁 Reward points, not money",
-    "rewardProposals": "Reward proposals",
-    "rewardProposalsBudgets": "Reward proposals, Budgets.",
-    "rewardsWallet": "Rewards & Wallet:",
-    "rewardTiersDeclaredInTheConfiguration": "Reward tiers declared in the configuration are only defaults — each run can still be edited for that run alone.",
-    "row": "+ Row",
-    "rowsWith": "(rows) with",
-    "run": "▷ Run",
-    "runInParallelThenMakeIt": "🚀 Run in parallel, then make it official",
-    "saveSettings": "Save settings",
-    "scorecard": "scorecard",
-    "scorecardsAcross4Areas": "🧭 Scorecards across 4 areas",
-    "scorersReadExactlyTheNameYou": "Scorers read exactly the name you type here. \"Exceeds expectations / Meets / Needs improvement\" is easier to score consistently than \"Level 1 / Level 2 / Level 3\".",
-    "scoresByItemTheBalanceRadar": "Scores by item, the balance radar and the BSC vs. system score comparison are in",
-    "scoreThreshold": "score threshold",
-    "scoringScales": "Scoring scales",
-    "searchByNameOrEmailFilter": "Search by name or email, filter by unit, then open a wallet to see the person's full movement history.",
-    "sepayReconciliation": "SePay reconciliation",
-    "setItUpBy": "Set it up by",
-    "setThe": "Set the",
-    "setTheRuleOnce": "🏆 Set the rule once",
-    "setupOrderTheFirstTime": "🚦 Setup order the first time",
-    "sevenTabsFourKindsOfWork": "🗂️ Seven tabs, four kinds of work",
-    "shorteningTheEndDateOfA": "Shortening the end date of a running period immediately blocks those who have not submitted yet.",
-    "showsEveryTransactionTheSystemReceived": "shows every transaction the system received, used when looking up an old one.",
-    "showsHowManyPeopleActuallyUse": "shows how many people actually use it, while",
-    "showsHowManyPeriodsTheCycle": "shows how many periods the cycle has grouped. A cycle with 0 periods leaves the cycle evaluation nothing to summarize.",
-    "showsOnlyTransactionsThatNeedYou": "shows only transactions that need you to handle them.",
-    "slowHandlingMeansPeopleHaveLost": "Slow handling means people have lost points without receiving anything — this is the most common source of complaints in the rewards module.",
-    "soManagersCanRewardOnTheir": "(so managers can reward on their own) →",
-    "soPointsHaveSomewhereToBe": "(so points have somewhere to be spent) → and only then turn on",
-    "startAndEndDates": "start and end dates",
-    "statisticsBscScorecard": "Statistics › BSC scorecard",
-    "strategyManagementOkr": "🎯 Strategy management (OKR)",
-    "streakRulesAreDecidedByThe": "Streak rules are decided by the server, not the browser — changing a personal computer's clock cannot cheat it.",
-    "tableView": "table view",
-    "templatesAreUsedWhenPrintingA": "Templates are used when printing a certificate for a reward. Not every reward comes with a certificate — only those where the manager chose to attach one appear in \"Mine › My points › Certificates\".",
-    "thatItSatisfies": "that it satisfies",
-    "thatMeasureSuccess": "that measure success.",
-    "theAccountNumberAndBankCode": "The account number and bank code are",
-    "theAllocationPool": "📊 The allocation pool",
-    "theAmountOfMoneyThatConverts": "The amount of money that converts to 1 point. The table",
-    "theBscScoreReplacesTheSystem": ": the BSC score replaces the system score for evaluations finalized from then on.",
-    "theButton": "The button",
-    "theButtonNextToTheHeading": "The \"?\" button next to the heading opens a long explanation; \"Reset\" returns profiles to the template; \"Save\" saves all profiles at once.",
-    "theCheckInCardShowsOn": "The check-in card shows on the page",
-    "theColorHereIsTheColor": "The color here is the color shown on evaluation tables and in reports, so choose clearly contrasting colors between adjacent levels.",
-    "theColumn": "The column",
-    "theCompanysOwnCertificates": "🏅 The company's own certificates",
-    "theConvertedScoreUsedAsAn": "the converted score, used as an axis of the rating matrix.",
-    "theCorrespondingCompletionLevelWhenComputing": "the corresponding completion level when computing the BSC score — only shown when the organization has BSC on.",
-    "theEmployeeReceives": "the employee receives.",
-    "theFeedAboveTheTabRow": "The feed above the tab row is the reward activity of the whole organization — who was just recognized and for what.",
-    "theFirstSwitchTurnsTheWhole": "The first switch turns the whole feature on/off — when off, the card disappears from employees' screens and the history of points given is kept. Below are the points per check-in and the bonus for consecutive-day streaks.",
-    "theGoldNumberOnATab": "The gold number on a tab is the number of items waiting on you — if there is a number, go to that tab first.",
-    "theGroup": "The group",
-    "theImportButtonHereCanImport": "The \"Import\" button here can import whole scorecards with weights, or just the item catalog — choose the right file type in the dropdown menu.",
-    "theMatrixCombinesThe": "The matrix combines the",
-    "theMatrixInThePreviousSection": "The matrix in the previous section rates",
-    "theNextThreeCardsFormA": "The next three cards form a chain:",
-    "theNumberInThePurpleBlock": "The number in the purple block is the",
-    "theOrganizationsMasterSwitches": "🎛️ The organization's master switches",
-    "thereIsAUrboxGiftCatalog": "There is a \"UrBox gift catalog\" button when the organization has the integration on — get ready-made vouchers instead of entering each item.",
-    "theScorerChoosesAPresetLevel": "the scorer chooses a preset level — attitude, discipline.",
-    "theseThreeCardsShowHowMuch": "These three cards show how much is left to allocate. For the top manager, the pool is the whole company's budget; for unit heads, the pool comes from their own personal quota.",
-    "theSystemKeepsDataForMany": "The system keeps data for many years. Use filters to reopen or compare the configuration of past rounds.",
-    "theTableSuitsComparingDatesCards": "— the table suits comparing dates, cards suit skimming.",
-    "theTextOnTheTableCounts": "The text on the table counts only the budgets",
-    "theTopCardIsYourOwn": "The top card is your own AI tokens — what you use when chatting with K.AI. It is separate from the pool for allocating to others right below.",
-    "theTopLeftCellNamesThe": "The top-left cell names the two axes with arrows showing direction. Follow the row by conduct score, the column by KPI %, and the intersecting cell is the",
-    "theTopStripStatesTheStatus": "The top strip states the status plainly: green means the ledger balances, yellow means there are transactions not matched to an order, amount mismatches, or wallets out of balance with the ledger.",
-    "theTotalWeightMustEqual100": "⚖️ The total weight must equal 100%",
-    "theTotalWeightOfItemsIn": "The total weight of items in a scorecard must equal 100%. A card that is off shows it right on the card.",
-    "theUnitIsPlacedInThe": "The unit is placed in the",
-    "theWalletIsCompletelySeparateFrom": "The wallet is completely separate from reward points: the balance here is money, topped up by bank transfer and reconciled with the bank.",
-    "theWholeDepartment": "the whole department",
-    "thisIsRealMoney": "🏦 This is real money",
-    "thisIsTheMasterSwitchTurning": "This is the master switch. Turning a module on/off here makes other cards on this same grid appear or disappear, as well as sections on other pages.",
-    "thisIsTheSectionToTouch": "This is the section to touch most regularly on the whole page. At the start of each round, open a new period; when it ends, close it to lock the figures.",
-    "thisSectionRates": ". This section rates",
-    "thisTabRowOnlyListsThe": "This tab row only lists the sections",
-    "thisThinRowListsTheCurrent": "This thin row lists the current rating levels with their colors. It is a lookup table throughout editing the conditions below — the level names here are exactly the names you choose in each condition.",
-    "thisWholeSectionRunsOn": "This whole section runs on",
-    "threeFiguresForTheWholeOrganization": "👛 Three figures for the whole organization",
-    "threeScalesThreeKindsOfQuestion": "📏 Three scales, three kinds of question",
-    "toBuildTheVietqrCodeWithout": "to build the VietQR code. Without them, employees cannot create top-up orders.",
-    "toCreateOneThenClickThe": "to create one, then click the card to open it and add items to each area. Items must exist first so there is something to split the weight across.",
-    "toDeclareANewItemName": "to declare a new item: name, image, point price and remaining quantity. This is exactly what employees see in \"Mine › My points › Gift shop\".",
-    "toDeclareTheRuleWhoeverMakes": "to declare the rule: whoever makes the top of the period/cycle gets so many points. Suits rewards that repeat regularly; for one-off rewards use the Reward proposals tab.",
-    "toLookThingsUp": "to look things up,",
-    "toMatchTransferTransactions": "to match transfer transactions.",
-    "toMeasureItAnObjectiveWithout": "to measure it. An Objective without Key Results cannot compute progress.",
-    "tools": "Tools",
-    "toSetTheReceivingAccountAnd": "to set the receiving account and exchange rate,",
-    "turningOffAModuleDoesNot": "Turning off a module does NOT delete existing data — it only hides it. Turn it back on and the old data returns intact.",
-    "turnOnSetPointsRewardStreaks": "🎚️ Turn on, set points, reward streaks",
-    "turnThisSwitchOnAndUnit": "Turn this switch on and unit heads can allocate tokens to their people — deducted from their own quota, not touching your pool.",
-    "twoAxesIntoOneRating": "🔲 Two axes into one rating",
-    "twoDifferentBalancesPointsAndMoney": "two different balances (points and money), toggled independently.",
-    "twoFiguresToCalibrateThePoints": "📈 Two figures to calibrate the points",
-    "twoGroupsTwoKindsOfWork": "🧩 Two groups, two kinds of work",
-    "twoRequiredFields": "two required fields",
-    "twoTimeLayersDoNotMix": "Two time layers, do not mix them up:",
-    "unitRating": "Unit rating",
-    "unlikeQuantitativeTheScorer": "Unlike quantitative, the scorer",
-    "unmatchedTransactionsAreUsuallyBecauseEmployees": "Unmatched transactions are usually because employees used the wrong transfer description. Open the transaction to assign it manually to the right top-up order.",
-    "validityHasATimeLimit": "⏳ Validity has a time limit",
-    "value": "Value:",
-    "valueAndBscAreIndependentA": "Value and BSC % are independent: a level can be worth 3.5 points on a scale of 5 and still count as 80% completion.",
-    "viewConfigureReconcile": "🗂️ View, configure, reconcile",
-    "viewFirstEditLater": "✏️ View first, edit later",
-    "viewOnly": "view-only",
-    "walletConfiguration": "Wallet configuration",
-    "wallets": "Wallets",
-    "walletsOutOfBalanceWithThe": "🚨 Wallets out of balance with the ledger",
-    "weights": "weights",
-    "whatDependsOnWhat": "🔗 What depends on what",
-    "whenAManagerGivesPoints": "When a manager gives points",
-    "whenAWalletIsOutOf": "When a wallet is out of balance with the ledger, a red strip appears right below these three cards. Click the strip to filter exactly the wallets that are off — it is the only way to see which wallets they are.",
-    "whenEmployeesClickRedeemPointsAre": "When employees click redeem, points are deducted immediately, without your approval. The request sits here waiting for you to confirm the gift was delivered.",
-    "whenEmployeesClickThePointsGo": ". When employees click, the points go straight into their wallet, not deducted from any manager's budget.",
-    "whenOnAnalyticsSwitchesFromViewing": "when on, Analytics switches from viewing by KPI to viewing by objective.",
-    "whenOnThereIsASection": "when on, there is a section for building scorecards and a BSC view in Analytics.",
-    "whenSettingUpForTheFirst": "When setting up for the first time, go to Configuration first — without an account number, employees cannot create top-up orders.",
-    "whenTheQuantityReaches0The": "When the quantity reaches 0 the item shows as out of stock for employees and can no longer be redeemed. To stop an item completely, edit the quantity rather than deleting it — deleting loses old redemption history.",
-    "whenTheQuotaRunsOutThe": "📉 When the quota runs out the assistant stops answering",
-    "whenTheyAreUsed": "🖨️ When they are used",
-    "whereToSeeTheResults": "📊 Where to see the results",
-    "whereYouSetStrategic": "Where you set strategic",
-    "withAnEmptyShopRewardPoints": "With an empty shop, reward points cannot be used for anything. Declare a few items before turning on the rewards module.",
-    "withAPoolOf0Nothing": "With a pool of 0, nothing can be allocated. If the company has not been given a budget, contact the system administrator.",
-    "withinTheBudgetNoApprovalNeeded": "🤝 Within the budget, no approval needed",
-    "withinTheirBudget": "within their budget",
-    "withoutADefaultSetUnassignedCycles": "Without a default set, unassigned cycles cannot open scoring forms — employees' conduct screen is empty.",
-    "withoutAnOpenPeriodNobodyCan": "🚦 Without an open period nobody can submit",
-    "withoutAnyTemplateThePrintScreen": "Without any template, the print screen still offers six designs. Templates here are your company's own versions — with a fixed logo, signature and wording.",
-    "withoutGrantingBudgetsToAnyoneEvery": "Without granting budgets to anyone, every point award lands in your approval queue.",
-    "youClick": ". You click",
-    "yourOwnQuota": "🪙 Your own quota"
   },
   "StableGridLayout": {
     "couldNotDraw": "Could not draw \"",
@@ -1253,12 +370,26 @@
     "section": "Section",
     "thisScreenHasAGuideYou": "This screen has a guide you have not seen",
     "userGuide": "User guide",
-    "page": "Page"
+    "page": "Page",
+    "newGuideAvailable": "New guide available",
+    "new": "New",
+    "series": "Next guide"
   },
   "TourHost": {
-    "continue": "CONTINUE",
-    "skip": "SKIP",
-    "step": "Step"
+    "stepOf": "Step {{current}} / {{total}}",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Finish",
+    "close": "Close guide",
+    "closeHint": "Close guide (Esc)",
+    "backHint": "Previous step (←)",
+    "nextHint": "Next step (→)",
+    "resumeTitle": "Pick up where you left off?",
+    "resumeBody": "Last time you stopped at step {{current}} / {{total}} of \"{{title}}\".",
+    "resumeContinue": "Continue from step {{current}}",
+    "resumeRestart": "Start over",
+    "nextTour": "Next: {{title}}",
+    "noSubmit": "The guide is running, so nothing is really saved. Exit the guide (Esc) and try again to save."
   },
   "TrendModeToggle": {
     "composition": "Composition %",
@@ -1306,5 +437,2820 @@
     "allCyclesPeriods": "All cycles / periods",
     "wholeCycle": "Whole cycle {{name}}",
     "clearFilters": "Clear filters"
+  },
+  "kpiCreate": {
+    "part1": "Create a KPI (1/3): Context",
+    "part2": "Create a KPI (2/3): Source and content",
+    "part3": "Create a KPI (3/3): Submit for approval",
+    "introTitle": "Create a KPI",
+    "introBody": "The form has three stages: context (period, unit, assignees), KPI source, then content and figures. The guide only opens the form for you to look at; it creates nothing.",
+    "addTitle": "Open the KPI form",
+    "addBody": "Click \"Create KPI\" to open the form — or click Next and the guide will open it for you.",
+    "typeTitle": "Quantitative or qualitative",
+    "typeBody": "Quantitative KPIs are scored by the figure achieved against the target. Qualitative KPIs have no figure and are scored on the qualitative scale.",
+    "periodTitle": "Choose the period",
+    "periodBody": "A KPI belongs to one period. Periods of a locked cycle are greyed out; the end of the list has a shortcut to create a new period.",
+    "frequencyTitle": "Closing frequency",
+    "frequencyBody": "How often the assignee reports results. The list only offers frequencies no longer than the chosen period type.",
+    "deadlineTitle": "Deadline",
+    "deadlineBody": "Leave it empty to use the end date of the period. A custom deadline must fall within the period.",
+    "unitsTitle": "Implementing unit",
+    "unitsBody": "Click to choose the units that receive the KPI. The chosen units decide who can be assigned and which BSC / OKR applies.",
+    "assigneesTitle": "Assign to",
+    "assigneesBody": "Choose the assignees from the chosen units. When staff create their own KPI, the assignee is always themselves.",
+    "assigneeFilterTitle": "Find assignees",
+    "assigneeFilterBody": "Type a name or email to search, or click a role to show only people with that role.",
+    "sourceTitle": "KPI source",
+    "sourceBody": "Free-form, from a BSC item, or from an OKR key result (KR). Picking a source prefills the target, unit of measure, weight and name.",
+    "sourceBscTitle": "From a BSC item",
+    "sourceBscBody": "Choose an item from the unit's BSC scorecard for this period; the figures on the right are the item's target and weight. If the unit has a scorecard for the period, a scored KPI must be linked to an item or a KR.",
+    "sourceOkrTitle": "From a key result (OKR)",
+    "sourceOkrBody": "Choose a KR under an objective of the chosen unit. The target is prefilled with what the KR still has to achieve.",
+    "reverseTitle": "Inverse KPI",
+    "reverseBody": "Turn on when lower is better, such as error rate or cost. The target field then becomes \"Target threshold\" and the minimum becomes \"Maximum acceptable threshold\".",
+    "bonusTitle": "Bonus KPI",
+    "bonusBody": "An optional KPI that is not part of the 100% weight. The weight field then holds bonus points.",
+    "nameTitle": "KPI name",
+    "nameBody": "Short and clear about what is measured, e.g. \"October revenue\". The name appears in lists, reports and notifications.",
+    "aiTitle": "AI suggestion",
+    "aiBody": "K.AI reads the unit's figures and documents and suggests KPIs. Click Fill on a suggestion to put it straight into this form.",
+    "descriptionTitle": "Detailed description",
+    "descriptionBody": "Give the context and how it is measured, so the assignee and the approver read it the same way.",
+    "targetTitle": "Desired target",
+    "targetBody": "The figure to reach. For an inverse KPI this is a threshold — lower is better.",
+    "minimumTitle": "Minimum target",
+    "minimumBody": "Below this the KPI counts as not met. For an inverse KPI this is the maximum acceptable threshold.",
+    "unitTitle": "Unit of measure",
+    "unitBody": "For example VND, %, customers. It is shown next to every figure of the KPI.",
+    "weightTitle": "Weight",
+    "weightBody": "The KPI's share of the assignee's 100% in this period. When linked to a BSC item, this is the weight within the item.",
+    "submitTitle": "Create KPI",
+    "submitBody": "Click to save. If you can approve your own KPIs it is approved at once; otherwise it stays a Draft and must be submitted for approval. While the guide runs, this button creates nothing.",
+    "tabsTitle": "Filter by status",
+    "tabsBody": "Draft is not submitted yet; Pending approval is going through the approval chain; Returned needs fixing and resubmitting.",
+    "myDraftsTitle": "Your drafts",
+    "myDraftsBody": "A shortcut to the KPIs you created but have not submitted for approval.",
+    "rowSelectTitle": "Select to submit in bulk",
+    "rowSelectBody": "Tick draft KPIs; the bar at the bottom shows a \"Submit for approval\" button for everything selected.",
+    "personSelectTitle": "Select all of one person's KPIs",
+    "personSelectBody": "Select every submittable KPI of this person in one click.",
+    "rowMenuTitle": "Submit one KPI",
+    "rowMenuBody": "The ⋮ menu has Submit for approval. It only works when the assignee's total weight in the period is exactly 100%.",
+    "submitAiTitle": "Submit with K.AI",
+    "submitAiBody": "K.AI checks the weights and submits the drafts of the selected unit and period for you, after you confirm.",
+    "chainTitle": "After submitting",
+    "chainBody": "The KPI moves to Pending approval and is approved in turn by the unit heads, from the KPI's unit up to the root. If it is returned, fix it and submit again.",
+    "helpTitle": "Review any time",
+    "helpBody": "You have walked through the whole KPI creation flow. These three guides are always in the Guide button menu."
+  },
+  "tourSetupCompany": {
+    "intro": {
+      "t": "Company setup",
+      "b": "Three groups: Organization (how many levels the company has), People (who works where and can do what) and System (how the app talks to staff). Click a card to open it."
+    },
+    "cards": {
+      "info": {
+        "b": "Name, business code, logo and the list of enabled features. Usually edited once at setup."
+      },
+      "ranks": {
+        "b": "How many levels the company has and what each is called. Settle this before building the unit tree."
+      },
+      "org-structure": {
+        "b": "Build the unit tree and assign each unit head. The tree drives the approval chain and who sees whose data."
+      },
+      "users": {
+        "b": "Add people and assign their unit and title. Missing either one means they cannot receive KPIs yet."
+      },
+      "delegations": {
+        "b": "Let a person also manage units outside their own tree, for a limited time."
+      },
+      "roles": {
+        "b": "Roles and their permissions. Give permissions to roles, then roles to people — not one-off permissions."
+      },
+      "sidebar": {
+        "b": "Rename menu items and in-page items to match your company terms."
+      },
+      "notifications": {
+        "b": "Which events send email, which only ring the bell, and evaluation deadline reminders."
+      },
+      "email": {
+        "b": "Edit the subject and body of system emails, per language."
+      },
+      "api": {
+        "b": "Connect Lark so staff can sign in with their Lark account."
+      },
+      "ai-docs": {
+        "b": "Internal documents K.AI reads when answering questions about the company."
+      },
+      "kpi-workflow": {
+        "b": "Turn steps of the organization's KPI flow on or off, shown as a diagram."
+      }
+    },
+    "info": {
+      "cover": {
+        "t": "Cover image",
+        "b": "Click to change the company's cover image. No need to enter edit mode."
+      },
+      "logo": {
+        "t": "Logo",
+        "b": "The logo appears on exported reports and in system emails. Click the camera icon to change it."
+      },
+      "edit": {
+        "t": "Edit profile",
+        "b": "Opens edit mode for name, industry, tax code, company size and description."
+      },
+      "profile": {
+        "t": "Identification",
+        "b": "These fields are editable only after clicking Edit profile. Click Save at the bottom when done."
+      },
+      "features": {
+        "t": "Enabled features",
+        "b": "A green dot means the organization uses that module. This block is view-only."
+      },
+      "featuresManage": {
+        "t": "Manage features",
+        "b": "To turn modules on or off, click here to go to Tool setup › Modules & features."
+      }
+    },
+    "ranks": {
+      "list": {
+        "t": "Company levels",
+        "b": "Each row is one level of the unit tree, top to bottom, with the title of the person managing it."
+      },
+      "edit": {
+        "t": "Edit levels",
+        "b": "Rename, add, remove or reorder levels. Adding or removing levels affects units already created, so settle it early."
+      }
+    },
+    "roles": {
+      "stats": {
+        "t": "Role figures",
+        "b": "Total roles, how many the system created, how many are custom, and how many are leadership level."
+      },
+      "add": {
+        "t": "Add role",
+        "b": "Create a role with a name, management tier and position, then pick its permissions."
+      },
+      "hierarchy": {
+        "t": "Permissions by hierarchy",
+        "b": "Set permissions shared by every role at the same level, instead of assigning them role by role."
+      },
+      "search": {
+        "t": "Search roles",
+        "b": "Type a name or identifier to filter the list."
+      },
+      "table": {
+        "t": "Role list",
+        "b": "Each row shows the position in the hierarchy and whether the role is system or custom."
+      },
+      "rowMenu": {
+        "t": "Role actions",
+        "b": "This menu has Permissions, Edit and Delete role. System roles are protected and cannot be deleted."
+      }
+    },
+    "org": {
+      "viewMode": {
+        "t": "Chart or list",
+        "b": "The chart shows the overall management flow; the list is for finding and editing quickly."
+      },
+      "content": {
+        "t": "Unit tree",
+        "b": "Click a unit to edit it, add a child unit or assign the head. A unit without a head blocks its KPI approval chain."
+      },
+      "createRoot": {
+        "t": "Create root unit",
+        "b": "If the tree is empty, start with the root unit — usually the whole company."
+      },
+      "import": {
+        "t": "Import from Excel",
+        "b": "For a large tree, import it from an Excel file instead of creating units one by one."
+      },
+      "export": {
+        "t": "Export Excel",
+        "b": "Export the whole tree to Excel to review it or edit in bulk and import again."
+      }
+    },
+    "users": {
+      "add": {
+        "t": "Add person",
+        "b": "Create a single account and pick the unit and title right in the form."
+      },
+      "import": {
+        "t": "Import from Excel",
+        "b": "For long lists, import from Excel; the dialog has a template with the right column order."
+      },
+      "search": {
+        "t": "Search people",
+        "b": "Type a name or email to find someone quickly."
+      },
+      "roleFilter": {
+        "t": "Filter by title",
+        "b": "Show only people with one title."
+      },
+      "unitFilter": {
+        "t": "Filter by unit",
+        "b": "Show only the people of one unit."
+      },
+      "table": {
+        "t": "People list",
+        "b": "Click a row to open the profile. An empty Role or Unit column means the person cannot receive KPIs yet."
+      },
+      "rowMenu": {
+        "t": "Person actions",
+        "b": "This menu has Edit profile, Revoke system access and Delete personal documents."
+      }
+    },
+    "delegations": {
+      "add": {
+        "t": "New delegation",
+        "b": "Pick the person, the extra unit and the period. You can allow them to act as unit head."
+      },
+      "note": {
+        "t": "Delegation only widens scope",
+        "b": "A delegation grants no new permission: someone who cannot finalize a cycle anywhere still cannot after being delegated."
+      },
+      "list": {
+        "t": "Current delegations",
+        "b": "Each row shows the delegate, from which unit to which unit, and whether it is still in effect. It is empty until you create one."
+      },
+      "revoke": {
+        "t": "Revoke",
+        "b": "Click to end the delegation now instead of waiting for it to expire."
+      }
+    },
+    "sidebar": {
+      "header": {
+        "t": "Rename navigation items",
+        "b": "The line under the heading counts renamed items. Renaming changes neither function nor permission."
+      },
+      "search": {
+        "t": "Find an item",
+        "b": "Filters by both the default name and the name you set."
+      },
+      "note": {
+        "t": "Grouped by where it appears",
+        "b": "The first block is the sidebar rows; the following blocks are items inside each page."
+      },
+      "scope": {
+        "t": "One block",
+        "b": "Each row has the default name and a field for the new name. Leave it empty to go back to the default."
+      },
+      "resetItem": {
+        "t": "Back to default name",
+        "b": "Click to clear the custom name of this item only."
+      },
+      "save": {
+        "t": "Save changes",
+        "b": "All fields are saved at once. Leaving the page before saving loses what you typed."
+      }
+    },
+    "notif": {
+      "events": {
+        "t": "Each event",
+        "b": "Each row is one event, with separate Email and System switches. For frequent events, the bell alone is usually enough."
+      },
+      "save": {
+        "t": "Save settings",
+        "b": "These settings are the default for every employee. Remember to click Save."
+      },
+      "deadline": {
+        "t": "Evaluation deadline reminders",
+        "b": "Reminds unit heads before a period or cycle closes if people are still unscored. Set 0 days to turn it off."
+      }
+    },
+    "email": {
+      "language": {
+        "t": "Email language",
+        "b": "Each language has its own content; recipients get the version in their language."
+      },
+      "list": {
+        "t": "Email types",
+        "b": "Every email the system sends, grouped."
+      },
+      "template": {
+        "t": "Pick a template",
+        "b": "Click to open that template on the right."
+      },
+      "enabled": {
+        "t": "Turn the email on or off",
+        "b": "When off, the system stops sending this email. Security emails such as password reset are always on."
+      },
+      "notifLink": {
+        "t": "Controlled by notifications",
+        "b": "Some emails are switched by the notification settings — click here to go there."
+      },
+      "subject": {
+        "t": "Subject and variables",
+        "b": "Variables such as the recipient's name are filled in when sending. A missing required variable blocks saving."
+      },
+      "advanced": {
+        "t": "HTML mode",
+        "b": "Switch between visual editing and full HTML without losing content."
+      },
+      "preview": {
+        "t": "Preview",
+        "b": "Renders the email with sample data. Preview before saving — sent emails cannot be recalled."
+      },
+      "reset": {
+        "t": "Restore default",
+        "b": "Returns the template to the original. The button is dimmed when the template was never edited."
+      },
+      "save": {
+        "t": "Save template",
+        "b": "Saves the subject and body for the selected language."
+      }
+    },
+    "lark": {
+      "status": {
+        "t": "Connection status",
+        "b": "This bar shows whether Lark sign-in is on and which Lark organization is linked."
+      },
+      "createApp": {
+        "t": "Step 1: create the app",
+        "b": "Requires a Lark admin account: open Lark Developer Console and create a Custom App."
+      },
+      "configure": {
+        "t": "Step 2: configure in Lark",
+        "b": "Copy the values here into Lark Console, then create a version and publish the app."
+      },
+      "credentials": {
+        "t": "Step 3: App ID and App Secret",
+        "b": "Found on the Credentials & Basic Info page of the new app; paste them here and save."
+      },
+      "test": {
+        "t": "Check connection",
+        "b": "Click to test the App ID and App Secret you just entered."
+      },
+      "connect": {
+        "t": "Link your company",
+        "b": "Sign in to Lark once; KeyGo identifies your company and remembers it."
+      },
+      "defaults": {
+        "t": "Unit and role for new people",
+        "b": "People signing in with Lark for the first time get an account placed here. Pick the narrowest role and raise it later."
+      },
+      "enable": {
+        "t": "Turn on Lark sign-in",
+        "b": "Once on, your company appears on the company picker and staff can sign in with Lark."
+      }
+    },
+    "aidocs": {
+      "card": {
+        "t": "Documents for K.AI",
+        "b": "K.AI reads company documents in the document library when answering questions about rules and processes."
+      },
+      "open": {
+        "t": "Open the library",
+        "b": "Goes to the Documents page, Company scope, to add or edit documents."
+      }
+    },
+    "workflow": {
+      "org": {
+        "t": "Organization flow",
+        "b": "Applies to everyone. Without configuration permission you can still view the running flow."
+      },
+      "graph": {
+        "t": "Flow diagram",
+        "b": "Each node is a step. Click a node to see details and turn it on or off; core steps cannot be turned off."
+      },
+      "reset": {
+        "t": "Reset to default",
+        "b": "Returns the flow to the system default."
+      },
+      "save": {
+        "t": "Save changes",
+        "b": "Saving works only when no step dependency warnings remain."
+      },
+      "fullscreen": {
+        "t": "Full screen",
+        "b": "Opens the diagram full screen; press Esc to exit."
+      },
+      "mine": {
+        "t": "My display",
+        "b": "Hide steps from your own screen only. Nothing changes for anyone else."
+      },
+      "mineToggle": {
+        "t": "Hide or show a step",
+        "b": "Click to hide this step from your screen, click again to show it."
+      }
+    }
+  },
+  "tourSetupTools": {
+    "intro": {
+      "t": "Tool setup",
+      "b": "The Configuration group sets scoring rules, set once. The Tools group is the per-cycle work: cycles and periods, OKR, BSC, rewards, wallet, AI. A missing card means the organization has that tool turned off."
+    },
+    "cards": {
+      "modules": {
+        "b": "The master switches: OKR, BSC, behavioral KPIs, cascading, rewards, wallet. New organizations should start here."
+      },
+      "scoring": {
+        "b": "Quantitative scale, qualitative levels and conduct criteria sets. Settle them before opening the first cycle."
+      },
+      "matrix": {
+        "b": "Combines behavior score and KPI % into each person's final rating."
+      },
+      "unit-class": {
+        "b": "Rates a whole unit by the share of people at each level."
+      },
+      "code-rules": {
+        "b": "Code patterns for OKR objectives and BSC scorecards."
+      },
+      "kpi-cycles": {
+        "b": "Open cycles and periods. Every KPI and submission belongs to a period."
+      },
+      "okr": {
+        "b": "Set strategic objectives and the key results that measure them."
+      },
+      "bsc": {
+        "b": "Build the company BSC scorecard and cascade it to departments."
+      },
+      "rewards": {
+        "b": "Award points, grant budgets, check-ins, certificates and gifts for points."
+      },
+      "wallet": {
+        "b": "Employees' real-money wallet: balances, top-up settings and transfer reconciliation."
+      },
+      "ai-quota": {
+        "b": "Split K.AI token quota among people."
+      },
+      "ai-review": {
+        "b": "AI score suggestions when reviewing submissions, and the criteria AI relies on."
+      }
+    },
+    "modules": {
+      "list": {
+        "t": "Module list",
+        "b": "Turning a module off hides its menu items and related steps. Nothing is deleted; turning it back on brings the data back."
+      },
+      "switch": {
+        "t": "Switch",
+        "b": "Click to turn this module on or off for the whole organization."
+      },
+      "details": {
+        "t": "Details",
+        "b": "See what the module brings, e.g. turning on BSC adds scorecard setup and the BSC view in Statistics."
+      }
+    },
+    "scoring": {
+      "tabs": {
+        "t": "Three kinds of scale",
+        "b": "Quantitative is measured by numbers, Qualitative picks a preset level, Conduct is scored with a behavior criteria set. A missing tab means that module is off."
+      }
+    },
+    "quant": {
+      "edit": {
+        "t": "Edit",
+        "b": "The screen is view-only by default; click here to open the fields."
+      },
+      "reset": {
+        "t": "Reset to default",
+        "b": "Returns the whole scale to the system default, overwriting every level you set."
+      },
+      "max": {
+        "t": "Maximum scale",
+        "b": "The top score of a quantitative KPI. Changing it mid-cycle puts scored and upcoming periods on different scales."
+      },
+      "levels": {
+        "t": "Rating levels",
+        "b": "Each level has a name, a score threshold and a color. Scores at or above a threshold fall in that level; higher levels win."
+      }
+    },
+    "qual": {
+      "edit": {
+        "t": "Edit",
+        "b": "Click to edit level names, values and BSC %."
+      },
+      "reset": {
+        "t": "Reset to default",
+        "b": "Returns the levels to the default set, overwriting what you entered."
+      },
+      "guide": {
+        "t": "What the columns mean",
+        "b": "Value is the converted score used by the matrix; BSC % is the completion used for BSC scoring."
+      },
+      "levels": {
+        "t": "Evaluation levels",
+        "b": "Reviewers pick exactly these level names. Use the words your company already uses so scoring stays consistent."
+      }
+    },
+    "conduct": {
+      "sets": {
+        "t": "Conduct criteria sets",
+        "b": "Each set is assigned to one or more cycles; unassigned cycles use the default set. Open a set to edit criteria and weights."
+      },
+      "groups": {
+        "t": "Split into groups",
+        "b": "Group criteria. With groups, a criterion weight is % within its group and the groups add up to 100%."
+      },
+      "addSet": {
+        "t": "Add criteria set",
+        "b": "Create a new set for cycles with different criteria. Old sets stay as they are for scored cycles."
+      },
+      "help": {
+        "t": "How it works",
+        "b": "Opens the explanation of how conduct criteria sets are assigned and scored."
+      },
+      "reset": {
+        "t": "Reset default set",
+        "b": "Returns the default set to 4 criteria at 25% each."
+      }
+    },
+    "matrix": {
+      "guide": {
+        "t": "Two axes, one rating",
+        "b": "Rows are behavior score, columns are KPI completion %. A rating appears only when the person has both axes."
+      },
+      "table": {
+        "t": "Reading the table",
+        "b": "Follow the row for behavior score and the column for KPI %; the cell where they meet is the rating."
+      },
+      "edit": {
+        "t": "Edit",
+        "b": "Rename the axes and bands, add rows or columns and fill in cell values."
+      },
+      "reset": {
+        "t": "Reset to default",
+        "b": "Returns the matrix to the default table."
+      }
+    },
+    "unitclass": {
+      "levels": {
+        "t": "Level scale",
+        "b": "Rating levels from high to low — these are the names you pick when writing conditions."
+      },
+      "profiles": {
+        "t": "Rating profiles",
+        "b": "Each profile is a rule set. A unit gets the first level from the top whose conditions it all meets."
+      },
+      "add": {
+        "t": "Add profile",
+        "b": "Create a separate profile for a group of units; child units inherit it."
+      },
+      "which": {
+        "t": "Which unit uses which profile",
+        "b": "Open to review which unit follows which profile. Always keep a default profile."
+      },
+      "help": {
+        "t": "How it works",
+        "b": "Opens the explanation of unit rating profiles."
+      },
+      "reset": {
+        "t": "Undo",
+        "b": "Discards unsaved changes."
+      },
+      "save": {
+        "t": "Save",
+        "b": "Saves every profile at once."
+      }
+    },
+    "coderules": {
+      "section": {
+        "t": "Code rules",
+        "b": "Each row is the code pattern for one object type, such as OKR objectives or BSC scorecards."
+      },
+      "auto": {
+        "t": "Auto-generate",
+        "b": "When on, codes are generated from the pattern on creation."
+      },
+      "manual": {
+        "t": "Allow manual edit",
+        "b": "When on, the creator can still edit the generated code."
+      },
+      "token": {
+        "t": "Pattern parts",
+        "b": "Click a part to insert it into the pattern, such as the year or a sequence number. Hover for an explanation."
+      },
+      "save": {
+        "t": "Save rules",
+        "b": "Saves every changed pattern."
+      }
+    },
+    "kpiCycles": {
+      "tabs": {
+        "t": "Cycles and periods",
+        "b": "A period is one round of submitting and scoring, usually monthly. A cycle groups periods into an overall result; ratings and rewards are by cycle."
+      }
+    },
+    "cycles": {
+      "stats": {
+        "t": "Figures",
+        "b": "How many cycles the organization has and how many periods are grouped into them."
+      },
+      "add": {
+        "t": "Create cycle",
+        "b": "Pick the cycle type and date range, then group periods into it."
+      },
+      "search": {
+        "t": "Search cycles",
+        "b": "Type a cycle name to filter."
+      },
+      "more": {
+        "t": "More filters",
+        "b": "Filter by cycle type and date range."
+      },
+      "table": {
+        "t": "Cycle list",
+        "b": "The Periods column shows how many periods the cycle groups. A cycle with 0 periods has nothing for cycle evaluation to sum up."
+      },
+      "edit": {
+        "t": "Edit cycle",
+        "b": "The button is dimmed for a locked cycle. A cycle locks only when the root unit's cycle evaluation is finalized."
+      },
+      "history": {
+        "t": "Cycle history",
+        "b": "See who locked or reopened the cycle and when."
+      }
+    },
+    "periods": {
+      "stats": {
+        "t": "Figures",
+        "b": "Total number of periods in the organization."
+      },
+      "add": {
+        "t": "Create period",
+        "b": "Set the name, period type, start and end date. Staff can submit only within that range."
+      },
+      "search": {
+        "t": "Search periods",
+        "b": "Type a period name to filter."
+      },
+      "table": {
+        "t": "Period list",
+        "b": "Each row shows its cycle, dates and submission reminder."
+      },
+      "edit": {
+        "t": "Edit period",
+        "b": "Shortening the end date of a running period immediately blocks people who have not submitted."
+      },
+      "delete": {
+        "t": "Delete period",
+        "b": "A period in a locked cycle cannot be edited or deleted."
+      }
+    },
+    "okr": {
+      "add": {
+        "t": "New objective",
+        "b": "Create the Objective first, then add the Key Results that measure it."
+      },
+      "list": {
+        "t": "Objective list",
+        "b": "Objective progress is calculated from its Key Results."
+      },
+      "addKr": {
+        "t": "Add result",
+        "b": "Add a quantitative Key Result to this objective. A KR linked to a KPI follows that KPI."
+      },
+      "edit": {
+        "t": "Edit objective",
+        "b": "Change the name, dates or owning unit of the objective."
+      },
+      "import": {
+        "t": "Import Excel",
+        "b": "Import many objectives and KRs at once from an Excel file."
+      }
+    },
+    "bsc": {
+      "tree": {
+        "t": "BSC tree",
+        "b": "Scorecards from the company down to departments. Open a branch to edit items and weights and cascade them down."
+      },
+      "card": {
+        "t": "A scorecard",
+        "b": "Click to open its items, cascade coverage and period results. The card's menu switches between parallel and official scoring."
+      },
+      "add": {
+        "t": "New scorecard",
+        "b": "Create a scorecard for a cycle and a unit, then add items under the four perspectives."
+      },
+      "import": {
+        "t": "Import",
+        "b": "Import a full scorecard with weights, or just the item catalog."
+      },
+      "policy": {
+        "t": "Policy",
+        "b": "Recognized score cap and the rule that KPIs must link to BSC."
+      }
+    },
+    "rewards": {
+      "tabs": {
+        "t": "Seven tabs",
+        "b": "Reward requests and Budgets to award points; Programs and Check-ins run automatically; Certificate templates; Gifts and Redemption requests."
+      }
+    },
+    "grants": {
+      "filters": {
+        "t": "Filter by status",
+        "b": "Pending approval is your work; the other statuses are for looking back."
+      },
+      "award": {
+        "t": "Award points",
+        "b": "Pick people, enter points and a reason. The reason shows on the activity feed for everyone."
+      },
+      "ai": {
+        "t": "Approve with K.AI",
+        "b": "K.AI reviews pending requests and suggests approving or rejecting."
+      },
+      "table": {
+        "t": "Request list",
+        "b": "Within budget it takes effect at once; over budget it waits here for approval."
+      }
+    },
+    "budgets": {
+      "note": {
+        "t": "Budgets skip approval",
+        "b": "People with a budget award points immediately; going over turns it into a request awaiting approval."
+      },
+      "add": {
+        "t": "Grant a budget",
+        "b": "Pick the manager, points, maximum per award and the period."
+      },
+      "table": {
+        "t": "Budget list",
+        "b": "The progress bar shows how much is used. Expired budgets do not renew automatically."
+      }
+    },
+    "programs": {
+      "note": {
+        "t": "You run it",
+        "b": "Programs do not run on a schedule: click Run, pick a period or cycle, preview the ranking, then award."
+      },
+      "add": {
+        "t": "Create program",
+        "b": "Define the rule: who reaches the top of a period or cycle gets how many points."
+      },
+      "table": {
+        "t": "Program list",
+        "b": "Points from programs come from the shared fund, not from a manager's budget."
+      },
+      "run": {
+        "t": "Run",
+        "b": "Pick the period or cycle, adjust tiers for this run if needed, then award."
+      }
+    },
+    "checkin": {
+      "note": {
+        "t": "Daily check-in",
+        "b": "Staff click it on My points; points go straight to their wallet."
+      },
+      "stats": {
+        "t": "Two figures",
+        "b": "Today's check-ins and points awarded this month — check them before raising points per check-in."
+      },
+      "form": {
+        "t": "Settings",
+        "b": "Turn the feature on or off, points per check-in and the streak cycle."
+      },
+      "milestones": {
+        "t": "Streak milestones",
+        "b": "Extra points when staff check in enough days in a row."
+      },
+      "save": {
+        "t": "Save settings",
+        "b": "Saves the check-in settings."
+      }
+    },
+    "cert": {
+      "intro": {
+        "t": "Certificate templates",
+        "b": "Without templates the print screen still offers six designs; templates here carry your company's logo and signature."
+      },
+      "add": {
+        "t": "Create template",
+        "b": "Design your company's own certificate."
+      },
+      "edit": {
+        "t": "Edit template",
+        "b": "Change the wording, logo or signature."
+      }
+    },
+    "gifts": {
+      "add": {
+        "t": "Add gift",
+        "b": "Enter name, image, point price and stock — exactly what staff see in the Gift shop."
+      },
+      "urbox": {
+        "t": "UrBox catalog",
+        "b": "Pick ready-made vouchers instead of entering items one by one."
+      },
+      "table": {
+        "t": "Gift catalog",
+        "b": "At 0 stock the item is sold out. To retire an item, edit its stock instead of deleting it."
+      }
+    },
+    "redemptions": {
+      "filters": {
+        "t": "Filter by status",
+        "b": "Separate what awaits delivery from what is done."
+      },
+      "table": {
+        "t": "Redemption requests",
+        "b": "Points were deducted when the employee redeemed; requests wait here for you to confirm delivery."
+      },
+      "retry": {
+        "t": "Ask the provider again",
+        "b": "For a voucher that failed to issue, click to ask again and fetch the code."
+      },
+      "reject": {
+        "t": "Reject and refund",
+        "b": "Cancels the request and returns the points to the employee's wallet."
+      }
+    },
+    "wallet": {
+      "tabs": {
+        "t": "Real-money wallet",
+        "b": "People balances for lookup, Configuration for the receiving account and rate, SePay reconciliation to match transfers."
+      }
+    },
+    "cashwallets": {
+      "stats": {
+        "t": "Four figures",
+        "b": "Holding is money topped up but not yet converted to points — what the organization owes staff."
+      },
+      "filters": {
+        "t": "Search and filter",
+        "b": "Search by name or email, filter by unit."
+      },
+      "table": {
+        "t": "Wallet list",
+        "b": "Click a wallet to see all of that person's movements."
+      }
+    },
+    "walletcfg": {
+      "bank": {
+        "t": "Receiving account",
+        "b": "Account number and bank used to build the VietQR code. Without them staff cannot create a top-up."
+      },
+      "rate": {
+        "t": "Exchange rate",
+        "b": "Money per 1 point. Past transactions keep the rate of their time."
+      },
+      "limits": {
+        "t": "Top-up limits",
+        "b": "Limit per top-up and how long the QR code stays valid."
+      },
+      "receipt": {
+        "t": "Receipt",
+        "b": "Details printed on the receipt sent to staff after a top-up."
+      },
+      "status": {
+        "t": "Setup status",
+        "b": "Lists what is still missing before staff can top up."
+      },
+      "preview": {
+        "t": "Employees will see",
+        "b": "A sample conversion table at the rate you entered."
+      },
+      "sepay": {
+        "t": "Connect SePay",
+        "b": "Link SePay so transfers arrive and match top-ups automatically."
+      },
+      "save": {
+        "t": "Save settings",
+        "b": "Saves the wallet settings."
+      }
+    },
+    "sepay": {
+      "status": {
+        "t": "Do the books balance",
+        "b": "Green means balanced; yellow means unmatched transactions or a wallet out of line with the ledger."
+      },
+      "scope": {
+        "t": "To handle or full history",
+        "b": "To handle shows only unmatched transactions; full history is for looking up old ones."
+      },
+      "table": {
+        "t": "Received transactions",
+        "b": "Each row is one transfer received from SePay."
+      },
+      "handle": {
+        "t": "Handle",
+        "b": "Match a transaction to the right top-up by hand when the transfer note was wrong."
+      }
+    },
+    "aiquota": {
+      "mine": {
+        "t": "Your quota",
+        "b": "Your own AI tokens for chatting with K.AI, separate from the pool you split among others."
+      },
+      "pool": {
+        "t": "Pool to allocate",
+        "b": "How much is left to split. With a pool of 0 you cannot allocate to anyone."
+      },
+      "delegation": {
+        "t": "Let managers split",
+        "b": "When on, unit heads can split tokens among their people, taken from their own quota."
+      },
+      "people": {
+        "t": "Per-person quota",
+        "b": "Find people, filter by role and set the monthly quota. Once used up, K.AI stops answering until next month."
+      }
+    },
+    "aireview": {
+      "settings": {
+        "t": "AI score suggestions",
+        "b": "Managers click \"Ask AI to preview\" when reviewing; AI reads the submission and evidence files and suggests a score. AI never records a score itself."
+      },
+      "toggle": {
+        "t": "On or off",
+        "b": "When off, the ask-AI button disappears from everyone's review screen."
+      },
+      "weights": {
+        "t": "Suggested score weights",
+        "b": "The suggested score combines several parts; adjust each part's share here."
+      },
+      "save": {
+        "t": "Save",
+        "b": "Saves the AI suggestion settings."
+      },
+      "criteria": {
+        "t": "Scoring criteria sets",
+        "b": "Each unit applies one policy document; a child unit without one uses its parent's."
+      },
+      "upload": {
+        "t": "Upload a policy",
+        "b": "Pick a Word, PDF or Excel file and a unit; AI extracts criteria for you to approve and apply."
+      },
+      "report": {
+        "t": "How far AI is off",
+        "b": "Compares AI scores with finalized manager scores for the period. The goal is a small gap, mostly within ±5 points."
+      }
+    }
+  },
+  "tourPerformance": {
+    "intro": {
+      "t": "Performance management",
+      "b": "The KPIs group is about setting and approving KPIs. The Evaluation group is scoring by period, then summing up by cycle. A red number on a card is work waiting for you."
+    },
+    "cards": {
+      "kpi-criteria": {
+        "b": "Create, assign and submit KPIs for approval. KPIs not yet approved do not count toward results."
+      },
+      "kpi-criteria-pending": {
+        "b": "KPIs waiting for you at the current step of the approval chain."
+      },
+      "kpi-adjustments-pending": {
+        "b": "Requests to change a target, weight or stop a KPI mid-period; each has 24 hours to be handled."
+      },
+      "submissions-org-unit": {
+        "b": "Approve submissions and score each person for a period."
+      },
+      "cycle-evaluation": {
+        "b": "Sum the periods of a cycle into an overall score and finalize ratings. Finalizing at the root unit locks the cycle."
+      },
+      "feedback360": {
+        "b": "Campaigns collecting managers', peers' and direct reports' views on each person."
+      }
+    },
+    "criteria": {
+      "stats": {
+        "t": "Figures",
+        "b": "Total KPIs, how many are drafts and how many are pending approval for the current filters."
+      },
+      "add": {
+        "t": "Create KPI",
+        "b": "Opens the KPI form. The \"Create a KPI\" guide at the end of this one walks through each field."
+      },
+      "import": {
+        "t": "Import Excel",
+        "b": "Create many KPIs at once from an Excel file; the dialog has instructions and a template."
+      },
+      "submitAi": {
+        "t": "Submit with K.AI",
+        "b": "K.AI checks the weights and submits the drafts of the selected unit and period for you, after you confirm."
+      },
+      "period": {
+        "t": "Period",
+        "b": "Every figure on the page follows the selected period."
+      },
+      "type": {
+        "t": "KPI type",
+        "b": "Filter quantitative or qualitative, parent, regular, bonus or inverse KPIs."
+      },
+      "sort": {
+        "t": "Order",
+        "b": "By creation date, name, weight or target."
+      },
+      "more": {
+        "t": "More filters",
+        "b": "Filter by creation date, BSC item, or OKR objective and key result."
+      },
+      "search": {
+        "t": "Search",
+        "b": "Type a KPI or person name."
+      },
+      "view": {
+        "t": "Groups and view",
+        "b": "Expand or collapse all groups, and switch between table and card view."
+      },
+      "tabs": {
+        "t": "Status",
+        "b": "Draft is not submitted; Pending approval is going through the chain; Returned needs fixing and resubmitting."
+      },
+      "list": {
+        "t": "List",
+        "b": "Grouped by unit and person. The group header shows whether the total weight has reached 100%."
+      },
+      "rowMenu": {
+        "t": "KPI menu",
+        "b": "View, edit, submit, cascade or add a child KPI depending on status."
+      }
+    },
+    "pending": {
+      "stats": {
+        "t": "Figures",
+        "b": "Waiting for me is your work right now; Approved and Returned are for looking back."
+      },
+      "ai": {
+        "t": "Approve with K.AI",
+        "b": "K.AI reviews the KPIs waiting for you and suggests approving or returning them."
+      },
+      "period": {
+        "t": "Period",
+        "b": "Shows only KPIs of the selected period."
+      },
+      "search": {
+        "t": "Search",
+        "b": "Search by KPI, unit or person name."
+      },
+      "tabs": {
+        "t": "Status",
+        "b": "Pending is what waits for you at the current step of the chain."
+      },
+      "table": {
+        "t": "Pending list",
+        "b": "With final approval permission, approving finalizes it; otherwise the KPI moves up to the next approver."
+      },
+      "personApprove": {
+        "t": "Approve a person",
+        "b": "Approve all of this person's pending KPIs at once."
+      },
+      "view": {
+        "t": "View details",
+        "b": "Open the KPI to see figures, source and approval history before deciding."
+      },
+      "approve": {
+        "t": "Approve",
+        "b": "Approve your step. Only the holder of the current step can click it."
+      },
+      "reject": {
+        "t": "Return",
+        "b": "Send the KPI back to its creator with a reason so they can fix it."
+      },
+      "bulk": {
+        "t": "Bulk approve",
+        "b": "Approve every selected KPI at once."
+      }
+    },
+    "adj": {
+      "stats": {
+        "t": "Figures",
+        "b": "Requests pending, approved and rejected. Each request has 24 hours to be handled."
+      },
+      "ai": {
+        "t": "Approve with K.AI",
+        "b": "K.AI reviews pending requests and suggests how to handle them."
+      },
+      "period": {
+        "t": "Period",
+        "b": "Shows only requests of the selected period."
+      },
+      "tabs": {
+        "t": "Status",
+        "b": "Pending is your work; the other tabs are for looking back."
+      },
+      "table": {
+        "t": "Request list",
+        "b": "Each row is a request to change a target, weight or stop a KPI, with a reason."
+      },
+      "view": {
+        "t": "View details",
+        "b": "Read the reason and compare old and proposed figures before deciding."
+      },
+      "approve": {
+        "t": "Approve",
+        "b": "Accept the change; the KPI updates as requested."
+      },
+      "reject": {
+        "t": "Reject",
+        "b": "Keep the KPI as it is and note the reason for the requester."
+      },
+      "bulk": {
+        "t": "Bulk handling",
+        "b": "Approve or reject every selected request at once."
+      }
+    },
+    "subs": {
+      "stats": {
+        "t": "Figures",
+        "b": "People, submissions pending approval and people already evaluated in the period."
+      },
+      "unit": {
+        "t": "Unit",
+        "b": "Pick the unit to score."
+      },
+      "period": {
+        "t": "Period",
+        "b": "Pick the period to score."
+      },
+      "search": {
+        "t": "Search people",
+        "b": "Type a name to find someone quickly."
+      },
+      "aiBatch": {
+        "t": "Ask AI to preview the whole unit",
+        "b": "AI reads the submissions of everyone you can score, in the background; suggested scores are ready when you review."
+      },
+      "aiApprove": {
+        "t": "Approve with K.AI",
+        "b": "K.AI reviews pending submissions and suggests scores for you to confirm."
+      },
+      "aiRemind": {
+        "t": "Remind with K.AI",
+        "b": "K.AI finds who has not submitted and drafts a reminder."
+      },
+      "table": {
+        "t": "People list",
+        "b": "People with pending submissions come first. The Reviewer column shows who scores each person."
+      },
+      "score": {
+        "t": "Score",
+        "b": "Opens this person's scoring form: approve each submission and give scores."
+      },
+      "viewEval": {
+        "t": "View evaluation",
+        "b": "Look at the scored form again."
+      },
+      "next": {
+        "t": "Next step",
+        "b": "Once the period is scored, move on to the next step of the flow, usually cycle evaluation."
+      }
+    },
+    "cycleeval": {
+      "unit": {
+        "t": "Unit",
+        "b": "Pick the unit to sum up. Without a unit and a cycle the screen stays empty."
+      },
+      "cycle": {
+        "t": "Cycle",
+        "b": "Pick the cycle; the cycle score averages the periods in it."
+      },
+      "stats": {
+        "t": "Figures and unit rating",
+        "b": "The unit's average scores for the cycle and its rating, marked provisional or finalized."
+      },
+      "flow": {
+        "t": "Flow bar",
+        "b": "Each step's status and buttons sit inside that step. Finalizing at the root unit locks the whole cycle; child units finalizing do not."
+      },
+      "table": {
+        "t": "Cycle score table",
+        "b": "Each row shows period scores by the manager, the cycle rating and the final cycle score."
+      },
+      "view": {
+        "t": "View details",
+        "b": "Open this person's period scores and add comments."
+      },
+      "export": {
+        "t": "Export Excel",
+        "b": "Export the whole cycle score table to a file."
+      },
+      "send": {
+        "t": "Send evaluation",
+        "b": "Email the cycle evaluation results to each employee."
+      },
+      "ai": {
+        "t": "Ask K.AI",
+        "b": "K.AI checks the periods, builds the score table and waits for your confirmation."
+      }
+    },
+    "f360": {
+      "create": {
+        "t": "Create campaign",
+        "b": "Pick who is reviewed; the system suggests reviewers from the org tree."
+      },
+      "filters": {
+        "t": "Filter campaigns",
+        "b": "See draft, running or ended campaigns."
+      },
+      "list": {
+        "t": "Campaign list",
+        "b": "Each card shows the due date and forms submitted. Peer and direct-report forms are anonymous."
+      }
+    }
+  },
+  "tourMySpace": {
+    "intro": {
+      "t": "My space",
+      "b": "The Work group holds your KPIs, submissions, evaluations and requests you sent. The Wallet group keeps reward points and real money apart. A red dot on a card is work waiting for you."
+    },
+    "cards": {
+      "my-kpi": {
+        "b": "The KPIs you hold, grouped by period. Submit reports and self-assess from here."
+      },
+      "my-okr": {
+        "b": "Objectives and key results your KPIs contribute to."
+      },
+      "my-bsc": {
+        "b": "The BSC scorecards of your unit and the units above it."
+      },
+      "my-submissions": {
+        "b": "Result reports you submitted and their approval status."
+      },
+      "evaluations": {
+        "b": "Your evaluation results per period and your self-assessments."
+      },
+      "my-adjustments": {
+        "b": "Requests you sent to change a target, weight or stop a KPI."
+      },
+      "my-conduct": {
+        "b": "Conduct form: you self-score, your manager scores."
+      },
+      "my-feedback360": {
+        "b": "360 forms to fill in for colleagues, and your 360 report."
+      },
+      "my-rewards": {
+        "b": "Reward point balance, check-in, gift shop and point history."
+      },
+      "my-cash-wallet": {
+        "b": "Money balance, top-ups and conversion to points."
+      }
+    },
+    "mykpi": {
+      "ai": {
+        "t": "Ask K.AI",
+        "b": "K.AI summarizes this cycle's KPIs and your expected score."
+      },
+      "search": {
+        "t": "Search KPIs",
+        "b": "Type a KPI name to filter."
+      },
+      "view": {
+        "t": "View",
+        "b": "Switch between table and card view."
+      },
+      "table": {
+        "t": "KPIs by period",
+        "b": "Each block is a period; each row shows target, weight and progress."
+      },
+      "submit": {
+        "t": "Submit report",
+        "b": "Opens the form to submit results for this KPI, with evidence files."
+      },
+      "adjust": {
+        "t": "Request adjustment",
+        "b": "Ask your manager to change the target, weight or stop the KPI."
+      },
+      "selfEval": {
+        "t": "Self-assess the period",
+        "b": "When the period ends, click to score yourself before your manager does."
+      }
+    },
+    "myokr": {
+      "objective": {
+        "t": "An objective",
+        "b": "Click to open its key results; the \"You contribute\" line shows which of your KPIs feed it."
+      },
+      "search": {
+        "t": "Search",
+        "b": "Search by objective or key result name."
+      },
+      "analytics": {
+        "t": "View analytics",
+        "b": "Go to Statistics for progress charts."
+      },
+      "manage": {
+        "t": "OKR management",
+        "b": "Go to OKR setup if you can manage it."
+      }
+    },
+    "mybsc": {
+      "scorecard": {
+        "t": "Scorecard",
+        "b": "The BSC scorecard in view. Upper-level scorecards are for reference only; your BSC score uses the one attached to your own unit."
+      },
+      "perspective": {
+        "t": "A perspective",
+        "b": "The items of this perspective with their weights and results."
+      },
+      "search": {
+        "t": "Search items",
+        "b": "Type an item name to filter."
+      },
+      "analytics": {
+        "t": "View analytics",
+        "b": "Go to Statistics for detailed BSC scores."
+      },
+      "manage": {
+        "t": "BSC management",
+        "b": "Go to BSC setup if you can manage it."
+      }
+    },
+    "mysub": {
+      "stats": {
+        "t": "Figures",
+        "b": "Number of submissions by status."
+      },
+      "add": {
+        "t": "Submit report",
+        "b": "Pick a KPI and enter the result, with evidence files."
+      },
+      "search": {
+        "t": "Search",
+        "b": "Search by KPI name."
+      },
+      "tabs": {
+        "t": "Status",
+        "b": "Draft is not sent; Pending awaits your manager; Returned needs fixing and resubmitting."
+      },
+      "drafts": {
+        "t": "Unsent drafts",
+        "b": "A shortcut to submissions you saved as drafts but have not sent."
+      },
+      "list": {
+        "t": "Submission list",
+        "b": "Each row is one submission with its result and approval status."
+      },
+      "edit": {
+        "t": "Edit draft",
+        "b": "Reopen the draft to change figures or add files."
+      },
+      "send": {
+        "t": "Submit for approval",
+        "b": "Send the draft to your manager. Once sent it can no longer be edited."
+      }
+    },
+    "eval": {
+      "add": {
+        "t": "Self-assessment",
+        "b": "Opens the self-assessment form for a finished period."
+      },
+      "selfNow": {
+        "t": "Self-assess now",
+        "b": "Appears when a period just ended and you have not scored yourself."
+      },
+      "period": {
+        "t": "Period",
+        "b": "Filter results by period."
+      },
+      "table": {
+        "t": "Evaluation results",
+        "b": "Each row shows your self-score, the manager score and the rating."
+      },
+      "view": {
+        "t": "View details",
+        "b": "Opens the full evaluation form with the manager's comments."
+      }
+    },
+    "myadj": {
+      "add": {
+        "t": "Create adjustment request",
+        "b": "Pick a KPI and ask to change its target, weight or stop it. Your manager has 24 hours to respond."
+      },
+      "list": {
+        "t": "Requests sent",
+        "b": "Track which requests are pending, approved or rejected."
+      }
+    },
+    "myconduct": {
+      "target": {
+        "t": "Pick a period or cycle",
+        "b": "Pick a period or cycle to open the conduct form."
+      },
+      "sheet": {
+        "t": "Conduct form",
+        "b": "Each row is a criterion: your column is for self-scoring, the manager column is scored by your manager."
+      },
+      "saveSelf": {
+        "t": "Save self-score",
+        "b": "Saves your scores and evidence."
+      },
+      "export": {
+        "t": "Export",
+        "b": "Exports the form to a file."
+      },
+      "ai": {
+        "t": "Ask K.AI",
+        "b": "K.AI reads your form: self-score, manager score and criteria still missing evidence."
+      }
+    },
+    "myf360": {
+      "waiting": {
+        "t": "Waiting on you",
+        "b": "360 forms you need to fill in for others. Peer and direct-report forms are anonymous."
+      },
+      "done": {
+        "t": "Completed",
+        "b": "Forms you have submitted."
+      },
+      "reports": {
+        "t": "My 360 reports",
+        "b": "How others rated you, once the campaign has ended."
+      }
+    },
+    "myrewards": {
+      "balance": {
+        "t": "Point balance",
+        "b": "Reward points you have to spend on gifts."
+      },
+      "checkin": {
+        "t": "Check-in",
+        "b": "Click every day to earn points; consecutive days earn a bonus."
+      },
+      "tabs": {
+        "t": "Tabs",
+        "b": "Gift shop, point history, certificates and redemption requests."
+      },
+      "shop": {
+        "t": "Gift shop",
+        "b": "Each card shows the point price and how many points you still need. An empty shop means no gifts have been added yet."
+      },
+      "redeem": {
+        "t": "Redeem",
+        "b": "Click to redeem; points are deducted at once and the request awaits delivery."
+      },
+      "history": {
+        "t": "Point history",
+        "b": "Every time you earned or spent points."
+      },
+      "certificates": {
+        "t": "Certificates",
+        "b": "Certificates attached to the rewards you received; it stays empty until a reward comes with one."
+      },
+      "redemptions": {
+        "t": "Redemption requests",
+        "b": "Track whether redeemed gifts are awaiting delivery or received."
+      },
+      "redeemView": {
+        "t": "View gift code",
+        "b": "Instant gifts come with a code (voucher) — click to view and copy it."
+      },
+      "redeemCancel": {
+        "t": "Cancel request",
+        "b": "A request still awaiting delivery can be cancelled; the points go back to your wallet."
+      },
+      "certPrint": {
+        "t": "Print certificate",
+        "b": "Opens the certificate for that reward to print or save as PDF."
+      }
+    },
+    "mywallet": {
+      "balance": {
+        "t": "Money balance",
+        "b": "Money you topped up and have not converted to points."
+      },
+      "topup": {
+        "t": "Top up",
+        "b": "Create a top-up order and transfer using the VietQR code."
+      },
+      "tabs": {
+        "t": "Tabs",
+        "b": "Convert to points, top-up history and transaction history."
+      },
+      "convert": {
+        "t": "Convert to points",
+        "b": "Turn wallet money into reward points at the company rate. Points never convert back to money."
+      },
+      "topups": {
+        "t": "Top-up orders",
+        "b": "Orders you created; unpaid ones can be reopened."
+      },
+      "history": {
+        "t": "Transaction history",
+        "b": "Every money movement in your wallet."
+      },
+      "convertRate": {
+        "t": "Rate",
+        "b": "How much money buys one point. Points arrive in your points wallet right after converting."
+      },
+      "convertPoints": {
+        "t": "Points to convert",
+        "b": "Type the points; the box beside it shows the money to be deducted."
+      },
+      "convertCost": {
+        "t": "Money deducted",
+        "b": "Turns red when the wallet cannot cover it, with a line saying how much is missing."
+      },
+      "convertMax": {
+        "t": "Convert max",
+        "b": "Fills in the most points your current balance can buy."
+      },
+      "convertSubmit": {
+        "t": "Convert",
+        "b": "Deducts money and adds points straight away. Points never convert back to money."
+      },
+      "topupStatus": {
+        "t": "Order status",
+        "b": "Awaiting transfer, received, expired or cancelled."
+      },
+      "topupReceipt": {
+        "t": "Receipt",
+        "b": "View the receipt of an order whose money arrived."
+      },
+      "topupResume": {
+        "t": "Continue payment",
+        "b": "For a pending order, reopens the QR code and transfer description."
+      },
+      "ledgerType": {
+        "t": "Type",
+        "b": "Top-up, conversion to points, received or adjusted."
+      },
+      "ledgerExplain": {
+        "t": "Details",
+        "b": "The details of the transaction, e.g. the rate used when converting to points."
+      }
+    }
+  },
+  "tourAnalytics": {
+    "intro": {
+      "t": "Statistics",
+      "b": "Three views: your own results, the unit you manage and comparison between units, then the BSC scorecard. With OKR on, the first two cards show objectives instead of KPIs."
+    },
+    "cards": {
+      "my-objectives": {
+        "b": "Your objectives and key results over time."
+      },
+      "my": {
+        "b": "Your own KPI results: trends and details per KPI."
+      },
+      "subordinate": {
+        "b": "Objectives of the unit you manage and each person's progress."
+      },
+      "summary": {
+        "b": "Where the unit you lead stands: overall figures, trends, people ranking."
+      },
+      "drilldown": {
+        "b": "Put units side by side: ratings, matrix, cascades."
+      },
+      "bsc": {
+        "b": "Scores per BSC item, the balance radar and comparison with system scores."
+      }
+    },
+    "myObjectives": {
+      "intro": {
+        "t": "My objectives",
+        "b": "Progress of the objectives and key results you contribute to, for the time range set in each tile."
+      },
+      "ai": {
+        "t": "Ask K.AI",
+        "b": "Ask K.AI about the figures in this view."
+      }
+    },
+    "my": {
+      "intro": {
+        "t": "My results",
+        "b": "Your own KPI results. If a chart is empty, check the tile's time range first — usually it is a period nobody has submitted in."
+      },
+      "ai": {
+        "t": "Ask K.AI",
+        "b": "Ask K.AI about the figures in this view."
+      }
+    },
+    "subordinate": {
+      "intro": {
+        "t": "Units I manage",
+        "b": "Objectives of the unit you manage, each person's progress and child unit performance."
+      },
+      "ai": {
+        "t": "Ask K.AI",
+        "b": "Ask K.AI about the figures in this view."
+      }
+    },
+    "summary": {
+      "intro": {
+        "t": "Units I manage",
+        "b": "Overall progress, trends, people ranking and risk points of the unit you lead."
+      },
+      "ai": {
+        "t": "Rank changes",
+        "b": "K.AI compares the ranks of child units between the two latest evaluation periods."
+      }
+    },
+    "drilldown": {
+      "intro": {
+        "t": "Unit comparison",
+        "b": "Put units side by side to see which department lags as a whole and which people pull the rest down."
+      },
+      "ai": {
+        "t": "Self-assessment gap",
+        "b": "K.AI points out the child units whose self-scores differ most from manager scores."
+      },
+      "sidebar": {
+        "t": "Unit tree",
+        "b": "Pick the unit branch to compare; the tiles on the right follow."
+      }
+    },
+    "bsc": {
+      "intro": {
+        "t": "BSC scorecard",
+        "b": "Scores per item, the four-perspective balance radar and comparison of BSC scores with system scores."
+      },
+      "ai": {
+        "t": "Ask K.AI",
+        "b": "Ask K.AI about the figures in this view."
+      }
+    },
+    "grid": {
+      "add": {
+        "t": "Add chart",
+        "b": "Opens the library to add charts to this view. The layout is saved for your account only."
+      },
+      "cell": {
+        "t": "A chart tile",
+        "b": "Hover for details; click a row or bar to drill down where the chart allows it."
+      },
+      "drag": {
+        "t": "Drag to move",
+        "b": "Hold the dotted handle to drag the tile; drag a corner or edge to resize. Letting go saves it."
+      },
+      "menu": {
+        "t": "Tile menu",
+        "b": "Has Settings, Copy image, Pin to overview, Move up/down, Change width and Remove from page."
+      },
+      "config": {
+        "t": "Settings panel",
+        "b": "Unit, time range and display are set per tile — there is no page-wide filter."
+      }
+    }
+  },
+  "tourAiAssistant": {
+    "intro": {
+      "t": "K.AI assistant",
+      "b": "Ask in plain language about performance, objectives or people. K.AI sees only the data you are allowed to see."
+    },
+    "starter": {
+      "t": "Suggested questions",
+      "b": "Not sure what to ask? Click a suggestion to start."
+    },
+    "composer": {
+      "t": "Question box",
+      "b": "Type your question; pin evidence files if you want K.AI to read them too. Shift + Enter for a new line."
+    },
+    "send": {
+      "t": "Send",
+      "b": "Sends the question. Conversations keep their thread, so you can follow up with \"what about department B\" without restating the context."
+    },
+    "sidebar": {
+      "t": "Past conversations",
+      "b": "Reopen earlier conversations to keep asking."
+    },
+    "new": {
+      "t": "New conversation",
+      "b": "Start a fresh thread with no prior context."
+    },
+    "quota": {
+      "t": "Each question uses quota",
+      "b": "K.AI uses your monthly token quota; once used up it stops answering until next month. Check figures K.AI summarizes against Statistics before putting them in a report."
+    }
+  },
+  "tourWork": {
+    "tasks": {
+      "intro": {
+        "t": "Tasks",
+        "b": "To-dos tied to KPIs: ones you own, follow or assign. Click a task to open details, comments and subtasks."
+      },
+      "views": {
+        "t": "Lists",
+        "b": "Assigned to me, Following, Created by me, Delegated, Done, and tasks per KPI."
+      },
+      "create": {
+        "t": "Create task",
+        "b": "Create a task with an owner, due date and linked KPI. Shortcut: N."
+      },
+      "mode": {
+        "t": "List, Kanban, Calendar",
+        "b": "Switch views: list to review, Kanban to drag by status, Calendar to see due dates."
+      },
+      "group": {
+        "t": "Group by",
+        "b": "Group tasks by status, due date, owner or KPI."
+      },
+      "sort": {
+        "t": "Order",
+        "b": "Change the order of the list."
+      },
+      "filter": {
+        "t": "Filter",
+        "b": "Filter by status, due date, priority or period."
+      },
+      "search": {
+        "t": "Search tasks",
+        "b": "Type a task name to find it quickly."
+      },
+      "quickAdd": {
+        "t": "Quick add",
+        "b": "Type a task name and press Enter to create it right in the list."
+      }
+    },
+    "docs": {
+      "intro": {
+        "t": "Documents",
+        "b": "Personal, unit and company documents in one place. K.AI reads exactly what each person may see."
+      },
+      "new": {
+        "t": "New",
+        "b": "Write a document or spreadsheet online, upload files, or create a folder."
+      },
+      "nav": {
+        "t": "Navigation",
+        "b": "Home has recent and pinned documents; the Drive group is split by scope."
+      },
+      "mine": {
+        "t": "Mine",
+        "b": "Your personal documents; only people you share with can see them."
+      },
+      "unit": {
+        "t": "Unit",
+        "b": "Shared documents of the unit you belong to."
+      },
+      "company": {
+        "t": "Company",
+        "b": "Company-wide documents such as policies and processes. K.AI relies on these for company questions."
+      },
+      "requests": {
+        "t": "Requests",
+        "b": "Requests to move a document to a wider scope, awaiting approval."
+      },
+      "trash": {
+        "t": "Trash",
+        "b": "Deleted documents stay here for a while before they are gone for good; they can be restored."
+      },
+      "main": {
+        "t": "Content",
+        "b": "Folders and documents of the selected item. Click a document to view, share or see versions."
+      }
+    }
+  },
+  "tourForms": {
+    "usersForm": {
+      "title": "Add a person — field by field",
+      "add": {
+        "t": "Add a person",
+        "b": "This button opens the account form. Click it or press Next to see the form."
+      },
+      "form": {
+        "t": "Add-person form",
+        "b": "Fill in every field marked * and click Create. The guide is running, so the form is not sent anywhere."
+      },
+      "name": {
+        "t": "Full name",
+        "b": "Shown in every list, evaluation sheet and email sent to this person."
+      },
+      "code": {
+        "t": "Employee code",
+        "b": "Optional. Use your internal code so Excel import/export and other systems line up."
+      },
+      "email": {
+        "t": "Email",
+        "b": "Used to sign in and receive notifications. One email belongs to one account."
+      },
+      "password": {
+        "t": "Initial password",
+        "b": "At least 8 characters. Suggest generates a strong one, the eye icon shows it; the bar below rates its strength."
+      },
+      "phone": {
+        "t": "Phone number",
+        "b": "Optional, for contact only."
+      },
+      "unit": {
+        "t": "Unit",
+        "b": "Where this person works. The unit decides who approves their KPIs and whose data they can see."
+      },
+      "role": {
+        "t": "Role",
+        "b": "Only roles that fit the level of the chosen unit are listed. The role carries this person's permissions."
+      },
+      "submit": {
+        "t": "Create account",
+        "b": "Click Create to save. The new person signs in with this email and password; click their row later to edit."
+      }
+    },
+    "rolesForm": {
+      "title": "Create a role — field by field",
+      "add": {
+        "t": "Add role",
+        "b": "This button opens the role form. Click it or press Next to see the form."
+      },
+      "form": {
+        "t": "Role form",
+        "b": "A role has a name, a management tier and a position within the tier. Permissions come in the next guide."
+      },
+      "name": {
+        "t": "Role name",
+        "b": "The name everyone sees, e.g. \"Marketing Manager\". System roles can only be renamed."
+      },
+      "level": {
+        "t": "Management tier",
+        "b": "Which tier of the unit tree the role belongs to (from Ranks). People only get roles of their unit's tier."
+      },
+      "rank": {
+        "t": "Position in tier",
+        "b": "Head, Deputy or Member. Each tier has at most one Head and one Deputy role; the Head holds the unit's KPI approval step."
+      },
+      "submit": {
+        "t": "Confirm create",
+        "b": "Saves the role. Then open the role row menu › Permissions to choose what it can do."
+      }
+    },
+    "rolesPerms": {
+      "title": "Role permissions",
+      "drawer": {
+        "t": "Permissions panel",
+        "b": "Opened from a role's menu › Permissions. The guide opens it for the first role in the list."
+      },
+      "defaults": {
+        "t": "Apply default permissions",
+        "b": "Suggests the standard set for the position (director, head, deputy, staff). You preview it before it is added."
+      },
+      "search": {
+        "t": "Search permissions",
+        "b": "Type a permission code or group, e.g. KPI or APPROVE, to filter."
+      },
+      "group": {
+        "t": "Permission group",
+        "b": "Permissions are grouped by resource (KPI, Submission…). x/y shows how many in the group are selected."
+      },
+      "groupToggle": {
+        "t": "Select the whole group",
+        "b": "Selects or clears every permission in the group at once."
+      },
+      "item": {
+        "t": "A permission",
+        "b": "Click to turn it on or off. Hover to read what it allows."
+      },
+      "save": {
+        "t": "Save permissions",
+        "b": "Changes only apply after you click Save; Cancel discards them."
+      },
+      "hierarchyBtn": {
+        "t": "Permissions by hierarchy",
+        "b": "This button opens a dialog that sets the standard permissions for EVERY role at once, by each role's position."
+      },
+      "legend": {
+        "t": "Legend",
+        "b": "Green means full access, amber partial, × none."
+      },
+      "matrix": {
+        "t": "Permission matrix",
+        "b": "Each row is a permission, each column a role. Read down a column to see what that role will get."
+      },
+      "apply": {
+        "t": "Apply to the whole company",
+        "b": "Overwrites the current permissions of every role with the matrix. Only use it to reset permissions from scratch."
+      }
+    },
+    "orgForm": {
+      "title": "Add a unit — field by field",
+      "form": {
+        "t": "Unit form",
+        "b": "Opened from the add-child button on the chart, or Create root unit. The guide opens the form for a child of the root unit."
+      },
+      "logo": {
+        "t": "Logo",
+        "b": "Optional. Shown on the chart and the unit card."
+      },
+      "parent": {
+        "t": "Parent and level",
+        "b": "The parent unit and level of the new unit, filled in from where you clicked add."
+      },
+      "name": {
+        "t": "Unit name",
+        "b": "Shown on the chart, in reports and in the approval chain."
+      },
+      "code": {
+        "t": "Unit code",
+        "b": "A short unique code, used for Excel import/export."
+      },
+      "type": {
+        "t": "Unit type",
+        "b": "What kind of unit it is, e.g. Department, Division, Team."
+      },
+      "status": {
+        "t": "Operating status",
+        "b": "Active or discontinued. Defaults to active."
+      },
+      "relation": {
+        "t": "Relation to parent",
+        "b": "Line, Advisory or Supervisory. It only changes the line style on the chart; approvals and visibility still follow the parent unit."
+      },
+      "contact": {
+        "t": "Contact",
+        "b": "The unit's shared email and phone, optional."
+      },
+      "location": {
+        "t": "Location",
+        "b": "Province/city, ward and street address. The pickers are searchable."
+      },
+      "roles": {
+        "t": "Allowed roles",
+        "b": "Limits which roles can be given to people in this unit. Roles that don't fit the level are locked, with the reason."
+      },
+      "submit": {
+        "t": "Save",
+        "b": "Saves the unit. It appears on the chart straight away."
+      }
+    },
+    "ranksEdit": {
+      "title": "Edit ranks — field by field",
+      "open": {
+        "t": "Edit",
+        "b": "This button switches the ranks block into edit mode. Click it or press Next."
+      },
+      "note": {
+        "t": "Note",
+        "b": "Changing the structure affects units already created, so settle it early."
+      },
+      "row": {
+        "t": "A level",
+        "b": "Each row is one tier of the unit tree; the number is the level (1 is the top)."
+      },
+      "name": {
+        "t": "Level name",
+        "b": "What units on this tier are called, e.g. Branch, Department, Team."
+      },
+      "managerTitle": {
+        "t": "Manager title",
+        "b": "What the head of a unit on this tier is called, e.g. Director, Head of department."
+      },
+      "order": {
+        "t": "Reorder and delete",
+        "b": "The arrows move a level; the bin deletes it. At least 2 levels are always required."
+      },
+      "add": {
+        "t": "Add level",
+        "b": "Adds a new tier at the end."
+      },
+      "save": {
+        "t": "Save structure",
+        "b": "Saves it; Cancel next to it discards every change."
+      }
+    },
+    "delegationsForm": {
+      "title": "Create a delegation — field by field",
+      "add": {
+        "t": "Delegate",
+        "b": "This button opens the delegation form. Click it or press Next to see the form."
+      },
+      "form": {
+        "t": "Delegation form",
+        "b": "Lets someone also manage units outside their existing scope."
+      },
+      "delegate": {
+        "t": "Delegate",
+        "b": "The person receiving the delegation. The list is grouped by unit; type to search."
+      },
+      "units": {
+        "t": "Units to manage",
+        "b": "Pick one or more. Units above the delegate's level are hidden, with a note saying how many."
+      },
+      "subtree": {
+        "t": "Include lower units",
+        "b": "On: the delegation covers every child unit too. Off: only the units you picked."
+      },
+      "leader": {
+        "t": "May act as unit head",
+        "b": "Turn on when the delegate must do the head's work, such as conduct scoring."
+      },
+      "expires": {
+        "t": "Expires",
+        "b": "Leave empty for no expiry. The delegation lasts through the whole chosen day."
+      },
+      "reason": {
+        "t": "Reason",
+        "b": "A note for whoever reads it later, e.g. \"Team lead on a business trip\"."
+      },
+      "submit": {
+        "t": "Delegate",
+        "b": "Saves the delegation. Revoke it any time from the list below."
+      }
+    },
+    "myKpiAdjust": {
+      "title": "Request a KPI adjustment",
+      "open": {
+        "t": "Adjust button",
+        "b": "Every KPI still open has this button. Click it or press Next to open the request form for the first KPI."
+      }
+    },
+    "myKpiSelfEval": {
+      "title": "Self-assess a period",
+      "open": {
+        "t": "Self-assess this period",
+        "b": "When a period has ended and you haven't self-assessed, its group header shows this button. Click it or press Next to open the sheet."
+      }
+    },
+    "adjForm": {
+      "dialog": {
+        "t": "Adjustment request form",
+        "b": "Ask to change a KPI's numbers or stop it; the request goes through the approval chain like a new KPI."
+      },
+      "note": {
+        "t": "Note",
+        "b": "You can change the target or minimum, or ask to stop the KPI. Who approves is shown in the chain after sending."
+      },
+      "mode": {
+        "t": "Change figures / Stop",
+        "b": "Choose to edit the numbers, or to stop the KPI altogether."
+      },
+      "numbers": {
+        "t": "New target and minimum",
+        "b": "Leave a box as it is to keep that value. The unit is shown inside the box."
+      },
+      "reason": {
+        "t": "Reason",
+        "b": "Required. Say exactly why the change is needed — approvers read this first."
+      },
+      "submit": {
+        "t": "Send request",
+        "b": "Sends it for approval. Follow it under My adjustment requests."
+      }
+    },
+    "evalForm": {
+      "dialog": {
+        "t": "Self-assessment sheet",
+        "b": "You score your own period before your manager does."
+      },
+      "context": {
+        "t": "Context",
+        "b": "Pick the period to assess. Only periods where you have KPIs are listed."
+      },
+      "score": {
+        "t": "Your self-score",
+        "b": "The system score comes from your KPI results; you can change it, and the restore button returns to it."
+      },
+      "evidence": {
+        "t": "Evidence and comments",
+        "b": "Attach evidence and write a few lines about your period."
+      },
+      "submit": {
+        "t": "Send evaluation",
+        "b": "Sends the sheet to your manager. After sending it is view-only."
+      }
+    },
+    "myAdjForm": {
+      "title": "Send an adjustment request — step by step",
+      "add": {
+        "t": "New request",
+        "b": "This button opens the picker for the KPI to adjust. Click it or press Next."
+      },
+      "picker": {
+        "t": "Choose a KPI",
+        "b": "Only KPIs that can still be adjusted are listed: period not over and no request already pending."
+      },
+      "search": {
+        "t": "Search",
+        "b": "Type a name to filter."
+      },
+      "item": {
+        "t": "A KPI",
+        "b": "Click a KPI to open the request form for it. KPIs with a pending request are greyed out."
+      }
+    },
+    "evalFormTour": {
+      "title": "Self-assessment — field by field",
+      "add": {
+        "t": "Self-assess",
+        "b": "This button opens the self-assessment sheet. Click it or press Next to see it."
+      }
+    },
+    "redeemForm": {
+      "title": "Redeem a gift — step by step",
+      "open": {
+        "t": "Redeem now",
+        "b": "Every gift has this button. Click it or press Next to open the redeem dialog for the first gift."
+      },
+      "gift": {
+        "t": "The gift",
+        "b": "Name, points, value and how many are left."
+      },
+      "quantity": {
+        "t": "Quantity",
+        "b": "How many to redeem; the points deducted follow the quantity."
+      },
+      "balance": {
+        "t": "Balance",
+        "b": "Points you have, points to be deducted and what remains. If you are short, it says by how much."
+      },
+      "notes": {
+        "t": "Notes",
+        "b": "Optional, e.g. T-shirt size."
+      },
+      "submit": {
+        "t": "Redeem",
+        "b": "Redeems and deducts points. If you are short on points but your cash wallet covers it, the button buys the missing points first."
+      }
+    },
+    "topupForm": {
+      "title": "Top up the wallet — step by step",
+      "add": {
+        "t": "Top up",
+        "b": "This button opens the top-up dialog. Click it or press Next to see it."
+      },
+      "dialog": {
+        "t": "Top-up dialog",
+        "b": "Top up by bank transfer; money arrives once the bank confirms it."
+      },
+      "amount": {
+        "t": "Amount",
+        "b": "Enter how much to top up, within the minimum – maximum shown below."
+      },
+      "quick": {
+        "t": "Quick picks",
+        "b": "Click a preset amount instead of typing."
+      },
+      "submit": {
+        "t": "Create transfer code",
+        "b": "Creates the top-up order with a QR code and transfer description. Keep the description exact, or the money won't reach the wallet automatically."
+      }
+    },
+    "reviewKpi": {
+      "title": "View and approve a KPI",
+      "dialog": {
+        "t": "KPI dialog",
+        "b": "Click a KPI name in the list to open this dialog. The guide opens the first KPI in the list."
+      },
+      "facts": {
+        "t": "Key figures",
+        "b": "Target, minimum, weight, frequency and the KPI's deadlines."
+      },
+      "assignees": {
+        "t": "Assignees",
+        "b": "Who will receive this KPI. Check before approving."
+      },
+      "chain": {
+        "t": "Approval chain",
+        "b": "The approval steps from the KPI's unit up to the root: which are done and who is up next."
+      },
+      "reject": {
+        "t": "Return",
+        "b": "Opens a reason box. The KPI goes back to its creator with the reason; resubmitting starts the chain over."
+      },
+      "approve": {
+        "t": "Approve",
+        "b": "Approves your step. If there are steps above, the KPI moves on to that step holder instead of starting."
+      }
+    },
+    "reviewAdj": {
+      "title": "View and approve an adjustment request",
+      "dialog": {
+        "t": "Adjustment request",
+        "b": "Click a request in the list to open this dialog. The guide opens the first request."
+      },
+      "reason": {
+        "t": "Reason",
+        "b": "Why the requester needs the KPI changed."
+      },
+      "compare": {
+        "t": "Current → proposed",
+        "b": "Each metric side by side: the current value and the requested one."
+      },
+      "reject": {
+        "t": "Reject",
+        "b": "Opens a note box, then rejects; the requester is notified with the note."
+      },
+      "approve": {
+        "t": "Approve",
+        "b": "Opens a note box (and compensation rate, if any), then approves. Adjustments always go through the whole chain."
+      }
+    },
+    "staffEval": {
+      "title": "An employee's period scoresheet",
+      "dialog": {
+        "t": "Scoresheet",
+        "b": "Click Score on a person's row to open it. The guide opens the first person's sheet (a specific period must be selected)."
+      },
+      "kpis": {
+        "t": "KPIs",
+        "b": "Each submission with result, target and system score; the box beside it lets you re-score if needed."
+      },
+      "score": {
+        "t": "Period score",
+        "b": "The period total (defaults to the sum of your scores), plus conduct and matrix rating when enabled."
+      },
+      "comments": {
+        "t": "Comments and evidence",
+        "b": "Comments from levels that scored before you, and your own comment box."
+      },
+      "submit": {
+        "t": "Approve and finalize",
+        "b": "Approves all submissions and saves the official result. Locked while returned submissions await resubmission."
+      }
+    },
+    "cycleEval": {
+      "title": "Score, finalize and send the cycle evaluation",
+      "unitScore": {
+        "t": "Score the unit",
+        "b": "Opened from the step bar at the top, at the calibration step. By default the unit score is the members' average."
+      },
+      "unitSummary": {
+        "t": "Unit score",
+        "b": "The current score and whether it is the average or a manual score."
+      },
+      "unitManual": {
+        "t": "Manual score",
+        "b": "Type a score different from the average; a reason is then required. The button next to it goes back to the average."
+      },
+      "unitSlider": {
+        "t": "Slider",
+        "b": "Drag to pick a score; the rating label follows."
+      },
+      "unitSave": {
+        "t": "Save unit score",
+        "b": "Only enabled once the score has changed."
+      },
+      "finalize": {
+        "t": "Lock results",
+        "b": "Opened from the finalize button on the step bar: the unit score to be locked and any warnings first."
+      },
+      "finalizeComment": {
+        "t": "Comment",
+        "b": "Optional, saved with the locked result."
+      },
+      "finalizeUnfinished": {
+        "t": "Unfinished KPIs",
+        "b": "Choose how to handle each unfinished KPI before locking; until all are chosen you cannot lock."
+      },
+      "finalizeConfirm": {
+        "t": "Confirm lock",
+        "b": "Locks the unit's cycle result. Finalizing the root unit also locks the whole cycle."
+      },
+      "send": {
+        "t": "Send evaluation results",
+        "b": "Opened from Send evaluations. Search and pick who gets the results email."
+      },
+      "sendList": {
+        "t": "Employee list",
+        "b": "Tick people one by one, or use select all above."
+      },
+      "sendSubmit": {
+        "t": "Send",
+        "b": "Emails the results to the selected people."
+      }
+    },
+    "f360Form": {
+      "title": "Create a 360 campaign — field by field",
+      "add": {
+        "t": "Create campaign",
+        "b": "This button opens the 360 campaign form. Click it or press Next to see the form."
+      },
+      "name": {
+        "t": "Campaign name",
+        "b": "E.g. \"2026 360 review\"."
+      },
+      "purpose": {
+        "t": "Purpose",
+        "b": "Development only, or counted toward the rating. If counted, a KPI cycle is required."
+      },
+      "cycle": {
+        "t": "KPI cycle",
+        "b": "The cycle the 360 result is attached to."
+      },
+      "window": {
+        "t": "Time window",
+        "b": "Open date and deadline, suggested from the cycle. Click Adjust to change them."
+      },
+      "description": {
+        "t": "Description",
+        "b": "A note for raters, optional."
+      },
+      "questions": {
+        "t": "Questions",
+        "b": "Competencies and questions, each competency weighted. You can copy questions from an earlier campaign."
+      },
+      "process": {
+        "t": "Process",
+        "b": "Whether reviewees rate themselves, nominate extra raters, and can see their own report."
+      },
+      "advanced": {
+        "t": "Advanced options",
+        "b": "Anonymity, automation (AI summary, auto-close), weights by group and limits for automatic rater selection."
+      },
+      "submit": {
+        "t": "Create campaign",
+        "b": "The campaign is saved as a draft; add reviewees before launching it."
+      }
+    },
+    "newSub": {
+      "title": "Submit a result report — field by field",
+      "intro": {
+        "t": "Submit a result report",
+        "b": "This page records what you achieved on a KPI, with an explanation and evidence, and sends it to your manager. The guide goes field by field and sends nothing."
+      },
+      "kpi": {
+        "t": "KPI",
+        "b": "Pick the KPI to report on. Opened from a KPI's Submit button, it is already selected."
+      },
+      "actual": {
+        "t": "Actual result",
+        "b": "The number you achieved (for a qualitative KPI, pick a level). The system score compares it with the target."
+      },
+      "note": {
+        "t": "Explanation",
+        "b": "How you got there and anything notable — this is what the approver reads."
+      },
+      "files": {
+        "t": "Evidence",
+        "b": "Drop images, PDF, Word or Excel files, or pick existing files from the document library. Evidence makes the report more credible."
+      },
+      "side": {
+        "t": "KPI being reported",
+        "b": "Target, minimum, weight, period and how many times you have submitted — to check against while filling in."
+      },
+      "draft": {
+        "t": "Save draft",
+        "b": "Keeps it to finish later. Drafts can be edited any time; once sent for approval they cannot."
+      },
+      "submit": {
+        "t": "Send report",
+        "b": "Asks once more, then sends it to your manager for approval."
+      }
+    },
+    "cycleForm": {
+      "title": "Create a cycle — field by field",
+      "add": {
+        "t": "New cycle",
+        "b": "This button opens the cycle form. Click it or press Next to see the form."
+      },
+      "form": {
+        "t": "Cycle form",
+        "b": "A cycle groups several periods for one end-of-cycle evaluation, e.g. a year of four quarters."
+      },
+      "mode": {
+        "t": "How to build the cycle",
+        "b": "Set the dates first and pick periods inside them, or pick periods first and let the dates wrap them. Switching keeps what you typed."
+      },
+      "name": {
+        "t": "Cycle name",
+        "b": "The name everyone sees, e.g. \"2026\" or \"H1 2026\"."
+      },
+      "type": {
+        "t": "Cycle type",
+        "b": "Month, quarter, half-year or year. It sets the standard end date; if yours differs, the form asks before saving."
+      },
+      "evalMode": {
+        "t": "End-of-cycle evaluation",
+        "b": "Quantitative (KPI figures), qualitative or both. Without qualitative enabled, only quantitative is offered."
+      },
+      "dates": {
+        "t": "Dates",
+        "b": "Start and end of the cycle. When you pick periods first, these are derived from them."
+      },
+      "periods": {
+        "t": "Periods in the cycle",
+        "b": "Tick the periods that belong to the cycle now, instead of editing each period later."
+      },
+      "description": {
+        "t": "Description",
+        "b": "The overall goal of the cycle, optional."
+      },
+      "submit": {
+        "t": "Confirm",
+        "b": "Saves the cycle. A cycle only locks when the root unit's cycle evaluation is finalized; there is no separate lock button."
+      }
+    },
+    "periodForm": {
+      "title": "Create a period — field by field",
+      "add": {
+        "t": "New period",
+        "b": "This button opens the period form. Click it or press Next to see the form."
+      },
+      "form": {
+        "t": "Period form",
+        "b": "A period is the window in which KPIs are assigned and submitted, e.g. October or Q4."
+      },
+      "name": {
+        "t": "Period name",
+        "b": "Shown in filters and on every KPI of the period."
+      },
+      "type": {
+        "t": "Period type",
+        "b": "Week, month, quarter… The end date is suggested from the start date and type."
+      },
+      "cycle": {
+        "t": "Evaluation cycle",
+        "b": "Optional. Attach the period to a cycle so its results roll up into the end-of-cycle evaluation."
+      },
+      "dates": {
+        "t": "Dates",
+        "b": "Start and end of the period. Its KPIs can only be submitted inside this window."
+      },
+      "reminder": {
+        "t": "Reminder",
+        "b": "When the submission reminder goes out; defaults to halfway through the period."
+      },
+      "submit": {
+        "t": "Confirm",
+        "b": "Saves the period. It appears straight away in the period filters of KPI screens."
+      }
+    },
+    "objectiveForm": {
+      "title": "Create an OKR objective — field by field",
+      "add": {
+        "t": "Add objective",
+        "b": "This button opens the objective form. Click it or press Next to see the form."
+      },
+      "form": {
+        "t": "Objective form",
+        "b": "An objective is what the organization wants to achieve; the numbers live in its key results."
+      },
+      "name": {
+        "t": "Name and code",
+        "b": "The objective's name and code. The code can be issued by the organization's code rule."
+      },
+      "description": {
+        "t": "Description",
+        "b": "Why this objective matters, optional."
+      },
+      "dates": {
+        "t": "Dates",
+        "b": "Start and end of the objective."
+      },
+      "units": {
+        "t": "Departments",
+        "b": "Units pursuing the objective. With several units, each key result splits a % across them."
+      },
+      "status": {
+        "t": "Status",
+        "b": "The objective's current status."
+      },
+      "bsc": {
+        "t": "BSC item",
+        "b": "Optionally link the objective to an item of a BSC scorecard."
+      },
+      "submit": {
+        "t": "Save",
+        "b": "Saves the objective. Then add key results right on its row."
+      }
+    },
+    "krForm": {
+      "title": "Add a key result — field by field",
+      "add": {
+        "t": "Add key result",
+        "b": "This button on each objective opens the KR form. The guide opens it for the first objective."
+      },
+      "form": {
+        "t": "Key result form",
+        "b": "A KR is the number that measures the objective. KPIs can use a KR as their source."
+      },
+      "name": {
+        "t": "Name and code",
+        "b": "The KR's name, e.g. \"Online revenue\". The code can be issued automatically."
+      },
+      "description": {
+        "t": "Description",
+        "b": "How it is measured or where the data comes from, optional."
+      },
+      "numbers": {
+        "t": "Unit, current, target",
+        "b": "Unit of measure, current value and target value. Progress is computed from these."
+      },
+      "allocation": {
+        "t": "% allocation by unit",
+        "b": "Only shown when the objective has several units. The boxes must add up to 100%."
+      },
+      "submit": {
+        "t": "Save",
+        "b": "Saves the KR to the objective."
+      }
+    },
+    "bscForm": {
+      "title": "Create a BSC scorecard — field by field",
+      "add": {
+        "t": "Create scorecard",
+        "b": "This button opens the scorecard form. Click it or press Next to see the form."
+      },
+      "name": {
+        "t": "Scorecard name",
+        "b": "E.g. \"Q3 2026 strategy\"."
+      },
+      "applyScope": {
+        "t": "Apply by",
+        "b": "By cycle: pick one cycle and all its periods apply. By period: tick each period."
+      },
+      "periods": {
+        "t": "Cycles / periods",
+        "b": "When the scorecard is in force. This box follows the Apply by choice."
+      },
+      "scope": {
+        "t": "Scope",
+        "b": "Units that use this scorecard. A unit without its own scorecard gets no BSC score; cascade down to follow the company one."
+      },
+      "vision": {
+        "t": "Strategy statement",
+        "b": "The central strategy every item serves, optional."
+      },
+      "emptyPolicy": {
+        "t": "Item without KPIs",
+        "b": "How to score an item that has no KPIs yet; each option explains the effect."
+      },
+      "items": {
+        "t": "Items and weights",
+        "b": "Tick items to include them; the ticked weights must add up to 100%."
+      },
+      "split": {
+        "t": "Split evenly",
+        "b": "Spreads the weight evenly across the ticked items."
+      },
+      "area": {
+        "t": "Perspective",
+        "b": "Items are grouped by the four BSC perspectives (financial, customer…). The pencil renames or recolors a perspective."
+      },
+      "addItem": {
+        "t": "Add item",
+        "b": "Creates a new item inside this perspective."
+      },
+      "rowToggle": {
+        "t": "Include item",
+        "b": "Click to add the item to the scorecard or remove it. Items assigned from above are locked."
+      },
+      "rowWeight": {
+        "t": "Item weight",
+        "b": "The item's percentage of the scorecard total."
+      },
+      "submit": {
+        "t": "Confirm create",
+        "b": "Saves the scorecard. Quick create also offers Save as draft next to it."
+      }
+    },
+    "awardForm": {
+      "title": "Award points — field by field",
+      "add": {
+        "t": "Award points",
+        "b": "This button opens the award form. Click it or press Next to see the form."
+      },
+      "form": {
+        "t": "Award form",
+        "b": "Pick people, points and a reason. Points go to their wallet to redeem gifts."
+      },
+      "budget": {
+        "t": "Your budget",
+        "b": "Points you can still award in your budget and the cap per person per award."
+      },
+      "people": {
+        "t": "Choose employees",
+        "b": "Search and pick one or more recipients."
+      },
+      "points": {
+        "t": "Points per person",
+        "b": "Points each person gets; the box next to it totals the group."
+      },
+      "reason": {
+        "t": "Reason",
+        "b": "Shown in the employee's points history, so be specific. With a certificate it is printed on it too."
+      },
+      "certificate": {
+        "t": "Attach a certificate",
+        "b": "Turn on to give a printable certificate, then choose the template."
+      },
+      "submit": {
+        "t": "Award now / Send for approval",
+        "b": "Over budget or without self-approval, the button becomes Send for approval and waits for a manager."
+      }
+    },
+    "budgetForm": {
+      "title": "Grant a reward budget — field by field",
+      "add": {
+        "t": "Grant budget",
+        "b": "This button opens the budget form. Click it or press Next to see the form."
+      },
+      "form": {
+        "t": "Budget form",
+        "b": "A budget is how many points one person may award to others over a time range."
+      },
+      "recipient": {
+        "t": "Budget holder",
+        "b": "The person who will award points from this budget."
+      },
+      "scope": {
+        "t": "Validity range",
+        "b": "By cycle, by period or a date range. A person has one budget at a time, so ranges must not overlap."
+      },
+      "total": {
+        "t": "Total points",
+        "b": "Points this person may award during the range."
+      },
+      "max": {
+        "t": "Max per person per award",
+        "b": "The cap for one recipient in one award."
+      },
+      "notes": {
+        "t": "Notes",
+        "b": "Optional, only admins see them."
+      },
+      "submit": {
+        "t": "Save",
+        "b": "Saves the budget. Later you cannot lower the total below what has been awarded."
+      }
+    },
+    "programForm": {
+      "title": "Automatic reward program — field by field",
+      "add": {
+        "t": "Create program",
+        "b": "This button opens the program form. Click it or press Next to see the form."
+      },
+      "form": {
+        "t": "Program form",
+        "b": "A program ranks people by results and pays points by tier when a cycle/period ends."
+      },
+      "name": {
+        "t": "Program name",
+        "b": "E.g. \"Quarterly KPI top performers\"."
+      },
+      "applies": {
+        "t": "Applies to",
+        "b": "Every cycle/period (repeats) or one specific cycle/period, for one-off rewards such as year-end."
+      },
+      "ranking": {
+        "t": "Rank by",
+        "b": "Cycle or period, and the metric used for ranking."
+      },
+      "units": {
+        "t": "Unit scope",
+        "b": "Rank across the company or within each unit."
+      },
+      "tiers": {
+        "t": "Default reward tiers",
+        "b": "Points per rank. Only defaults — each run can still be edited."
+      },
+      "tie": {
+        "t": "When people tie",
+        "b": "Same rank same reward, or pay exactly that many people in a fixed order."
+      },
+      "auto": {
+        "t": "Award automatically",
+        "b": "On: points reach wallets when the cycle/period ends without anyone reviewing; you can still pay manually earlier."
+      },
+      "submit": {
+        "t": "Save",
+        "b": "Saves the program. The run button on its row previews before paying."
+      }
+    },
+    "giftForm": {
+      "title": "Add a gift — field by field",
+      "add": {
+        "t": "Add gift",
+        "b": "This button opens the gift form for the points shop. Click it or press Next to see the form."
+      },
+      "form": {
+        "t": "Gift form",
+        "b": "Gifts are what employees redeem with reward points."
+      },
+      "image": {
+        "t": "Gift image",
+        "b": "Upload the picture shown on the gift card in the shop."
+      },
+      "name": {
+        "t": "Name and description",
+        "b": "The gift name and a few lines for whoever redeems it."
+      },
+      "points": {
+        "t": "Points and stock",
+        "b": "Points needed for one item and how many are left. Tick Unlimited if you don't need to count."
+      },
+      "delivery": {
+        "t": "How it is received",
+        "b": "Handed over in person: the request waits until someone marks it handed over. Received instantly: done on redemption, e.g. a day off."
+      },
+      "submit": {
+        "t": "Save",
+        "b": "Saves the gift. Untick On sale to hide it without deleting."
+      }
+    },
+    "certificateForm": {
+      "title": "Certificate template — field by field",
+      "add": {
+        "t": "Create template",
+        "b": "This button opens the certificate designer. Click it or press Next to see it."
+      },
+      "name": {
+        "t": "Template name",
+        "b": "Only shown in the template picker, not printed."
+      },
+      "style": {
+        "t": "Design style",
+        "b": "Start from a preset, then edit the text, colors and images below."
+      },
+      "paper": {
+        "t": "Paper",
+        "b": "Landscape or portrait."
+      },
+      "content": {
+        "t": "Printed content",
+        "b": "Lead-in, title, subtitle, body, footer, and switches to show the logo, organization name, points and reason."
+      },
+      "signer": {
+        "t": "Signer",
+        "b": "Name, title, signature/seal image, custom logo and background image. Backgrounds can be removed automatically."
+      },
+      "colors": {
+        "t": "Colors",
+        "b": "Accent, text and background colors."
+      },
+      "flags": {
+        "t": "Default and in use",
+        "b": "Make it the company default, or turn off In use to hide it from the picker."
+      },
+      "preview": {
+        "t": "Preview",
+        "b": "The certificate exactly as it will print, updated as you edit."
+      },
+      "submit": {
+        "t": "Create template",
+        "b": "Saves the template. It can be used straight away when awarding points with a certificate."
+      }
+    },
+    "taskForm": {
+      "title": "Create a task — field by field",
+      "add": {
+        "t": "New task",
+        "b": "This button opens the new-task dialog. Click it or press Next to see it."
+      },
+      "form": {
+        "t": "New-task dialog",
+        "b": "Every task belongs to one of the owner's KPIs, so its progress sits next to the target it serves."
+      },
+      "name": {
+        "t": "Task name",
+        "b": "Type a name, then Ctrl + Enter to create it quickly."
+      },
+      "owner": {
+        "t": "Owner",
+        "b": "Defaults to you. Assigning to someone else needs the assign permission, and only people in units you manage can be picked."
+      },
+      "kpi": {
+        "t": "KPI",
+        "b": "Required. Only the owner's KPIs that you can see are listed; changing the owner clears it."
+      },
+      "due": {
+        "t": "Due",
+        "b": "The date, and optionally time, it must be done by."
+      },
+      "priority": {
+        "t": "Priority",
+        "b": "Used to sort and filter the task list."
+      },
+      "more": {
+        "t": "More details",
+        "b": "Opens: who can see it (public within the KPI scope or private), description, and a checklist with one step per line."
+      },
+      "submit": {
+        "t": "Create",
+        "b": "Creates the task and opens its details, where you add followers, reminders and recurrence."
+      }
+    },
+    "docsCreate": {
+      "title": "Create a document, upload, create a folder",
+      "menu": {
+        "t": "New menu",
+        "b": "The New button opens this menu: new document, new spreadsheet, upload document, new folder."
+      },
+      "onlineTitle": {
+        "t": "New document — name",
+        "b": "Name it and click Create to open the online editor. New spreadsheet uses the same dialog."
+      },
+      "onlineScope": {
+        "t": "Scope",
+        "b": "Personal, Unit or Company. For Unit, also pick which unit. Inside a scope already, this box is hidden."
+      },
+      "onlineSubmit": {
+        "t": "Create",
+        "b": "Creates an empty document and opens the editor."
+      },
+      "uploadDrop": {
+        "t": "Upload — choose a file",
+        "b": "Drag and drop or click to pick a file. Its name is filled in as the title."
+      },
+      "uploadTitle": {
+        "t": "Title",
+        "b": "The name shown in the library; tidy it up so it is easy to find."
+      },
+      "uploadMeta": {
+        "t": "Scope, category, unit",
+        "b": "Who can see the document and what kind it is."
+      },
+      "uploadDescription": {
+        "t": "Description",
+        "b": "A few lines on what it is for, optional."
+      },
+      "uploadAi": {
+        "t": "Use for AI",
+        "b": "On: K.AI reads the document when answering people in that scope. Off: it is still stored to view and download."
+      },
+      "uploadSubmit": {
+        "t": "Upload",
+        "b": "Uploads the file to the library."
+      },
+      "folderName": {
+        "t": "New folder — name",
+        "b": "Name the folder."
+      },
+      "folderScope": {
+        "t": "Scope",
+        "b": "Which scope the folder belongs to; documents inside follow it."
+      },
+      "folderSubmit": {
+        "t": "Create",
+        "b": "Creates the folder."
+      }
+    }
   }
 }

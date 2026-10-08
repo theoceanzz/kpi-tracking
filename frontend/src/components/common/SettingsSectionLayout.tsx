@@ -8,6 +8,7 @@ import { useNavLabels } from '@/features/organization/hooks/useNavLabels'
 import { findNavItem, type NavItem } from '@/config/navigation'
 import { useTourScope } from '@/hooks/useTourScope'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 export interface SectionRenderer {
   /** Trùng với `id` của mục trong `sections` của cây nav. */
@@ -125,7 +126,7 @@ export default function SettingsSectionLayout({
           </div>
         )}
 
-        <div id="tour-settings-nav" className="@container space-y-8">
+        <div id="tour-settings-nav" {...tourAnchor('section.grid')} className="@container space-y-8">
           {groups.map(group => (
             <div key={group.name} className="space-y-3">
               {group.name && (
@@ -149,7 +150,7 @@ export default function SettingsSectionLayout({
                 {[...group.items]
                   .sort((a, b) => pendingWeight(b.id) - pendingWeight(a.id))
                   .map(def => (
-                  <button type="button" className="group block w-full rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4 text-left transition-colors hover:border-[var(--color-border-strong)] hover:bg-[var(--color-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]" key={def.id} id={`tour-card-${def.id}`} onClick={() => setSection(def.id)}>
+                  <button type="button" className="group block w-full rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4 text-left transition-colors hover:border-[var(--color-border-strong)] hover:bg-[var(--color-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]" key={def.id} id={`tour-card-${def.id}`} {...tourAnchor(`section.card.${def.id}`)} onClick={() => setSection(def.id)}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)] [&_svg]:size-[18px]" aria-hidden="true">
                         {def.icon}
@@ -197,7 +198,7 @@ export default function SettingsSectionLayout({
 
       {/* Cụm chỉ có một mục thì hàng tab không nói thêm được gì — bỏ hẳn cho gọn. */}
       {siblings.length > 1 && (
-        <div id="tour-section-tabs" className="flex items-stretch border-b border-[var(--color-border)] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div id="tour-section-tabs" {...tourAnchor('section.tabs')} className="flex items-stretch border-b border-[var(--color-border)] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {siblings.map(def => {
             const isActive = def.id === active.id
             return (
@@ -227,7 +228,7 @@ export default function SettingsSectionLayout({
 
       {/* `id` cố định để hướng dẫn của BẤT KỲ mục nào cũng luôn có ít nhất một điểm
           bám, kể cả những mục dựng bảng riêng chứ không dùng `WorkspaceHeader`. */}
-      <div id="tour-section-root" className="min-w-0">
+      <div id="tour-section-root" {...tourAnchor('section.root')} className="min-w-0">
         {sections.find(s => s.id === active.id)?.render()}
       </div>
     </div>

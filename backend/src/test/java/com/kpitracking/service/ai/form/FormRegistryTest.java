@@ -44,11 +44,9 @@ class FormRegistryTest {
             Path.of("..", "frontend", "src", "features", "submissions", "schemas", "submissionSchema.ts"),
             FormRegistry.EVALUATION_FORM,
             Path.of("..", "frontend", "src", "features", "evaluations", "schemas", "evaluationSchema.ts"),
-            // Ba form dưới khai schema NỘI TUYẾN trong chính file component, không có file schema riêng.
+            // Hai form dưới khai schema NỘI TUYẾN trong chính file component, không có file schema riêng.
             FormRegistry.KPI_ADJUSTMENT_FORM,
             Path.of("..", "frontend", "src", "features", "kpi", "components", "KpiAdjustmentModal.tsx"),
-            FormRegistry.ORG_UNIT_FORM,
-            Path.of("..", "frontend", "src", "features", "orgunits", "schemas", "orgUnitSchema.ts"),
             FormRegistry.ORG_UNIT_DRAWER_FORM,
             Path.of("..", "frontend", "src", "features", "organization", "components", "OrgUnitDrawer.tsx"));
 

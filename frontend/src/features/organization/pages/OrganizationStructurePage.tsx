@@ -21,6 +21,8 @@ import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import { SegmentedControl } from '@/components/common/FilterBar'
 import EmptyState from '@/components/common/EmptyState'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 export function OrganizationStructurePage() {
   const { t } = useTranslation('organization')
@@ -109,6 +111,14 @@ export function OrganizationStructurePage() {
     setDrawerState(prev => ({ ...prev, isOpen: false }))
   }, [])
 
+  // Bài hướng dẫn mở form thêm đơn vị CON dưới đơn vị gốc — đủ ô "Thuộc" và "Quan hệ với cấp
+  // trên"; chưa có đơn vị nào thì mở form tạo gốc.
+  useTourModal('org.form', () => {
+    const root = treeData[0]
+    if (root) handleAddChild(root.id, root.name, root.level)
+    else handleCreateRoot()
+  }, handleCloseDrawer)
+
   const handleExport = async () => {
     if (!orgId) return
     setIsExporting(true)
@@ -123,6 +133,8 @@ export function OrganizationStructurePage() {
         { header: "Name", key: "name", width: 35 },
         { header: "Code", key: "code", width: 15 },
         { header: "ParentCode", key: "parentCode", width: 15 },
+        // Quan hệ với cấp trên (DIRECT / ADVISORY / SUPERVISORY) — giữ mã để nhập lại được.
+        { header: "ParentRelation", key: "parentRelation", width: 16 },
         { header: "Email", key: "email", width: 25 },
         { header: "Phone", key: "phone", width: 15 },
         { header: "Address", key: "address", width: 40 }
@@ -134,6 +146,7 @@ export function OrganizationStructurePage() {
           name: item.name,
           code: item.code,
           parentCode: item.parentCode,
+          parentRelation: item.parentRelation,
           email: item.email,
           phone: item.phone,
           address: item.address
@@ -230,16 +243,16 @@ export function OrganizationStructurePage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx,.xls,.csv" onChange={handleFileChange} />
-            <Button variant="outline" onClick={() => setShowImportGuide(true)} disabled={importMutation.isPending}>
+            <Button {...tourAnchor('org.import')} variant="outline" onClick={() => setShowImportGuide(true)} disabled={importMutation.isPending}>
               {importMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Upload aria-hidden="true" />}
               {t('OrganizationStructurePage.excelImport')}
             </Button>
-            <Button variant="outline" onClick={handleExport} disabled={isExporting}>
+            <Button {...tourAnchor('org.export')} variant="outline" onClick={handleExport} disabled={isExporting}>
               {isExporting ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Download aria-hidden="true" />}
               {t('OrganizationStructurePage.exportExcel')}
             </Button>
             {treeData.length > 0 && (
-              <div id="tour-org-view-mode">
+              <div {...tourAnchor('org.view-mode')} id="tour-org-view-mode">
                 <SegmentedControl ariaLabel={t('OrganizationStructurePage.display')} value={viewMode} onChange={setViewMode}
                   options={[
                     { value: 'mindmap', label: <><LayoutGrid aria-hidden="true" /> {t('OrganizationStructurePage.chart')}</>, title: t('OrganizationStructurePage.chart') },
@@ -257,11 +270,11 @@ export function OrganizationStructurePage() {
             icon={LayoutGrid}
             title={t('OrganizationStructurePage.noUnitsYet')}
             description={t('OrganizationStructurePage.createTheRootUnitUsuallyThe')}
-            action={<Button onClick={handleCreateRoot}><PlusCircle aria-hidden="true" /> {t('OrganizationStructurePage.createRootUnit')}</Button>}
+            action={<Button {...tourAnchor('org.create-root')} onClick={handleCreateRoot}><PlusCircle aria-hidden="true" /> {t('OrganizationStructurePage.createRootUnit')}</Button>}
           />
         </div>
       ) : (
-        <div id="tour-org-content" className={`fade-in ${fitToScreen ? 'flex-1 min-h-0' : ''}`}>
+        <div {...tourAnchor('org.content')} id="tour-org-content" className={`fade-in ${fitToScreen ? 'flex-1 min-h-0' : ''}`}>
           {viewMode === 'mindmap' ? (
             <OrgMindmapView
               data={treeData}

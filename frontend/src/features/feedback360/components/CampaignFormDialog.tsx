@@ -30,6 +30,8 @@ import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { useStateDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { blockedByTour } from '@/components/common/tours/guard'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const NO_CYCLE = '__none__'
 const COPY_PLACEHOLDER = '__copy__'
@@ -207,6 +209,7 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
   ].filter(Boolean).join(' · ')
 
   const submit = () => {
+    if (blockedByTour()) return
     const body: F360CampaignInput = {
       name: form.name.trim(),
       description: form.description.trim() || null,
@@ -239,7 +242,7 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
   }
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('f360.form')}
       open
       onClose={onClose}
       size="xl"
@@ -251,7 +254,7 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
         <DialogFooter
           note={blocker ?? undefined}
           secondary={<Button variant="outline" onClick={onClose}>{tr('CampaignFormDialog.cancel')}</Button>}
-          primary={<Button onClick={submit} disabled={!!blocker || saving}>{saving ? tr('CampaignFormDialog.saving') : campaign ? tr('CampaignFormDialog.save') : tr('CampaignFormDialog.createCampaign')}</Button>}
+          primary={<Button {...tourAnchor('f360.form.submit')} onClick={submit} disabled={!!blocker || saving}>{saving ? tr('CampaignFormDialog.saving') : campaign ? tr('CampaignFormDialog.save') : tr('CampaignFormDialog.createCampaign')}</Button>}
         />
       }
     >
@@ -259,7 +262,7 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
       <div className="space-y-5">
         {/* ── Thông tin chính ── */}
         <div className="space-y-3">
-          <Field label={tr('CampaignFormDialog.campaignName')}>
+          <Field {...tourAnchor('f360.form.name')} label={tr('CampaignFormDialog.campaignName')}>
             <Input value={form.name} onChange={e => set('name', e.target.value)} placeholder={tr('CampaignFormDialog.eG360ReviewFirstHalf')} />
           </Field>
 
@@ -270,7 +273,7 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
           ) : (
             <>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label={tr('CampaignFormDialog.purpose')}>
+                <Field {...tourAnchor('f360.form.purpose')} label={tr('CampaignFormDialog.purpose')}>
                   <Select value={form.scoringMode} onValueChange={v => changeMode(v as F360ScoringMode)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -280,7 +283,7 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label={tr('CampaignFormDialog.kpiCycle')} hint={scoring ? tr('CampaignFormDialog.requiredWhenCountingTowardRating') : tr('CampaignFormDialog.optional')}>
+                <Field {...tourAnchor('f360.form.cycle')} label={tr('CampaignFormDialog.kpiCycle')} hint={scoring ? tr('CampaignFormDialog.requiredWhenCountingTowardRating') : tr('CampaignFormDialog.optional')}>
                   <Select value={form.kpiCycleId} onValueChange={createCycle.wrap(v => applyWindow(form.scoringMode, v))}>
                     <SelectTrigger><SelectValue placeholder={tr('CampaignFormDialog.chooseCycle')} /></SelectTrigger>
                     <SelectContent>
@@ -324,7 +327,7 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
               </p>
 
               {/* ── Thời gian: tự điền theo kỳ + mục đích ── */}
-              <div className="rounded-control border border-[var(--color-border)] p-3">
+              <div {...tourAnchor('f360.form.window')} className="rounded-control border border-[var(--color-border)] p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <CalendarRange size={16} className="shrink-0 text-slate-400" />
                   <div className="min-w-0 flex-1">
@@ -366,7 +369,7 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
             </>
           )}
 
-          <Field label={tr('CampaignFormDialog.description')} hint={tr('CampaignFormDialog.optional')}>
+          <Field {...tourAnchor('f360.form.description')} label={tr('CampaignFormDialog.description')} hint={tr('CampaignFormDialog.optional')}>
             <Textarea rows={2} value={form.description} onChange={e => set('description', e.target.value)} />
           </Field>
         </div>
@@ -374,7 +377,7 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
         {!locked && (
           <>
             {/* ── Câu hỏi đánh giá: soạn thẳng tại đây ── */}
-            <section className="space-y-2">
+            <section {...tourAnchor('f360.form.questions')} className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="flex items-center gap-1.5 text-sm font-semibold"><ListChecks size={15} className="text-slate-400" />{tr('CampaignFormDialog.evaluationQuestions')}</h4>
@@ -413,7 +416,7 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
             </section>
 
             {/* ── Quy trình: ba lựa chọn thường phải quyết cho mỗi chiến dịch ── */}
-            <section className="space-y-1">
+            <section {...tourAnchor('f360.form.process')} className="space-y-1">
               <h4 className="text-sm font-semibold">{tr('CampaignFormDialog.process')}</h4>
               <Toggle label={tr('CampaignFormDialog.revieweesAssessThemselves')} hint={tr('CampaignFormDialog.forComparisonWithOthersBlindSpots')} checked={form.includeSelf} onChange={v => set('includeSelf', v)} />
               <Toggle label={tr('CampaignFormDialog.letRevieweesNominateAdditionalRaters')} hint={tr('CampaignFormDialog.opensANominationPhaseBeforeScoring')} checked={form.allowNomination} onChange={v => set('allowNomination', v)} />
@@ -427,7 +430,7 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
             </section>
 
             {/* ── Tuỳ chọn nâng cao: mặc định đã hợp lý, chỉ mở khi cần ── */}
-            <section className="rounded-card border border-[var(--color-border)]">
+            <section {...tourAnchor('f360.form.advanced')} className="rounded-card border border-[var(--color-border)]">
               <button type="button" onClick={() => setAdvancedOpen(o => !o)} aria-expanded={advancedOpen}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left">
                 <Settings2 size={16} className="shrink-0 text-slate-400" />
@@ -497,9 +500,9 @@ function fmtDateTime(d: Date) {
   return d.toLocaleString(intlDateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+function Field({ label, hint, children, ...rest }: { label: string; hint?: string; children: ReactNode; 'data-tour'?: string }) {
   return (
-    <label className="block space-y-1">
+    <label className="block space-y-1" {...rest}>
       <span className="flex items-baseline gap-1.5 text-xs font-medium">
         {label}{hint && <span className="font-normal text-[var(--color-muted-foreground)]">({hint})</span>}
       </span>

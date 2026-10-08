@@ -15,6 +15,8 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -27,6 +29,7 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
@@ -60,7 +63,8 @@ class KpiApprovalChainServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new KpiApprovalChainService(flowRepository, eventRepository, stepRepository, uroRepository,
+        service = new KpiApprovalChainService(flowRepository, eventRepository,
+                mock(com.kpitracking.service.discussion.KpiDiscussionTimeline.class), stepRepository, uroRepository,
                 rolePermissionRepository, orgUnitRepository, userRepository, permissionChecker,
                 workflowConfigService, cycleStatusGuard, eventPublisher, entityManager);
 
@@ -141,6 +145,22 @@ class KpiApprovalChainServiceTest {
 
     private static List<ApprovalStepStatus> statuses(KpiApprovalFlow f) {
         return f.getSteps().stream().map(KpiApprovalStep::getStatus).toList();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = com.kpitracking.enums.OrgUnitRelationType.class, names = {"ADVISORY", "SUPERVISORY"})
+    @DisplayName("Quan hệ tham mưu/giám sát CHỈ để vẽ sơ đồ: chuỗi duyệt vẫn đi lên đơn vị cha như trực tuyến")
+    void sideRelationStillFollowsParentChain(com.kpitracking.enums.OrgUnitRelationType relation) {
+        unitA.setParentRelation(relation);
+        unitB.setParentRelation(relation);
+
+        KpiApprovalFlow flow = submit(kpi(staff), staff);
+
+        assertThat(statuses(flow)).containsExactly(ApprovalStepStatus.PENDING, ApprovalStepStatus.WAITING, ApprovalStepStatus.WAITING);
+        assertThat(approve(flow, headA)).isEqualTo(ApprovalOutcome.FORWARDED);
+        assertThat(flow.currentStep().orElseThrow().isHeldBy(headB.getId())).isTrue();
+        assertThat(approve(flow, headB)).isEqualTo(ApprovalOutcome.FORWARDED);
+        assertThat(approve(flow, headC)).isEqualTo(ApprovalOutcome.FINAL);
     }
 
     @Test

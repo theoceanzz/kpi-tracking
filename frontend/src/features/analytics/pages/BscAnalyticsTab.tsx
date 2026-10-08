@@ -17,6 +17,7 @@ import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPositio
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /**
  * Tab "Thẻ điểm BSC": tổng quan cho người quản lý theo mô hình THẺ ĐIỂM — cây Công ty → Đơn vị,
@@ -158,7 +159,7 @@ export default function BscAnalyticsTab() {
         <h2 className="text-xl font-semibold text-[var(--color-foreground)] flex items-center gap-2">
           <Gauge size={20} className="text-slate-400" /> {t('BscAnalyticsTab.bscScorecard')}
         </h2>
-        <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
+        <div id="tour-analytics-customize" {...tourAnchor('analytics.toolbar')} className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>
       </div>

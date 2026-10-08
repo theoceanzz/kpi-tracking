@@ -393,7 +393,10 @@
     "loadFailed": "Chưa tải được tệp của tài liệu, thử lại sau",
     "emptyTitle": "Chưa có tài liệu nào",
     "emptyDescription": "Tài liệu bạn tải lên hoặc được xem ở trang Tài liệu sẽ hiện ở đây.",
-    "typeNotAccepted": "{{name}} — nơi này không nhận loại tệp này"
+    "typeNotAccepted": "{{name}} — nơi này không nhận loại tệp này",
+    "fromLibrary": "Từ thư viện: {{title}}",
+    "fromLibraryUntitled": "Từ thư viện",
+    "openLatest": "Mở bản mới nhất"
   },
   "promotion": {
     "propose": "Đề xuất lên đơn vị / công ty",

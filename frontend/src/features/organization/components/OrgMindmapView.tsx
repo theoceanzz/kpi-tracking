@@ -5,60 +5,30 @@ import {
   Background,
   useNodesState,
   useEdgesState,
-  MarkerType,
   Handle,
+  Panel,
+  BaseEdge,
   Position,
   type Node,
   type Edge,
   type NodeProps,
   type NodeTypes,
+  type EdgeProps,
+  type EdgeTypes,
 } from '@xyflow/react';
-import dagre from 'dagre';
 import '@xyflow/react/dist/style.css';
 import type { OrgUnitTreeResponse } from '../types/org-unit';
 import { MoreVertical, Plus, Edit2, Trash2 } from 'lucide-react';
-
-const dagreGraph = new dagre.graphlib.Graph();
-dagreGraph.setDefaultEdgeLabel(() => ({}));
-
-const nodeWidth = 220;
-const nodeHeight = 80;
-
-const getLayoutedElements = <T extends Node>(nodes: T[], edges: Edge[], direction = 'LR') => {
-  const isHorizontal = direction === 'LR';
-  dagreGraph.setGraph({ rankdir: direction });
-
-  nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
-  });
-
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
-  });
-
-  dagre.layout(dagreGraph);
-
-  const newNodes = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
-    return {
-      ...node,
-      targetPosition: isHorizontal ? Position.Left : Position.Top,
-      sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
-      position: {
-        x: nodeWithPosition.x - nodeWidth / 2,
-        y: nodeWithPosition.y - nodeHeight / 2,
-      },
-    } as T;
-  });
-
-  return { nodes: newNodes, edges };
-};
+import { RELATION_EDGE_STYLE, flattenOrgTree, layoutOrgChart, orthogonalRoute, relationOf, toSvgPath, type RoutePoint } from './orgChartLayout';
+import type { OrgUnitRelationType } from '../types/org-unit';
 
 type CustomNodeData = {
   id: string;
   name: string;
   code?: string;
   type: string;
+  /** Quan hệ với đơn vị cha — tham mưu/giám sát thay nhãn cấp trên ô bằng nhãn quan hệ. */
+  relation: OrgUnitRelationType;
   level: number;
   hasChildren: boolean;
   onAddChild: (id: string, name: string, level: number) => void;
@@ -107,7 +77,11 @@ function CustomNode({ data }: NodeProps<AppNode>) {
       
       <div className="flex justify-between items-start">
         <div className="flex-1 min-w-0 pr-6">
-          <div className="text-eyebrow text-[var(--color-info)] mb-0.5">{data.type}</div>
+          {/* Trực tuyến: nhãn theo cấp như cũ. Tham mưu / giám sát: nhãn quan hệ — loại đơn vị hiện đặt
+              theo cấp (mọi đơn vị cùng cấp chung một tên) nên "Bộ môn" trên Hội đồng Khoa học là sai. */}
+          <div className="text-eyebrow text-[var(--color-info)] mb-0.5">
+            {data.relation === 'DIRECT' ? data.type : t(`OrgMindmapView.nodeLabel.${data.relation}`)}
+          </div>
           <div className="text-sm font-medium text-[var(--color-foreground)] truncate">{data.name}</div>
           {data.code && (
             <div className="text-xs font-mono text-[var(--color-subtle-foreground)] mt-0.5 truncate bg-[var(--color-muted)] px-1.5 py-0.5 rounded border border-[var(--color-border)] w-fit">
@@ -173,6 +147,22 @@ const nodeTypes: NodeTypes = {
   custom: CustomNode,
 };
 
+/**
+ * Cạnh của sơ đồ khi có nhánh tham mưu/giám sát: đi theo làn dagre chừa trong cột nửa cấp (xem
+ * `orthogonalRoute`) thay vì `smoothstep` — smoothstep bẻ góc giữa đoạn, chui qua các ô nhánh bên.
+ */
+function OrgRouteEdge({ sourceX, sourceY, targetX, targetY, data, style, markerEnd }: EdgeProps) {
+  const d = data as { relation?: OrgUnitRelationType; via?: RoutePoint[] } | undefined;
+  // Cạnh nhánh bên bẻ góc muộn hơn để đường dọc của nó không trùng đường dọc trực tuyến.
+  const bendAt = d?.relation && d.relation !== 'DIRECT' ? 0.75 : 0.5;
+  const path = toSvgPath(orthogonalRoute({ x: sourceX, y: sourceY }, { x: targetX, y: targetY }, d?.via ?? [], bendAt));
+  return <BaseEdge path={path} style={style} markerEnd={markerEnd} />;
+}
+
+const edgeTypes: EdgeTypes = {
+  orgRoute: OrgRouteEdge,
+};
+
 interface OrgMindmapViewProps {
   data: OrgUnitTreeResponse[];
   maxDepth: number;
@@ -185,60 +175,22 @@ export function OrgMindmapView({ data, maxDepth, onAddChild, onEdit, onDelete }:
   const [nodes, setNodes, onNodesChange] = useNodesState<AppNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => {
-    const flatNodes: AppNode[] = [];
-    const flatEdges: Edge[] = [];
-
-    const traverse = (nodeData: OrgUnitTreeResponse, parentId: string | null = null) => {
-      flatNodes.push({
-        id: nodeData.id,
-        type: 'custom',
-        data: {
-          id: nodeData.id,
-          name: nodeData.name,
-          code: nodeData.code,
-          type: nodeData.type,
-          level: nodeData.level,
-          hasChildren: !!nodeData.children && nodeData.children.length > 0,
-          onAddChild,
-          onEdit,
-          onDelete,
-          maxDepth,
-          node: nodeData,
-        },
-        position: { x: 0, y: 0 },
-      });
-
-      if (parentId) {
-        flatEdges.push({
-          id: `${parentId}-${nodeData.id}`,
-          source: parentId,
-          target: nodeData.id,
-          type: 'smoothstep',
-          animated: true,
-          style: { stroke: '#9ca3af', strokeWidth: 2 },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            width: 15,
-            height: 15,
-            color: '#9ca3af',
-          },
-        });
-      }
-
-      if (nodeData.children) {
-        nodeData.children.forEach((child) => traverse(child, nodeData.id));
-      }
-    };
-
-    data.forEach((root) => traverse(root));
-
-    const layouted = getLayoutedElements(flatNodes, flatEdges);
-    return {
-      nodes: layouted.nodes,
-      edges: layouted.edges,
-    };
-  }, [data, maxDepth, onAddChild, onEdit, onDelete]);
+  const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => layoutOrgChart(
+    flattenOrgTree<CustomNodeData>(data, (unit) => ({
+      id: unit.id,
+      name: unit.name,
+      code: unit.code,
+      type: unit.type,
+      relation: relationOf(unit),
+      level: unit.level,
+      hasChildren: !!unit.children && unit.children.length > 0,
+      onAddChild,
+      onEdit,
+      onDelete,
+      maxDepth,
+      node: unit,
+    })),
+  ), [data, maxDepth, onAddChild, onEdit, onDelete]);
 
   useEffect(() => {
     if (layoutedNodes.length > 0) {
@@ -263,9 +215,6 @@ export function OrgMindmapView({ data, maxDepth, onAddChild, onEdit, onDelete }:
           width: 8px !important;
           height: 8px !important;
           border: 2px solid white !important;
-        }
-        .react-flow__edge-path {
-          stroke-width: 2.5 !important;
         }
         /* Custom black/gray controls for better visibility */
         .react-flow__controls-button {
@@ -292,6 +241,7 @@ export function OrgMindmapView({ data, maxDepth, onAddChild, onEdit, onDelete }:
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         fitView
@@ -301,8 +251,35 @@ export function OrgMindmapView({ data, maxDepth, onAddChild, onEdit, onDelete }:
       >
         <Background color="#94a3b8" gap={20} size={1} />
         <Controls />
+        <Panel position="top-left">
+          <RelationLegend />
+        </Panel>
       </ReactFlow>
     </div>
   );
 }
 
+const LEGEND_ORDER: OrgUnitRelationType[] = ['DIRECT', 'ADVISORY', 'SUPERVISORY'];
+
+/** Chú thích kiểu nét — vẽ từ đúng bảng kiểu nét của cạnh nên không lệch nhau. */
+function RelationLegend() {
+  const { t } = useTranslation('organization');
+  return (
+    <div className="rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 shadow-sm">
+      <p className="text-eyebrow mb-1.5">{t('OrgMindmapView.legendTitle')}</p>
+      <ul className="space-y-1">
+        {LEGEND_ORDER.map((relation) => {
+          const style = RELATION_EDGE_STYLE[relation];
+          return (
+            <li key={relation} className="flex items-center gap-2 text-xs text-[var(--color-foreground)]">
+              <svg width="32" height="8" aria-hidden="true" className="shrink-0">
+                <line x1="0" y1="4" x2="32" y2="4" stroke={style.stroke} strokeWidth={style.strokeWidth} strokeDasharray={style.strokeDasharray} />
+              </svg>
+              {t(`OrgMindmapView.relation.${relation}`)}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}

@@ -5,6 +5,7 @@ import type { User } from '@/types/user'
 import { Pencil, Trash2, MoreVertical, Shield, User as UserIcon, Mail, Phone, Building2, FileX2 } from 'lucide-react'
 import { getHighestRole, cn, formatPhoneNumber } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 
 
@@ -78,7 +79,7 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
   return (
     <>
     <div className="hidden overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] pb-10 md:block">
-      <table className="w-full min-w-[1000px] text-left border-collapse">
+      <table {...tourAnchor('users.table')} className="w-full min-w-[1000px] text-left border-collapse">
         <thead>
           <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
             <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">{t('UserTable.information')}</th>
@@ -193,7 +194,7 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                 {hasAnyAction && (
                   <td className="py-4 px-4 text-right">
                     <div className="relative inline-block text-left" onClick={e => e.stopPropagation()}>
-                      <button 
+                      <button {...tourAnchor('users.row-menu')} 
                         onClick={() => setOpenActionId(isActionOpen ? null : u.id)}
                         className="p-2 rounded-card border border-transparent hover:border-[var(--color-border)] text-[var(--color-subtle-foreground)] hover:text-[var(--color-foreground)] outline-none hover:bg-[var(--color-card)] transition-all"
                       >

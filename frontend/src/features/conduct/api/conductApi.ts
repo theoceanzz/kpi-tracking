@@ -11,9 +11,23 @@ export interface ConductCriteria {
   name: string
   /** Các biểu hiện cụ thể, mỗi dòng một gạch đầu dòng. */
   description?: string | null
-  /** Trọng số %, tổng cả bộ = 100. */
+  /** Trọng số %. Bộ không nhóm: % trên tổng (cả bộ = 100). Bộ có nhóm: % TRONG NHÓM (mỗi nhóm = 100). */
   weight: number
   position: number
+  /** Nhóm chứa tiêu chí; null = bộ không chia nhóm. */
+  groupId?: string | null
+}
+
+/** Nhóm tiêu chí (bộ → nhóm → tiêu chí), VD "5 giá trị cốt lõi" 30%. */
+export interface ConductGroup {
+  id: string
+  name: string
+  /** % của nhóm trên tổng 100 của bộ. */
+  weight: number
+  position: number
+  /** Tổng % trong nhóm — cảnh báo khi khác 100. */
+  totalWeight: number
+  criteria: ConductCriteria[]
 }
 
 /**
@@ -28,9 +42,11 @@ export interface ConductSet {
   maxScore: number
   /** Kỳ áp dụng — luôn rỗng ở bộ mặc định, nghĩa là "mọi kỳ còn lại". */
   kpiCycleIds: string[]
-  /** Tổng trọng số hiện tại — cảnh báo khi khác 100. */
+  /** Tổng trọng số hiện tại (bộ có nhóm: tổng % các nhóm) — cảnh báo khi khác 100. */
   totalWeight: number
   criteria: ConductCriteria[]
+  /** Rỗng / thiếu = bộ không chia nhóm. */
+  groups?: ConductGroup[]
 }
 
 export interface ConductConfig {
@@ -43,7 +59,9 @@ export interface ConductSetInput {
   name: string
   maxScore?: number | null
   kpiCycleIds?: string[] | null
-  criteria?: Omit<ConductCriteria, 'id' | 'position'>[] | null
+  criteria?: Omit<ConductCriteria, 'id' | 'position' | 'groupId'>[] | null
+  /** Bộ chia nhóm: có phần tử thì thay cả bộ bằng các nhóm này (criteria bị bỏ qua); [] = về bộ phẳng. */
+  groups?: { name: string; weight: number; criteria: Omit<ConductCriteria, 'id' | 'position' | 'groupId'>[] }[] | null
   /** Chỉ khi TẠO: chép tiêu chí từ bộ này (bỏ trống = chép bộ mặc định). */
   copyFromSetId?: string | null
 }
@@ -53,8 +71,15 @@ export interface ConductItem {
   criteriaId?: string | null
   name: string
   description?: string | null
+  /** % TRÊN TỔNG (đã nhân % nhóm nếu có) — dùng để cộng điểm. */
   weight: number
   position: number
+  /** Nhóm chụp lúc mở phiếu; null = phiếu không chia nhóm. */
+  groupName?: string | null
+  groupWeight?: number | null
+  groupPosition?: number | null
+  /** % trong nhóm (cột "Tỷ trọng" của phiếu theo nhóm). */
+  weightInGroup?: number | null
   selfScore?: number | null
   selfEvidence?: string | null
   managerScore?: number | null

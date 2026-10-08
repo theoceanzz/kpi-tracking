@@ -10,6 +10,8 @@ import { useStateDraft } from '@/hooks/useFormDraft'
 import { useCreateFolder, useRenameFolder } from '../hooks/useDocuments'
 import type { DocumentCapabilities, DocumentFolder, DocumentScope } from '../types'
 import { creatableScopes } from '../utils'
+import { blockedByTour } from '@/components/common/tours/guard'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 interface FormState {
   name: string
@@ -56,6 +58,7 @@ export default function FolderDialog({ onClose, caps, editing, parent, scope, un
   const canSubmit = !!form.name.trim() && !needsUnit && !pending && (!editing || form.name.trim() !== editing.name)
 
   const submit = () => {
+    if (blockedByTour()) return
     const name = form.name.trim()
     if (editing) {
       rename.mutate({ id: editing.id, name }, { onSuccess: onClose })
@@ -80,7 +83,7 @@ export default function FolderDialog({ onClose, caps, editing, parent, scope, un
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={pending}>{t('common.cancel')}</Button>}
           primary={
-            <Button onClick={submit} disabled={!canSubmit}>
+            <Button {...tourAnchor('folder.form.submit')} onClick={submit} disabled={!canSubmit}>
               {pending && <Loader2 className="animate-spin" aria-hidden="true" />}
               {editing ? t('actions.save') : t('folder.create')}
             </Button>
@@ -90,14 +93,14 @@ export default function FolderDialog({ onClose, caps, editing, parent, scope, un
     >
       <DraftNotice draft={draft} className="mb-4" />
       <form className="space-y-4" onSubmit={e => { e.preventDefault(); if (canSubmit) submit() }}>
-        <div className="space-y-1.5">
+        <div {...tourAnchor('folder.form.name')} className="space-y-1.5">
           <label className="text-label" htmlFor="folder-name">{t('folder.name')}</label>
           <Input id="folder-name" autoFocus value={form.name} maxLength={255} placeholder={t('folder.namePlaceholder')}
                  onChange={e => set('name', e.target.value)} />
         </div>
         {pickScope && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
+            <div {...tourAnchor('folder.form.scope')} className="space-y-1.5">
               <label className="text-label">{t('fields.scope')}</label>
               <Select value={form.scope} onValueChange={v => set('scope', v as DocumentScope)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>

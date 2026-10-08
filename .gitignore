@@ -5,8 +5,20 @@
 #   !docs/ten-file-cong-khai.md
 docs/
 scripts/
+# Script công cụ của frontend (npm run i18n:check) là code dùng chung, không phải tài liệu nội bộ.
+!frontend/scripts/
+# Script đi kèm các skill Claude Code (.claude/skills) là code dùng chung — trước đây phải `git add -f`,
+# script mới thêm vào skill thì bị bỏ qua lặng lẽ.
+!.claude/skills/*/scripts/
+
+# Cache Python sinh ra khi chạy script của skill.
+__pycache__/
+*.pyc
 
 # Secret cho docker-compose (JWT_SECRET, DB_PASSWORD, API key...). Chỉ .env.example được lên git.
 .env
 .env.*
 !.env.example
+
+# Cache do vitest/vite sinh ra khi chạy từ thư mục gốc (node_modules/.vite/vitest/results.json).
+node_modules/

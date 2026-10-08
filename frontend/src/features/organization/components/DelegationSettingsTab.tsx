@@ -20,6 +20,9 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useTranslation } from 'react-i18next'
 import { useStateDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
+import { useTourModal } from '@/components/common/tours/actions'
 
 /**
  * Uỷ quyền quản lý CHÉO đơn vị.
@@ -40,6 +43,7 @@ export default function DelegationSettingsTab() {
   const { data: delegations, isLoading } = useDelegations(orgId)
   const revoke = useRevokeDelegation()
   const [showForm, setShowForm] = useState(false)
+  useTourModal('delegations.form', () => setShowForm(true), () => setShowForm(false))
 
   const rows = delegations ?? []
   const active = rows.filter(d => d.active)
@@ -56,13 +60,13 @@ export default function DelegationSettingsTab() {
               </p>
             </div>
 
-          <Button className="shrink-0" onClick={() => setShowForm(true)}>
+          <Button {...tourAnchor('delegations.add')} className="shrink-0" onClick={() => setShowForm(true)}>
             <Plus aria-hidden="true" /> {t('DelegationSettingsTab.newDelegation')}
           </Button>
         </div>
 
         <div className="p-5 space-y-4">
-          <div className="p-4 rounded-card bg-[var(--color-info-bg)] border border-[var(--color-info-border)] flex items-start gap-3">
+          <div {...tourAnchor('delegations.note')} className="p-4 rounded-card bg-[var(--color-info-bg)] border border-[var(--color-info-border)] flex items-start gap-3">
             <Info size={18} className="text-[var(--color-info)] shrink-0 mt-0.5" />
             <p className="text-xs text-[var(--color-info)] font-medium leading-relaxed">
               {t('DelegationSettingsTab.aDelegationOnly')} <b>{t('DelegationSettingsTab.extendsTheScope')}</b> {t('DelegationSettingsTab.ofExistingPermissionsAndDoesNot')}
@@ -74,7 +78,7 @@ export default function DelegationSettingsTab() {
               <Loader2 size={24} className="animate-spin text-[var(--color-primary)]" />
             </div>
           ) : rows.length === 0 ? (
-            <div className="py-12 text-center space-y-2">
+            <div {...tourAnchor('delegations.list')} className="py-12 text-center space-y-2">
               <Network size={40} className="mx-auto text-[var(--color-subtle-foreground)]" />
               <p className="text-sm font-semibold text-[var(--color-foreground)]">{t('DelegationSettingsTab.noDelegationsYet')}</p>
               <p className="text-xs text-[var(--color-muted-foreground)] max-w-md mx-auto leading-relaxed">
@@ -82,7 +86,7 @@ export default function DelegationSettingsTab() {
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div {...tourAnchor('delegations.list')} className="space-y-3">
               {active.map(d => (
                 <DelegationRow key={d.id} d={d} onRevoke={() => revoke.mutate(d.id)} isRevoking={revoke.isPending} />
               ))}
@@ -169,7 +173,7 @@ function DelegationRow({
             <CalendarClock size={11} /> {t('DelegationSettingsTab.to')} {format(parseISO(d.expiresAt), 'dd/MM/yyyy')}
           </span>
         )}
-        <Button variant="outline" size="icon" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={t('DelegationSettingsTab.revokeDelegation')} onClick={onRevoke} disabled={isRevoking} title={t('DelegationSettingsTab.revokeDelegation')}>
+        <Button {...tourAnchor('delegations.revoke')} variant="outline" size="icon" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={t('DelegationSettingsTab.revokeDelegation')} onClick={onRevoke} disabled={isRevoking} title={t('DelegationSettingsTab.revokeDelegation')}>
           <Trash2 aria-hidden="true" />
         </Button>
       </div>
@@ -301,7 +305,7 @@ function DelegationFormModal({
   const canSubmit = !!delegateUserId && orgUnitIds.length > 0 && !create.isPending
 
   const submit = () => {
-    if (!canSubmit) return
+    if (!canSubmit || blockedByTour()) return
     create.mutate(
       {
         delegateUserId,
@@ -318,7 +322,7 @@ function DelegationFormModal({
   }
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('delegations.form')}
       open
       onClose={onClose}
       size="md"
@@ -329,7 +333,7 @@ function DelegationFormModal({
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={create.isPending}>{t('DelegationSettingsTab.cancel')}</Button>}
           primary={
-            <Button onClick={submit} disabled={!canSubmit}>
+            <Button {...tourAnchor('delegations.form.submit')} onClick={submit} disabled={!canSubmit}>
               {create.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
               {t('DelegationSettingsTab.delegation')}
             </Button>
@@ -339,13 +343,13 @@ function DelegationFormModal({
     >
       <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-4">
-        <Field label={t('DelegationSettingsTab.delegate')} required>
+        <Field {...tourAnchor('delegations.form.delegate')} label={t('DelegationSettingsTab.delegate')} required>
           <DelegateUserPicker groups={usersByUnit} value={delegateUserId} onChange={setDelegateUserId} />
         </Field>
 
         {/* Chọn NHIỀU đơn vị. Radix Select chỉ giữ được một giá trị nên ở đây là danh
             sách tự dựng, cùng kiểu với ô chọn đơn vị của form KPI. */}
-        <Field label={t('DelegationSettingsTab.unitsToManage')} required>
+        <Field {...tourAnchor('delegations.form.units')} label={t('DelegationSettingsTab.unitsToManage')} required>
           <div className="rounded-card border border-[var(--color-border)] overflow-hidden">
             <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-muted)]">
               <Search size={14} className="text-[var(--color-subtle-foreground)] shrink-0" />
@@ -398,21 +402,21 @@ function DelegationFormModal({
           )}
         </Field>
 
-        <CheckRow
+        <CheckRow {...tourAnchor('delegations.form.subtree')}
           checked={includeSubtree}
           onChange={setIncludeSubtree}
           title={t('DelegationSettingsTab.includeLowerUnits')}
           hint={t('DelegationSettingsTab.turnOffToAssignOnlyThat')}
         />
 
-        <CheckRow
+        <CheckRow {...tourAnchor('delegations.form.leader')}
           checked={canActAsLeader}
           onChange={setCanActAsLeader}
           title={t('DelegationSettingsTab.mayActAsTheUnitHead2')}
           hint={t('DelegationSettingsTab.mustBeOnForConductScoring')}
         />
 
-        <Field label={t('DelegationSettingsTab.expired')}>
+        <Field {...tourAnchor('delegations.form.expires')} label={t('DelegationSettingsTab.expired')}>
           <LocaleDateInput
             type="date"
             value={expiresAt}
@@ -424,7 +428,7 @@ function DelegationFormModal({
           </p>
         </Field>
 
-        <Field label={t('DelegationSettingsTab.reason')}>
+        <Field {...tourAnchor('delegations.form.reason')} label={t('DelegationSettingsTab.reason')}>
           <textarea
             value={reason}
             onChange={e => setReason(e.target.value)}
@@ -440,14 +444,15 @@ function DelegationFormModal({
 }
 
 function Field({
-  label, required, children,
+  label, required, children, ...rest
 }: {
   label: string
   required?: boolean
   children: React.ReactNode
+  'data-tour'?: string
 }) {
   return (
-    <label className="block">
+    <label className="block" {...rest}>
       <span className="text-eyebrow">
         {label} {required && <span className="text-[var(--color-error)]">*</span>}
       </span>
@@ -569,15 +574,17 @@ function DelegateUserPicker({
 }
 
 function CheckRow({
-  checked, onChange, title, hint,
+  checked, onChange, title, hint, ...rest
 }: {
   checked: boolean
   onChange: (v: boolean) => void
   title: string
   hint: string
+  'data-tour'?: string
 }) {
   return (
     <ChoiceChip
+      {...rest}
       selected={checked}
       // ChoiceChip mặc định là chip 1 dòng (h-8, nowrap, căn giữa) — ở đây là dòng 2 tầng chữ
       className="w-full h-auto items-start justify-start gap-3 whitespace-normal px-3 py-2.5 text-left"

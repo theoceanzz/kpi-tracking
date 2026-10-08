@@ -38,6 +38,9 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useTranslation } from 'react-i18next'
 import { useStateDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
+import { useTourModal } from '@/components/common/tours/actions'
 
 export default function RoleManagementPage() {
   const { t } = useTranslation('organization')
@@ -129,8 +132,11 @@ export default function RoleManagementPage() {
     setIsModalOpen(true)
   }
 
+  useTourModal('roles.form', () => handleOpenModal(), () => setIsModalOpen(false))
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (blockedByTour()) return
     if (!formData.name) {
       toast.error(t('RoleManagementPage.pleaseEnterTheRoleName'))
       return
@@ -191,6 +197,14 @@ export default function RoleManagementPage() {
     setIsPermissionDrawerOpen(true)
   }
 
+  // Bài "Phân quyền": mở ngăn quyền của vai trò ĐẦU danh sách, rồi hộp phân quyền theo cấp.
+  useTourModal('roles.perms', () => {
+    setIsHierarchyModalOpen(false)
+    const first = filteredRoles[0]
+    if (first) handleOpenPermissions(first)
+  }, () => setIsPermissionDrawerOpen(false))
+  useTourModal('roles.hierarchy', () => { setIsPermissionDrawerOpen(false); setIsHierarchyModalOpen(true) }, () => setIsHierarchyModalOpen(false))
+
   return (
     // Không tự bọc `max-w`: trang này nằm trong khung Thiết lập công ty, khung đó đã lo
     // bề ngang. Bọc thêm ở đây làm cả trang hẹp hơn và lệch mép so với hàng tab bên trên.
@@ -208,10 +222,10 @@ export default function RoleManagementPage() {
         actions={
           /* Hai nút đi chung một cụm để khi thiếu chỗ thì cùng xuống hàng, không tách mỗi nút một nơi quanh dãy số liệu. */
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" id="tour-roles-hierarchy-btn" onClick={() => setIsHierarchyModalOpen(true)}>
+            <Button {...tourAnchor('roles.hierarchy')} variant="outline" id="tour-roles-hierarchy-btn" onClick={() => setIsHierarchyModalOpen(true)}>
               <Zap aria-hidden="true" /> {t('RoleManagementPage.permissionsByHierarchy')}
             </Button>
-            <Button onClick={() => handleOpenModal()}><Plus aria-hidden="true" /> {t('RoleManagementPage.addRole')}</Button>
+            <Button {...tourAnchor('roles.add')} onClick={() => handleOpenModal()}><Plus aria-hidden="true" /> {t('RoleManagementPage.addRole')}</Button>
           </div>
         }
       />
@@ -226,7 +240,7 @@ export default function RoleManagementPage() {
             </div>
             <input
               type="text"
-              placeholder={t('RoleManagementPage.searchByRoleNameOrIdentifier')}
+              {...tourAnchor('roles.search')} placeholder={t('RoleManagementPage.searchByRoleNameOrIdentifier')}
               className="w-full pl-12 pr-6 py-2.5 bg-[var(--color-card)] border border-[var(--color-border)] rounded-card outline-none focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] transition-all font-medium text-sm shadow-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -247,7 +261,7 @@ export default function RoleManagementPage() {
 
         {/* Premium Table Container */}
         <div className="hidden md:block overflow-x-auto min-h-[400px]">
-          <table className="w-full text-left border-collapse">
+          <table {...tourAnchor('roles.table')} className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[var(--color-muted)] text-eyebrow whitespace-nowrap">
                 <th className="px-6 py-4 border-b border-[var(--color-border)]">{t('RoleManagementPage.roleInformation')}</th>
@@ -347,7 +361,7 @@ export default function RoleManagementPage() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end">
                         <div className="relative">
-                          <ChoiceChip selected={activeMenuId === role.id} variant="solid" onClick={(e) => {
+                          <ChoiceChip {...tourAnchor('roles.row-menu')} selected={activeMenuId === role.id} variant="solid" onClick={(e) => {
                               e.stopPropagation();
                               setActiveMenuId(activeMenuId === role.id ? null : role.id);
                             }}>
@@ -539,7 +553,7 @@ export default function RoleManagementPage() {
       </div>
 
       {/* Tạo / sửa vai trò */}
-      <Dialog
+      <Dialog {...tourAnchor('roles.form')}
         open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         size="md"
@@ -550,7 +564,7 @@ export default function RoleManagementPage() {
           <DialogFooter
             secondary={<Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={createMutation.isPending || updateMutation.isPending}>{t('RoleManagementPage.close')}</Button>}
             primary={
-              <Button type="submit" form="role-form" disabled={createMutation.isPending || updateMutation.isPending}>
+              <Button {...tourAnchor('roles.form.submit')} type="submit" form="role-form" disabled={createMutation.isPending || updateMutation.isPending}>
                 {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="animate-spin" aria-hidden="true" />}
                 {editingRole ? t('RoleManagementPage.updateChanges') : t('RoleManagementPage.confirmCreate')}
               </Button>
@@ -560,7 +574,7 @@ export default function RoleManagementPage() {
       >
         <form id="role-form" onSubmit={handleSubmit} className="space-y-4">
           <DraftNotice draft={draft} />
-          <div className="space-y-1.5">
+          <div {...tourAnchor('roles.form.name')} className="space-y-1.5">
             <label htmlFor="role-name" className="text-label block">{t('RoleManagementPage.roleIdentifierName')} <span className="text-[var(--color-error)]">*</span></label>
             <input
               id="role-name"
@@ -574,7 +588,7 @@ export default function RoleManagementPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
+            <div {...tourAnchor('roles.form.level')} className="space-y-1.5">
               <label className="text-label block">{t('RoleManagementPage.managementTier')} <span className="text-[var(--color-error)]">*</span></label>
               <Select value={String(formData.level)} onValueChange={(val) => setFormData({ ...formData, level: Number(val) })} disabled={editingRole?.isSystem}>
                 <SelectTrigger className="w-full" aria-label={t('RoleManagementPage.managementTier')}>
@@ -588,7 +602,7 @@ export default function RoleManagementPage() {
               </Select>
             </div>
 
-            <div className="space-y-1.5">
+            <div {...tourAnchor('roles.form.rank')} className="space-y-1.5">
               <label className="text-label block">{t('RoleManagementPage.positionIdentifier')} <span className="text-[var(--color-error)]">*</span></label>
               <Select value={String(formData.rank)} onValueChange={(val) => setFormData({ ...formData, rank: Number(val) })} disabled={editingRole?.isSystem}>
                 <SelectTrigger className="w-full" aria-label={t('RoleManagementPage.positionIdentifier')}>

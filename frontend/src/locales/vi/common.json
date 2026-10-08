@@ -9,7 +9,8 @@
     "timeout": "Yêu cầu xử lý quá lâu và đã bị huỷ, vui lòng thử lại",
     "fileTooLarge": "Tệp tin vượt quá dung lượng cho phép",
     "serverUnavailable": "Máy chủ đang gặp sự cố, vui lòng thử lại sau",
-    "withRef": "{{message}} (mã: {{ref}})"
+    "withRef": "{{message}} (mã: {{ref}})",
+    "uploadStalled": "Kết nối bị treo giữa lúc gửi tệp nên tệp chưa lên được. Bấm Thử lại giúp mình nhé."
   },
   "numberInput": {
     "placeholder": "vd: {{example}}",
@@ -131,5 +132,8 @@
     "newCycle": "Tạo kỳ mới",
     "periodCreatedBack": "Đã tạo đợt — đã quay lại trang trước, mở lại form để chọn đợt vừa tạo.",
     "cycleCreatedBack": "Đã tạo kỳ — đã quay lại trang trước, mở lại form để chọn kỳ vừa tạo."
+  },
+  "upload": {
+    "retry": "Thử lại"
   }
 }

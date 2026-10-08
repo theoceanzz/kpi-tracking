@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /**
  * Các khối cấu hình thang điểm & xếp loại, tách khỏi CompanyPage để dùng cho trang
@@ -124,10 +125,10 @@ export function ScoringConfigSection({ org }: { org: any }) {
         actions={
           !isEditing && (
             <>
-              <Button variant="outline" size="icon" aria-label={t('ScoringSections.resetToDefault')} onClick={handleResetToDefault} title={t('ScoringSections.resetToDefault')}>
+              <Button {...tourAnchor('scoring.reset')} variant="outline" size="icon" aria-label={t('ScoringSections.resetToDefault')} onClick={handleResetToDefault} title={t('ScoringSections.resetToDefault')}>
                 <RotateCcw aria-hidden="true" />
               </Button>
-              <Button onClick={() => setIsEditing(true)}>
+              <Button {...tourAnchor('scoring.edit')} onClick={() => setIsEditing(true)}>
                 <Edit3 aria-hidden="true" /> {t('ScoringSections.edit')}
               </Button>
             </>
@@ -137,7 +138,7 @@ export function ScoringConfigSection({ org }: { org: any }) {
 
       <section className="mx-auto max-w-3xl overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
         {/* Thang điểm tối đa: một hàng số liệu, không tô nền — nó là MẪU SỐ xếp loại, không phải hệ số nhân */}
-        <div id="tour-scoring-max" className="flex flex-col gap-3 border-b border-[var(--color-border)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div {...tourAnchor('scoring.max')} id="tour-scoring-max" className="flex flex-col gap-3 border-b border-[var(--color-border)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-eyebrow">{t('ScoringSections.maximumScale')}</p>
             <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
@@ -164,7 +165,7 @@ export function ScoringConfigSection({ org }: { org: any }) {
           )}
         </div>
 
-        <div id="tour-scoring-levels" className="p-5">
+        <div {...tourAnchor('scoring.levels')} id="tour-scoring-levels" className="p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h4 className="text-section-title">{t('ScoringSections.ratingLevels')}</h4>
@@ -313,10 +314,10 @@ export function QualitativeConfigSection({ org }: { org: any }) {
         actions={
           !isEditing && (
             <>
-              <Button variant="outline" size="icon" aria-label={t('ScoringSections.resetToDefault')} onClick={handleResetToDefault} title={t('ScoringSections.resetToDefault')}>
+              <Button {...tourAnchor('qual.reset')} variant="outline" size="icon" aria-label={t('ScoringSections.resetToDefault')} onClick={handleResetToDefault} title={t('ScoringSections.resetToDefault')}>
                 <RotateCcw aria-hidden="true" />
               </Button>
-              <Button onClick={() => setIsEditing(true)}>
+              <Button {...tourAnchor('qual.edit')} onClick={() => setIsEditing(true)}>
                 <Edit3 aria-hidden="true" /> {t('ScoringSections.edit')}
               </Button>
             </>
@@ -325,7 +326,7 @@ export function QualitativeConfigSection({ org }: { org: any }) {
       />
 
       <section className="mx-auto max-w-3xl overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-        <div id="tour-qualitative-guide" className="border-b border-[var(--color-border)] px-5 py-4">
+        <div {...tourAnchor('qual.guide')} id="tour-qualitative-guide" className="border-b border-[var(--color-border)] px-5 py-4">
           <h4 className="text-section-title">{t('ScoringSections.evaluationLevels')}</h4>
           <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
             {t('ScoringSections.eachBehavioralLevelConvertsToA')} <b className="font-medium text-[var(--color-foreground)]">{t('ScoringSections.value')}</b> {t('ScoringSections.pointsUsedForThePerformanceMatrix')} <b className="font-medium text-[var(--color-foreground)]">{t('ScoringSections.position')}</b> {t('ScoringSections.isTheColumnOrderInThe')}
@@ -333,7 +334,7 @@ export function QualitativeConfigSection({ org }: { org: any }) {
           </p>
         </div>
 
-        <div id="tour-qualitative-levels" className="p-5">
+        <div {...tourAnchor('qual.levels')} id="tour-qualitative-levels" className="p-5">
           {isEditing ? (
             <div className="space-y-2">
               <div className="hidden grid-cols-[3.5rem_1fr_5rem_5rem_4rem_2.25rem] gap-3 px-1 sm:grid">
@@ -581,16 +582,16 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
       <div id="tour-matrix-header" className="flex flex-col gap-3 border-b border-[var(--color-border)] px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h3 className="text-section-title">{t('ScoringSections.ratingMatrix')}</h3>
-          <p id="tour-matrix-guide" className="mt-1 max-w-2xl text-sm text-[var(--color-muted-foreground)]">
+          <p {...tourAnchor('matrix.guide')} id="tour-matrix-guide" className="mt-1 max-w-2xl text-sm text-[var(--color-muted-foreground)]">
             {t('ScoringSections.maps')} <b className="font-medium text-[var(--color-foreground)]">{t('ScoringSections.conductScore2')}</b> {t('ScoringSections.rowsAnd')} <b className="font-medium text-[var(--color-foreground)]">{t('ScoringSections.kpiCompletion2')}</b> {t('ScoringSections.columnsToTheFinalRatingLevel')}
           </p>
         </div>
         {!isEditing && (
           <div className="flex shrink-0 items-center gap-2">
-            <Button variant="outline" size="icon" aria-label={t('ScoringSections.resetToDefault')} onClick={handleResetToDefault} title={t('ScoringSections.resetToDefault')}>
+            <Button {...tourAnchor('matrix.reset')} variant="outline" size="icon" aria-label={t('ScoringSections.resetToDefault')} onClick={handleResetToDefault} title={t('ScoringSections.resetToDefault')}>
               <RotateCcw aria-hidden="true" />
             </Button>
-            <Button variant="outline" onClick={() => setIsEditing(true)}>
+            <Button {...tourAnchor('matrix.edit')} variant="outline" onClick={() => setIsEditing(true)}>
               <Edit3 aria-hidden="true" /> {t('ScoringSections.edit')}
             </Button>
           </div>
@@ -617,7 +618,7 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
           </p>
         )}
 
-        <div id="tour-matrix-table" className="overflow-x-auto -mx-2 px-2">
+        <div {...tourAnchor('matrix.table')} id="tour-matrix-table" className="overflow-x-auto -mx-2 px-2">
           <table className="border-separate border-spacing-1 min-w-full">
             <thead>
               <tr>

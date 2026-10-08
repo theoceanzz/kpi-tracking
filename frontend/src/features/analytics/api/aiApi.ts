@@ -1,4 +1,5 @@
 import axiosInstance, { XSRF_COOKIE_NAME } from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import { ENV } from '@/config/env'
 import type { ApiResponse, PageResponse, PageParams } from '@/types/api'
 import i18n from 'i18next'
@@ -470,11 +471,7 @@ export const aiApi = {
     form.append('file', file)
     form.append('source', source)
     if (title) form.append('title', title)
-    return axiosInstance
-      .post<ApiResponse<RagDocument>>('/ai/rag/documents', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: AI_TIMEOUT,
-      })
+    return sendMultipart<ApiResponse<RagDocument>>('/ai/rag/documents', form, { responseTimeoutMs: AI_TIMEOUT })
       .then(res => res.data.data)
   },
 

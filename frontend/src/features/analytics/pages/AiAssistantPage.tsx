@@ -32,6 +32,7 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /** Tên gọi thân mật = từ cuối của họ tên ("Nguyễn Văn Minh" → "Minh"). */
 function givenName(fullName?: string | null): string {
@@ -577,7 +578,7 @@ export default function AiAssistantPage() {
                     </p>
                     <div className="mt-6 flex flex-wrap justify-center gap-2.5">
                       {STARTER_PROMPTS().map(q => (
-                        <button
+                        <button {...tourAnchor('ai.starter')}
                           key={q}
                           type="button"
                           onClick={() => sendMessage(q)}
@@ -729,7 +730,7 @@ export default function AiAssistantPage() {
             <div className="mx-auto max-w-4xl">
               <PinnedChips sink={fileSink} />
               <AttachedChips sink={fileSink} />
-              <div className="ai-composer flex items-center gap-2 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] py-2 pl-3 pr-2 shadow-sm transition-[border-color,box-shadow]">
+              <div {...tourAnchor('ai.composer')} className="ai-composer flex items-center gap-2 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] py-2 pl-3 pr-2 shadow-sm transition-[border-color,box-shadow]">
                 <EvidenceAttachBar sink={fileSink} disabled={isLoading || loadingMessages} />
                 <textarea
                   ref={textareaRef}
@@ -751,7 +752,7 @@ export default function AiAssistantPage() {
                   getBaseText={() => input}
                   disabled={isLoading || loadingMessages}
                 />
-                <Button
+                <Button {...tourAnchor('ai.send')}
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading || loadingMessages}
                   size="icon"

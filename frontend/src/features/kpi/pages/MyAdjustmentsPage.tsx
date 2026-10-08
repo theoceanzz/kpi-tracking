@@ -13,8 +13,13 @@ import { Clock, History, Settings2, Send, ListChecks, CheckCircle2 } from 'lucid
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import AdjustmentKpiPickerModal from '../components/AdjustmentKpiPickerModal'
 import KpiAdjustmentModal from '../components/KpiAdjustmentModal'
+import KpiAdjustmentReviewModal from '../components/KpiAdjustmentReviewModal'
+import { stepPositionLabel } from '../utils/approvalChainLabels'
+import type { KpiAdjustmentRequest } from '@/types/adjustment'
 import type { KpiCriteria } from '@/types/kpi'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourAction, useTourModal } from '@/components/common/tours/actions'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -74,12 +79,23 @@ function ChangeSummary({ adj }: { adj: any }) {
   )
 }
 
+/** Còn chờ: đang ở bước nào của chuỗi duyệt, ai đang giữ — để người gửi biết mình đợi ai. */
+function WaitingFor({ adj }: { adj: any }) {
+  const { t } = useTranslation('kpi')
+  if (adj.status !== 'PENDING') return null
+  const label = adj.approval ? stepPositionLabel(adj.approval) : t('MyAdjustmentsPage.waitingForManager')
+  return <p className="max-w-[220px] truncate text-xs text-[var(--color-warning)]" title={label}>{label}</p>
+}
+
 export default function MyAdjustmentsPage() {
   const { t } = useTranslation('kpi')
   const [page, setPage] = useState(0)
   const pageSize = 10
   const [pickerOpen, setPickerOpen] = useState(false)
   const [adjustKpi, setAdjustKpi] = useState<KpiCriteria | null>(null)
+  const [viewRequest, setViewRequest] = useState<KpiAdjustmentRequest | null>(null)
+  useTourModal('myadj.picker', () => { setAdjustKpi(null); setPickerOpen(true) }, () => setPickerOpen(false))
+  useTourAction('myadj.modals.close', () => { setPickerOpen(false); setAdjustKpi(null) })
 
   const { data, isLoading } = useMyAdjustments({ page, size: pageSize })
   const adjustments = data?.content ?? []
@@ -113,9 +129,14 @@ export default function MyAdjustmentsPage() {
     },
     {
       key: 'reply', header: t('MyAdjustmentsPage.response'),
-      render: (adj: any) => adj.reviewerNote
-        ? <p className="max-w-[220px] truncate" title={adj.reviewerNote}>{adj.reviewerNote}</p>
-        : <span className="text-caption">{adj.status === 'PENDING' ? t('MyAdjustmentsPage.waitingForManager') : t('MyAdjustmentsPage.noComments')}</span>,
+      render: (adj: any) => (
+        <>
+          {adj.reviewerNote
+            ? <p className="max-w-[220px] truncate" title={adj.reviewerNote}>{adj.reviewerNote}</p>
+            : adj.status !== 'PENDING' && <span className="text-caption">{t('MyAdjustmentsPage.noComments')}</span>}
+          <WaitingFor adj={adj} />
+        </>
+      ),
     },
   ]
 
@@ -131,13 +152,13 @@ export default function MyAdjustmentsPage() {
           { label: t('MyAdjustmentsPage.approved'), value: stats.approved, icon: CheckCircle2 },
         ]}
         actions={
-          <Button onClick={() => setPickerOpen(true)}>
+          <Button {...tourAnchor('myadj.add')} onClick={() => setPickerOpen(true)}>
             <Send aria-hidden="true" /> {t('MyAdjustmentsPage.createAdjustmentRequest')}
           </Button>
         }
       />
 
-      <div id="tour-myadj-table">
+      <div {...tourAnchor('myadj.list')} id="tour-myadj-table">
         {isLoading ? (
           <LoadingSkeleton type="table" rows={6} />
         ) : adjustments.length === 0 ? (
@@ -158,6 +179,7 @@ export default function MyAdjustmentsPage() {
             columns={columns}
             data={adjustments}
             keyExtractor={(adj: any) => adj.id}
+            onRowClick={(adj: any) => setViewRequest(adj)}
             renderMobileCard={(adj: any) => (
               <div className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
@@ -171,6 +193,7 @@ export default function MyAdjustmentsPage() {
                   <TimeLeft createdAt={adj.createdAt} status={adj.status} />
                 </div>
                 {adj.reviewerNote && <p className="text-xs text-[var(--color-foreground)]">{t('MyAdjustmentsPage.response2')} {adj.reviewerNote}</p>}
+                <WaitingFor adj={adj} />
               </div>
             )}
           />
@@ -195,6 +218,8 @@ export default function MyAdjustmentsPage() {
         />
       )}
       <KpiAdjustmentModal open={!!adjustKpi} onClose={() => setAdjustKpi(null)} kpi={adjustKpi} />
+      {/* Chỉ xem: người gửi không giữ bước duyệt nên hộp không có nút duyệt — chỉ có chuỗi duyệt để biết đang chờ ai. */}
+      <KpiAdjustmentReviewModal open={!!viewRequest} onClose={() => setViewRequest(null)} request={viewRequest} />
     </div>
   )
 }

@@ -1,11 +1,12 @@
 import { useUploadStore } from '@/store/uploadStore'
-import { X, CheckCircle2, AlertCircle, Loader2, FileUp } from 'lucide-react'
+import { X, CheckCircle2, AlertCircle, Loader2, FileUp, RotateCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 
 export default function GlobalUploadProgress() {
   const { t } = useTranslation('shared')
-  const { tasks, removeTask } = useUploadStore()
+  const { tasks, removeTask, retryTask } = useUploadStore()
 
   if (tasks.length === 0) return null
 
@@ -41,11 +42,15 @@ export default function GlobalUploadProgress() {
               </p>
               <p className="text-caption truncate mt-0.5">
                 {task.fileName}
+                {task.totalCount > 1 && task.status !== 'completed' && (
+                  <> · {t('GlobalUploadProgress.filesDone', { done: task.doneCount, total: task.totalCount })}</>
+                )}
               </p>
             </div>
 
             <button 
               onClick={() => removeTask(task.id)}
+              aria-label={t('GlobalUploadProgress.dismiss')}
               className="p-1.5 hover:bg-[var(--color-muted)] rounded-control text-[var(--color-subtle-foreground)] transition-colors"
             >
               <X size={14} />
@@ -66,18 +71,38 @@ export default function GlobalUploadProgress() {
               <span className="text-eyebrow">
                 {task.status === 'uploading' ? `${task.progress}%` : ''}
               </span>
-              {task.status === 'uploading' && (
+              {task.status === 'uploading' && !task.slow && (
                 <div className="text-eyebrow flex items-center gap-1 text-[var(--color-primary)]">
                   <FileUp size={10} /> {t('GlobalUploadProgress.processing')}
                 </div>
               )}
             </div>
+            {/* Chờ lâu bất thường: cho người dùng tự gửi lại thay vì nhìn thanh tiến trình đứng im. */}
+            {task.status === 'uploading' && task.slow && (
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs leading-relaxed text-[var(--color-muted-foreground)]">
+                  {t('GlobalUploadProgress.takingLong')}
+                </p>
+                <Button size="sm" variant="outline" onClick={() => retryTask(task.id)}>
+                  <RotateCw aria-hidden="true" /> {t('GlobalUploadProgress.reload')}
+                </Button>
+              </div>
+            )}
             {/* Lý do máy chủ từ chối. KHÔNG truncate: thông điệp bị cắt cụt thì cũng bằng không có,
                 mà đây lại đúng là chỗ duy nhất người dùng biết được mình phải sửa gì. */}
             {task.status === 'error' && task.message && (
               <p className="text-xs font-medium leading-relaxed text-[var(--color-error)]">
                 {task.message}
               </p>
+            )}
+            {/* Lỗi mạng / máy chủ chập chờn: tệp vẫn còn trong bộ nhớ, bấm là gửi lại phần chưa xong.
+                Máy chủ từ chối hẳn (sai định dạng, quá nặng) thì gửi lại cũng vậy nên không hiện. */}
+            {task.status === 'error' && task.retryable && (
+              <div className="flex justify-end">
+                <Button size="sm" onClick={() => retryTask(task.id)}>
+                  <RotateCw aria-hidden="true" /> {t('GlobalUploadProgress.retry')}
+                </Button>
+              </div>
             )}
           </div>
         </div>

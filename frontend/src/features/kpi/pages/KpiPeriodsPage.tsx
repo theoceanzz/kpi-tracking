@@ -33,6 +33,9 @@ import { useTranslation } from 'react-i18next'
 import { useStateDraft } from '@/hooks/useFormDraft'
 import { useCreateFromLink, useCreatePeriodCycleOption } from '@/components/common/CreatePeriodCycleOption'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
+import { useTourModal } from '@/components/common/tours/actions'
 
 export default function KpiPeriodsPage() {
   const { t } = useTranslation('kpi')
@@ -42,6 +45,7 @@ export default function KpiPeriodsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   // Đến từ mục "+ Tạo đợt mới" trong một ô chọn: mở sẵn form, tạo xong quay về trang cũ.
   const { returnAfterCreate, cancelReturn } = useCreateFromLink('period', () => { setEditPeriod(null); setShowForm(true) })
+  useTourModal('periods.form', () => { setEditPeriod(null); setShowForm(true) }, () => setShowForm(false))
 
   const [page, setPage] = useState(0)
   const [pageSize] = useState(10)
@@ -121,7 +125,7 @@ export default function KpiPeriodsPage() {
             },
           ]}
           actions={
-            <Button onClick={() => { setEditPeriod(null); setShowForm(true) }}>
+            <Button {...tourAnchor('periods.add')} onClick={() => { setEditPeriod(null); setShowForm(true) }}>
               <Plus aria-hidden="true" /> {t('KpiPeriodsPage.createANewPeriod')}
             </Button>
           }
@@ -171,7 +175,7 @@ export default function KpiPeriodsPage() {
           </div>
         ) : viewMode === 'TABLE' ? (
           <div className="overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-            <table className="w-full">
+            <table {...tourAnchor('periods.table')} className="w-full">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
                   <th scope="col" className="px-4 py-2.5 text-left text-eyebrow"><SortHeader field="name" active={sortBy} dir={direction} onToggle={toggleSort}>{t('KpiPeriodsPage.periodName')}</SortHeader></th>
@@ -200,10 +204,10 @@ export default function KpiPeriodsPage() {
                     <td className="px-3 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <LockedHint reason={periodLockReason(period)}>
-                          <Button variant="ghost" size="icon-sm" disabled={!!periodLockReason(period)} onClick={() => { setEditPeriod(period); setShowForm(true) }} aria-label={t('KpiPeriodsPage.edit')} title={periodLockReason(period) ? undefined : t('KpiPeriodsPage.edit')}><Pencil aria-hidden="true" /></Button>
+                          <Button {...tourAnchor('periods.edit')} variant="ghost" size="icon-sm" disabled={!!periodLockReason(period)} onClick={() => { setEditPeriod(period); setShowForm(true) }} aria-label={t('KpiPeriodsPage.edit')} title={periodLockReason(period) ? undefined : t('KpiPeriodsPage.edit')}><Pencil aria-hidden="true" /></Button>
                         </LockedHint>
                         <LockedHint reason={periodLockReason(period)}>
-                          <Button variant="ghost" size="icon-sm" disabled={!!periodLockReason(period)} onClick={() => setDeleteId(period.id)} aria-label={t('KpiPeriodsPage.delete')} title={periodLockReason(period) ? undefined : t('KpiPeriodsPage.delete')} className="text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /></Button>
+                          <Button {...tourAnchor('periods.delete')} variant="ghost" size="icon-sm" disabled={!!periodLockReason(period)} onClick={() => setDeleteId(period.id)} aria-label={t('KpiPeriodsPage.delete')} title={periodLockReason(period) ? undefined : t('KpiPeriodsPage.delete')} className="text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /></Button>
                         </LockedHint>
                       </div>
                     </td>
@@ -387,6 +391,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (blockedByTour()) return
 
     const start = new Date(formData.startDate).getTime()
     const end = new Date(formData.endDate).getTime()
@@ -436,7 +441,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
 
   return (
     <>
-    <Dialog
+    <Dialog {...tourAnchor('periods.form')}
       open
       onClose={onClose}
       size="md"
@@ -447,7 +452,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={isSubmitting}>{t('KpiPeriodsPage.cancel')}</Button>}
           primary={
-            <Button type="submit" form="period-form-page" disabled={isSubmitting}>
+            <Button {...tourAnchor('periods.form.submit')} type="submit" form="period-form-page" disabled={isSubmitting}>
               {isSubmitting ? t('KpiPeriodsPage.saving') : t('KpiPeriodsPage.confirm')}
             </Button>
           }
@@ -457,7 +462,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
       <div className="space-y-5">
       <form id="period-form-page" onSubmit={handleSubmit} className="space-y-5">
         <DraftNotice draft={draft} />
-        <div className="space-y-2">
+        <div {...tourAnchor('periods.form.name')} className="space-y-2">
           <label className="text-label">{t('KpiPeriodsPage.kpiPeriodName')} <span className="text-[var(--color-error)]">*</span></label>
           <input
             value={formData.name}
@@ -468,7 +473,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
           />
         </div>
 
-        <div className="space-y-2">
+        <div {...tourAnchor('periods.form.type')} className="space-y-2">
           <label className="text-label">{t('KpiPeriodsPage.periodType2')} <span className="text-[var(--color-error)]">*</span></label>
           <Select value={formData.periodType} onValueChange={val => handleFieldChange('periodType', val)}>
             <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-primary)]/15">
@@ -484,7 +489,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
           </Select>
         </div>
 
-        <div className="space-y-2">
+        <div {...tourAnchor('periods.form.cycle')} className="space-y-2">
           <label className="text-label">{t('KpiPeriodsPage.evaluationCycleOptional')}</label>
           <Select value={formData.cycleId} onValueChange={createCycle.wrap(val => setFormData(prev => ({ ...prev, cycleId: val })))}>
             <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-primary)]/15">
@@ -511,7 +516,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
         </div>
 
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div {...tourAnchor('periods.form.dates')} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-label">{t('KpiPeriodsPage.start')} <span className="text-[var(--color-error)]">*</span></label>
               {/* Mobile */}
@@ -537,7 +542,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div {...tourAnchor('periods.form.reminder')} className="space-y-2">
             <label className="text-label">{t('KpiPeriodsPage.reminderNotificationDefault50OfThe')}</label>
             {/* Mobile */}
             <div className="sm:hidden">

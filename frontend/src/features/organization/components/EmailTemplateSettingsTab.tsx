@@ -16,6 +16,7 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useTranslation } from 'react-i18next'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DEFAULT_LANGUAGE, LANGUAGE_NAMES, SUPPORTED_LANGUAGES, isSupportedLanguage, type Language } from '@/i18n/languages'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const serverMessage = (error: unknown, fallback: string) =>
   getApiErrorMessage(error, fallback)
@@ -147,11 +148,11 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
       {/* Danh sách loại mail */}
       {/* Danh sách vài chục loại mail: khoá chiều cao theo khung nhìn và cuộn bên trong, dính khi
           cuộn trang — để cột trái không kéo cả trang dài gấp ba lần khung soạn thảo bên phải. */}
-      <div id="tour-email-list" className="custom-scrollbar max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-3 lg:sticky lg:top-4">
+      <div {...tourAnchor('email.list')} id="tour-email-list" className="custom-scrollbar max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-3 lg:sticky lg:top-4">
         <div className="mb-4 px-2 space-y-1.5">
           <p className="text-eyebrow">{tr('EmailTemplateSettingsTab.emailLanguage')}</p>
           <Select value={mailLanguage} onValueChange={(v) => { if (isSupportedLanguage(v)) setMailLanguage(v) }}>
-            <SelectTrigger aria-label={tr('EmailTemplateSettingsTab.emailLanguage')}>
+            <SelectTrigger {...tourAnchor('email.language')} aria-label={tr('EmailTemplateSettingsTab.emailLanguage')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -167,7 +168,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
             <p className="px-2 py-1.5 text-eyebrow">{group}</p>
             <div className="space-y-0.5">
               {items.map(t => (
-                <ChoiceChip selected={active?.code === t.code} className="w-full text-left" key={t.code} onClick={() => setActiveCode(t.code)}>
+                <ChoiceChip {...tourAnchor('email.template')} selected={active?.code === t.code} className="w-full text-left" key={t.code} onClick={() => setActiveCode(t.code)}>
                   <span className="flex-1 min-w-0">
                     <span className="block truncate text-sm font-medium">{t.label}</span>
                   </span>
@@ -205,7 +206,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
             {active.enabledControl === 'self' && (
               <label className="flex items-center gap-2 shrink-0 cursor-pointer">
                 <span className="text-eyebrow">{tr('EmailTemplateSettingsTab.sendingOn')}</span>
-                <button
+                <button {...tourAnchor('email.enabled')}
                   onClick={() => setValue('enabled', !enabled)}
                   className={cn(
                     'w-11 h-6 rounded-full transition-colors relative',
@@ -236,7 +237,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
               <p className="text-xs text-[var(--color-muted-foreground)] font-medium leading-relaxed">
                 {tr('EmailTemplateSettingsTab.hereYouOnlyEditThe')} <b>{tr('EmailTemplateSettingsTab.content')}</b> {tr('EmailTemplateSettingsTab.ofTheEmailTurningSendingOn')}{' '}
                 {onOpenNotificationSettings ? (
-                  <Button variant="ghost" onClick={onOpenNotificationSettings}>
+                  <Button {...tourAnchor('email.notif-link')} variant="ghost" onClick={onOpenNotificationSettings}>
                     {tr('EmailTemplateSettingsTab.notificationSettings')}
                   </Button>
                 ) : <b>{tr('EmailTemplateSettingsTab.notificationSettings')}</b>}.
@@ -263,7 +264,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
           )}
 
           {/* Tiêu đề */}
-          <div id="tour-email-subject">
+          <div {...tourAnchor('email.subject')} id="tour-email-subject">
             <label className="text-label">{tr('EmailTemplateSettingsTab.emailSubject')}</label>
             <input
               {...register('subject')}
@@ -278,7 +279,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
               <label className="text-label">
                 {fullHtml ? tr('EmailTemplateSettingsTab.fullHtml') : tr('EmailTemplateSettingsTab.emailContent')}
               </label>
-              <button
+              <button {...tourAnchor('email.advanced')}
                 onClick={toggleAdvanced}
                 title={tr('EmailTemplateSettingsTab.advancedModeForPeopleWhoKnow')}
                 className={cn(
@@ -320,14 +321,14 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
 
           {/* Hành động */}
           <div id="tour-email-actions" className="flex flex-wrap items-center gap-3 pt-2 border-t border-[var(--color-border)]">
-            <Button variant="outline" onClick={() => previewMutation.mutate()} disabled={previewMutation.isPending}>
+            <Button {...tourAnchor('email.preview')} variant="outline" onClick={() => previewMutation.mutate()} disabled={previewMutation.isPending}>
               {previewMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Eye aria-hidden="true" />}
               {tr('EmailTemplateSettingsTab.preview')}
             </Button>
-            <Button variant="outline" onClick={() => resetMutation.mutate()} disabled={!active.customized || resetMutation.isPending} title={active.customized ? undefined : tr('EmailTemplateSettingsTab.thisTemplateIsUsingTheDefault')}>
+            <Button {...tourAnchor('email.reset')} variant="outline" onClick={() => resetMutation.mutate()} disabled={!active.customized || resetMutation.isPending} title={active.customized ? undefined : tr('EmailTemplateSettingsTab.thisTemplateIsUsingTheDefault')}>
               <RotateCcw aria-hidden="true" /> {tr('EmailTemplateSettingsTab.restoreDefault')}
             </Button>
-            <Button className="ml-auto" onClick={handleSubmit(data => saveMutation.mutate(data))} disabled={saveMutation.isPending}>
+            <Button {...tourAnchor('email.save')} className="ml-auto" onClick={handleSubmit(data => saveMutation.mutate(data))} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
               {tr('EmailTemplateSettingsTab.saveTemplate')}
             </Button>

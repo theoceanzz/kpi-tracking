@@ -1,0 +1,49 @@
+{
+  "composer": {
+    "placeholder": "Write a comment… Type @ to mention someone",
+    "hint": "Enter to send · Shift+Enter for a new line · drag, drop or paste images to attach",
+    "attach": "Attach files",
+    "send": "Send",
+    "cancel": "Cancel",
+    "removeFile": "Remove file",
+    "fileTooLarge": "File \"{{name}}\" is larger than 10 MB",
+    "fileNotSupported": "File \"{{name}}\" is not supported",
+    "tooManyFiles": "Each comment can have at most {{max}} attachments"
+  },
+  "item": {
+    "deleted": "This comment was deleted",
+    "edited": "(edited)",
+    "react": "React",
+    "reply": "Reply",
+    "more": "More actions",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteTitle": "Delete comment?",
+    "deleteDescription": "The comment will be removed from the discussion.",
+    "deleteWithReplies": "This comment has replies: its content will be replaced with \"This comment was deleted\" and the replies stay."
+  },
+  "reaction": {
+    "LIKE": "Like",
+    "AGREE": "Agree",
+    "LOVE": "Love",
+    "CHECK": "Done",
+    "QUESTION": "Question"
+  },
+  "system": {
+    "openLinked": "Open the other KPI"
+  },
+  "thread": {
+    "moreReplies": "Show {{count}} more replies",
+    "replyTo": "Reply to {{name}}…"
+  },
+  "panel": {
+    "empty": "No discussion yet. Start the conversation.",
+    "newComments": "New comments",
+    "readOnly": "You can only view this discussion.",
+    "hideSystem": "Hide system activity",
+    "showSystem": "Show system activity"
+  },
+  "link": {
+    "notFound": "This comment could not be opened"
+  }
+}

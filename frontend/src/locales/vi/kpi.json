@@ -1105,6 +1105,7 @@
     "workAssignedSuccessfully": "Giao việc thành công"
   },
   "KpiDetailModal": {
+    "adjustmentApprovalChain": "Chuỗi duyệt yêu cầu điều chỉnh",
     "actualWeight": "Trọng số thật (%)",
     "approvedBy": "Duyệt bởi:",
     "belongsToItem": "Thuộc hạng mục",
@@ -1132,7 +1133,10 @@
     "totalChildWeight": "Tổng trọng số con:",
     "unitInformation": "Thông tin đơn vị",
     "weight": "Trọng số (%)",
-    "childKpis": "KPI con"
+    "childKpis": "KPI con",
+    "tabInfo": "Thông tin",
+    "tabDiscussion": "Thảo luận",
+    "tabTasks": "Công việc"
   },
   "KpiExcelPreviewModal": {
     "addANewRow": "Thêm dòng mới",
@@ -1390,7 +1394,8 @@
     "done": "Xong",
     "splitFor": "Chia cho {{name}}",
     "selfApprovedExceedsFullWeight": "Tổng trọng số của {{name}} sẽ vượt 100%: đã dùng {{used}}%, chỉ còn trống {{left}}%. Chỉ tiêu bạn tạo được duyệt ngay nên không được vượt 100%.",
-    "approvedEditExceedsFullWeight": "Chỉ tiêu đã duyệt nên sửa xong là chốt luôn: tổng trọng số của {{name}} sẽ vượt 100%. Các chỉ tiêu khác đã dùng {{used}}%, chỉ tiêu này tối đa {{left}}%."
+    "approvedEditExceedsFullWeight": "Chỉ tiêu đã duyệt nên sửa xong là chốt luôn: tổng trọng số của {{name}} sẽ vượt 100%. Các chỉ tiêu khác đã dùng {{used}}%, chỉ tiêu này tối đa {{left}}%.",
+    "tourDoesNotSubmit": "Đang trong hướng dẫn nên không tạo chỉ tiêu thật. Thoát hướng dẫn để tạo."
   },
   "KpiFormParts": {
     "fromSource": "từ nguồn"
@@ -1603,7 +1608,9 @@
     "inverseKpi": "KPI ngược",
     "qualitative": "Định tính",
     "split": "Chia nhỏ",
-    "childCount": "{{count}} KPI con"
+    "childCount": "{{count}} KPI con",
+    "unreadComments": "{{count}} bình luận chưa đọc",
+    "taskProgress": "{{done}}/{{total}} việc hoàn thành, {{overdue}} quá hạn"
   },
   "MyAdjustmentsPage": {
     "approved": "Đã duyệt",
@@ -2163,5 +2170,9 @@
   "WorkflowStartCard": {
     "startKpiSetup": "Bắt đầu thiết lập KPI",
     "tasksWaitingOnYou": "việc chờ bạn"
+  },
+  "KpiLinkPage": {
+    "notFound": "Không mở được KPI này",
+    "back": "Về KPI của tôi"
   }
 }

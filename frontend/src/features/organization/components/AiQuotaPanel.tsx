@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const PAGE_SIZE = 10
 const fmt = (n: number | null | undefined) => (n ?? 0).toLocaleString(intlLocale())
@@ -308,12 +309,12 @@ export default function AiQuotaPanel() {
   return (
     <div className="space-y-4">
       {/* Hạn mức cá nhân — tách hẳn khỏi túi dùng để phân bổ bên dưới */}
-      <div id="tour-aiquota-mine">
+      <div {...tourAnchor('aiquota.mine')} id="tour-aiquota-mine">
         <MyQuotaCard />
       </div>
 
       {/* Túi token dùng để phân bổ cho người khác */}
-      <div id="tour-aiquota-pool" className="grid gap-3 sm:grid-cols-3">
+      <div {...tourAnchor('aiquota.pool')} id="tour-aiquota-pool" className="grid gap-3 sm:grid-cols-3">
         <StatBox
           label={overview.isTopManager ? t('AiQuotaPanel.companyBudget') : t('AiQuotaPanel.allocationPool')}
           value={fmt(overview.allocatablePool)}
@@ -340,7 +341,7 @@ export default function AiQuotaPanel() {
 
       {/* Công tắc uỷ quyền — chỉ quản lý cao nhất */}
       {overview.isTopManager && (
-        <div id="tour-aiquota-delegation" className="flex flex-wrap items-center gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+        <div {...tourAnchor('aiquota.delegation')} id="tour-aiquota-delegation" className="flex flex-wrap items-center gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
           <Users size={18} className="shrink-0 text-[var(--color-primary)]" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-[var(--color-foreground)]">
@@ -367,7 +368,7 @@ export default function AiQuotaPanel() {
         </div>
       )}
 
-      <div id="tour-aiquota-people" className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+      <div {...tourAnchor('aiquota.people')} id="tour-aiquota-people" className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
         {/* Thanh lọc */}
         <div className="flex flex-col gap-2 border-b border-[var(--color-border)] p-4 sm:flex-row">
           <div className="relative flex-1">

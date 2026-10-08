@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Upload, ImageOff, Trash2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
-import { getApiErrorMessage } from '@/lib/apiError'
+import { toastUploadError } from '@/lib/upload'
 import { giftApi } from '../api/giftApi'
 import { useGiftsManage } from '../hooks/useGifts'
 import { giftSchema, numOrUndefined, type GiftFormData } from '../schemas/giftSchema'
@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 interface GiftFormModalProps {
   open: boolean
@@ -72,17 +74,22 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
       toast.error(t('GiftFormModal.theImageMustNotExceed5mb'))
       return
     }
+    await sendImage(file)
+  }
+
+  const sendImage = async (file: File) => {
     setUploading(true)
     try {
       setValue('imageUrl', await giftApi.uploadImage(file), { shouldValidate: true })
-    } catch (e: any) {
-      toast.error(getApiErrorMessage(e, t('GiftFormModal.imageUploadFailed')))
+    } catch (e) {
+      toastUploadError(e, () => void sendImage(file), t('GiftFormModal.imageUploadFailed'))
     } finally {
       setUploading(false)
     }
   }
 
   const onSubmit = async (data: GiftFormData) => {
+    if (blockedByTour()) return
     const payload = {
       name: data.name.trim(),
       description: data.description.trim() || undefined,
@@ -105,7 +112,7 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
     'w-full rounded-control border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm'
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('gift.form')}
       open
       onClose={onClose}
       size="lg"
@@ -115,7 +122,7 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={isCreating || isUpdating}>{t('GiftFormModal.cancel')}</Button>}
           primary={
-            <Button onClick={handleSubmit(onSubmit)} disabled={isCreating || isUpdating || uploading}>
+            <Button {...tourAnchor('gift.form.submit')} onClick={handleSubmit(onSubmit)} disabled={isCreating || isUpdating || uploading}>
               {(isCreating || isUpdating) && <Loader2 className="animate-spin" aria-hidden="true" />}
               {isEdit ? t('GiftFormModal.save') : t('GiftFormModal.addGift2')}
             </Button>
@@ -139,7 +146,7 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
         )}
 
         <div className="flex gap-4">
-          <div className="flex-shrink-0">
+          <div {...tourAnchor('gift.form.image')} className="flex-shrink-0">
             <div className="relative h-28 w-28 overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
               {imageUrl ? (
                 <img src={imageUrl} alt="" className="h-full w-full object-cover" />
@@ -183,7 +190,7 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
           </div>
 
           <div className="min-w-0 flex-1 space-y-3">
-            <div>
+            <div {...tourAnchor('gift.form.name')}>
               <label className="text-label mb-1.5 block font-medium">{t('GiftFormModal.giftName')}</label>
               <input
                 {...register('name')}
@@ -199,7 +206,7 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div {...tourAnchor('gift.form.points')} className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="text-label mb-1.5 block font-medium">{t('GiftFormModal.pointsToRedeem')}</label>
             <LocaleNumberInput
@@ -238,7 +245,7 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
 
         {/* Quyết định luồng sau khi nhân viên đổi: cần trao tay thì có bước "đã giao",
             nhận ngay thì hoàn tất luôn, không tạo việc cho ai. */}
-        <div>
+        <div {...tourAnchor('gift.form.delivery')}>
           <label className="text-label mb-2 block font-medium">{t('GiftFormModal.howTheGiftIsReceived')}</label>
           <div className="grid gap-2 sm:grid-cols-2">
             <button

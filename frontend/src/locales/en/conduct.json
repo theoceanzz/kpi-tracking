@@ -73,7 +73,64 @@
     "totalWeight": "Total weight",
     "unassignCycle": "Unassign cycle {{value}}",
     "unassignedCyclesUseTheSet": "Unassigned cycles use the set",
-    "scaleRange": "scale {{min}}–{{max}}"
+    "scaleRange": "scale {{min}}–{{max}}",
+    "newGroup": "Group {{value}}",
+    "addGroup": "Add group",
+    "splitIntoGroups": "Split into groups",
+    "splitIntoGroupsHint": "Add a group level between the set and its criteria, e.g. 5 core values 30%, 10 staff traits 40%…",
+    "removeGroups": "Remove groups",
+    "removeGroupsHint": "Merge every criterion into one list; weights become % of the total (% in group × group %) so scores stay the same",
+    "groupName": "Group name",
+    "groupNameN": "Group name {{value}}",
+    "groupWeight": "Group weight {{value}}",
+    "groupWeightHint": "The group's share of the total conduct score",
+    "deleteGroup": "Delete group {{value}}",
+    "withinGroup": "Within group",
+    "groupsCount_one": "{{count}} group",
+    "groupsCount_other": "{{count}} groups",
+    "theGroupNameCannotBeEmpty": "The group name cannot be empty",
+    "eachGroupWeightMustBeGreater": "Each group's weight must be greater than 0",
+    "groupNeedsAtLeast1Criterion": "Group \"{{name}}\" needs at least 1 criterion",
+    "groupWeightMustEqual100": "The criteria weights in group \"{{name}}\" must total 100% (currently {{total}}%)",
+    "theTotalGroupWeightMustEqual100": "The group weights must total 100% (currently {{total}}%)",
+    "split100EvenlyAcrossGroups": "Split 100% evenly across groups",
+    "split100EvenlyWithinGroup": "Split 100% evenly across the criteria in this group",
+    "groupCurrentCriteria": "Group the current criteria",
+    "groupCurrentCriteriaHint": "Put the current criteria into one 100% group, then add more groups",
+    "cultureTemplate": {
+      "title": "Template: Corporate culture fit",
+      "hint": "5 core values 30% · 10 staff traits 40% · 6 golden words 30%. Replaces the criteria being edited; nothing applies until you save.",
+      "core": {
+        "name": "5 core values",
+        "c1": "Intellect",
+        "c2": "International",
+        "c3": "Integrity",
+        "c4": "Dedication",
+        "c5": "Ownership"
+      },
+      "traits": {
+        "name": "10 fitting staff traits",
+        "c1": "Strong discipline",
+        "c2": "Enthusiastic, devoted, responsible",
+        "c3": "Loyal to the company",
+        "c4": "Puts work effectiveness first",
+        "c5": "Proactive at work",
+        "c6": "Cost-conscious",
+        "c7": "Good teamwork",
+        "c8": "Keeps learning",
+        "c9": "Stays with the company for the long haul",
+        "c10": "Follows and builds the corporate culture"
+      },
+      "gold": {
+        "name": "6 golden words",
+        "c1": "Unity",
+        "c2": "Expertise",
+        "c3": "Responsibility",
+        "c4": "Enthusiasm",
+        "c5": "Respect",
+        "c6": "Role model"
+      }
+    }
   },
   "ConductInlineSheet": {
     "chooseLevel": "Choose level",
@@ -111,7 +168,8 @@
     "yourScore": "Your score",
     "yourSelfAssessment": "Your self-assessment",
     "yourSelfScore": "Your self-score",
-    "scaleRange": "scale {{min}}–{{max}}"
+    "scaleRange": "scale {{min}}–{{max}}",
+    "groupScore": "Group score:"
   },
   "conductSheetExport": {
     "assessedByTheDirectManager": "Assessed by the direct manager",
@@ -140,7 +198,8 @@
     "weight": "Weight",
     "weightedConductScore": "Weighted conduct score:",
     "weightedRatingScore": "Weighted rating score",
-    "rowNo": "No."
+    "rowNo": "No.",
+    "groupTotal": "Group total: {{name}} ({{letter}})"
   },
   "ConductSheetTable": {
     "assessedByTheDirectManager": "Assessed by the direct manager",
@@ -168,7 +227,8 @@
     "weightedConductScoreScale": "Weighted conduct score (scale",
     "weightedRatingScore": "Weighted rating score",
     "youOnlyHavePermissionToView": "You only have permission to view this form.",
-    "rowNo": "No."
+    "rowNo": "No.",
+    "groupTotal": "Group total: {{name}} ({{letter}})"
   },
   "ConductTargetPicker": {
     "chooseCyclePeriod": "Choose cycle / period",

@@ -48,3 +48,27 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
   },
 )
 Switch.displayName = 'Switch'
+
+/**
+ * Hình công tắc KHÔNG bấm được — cho chỗ mà cả thẻ bao quanh đã là nút (vd. `ToggleCard`). Đặt
+ * `Switch` thật vào trong một nút là nút lồng nút: HTML không hợp lệ, và hai `onClick` cùng chạy
+ * nên bấm đúng vào công tắc thì nó bật rồi tắt lại ngay.
+ */
+export function SwitchIndicator({ checked, size = 'default', className }: { checked: boolean; size?: 'sm' | 'default'; className?: string }) {
+  const dims = size === 'sm'
+    ? { track: 'h-5 w-9', thumb: 'h-4 w-4', on: 'translate-x-4' }
+    : { track: 'h-6 w-11', thumb: 'h-5 w-5', on: 'translate-x-5' }
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'relative inline-flex shrink-0 items-center rounded-full border-2 border-transparent transition-colors',
+        dims.track,
+        checked ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-border-strong)]',
+        className,
+      )}
+    >
+      <span className={cn('pointer-events-none block rounded-full bg-white shadow-sm transition-transform', dims.thumb, checked ? dims.on : 'translate-x-0')} />
+    </span>
+  )
+}

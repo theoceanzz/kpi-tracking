@@ -1,10 +1,15 @@
 import { RoleResponse } from '../api/role.api'
 
+/** Quan hệ với đơn vị cha — chỉ để vẽ sơ đồ (nét liền / nét đứt); không luật nào đọc. */
+export type OrgUnitRelationType = 'DIRECT' | 'ADVISORY' | 'SUPERVISORY'
+
 export interface OrgUnitTreeResponse {
   id: string
   name: string
   code: string
   parentId: string | null
+  /** Thiếu = DIRECT (dữ liệu cũ / đơn vị gốc). */
+  parentRelation?: OrgUnitRelationType
   type: string // This maps to unitTypeName from backend
   path: string
   level: number
@@ -27,6 +32,7 @@ export interface OrgUnitResponse {
   name: string
   code: string
   parentId: string | null
+  parentRelation?: OrgUnitRelationType
   organizationId: string
   orgHierarchyId: string
   type: string
@@ -69,6 +75,7 @@ export interface CreateOrgUnitRequest {
   provinceId?: string
   districtId?: string
   roleIds?: string[]
+  parentRelation?: OrgUnitRelationType
 }
 
 export interface UpdateOrgUnitRequest {
@@ -80,4 +87,5 @@ export interface UpdateOrgUnitRequest {
   provinceId?: string
   districtId?: string
   roleIds?: string[]
+  parentRelation?: OrgUnitRelationType
 }

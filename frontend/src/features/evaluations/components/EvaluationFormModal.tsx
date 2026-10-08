@@ -32,6 +32,8 @@ import DraftNotice from '@/components/common/DraftNotice'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { usePermission } from '@/hooks/usePermission'
 import { getApiErrorCode } from '@/lib/apiError'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 interface EvaluationFormModalProps {
   open: boolean
@@ -213,7 +215,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     .filter(p => p.provisional).map(p => p.sourceScorecardName).filter(Boolean)
 
   const onSubmit = async (data: EvaluationFormData, allowProvisionalBsc = false) => {
-    if (readOnly) return
+    if (readOnly || blockedByTour()) return
     if (!allowProvisionalBsc) {
       try {
         await conductRef.current?.save()
@@ -254,7 +256,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   const busy = createMutation.isPending || formState.isSubmitting
 
   const submitButton = (
-    <Button type="submit" form="evaluation-form" disabled={busy || !selectedPeriodId}>
+    <Button {...tourAnchor('evalform.submit')} type="submit" form="evaluation-form" disabled={busy || !selectedPeriodId}>
       {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
       {t('EvaluationFormModal.sendEvaluations')}
     </Button>
@@ -270,7 +272,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
             Trước đây đợt và "kết quả đo lường" là hai khối rời nhau, còn điểm hệ thống hiện
             to gần bằng ô điểm bên dưới nên màn hình có HAI con số 68 cỡ lớn — người dùng
             không biết cái nào là điểm mình đang chấm. */}
-        <Section title={t('EvaluationFormModal.context')} hint={filteredPeriods.length ? t('EvaluationFormModal.periodsInWhichYouHaveKpis', { count: filteredPeriods.length }) : undefined}>
+        <Section {...tourAnchor('evalform.context')} title={t('EvaluationFormModal.context')} hint={filteredPeriods.length ? t('EvaluationFormModal.periodsInWhichYouHaveKpis', { count: filteredPeriods.length }) : undefined}>
           <div className="rounded-card border border-[var(--color-border)]">
             <ScoreRow
               label={<>{t('EvaluationFormModal.evaluationPeriods')} {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
@@ -312,7 +314,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
 
         {/* ── 2. Bạn tự chấm: cùng khuôn "nhãn | ô nhập" với phiếu chấm của quản lý ── */}
         {selectedPeriodId && (
-          <Section title={t('EvaluationFormModal.yourSelfScore')} hint={readOnly ? t('EvaluationFormModal.viewOnlyMode') : undefined}>
+          <Section {...tourAnchor('evalform.score')} title={t('EvaluationFormModal.yourSelfScore')} hint={readOnly ? t('EvaluationFormModal.viewOnlyMode') : undefined}>
             <div className="divide-y divide-[var(--color-border)] rounded-card border border-[var(--color-border)]">
               <ScoreRow
                 label={<>{t('EvaluationFormModal.selfAssessmentScore')} {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
@@ -398,7 +400,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
         )}
 
         {/* ── 3. Minh chứng & ý kiến ──────────────────────────────────────────────── */}
-        <Section title={t('EvaluationFormModal.evidenceComments')}>
+        <Section {...tourAnchor('evalform.evidence')} title={t('EvaluationFormModal.evidenceComments')}>
           {selectedPeriodIdForEvidence && user?.id && (
             <EvidenceAttachments
               target={evidenceKey.period(selectedPeriodIdForEvidence, user.id)}
@@ -465,7 +467,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   }
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('evalform.dialog')}
       open={open}
       onClose={onClose}
       size="2xl"

@@ -14,6 +14,8 @@ import CodeField from '@/components/common/CodeField'
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 interface KeyResultFormModalProps {
   isOpen: boolean
@@ -82,6 +84,7 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
   const totalWeight = unitWeights.reduce((sum, w) => sum + (w.weightPercentage || 0), 0)
 
   const onSubmit = (data: KeyResultFormData) => {
+    if (blockedByTour()) return
     if (hasMultipleUnits) {
       const total = Math.round(totalWeight)
       if (total !== 100) {
@@ -112,7 +115,7 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
   const isPending = createKeyResult.isPending || updateKeyResult.isPending
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('kr.form')}
       open={isOpen}
       onClose={onClose}
       size="md"
@@ -123,7 +126,7 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>{t('KeyResultFormModal.cancel')}</Button>}
           primary={
-            <Button type="submit" form="key-result-form" disabled={isPending}>
+            <Button {...tourAnchor('kr.form.submit')} type="submit" form="key-result-form" disabled={isPending}>
               {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
               {keyResult ? t('KeyResultFormModal.updateKr') : t('KeyResultFormModal.createNewKr')}
             </Button>
@@ -134,7 +137,7 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
       <DraftNotice draft={draft} className="mb-4" />
       <form id="key-result-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-4">
-          <div className="space-y-1.5">
+          <div {...tourAnchor('kr.form.name')} className="space-y-1.5">
             <label className="text-label">{t('KeyResultFormModal.keyResultName')} <span className="text-[var(--color-error)]">*</span></label>
             <input
               {...register('name')}
@@ -155,7 +158,7 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
             inputClassName="rounded-card py-3"
           />
 
-          <div className="space-y-1.5">
+          <div {...tourAnchor('kr.form.description')} className="space-y-1.5">
             <label className="text-label">{t('KeyResultFormModal.detailedDescription')}</label>
             <textarea
               {...register('description')}
@@ -165,7 +168,7 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div {...tourAnchor('kr.form.numbers')} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5 sm:col-span-1">
               <label className="text-label">{t('KeyResultFormModal.unit')}</label>
               <input
@@ -199,7 +202,7 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
 
         {/* Unit weight distribution — only shown when objective has multiple units */}
         {hasMultipleUnits && (
-          <div className="space-y-3">
+          <div {...tourAnchor('kr.form.allocation')} className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-label">{t('KeyResultFormModal.allocationByUnit')}</label>
               <span className={cn(

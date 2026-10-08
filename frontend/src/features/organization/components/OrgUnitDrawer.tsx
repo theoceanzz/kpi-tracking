@@ -14,7 +14,9 @@ import {
 } from '../hooks/useOrganizationStructure'
 import { useRoles } from '../hooks/useUserRoles'
 
+import SearchableSelect from '@/components/common/SearchableSelect'
 import { cn } from '@/lib/utils'
+import type { OrgUnitRelationType } from '../types/org-unit'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { Drawer, DialogFooter } from '@/components/ui/dialog'
@@ -24,15 +26,12 @@ import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 
 export type DrawerMode = 'create-root' | 'create-child' | 'edit'
 
-/**
- * Giá trị "chưa chọn". Radix Select cấm SelectItem mang value là chuỗi rỗng, trong khi form
- * lưu tỉnh/quận rỗng là '' — nên hiển thị bằng sentinel rồi đổi ngược về '' khi ghi vào form.
- */
-const NONE = '__NONE__'
 
 
 const triggerCls =
@@ -53,6 +52,8 @@ interface OrgUnitDrawerProps {
   hierarchyLevels: Record<number, string> // level -> unitTypeName
 }
 
+const PARENT_RELATIONS = ['DIRECT', 'ADVISORY', 'SUPERVISORY'] as const satisfies readonly OrgUnitRelationType[]
+
 const schema = perLanguage(() => (z.object({
   name: z.string().min(1, i18n.t('organization:OrgUnitDrawer.pleaseEnterAName')),
   code: z.string().min(1, i18n.t('organization:OrgUnitDrawer.pleaseEnterACode')),
@@ -63,7 +64,8 @@ const schema = perLanguage(() => (z.object({
   provinceId: z.string().optional(),
   districtId: z.string().optional(),
   roleIds: z.array(z.string()).optional(),
-  status: z.string().optional()
+  status: z.string().optional(),
+  parentRelation: z.enum(PARENT_RELATIONS)
 })))
 
 type FormData = z.infer<ReturnType<typeof schema>>
@@ -154,13 +156,18 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
       provinceId: '',
       districtId: '',
       roleIds: [],
-      status: 'ACTIVE'
+      status: 'ACTIVE',
+      parentRelation: 'DIRECT'
     }
   })
   const { register, handleSubmit, formState: { errors }, reset, setValue, watch, setError, control, getValues } = formApi
   const draft = useFormDraft(formApi, { key: `org-unit:${drawerState.mode}:${drawerState.currentNode?.id ?? drawerState.parentNode?.id ?? 'root'}`, enabled: drawerState.isOpen })
 
   const formProvinceId = watch('provinceId')
+  const parentRelation = watch('parentRelation')
+  // Quan hệ với cấp trên chỉ có nghĩa khi đơn vị có đơn vị cha.
+  const hasParent = drawerState.mode === 'create-child'
+    || (drawerState.mode === 'edit' && !!drawerState.currentNode?.parentId)
   const selectedRoleIds = watch('roleIds') || []
 
   useEffect(() => {
@@ -182,13 +189,15 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
         'name', 'email', 'phone', 'address',
         ...(drawerState.mode === 'edit' ? ['status'] : []),
         ...(drawerState.mode === 'create-root' ? ['unitTypeName'] : ['code']),
+        // Đơn vị gốc không có ô quan hệ với cấp trên → K.AI không được điền ô này.
+        ...(hasParent ? ['parentRelation'] : []),
       ],
       setValue: (field, value) =>
         setValue(field as keyof FormData, value as never,
           { shouldValidate: true, shouldDirty: true }),
     })
     return () => unregister('org_unit_drawer_form')
-  }, [drawerState.isOpen, drawerState.mode, getValues, setValue])
+  }, [drawerState.isOpen, drawerState.mode, hasParent, getValues, setValue])
 
   // Manager/Deputy validation logic
   const selectedRolesDetails = useMemo(() => {
@@ -219,11 +228,13 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
         setValue('districtId', drawerState.currentNode.districtId || '')
         setValue('roleIds', drawerState.currentNode.allowedRoles?.map((r: any) => r.id) || [])
         setValue('status', drawerState.currentNode.status || 'ACTIVE')
+        setValue('parentRelation', drawerState.currentNode.parentRelation || 'DIRECT')
         setLogoPreview(drawerState.currentNode.logoUrl || null)
       } else {
         setValue('name', '')
         setValue('code', drawerState.mode === 'create-root' && organization ? organization.code : '')
         setValue('unitTypeName', hierarchyLevels[calculatedLevel] || '')
+        setValue('parentRelation', 'DIRECT')
         
         // Set default roles for root unit: Highest level (Manager/Deputy) + Staff
         if (drawerState.mode === 'create-root' && allRoles.length > 0) {
@@ -255,6 +266,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
   }
 
   const onSubmit: SubmitHandler<FormData> = async (data) => {
+    if (blockedByTour()) return
     const payload = {
       name: data.name,
       code: data.code,
@@ -266,7 +278,9 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
       provinceId: data.provinceId || undefined,
       districtId: data.districtId || undefined,
       roleIds: data.roleIds || [],
-      status: data.status
+      status: data.status,
+      // Đơn vị gốc không có cấp trên: không gửi, backend luôn lưu DIRECT.
+      ...(hasParent ? { parentRelation: data.parentRelation } : {})
     }
 
     try {
@@ -295,7 +309,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
   }
 
   return (
-    <Drawer
+    <Drawer {...tourAnchor('org.form')}
       open={drawerState.isOpen}
       onClose={onClose}
       size="md"
@@ -305,7 +319,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose}>{t('OrgUnitDrawer.cancel')}</Button>}
           primary={
-            <Button type="submit" form="org-form" disabled={createMutation.isPending || updateMutation.isPending || uploadLogoMutation.isPending}>
+            <Button {...tourAnchor('org.form.submit')} type="submit" form="org-form" disabled={createMutation.isPending || updateMutation.isPending || uploadLogoMutation.isPending}>
               {(createMutation.isPending || updateMutation.isPending || uploadLogoMutation.isPending) ? t('OrgUnitDrawer.processing') : t('OrgUnitDrawer.saveChanges')}
             </Button>
           }
@@ -316,7 +330,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
       <form id="org-form" onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
         
         {/* Logo Upload Section */}
-        <div className="space-y-2">
+        <div {...tourAnchor('org.form.logo')} className="space-y-2">
           <label className="text-label text-[var(--color-foreground)]">Logo</label>
           <div className="flex items-center space-x-4">
             <div className="w-20 h-20 rounded-card border-2 border-dashed border-[var(--color-border)] bg-[var(--color-muted)] flex items-center justify-center overflow-hidden relative group">
@@ -341,7 +355,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div {...tourAnchor('org.form.parent')} className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="text-label text-[var(--color-foreground)]">{t('OrgUnitDrawer.belongsTo')}</label>
             <input 
@@ -359,7 +373,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
           </div>
         </div>
 
-        <div className="space-y-1">
+        <div {...tourAnchor('org.form.name')} className="space-y-1">
           <label className="text-label text-[var(--color-foreground)]">{t('OrgUnitDrawer.unitName')} <span className="text-[var(--color-error)]">*</span></label>
           <input 
             type="text" 
@@ -370,7 +384,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
           {errors.name && <p className="text-xs text-[var(--color-error)] mt-1">{errors.name.message}</p>}
         </div>
 
-        <div className="space-y-1">
+        <div {...tourAnchor('org.form.code')} className="space-y-1">
           <label className="text-label text-[var(--color-foreground)]">{t('OrgUnitDrawer.unitCode')} <span className="text-[var(--color-error)]">*</span></label>
           <input 
             type="text" 
@@ -382,7 +396,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
           {errors.code && <p className="text-xs text-[var(--color-error)] mt-1">{errors.code.message}</p>}
         </div>
 
-        <div className="space-y-1">
+        <div {...tourAnchor('org.form.type')} className="space-y-1">
           <label className="text-label text-[var(--color-foreground)]">{t('OrgUnitDrawer.unitType')} <span className="text-[var(--color-error)]">*</span></label>
           <input 
             type="text" 
@@ -395,7 +409,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
         </div>
 
         {drawerState.mode === 'edit' && (
-          <div className="space-y-1">
+          <div {...tourAnchor('org.form.status')} className="space-y-1">
             <label className="text-label text-[var(--color-foreground)]">{t('OrgUnitDrawer.operatingStatus')}</label>
             <Controller
               name="status"
@@ -417,7 +431,31 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
           </div>
         )}
 
-        <div className="pt-4 border-t">
+        {hasParent && (
+          <div {...tourAnchor('org.form.relation')} className="space-y-1">
+            <label className="text-label text-[var(--color-foreground)]">{t('OrgUnitDrawer.parentRelation')}</label>
+            <Controller
+              name="parentRelation"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className={triggerCls}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PARENT_RELATIONS.map(r => (
+                      <SelectItem key={r} value={r}>{t(`OrgUnitDrawer.parentRelationOption.${r}`)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            <p className="text-caption">{t(`OrgUnitDrawer.parentRelationHelp.${parentRelation}`)}</p>
+            <p className="text-caption">{t('OrgUnitDrawer.parentRelationNote')}</p>
+          </div>
+        )}
+
+        <div {...tourAnchor('org.form.contact')} className="pt-4 border-t">
           <h3 className="text-section-title text-[var(--color-foreground)] mb-4 flex items-center">
             <Mail className="w-4 h-4 mr-2 text-[var(--color-subtle-foreground)]" /> {t('OrgUnitDrawer.contactInformation')}
           </h3>
@@ -448,7 +486,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
           </div>
         </div>
 
-        <div className="pt-4 border-t">
+        <div {...tourAnchor('org.form.location')} className="pt-4 border-t">
           <h3 className="text-section-title text-[var(--color-foreground)] mb-4 flex items-center">
             <MapPin className="w-4 h-4 mr-2 text-[var(--color-subtle-foreground)]" /> {t('OrgUnitDrawer.location')}
           </h3>
@@ -460,23 +498,22 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
                   name="provinceId"
                   control={control}
                   render={({ field }) => (
-                    <Select
-                      value={field.value || NONE}
-                      onValueChange={(v) => {
-                        field.onChange(v === NONE ? '' : v)
+                    // Có ô tìm ở đầu danh sách — danh sách tỉnh/phường xã dài, cuộn tìm mỏi tay.
+                    <SearchableSelect
+                      value={field.value || null}
+                      onChange={(v) => {
+                        field.onChange(v ?? '')
                         // Đổi tỉnh thì quận cũ không còn thuộc tỉnh mới nữa; không xoá thì
                         // form vẫn giữ districtId cũ và gửi lên một quận lệch tỉnh.
                         setValue('districtId', '')
                       }}
-                    >
-                      <SelectTrigger className={triggerCls}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE}>{t('OrgUnitDrawer.chooseProvinceCity')}</SelectItem>
-                        {provinces.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                      options={provinces.map(p => ({ value: p.id, label: p.name }))}
+                      placeholder={t('OrgUnitDrawer.chooseProvinceCity')}
+                      clearLabel={t('OrgUnitDrawer.chooseProvinceCity')}
+                      searchPlaceholder={t('OrgUnitDrawer.searchPlaceholder')}
+                      emptyText={t('OrgUnitDrawer.noResultsFound')}
+                      className={triggerCls}
+                    />
                   )}
                 />
               </div>
@@ -486,19 +523,17 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
                   name="districtId"
                   control={control}
                   render={({ field }) => (
-                    <Select
-                      value={field.value || NONE}
-                      onValueChange={(v) => field.onChange(v === NONE ? '' : v)}
+                    <SearchableSelect
+                      value={field.value || null}
+                      onChange={(v) => field.onChange(v ?? '')}
+                      options={districts.map(d => ({ value: d.id, label: d.name }))}
                       disabled={!selectedProvinceId}
-                    >
-                      <SelectTrigger className={triggerCls}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE}>{t('OrgUnitDrawer.chooseDistrict')}</SelectItem>
-                        {districts.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                      placeholder={t('OrgUnitDrawer.chooseDistrict')}
+                      clearLabel={t('OrgUnitDrawer.chooseDistrict')}
+                      searchPlaceholder={t('OrgUnitDrawer.searchPlaceholder')}
+                      emptyText={t('OrgUnitDrawer.noResultsFound')}
+                      className={triggerCls}
+                    />
                   )}
                 />
               </div>
@@ -515,7 +550,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
           </div>
         </div>
 
-        <div className="pt-4 border-t">
+        <div {...tourAnchor('org.form.roles')} className="pt-4 border-t">
           <h3 className="text-section-title text-[var(--color-foreground)] mb-4 flex items-center">
             <Building2 className="w-4 h-4 mr-2 text-[var(--color-subtle-foreground)]" /> {t('OrgUnitDrawer.allowedRoleScope')}
           </h3>

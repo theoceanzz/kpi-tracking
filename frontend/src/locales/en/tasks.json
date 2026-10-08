@@ -1,0 +1,317 @@
+{
+  "page": {
+    "title": "Tasks"
+  },
+  "sidebar": {
+    "label": "Task views",
+    "mine": "Mine",
+    "team": "Unit",
+    "byKpi": "By KPI",
+    "noKpis": "No KPIs in the current period"
+  },
+  "view": {
+    "ASSIGNED": "Assigned to me",
+    "FOLLOWING": "Following",
+    "CREATED": "Created by me",
+    "DELEGATED": "Assigned to others",
+    "DONE": "Completed",
+    "ALL": "All",
+    "TEAM": "Unit tasks"
+  },
+  "mode": {
+    "list": "List",
+    "kanban": "Kanban",
+    "calendar": "Calendar"
+  },
+  "toolbar": {
+    "groupBy": "Group by",
+    "sort": "Sort",
+    "filter": "Filter",
+    "create": "New task",
+    "createHint": "Shortcut: N"
+  },
+  "groupBy": {
+    "due": "Due date",
+    "kpi": "KPI",
+    "status": "Status",
+    "owner": "Assignee",
+    "priority": "Priority",
+    "none": "No grouping"
+  },
+  "sort": {
+    "due": "Due date",
+    "priority": "Priority",
+    "created": "Created date",
+    "manual": "Manual (drag and drop)"
+  },
+  "filter": {
+    "search": "Search by task name",
+    "status": "Status",
+    "due": "Due date",
+    "period": "Period",
+    "owner": "Assignee",
+    "allPeriods": "All periods",
+    "allPriorities": "All priorities",
+    "allOwners": "All assignees",
+    "remove": "Remove filter",
+    "clearAll": "Clear all",
+    "allKpis": "All KPIs",
+    "kpi": "KPI"
+  },
+  "dueFilter": {
+    "OVERDUE": "Overdue",
+    "TODAY": "Today",
+    "TOMORROW": "Tomorrow",
+    "WEEK": "This week",
+    "LATER": "Later",
+    "NONE": "No due date"
+  },
+  "bucket": {
+    "OVERDUE": "Overdue",
+    "TODAY": "Today",
+    "TOMORROW": "Tomorrow",
+    "THIS_WEEK": "This week",
+    "LATER": "Later",
+    "NONE": "No due date"
+  },
+  "group": {
+    "all": "All tasks",
+    "completed": "Completed"
+  },
+  "status": {
+    "TODO": "To do",
+    "IN_PROGRESS": "In progress",
+    "DONE": "Done",
+    "CANCELLED": "Cancelled"
+  },
+  "priority": {
+    "LOW": "Low",
+    "MEDIUM": "Medium",
+    "HIGH": "High"
+  },
+  "visibility": {
+    "KPI_SCOPE": "Visible to people who can view the KPI",
+    "PRIVATE": "Private (assignee, creator, followers)"
+  },
+  "due": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "yesterday": "Yesterday",
+    "overdue": "overdue",
+    "pick": "Set due date",
+    "endOfWorkWeek": "This Friday",
+    "done": "Done",
+    "hour": "Hour",
+    "minute": "Min",
+    "setTime": "Set time"
+  },
+  "row": {
+    "markDone": "Mark as done",
+    "markTodo": "Mark as to do",
+    "kpiDeleted": "Deleted KPI: {{name}}",
+    "completed": "Completed \"{{title}}\"",
+    "undo": "Undo",
+    "subtasks": "Subtasks",
+    "recurring": "Recurring task",
+    "openSubtasksTitle": "Subtasks are not done",
+    "completeAnyway": "Complete anyway"
+  },
+  "quickAdd": {
+    "label": "Add task",
+    "placeholder": "Task name, press Enter to create",
+    "kpiPlaceholder": "Select a KPI",
+    "pickKpi": "Select a KPI for this task"
+  },
+  "list": {
+    "empty": "No tasks.",
+    "cannotDrop": "Tasks cannot be dropped into this group (its value is not defined)",
+    "subtaskKpiFixed": "A subtask always stays on the KPI of its parent task"
+  },
+  "progress": {
+    "label": "{{done}}/{{total}} tasks done",
+    "overdue": "{{count}} overdue"
+  },
+  "kpiTab": {
+    "openInTasks": "Open in Tasks"
+  },
+  "replacement": {
+    "message": "You have {{count}} unfinished tasks on the old KPI \"{{name}}\" (replaced by this KPI).",
+    "move": "Move to this KPI",
+    "moved": "Moved {{count}} tasks"
+  },
+  "readOnly": {
+    "NOT_OWNER": "You can only view this task (only the assignee and the creator can edit it).",
+    "CYCLE_LOCKED": "The KPI cycle is locked, so the task is read-only.",
+    "KPI_DELETED": "The KPI of this task was deleted: you can only move the task to another KPI or delete it."
+  },
+  "detail": {
+    "title": "Task details",
+    "tab": {
+      "comments": "Comments",
+      "activity": "Activity"
+    },
+    "owner": "Assignee",
+    "assignedBy": "assigned by {{name}}",
+    "followers": "Followers",
+    "addFollower": "Add follower",
+    "removeFollower": "Remove follower",
+    "noFollowerCandidates": "Nobody else who can view this KPI is left to add.",
+    "follow": "Follow",
+    "unfollow": "Unfollow",
+    "dueDate": "Due date",
+    "dueTime": "Due time",
+    "clearDue": "Clear due date",
+    "reminder": "Reminder",
+    "repeat": "Repeat",
+    "priority": "Priority",
+    "kpi": "KPI",
+    "status": "Status",
+    "visibility": "Who can view",
+    "description": "Description",
+    "descriptionPlaceholder": "Add a description…",
+    "bold": "Bold",
+    "italic": "Italic",
+    "bulletList": "Bulleted list",
+    "orderedList": "Numbered list",
+    "link": "Insert link",
+    "subtasks": "Subtasks",
+    "addSubtask": "Add a subtask, press Enter",
+    "checklist": "Checklist",
+    "addItem": "Add a step, press Enter",
+    "removeItem": "Remove step",
+    "attachments": "Attachments",
+    "attach": "Attach",
+    "dropFiles": "Drag and drop files here to attach them",
+    "removeFile": "Remove file",
+    "fileTooLarge": "File \"{{name}}\" is larger than 10 MB",
+    "fileNotSupported": "File \"{{name}}\" is not supported",
+    "tooManyFiles": "Each task can have at most {{max}} attachments",
+    "copyLink": "Copy link",
+    "linkCopied": "Task link copied",
+    "more": "More actions",
+    "duplicate": "Duplicate",
+    "duplicated": "Task duplicated",
+    "moveKpi": "Move to another KPI",
+    "delete": "Delete task",
+    "deleteTitle": "Delete task?",
+    "deleteDescription": "The task, its subtasks, checklist and attachments will be deleted.",
+    "backToParent": "Parent task",
+    "close": "Close",
+    "removeLink": "Remove link",
+    "applyLink": "Apply"
+  },
+  "scope": {
+    "title": "Edit recurring task",
+    "description": "Which occurrences should this change apply to?",
+    "hint": "\"This and following\" also changes the later occurrences that are not done yet; completed ones stay as they are.",
+    "this": "This occurrence only",
+    "following": "This and following"
+  },
+  "reminder": {
+    "none": "No reminder",
+    "atDue": "At due time",
+    "before15": "15 minutes before",
+    "before60": "1 hour before",
+    "before1440": "1 day before",
+    "beforeMinutes": "{{count}} minutes before",
+    "custom": "Custom time",
+    "add": "Add",
+    "remove": "Remove reminder",
+    "needDue": "Set a due date to get reminders based on it."
+  },
+  "repeat": {
+    "none": "Does not repeat",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "every": "Every",
+    "unit": {
+      "DAILY": "days",
+      "WEEKLY": "weeks",
+      "MONTHLY": "months"
+    },
+    "onDay": "On day",
+    "endDate": "End date (optional)",
+    "hint": "Completing this occurrence creates the next one. Stops at the end date, at the end of the KPI period, or when the KPI no longer accepts tasks.",
+    "apply": "Apply",
+    "needDue": "A recurring task needs a due date.",
+    "summaryDaily": "Every {{count}} days",
+    "summaryWeekly": "Every {{count}} weeks: {{days}}",
+    "summaryMonthly": "Every {{count}} months, on day {{day}}"
+  },
+  "weekday": {
+    "1": "Mon",
+    "2": "Tue",
+    "3": "Wed",
+    "4": "Thu",
+    "5": "Fri",
+    "6": "Sat",
+    "7": "Sun"
+  },
+  "calendar": {
+    "month": "Month",
+    "week": "Week",
+    "today": "Today",
+    "prev": "Previous",
+    "next": "Next",
+    "weekOf": "Week of",
+    "noDue": "No due date",
+    "noDueHint": "Drag onto the calendar to set a due date; drag a task here to clear it.",
+    "clickToCreate": "Click an empty cell to create a task due on this day"
+  },
+  "assign": {
+    "title": "Assign task",
+    "moveKpiTitle": "Move to another KPI",
+    "searchPeople": "Search people",
+    "noPeople": "No one you can assign tasks to was found.",
+    "kpiOfOwner": "KPI of the assignee",
+    "pickKpi": "Select a KPI",
+    "loadingKpis": "Loading KPIs…",
+    "noKpis": "This person has no KPIs that you can assign tasks on.",
+    "subtaskKpi": "A subtask always stays on the KPI of its parent task: \"{{name}}\".",
+    "confirm": "Confirm",
+    "done": "Assignee / KPI updated"
+  },
+  "new": {
+    "title": "New task",
+    "titlePlaceholder": "Task name",
+    "create": "Create",
+    "kpiPlaceholder": "Select a KPI",
+    "noKpi": "This person has no KPIs that accept tasks.",
+    "me": "{{name}} (me)",
+    "moreDetails": "More details",
+    "checklistLines": "Checklist (one step per line)",
+    "checklistPlaceholder": "Step 1\nStep 2"
+  },
+  "history": {
+    "CREATED": "created the task",
+    "UPDATED": "edited the description",
+    "TITLE_CHANGED": "renamed it: {{from}} → {{to}}",
+    "STATUS_CHANGED": "changed the status: {{from}} → {{to}}",
+    "DUE_CHANGED": "changed the due date: {{from}} → {{to}}",
+    "PRIORITY_CHANGED": "changed the priority: {{from}} → {{to}}",
+    "VISIBILITY_CHANGED": "changed who can view it",
+    "KPI_MOVED": "moved it to another KPI",
+    "ASSIGNED": "assigned it to {{to}}",
+    "REASSIGNED": "reassigned it: {{from}} → {{to}}",
+    "FOLLOWER_ADDED": "added follower {{to}}",
+    "FOLLOWER_REMOVED": "removed follower {{from}}",
+    "SUBTASK_ADDED": "added subtask \"{{to}}\"",
+    "RECURRENCE_CHANGED": "changed the recurrence",
+    "RECURRED": "created occurrence {{to}}",
+    "REMINDERS_CHANGED": "changed the reminders",
+    "DUPLICATED": "duplicated it from another task",
+    "DELETED": "deleted the task"
+  },
+  "picker": {
+    "pickPerson": "Select a person",
+    "searchPerson": "Search by name or email",
+    "searchKpi": "Search KPIs or periods",
+    "currentPeriod": "Current period",
+    "morePeriods": "Show other periods ({{count}} KPIs)",
+    "showMore": "Show more ({{count}})",
+    "noGroup": "Other",
+    "empty": "No results",
+    "latestPeriod": "Latest period"
+  }
+}

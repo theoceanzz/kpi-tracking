@@ -20,6 +20,8 @@ import {
 } from '../hooks/useWallet'
 import type { TopupOrder } from '../types'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 type TabKey = 'convert' | 'topups' | 'history'
 
@@ -29,6 +31,7 @@ export default function MyWalletPage() {
   const [topupOpen, setTopupOpen] = useState(false)
   // Đơn đang mở lại để chuyển khoản tiếp. null = tạo đơn mới.
   const [resumeOrder, setResumeOrder] = useState<TopupOrder | null>(null)
+  useTourModal('mywallet.topup', () => { setResumeOrder(null); setTopupOpen(true) }, () => setTopupOpen(false))
   const size = 20
 
   const { data: wallet, isLoading: walletLoading } = useMyCashWallet()
@@ -70,24 +73,24 @@ export default function MyWalletPage() {
         title={t('MyWalletPage.myWallet')}
         description={t('MyWalletPage.topUpConvertToRewardPoints')}
         actions={
-          <Button id="tour-my-wallet-topup" onClick={() => { setResumeOrder(null); setTopupOpen(true) }}>
+          <Button {...tourAnchor('mywallet.topup')} id="tour-my-wallet-topup" onClick={() => { setResumeOrder(null); setTopupOpen(true) }}>
             <Plus aria-hidden="true" /> {t('MyWalletPage.topUp')}
           </Button>
         }
       />
 
-      <div id="tour-my-wallet-balance">
+      <div {...tourAnchor('mywallet.balance')} id="tour-my-wallet-balance">
         <CashBalanceCard wallet={wallet} loading={walletLoading} />
       </div>
 
       {activeTab === 'convert' && (
-        <div id="tour-my-wallet-convert">
+        <div {...tourAnchor('mywallet.convert')} id="tour-my-wallet-convert">
           <ConvertPointsCard wallet={wallet} />
         </div>
       )}
 
       {activeTab === 'topups' && (
-        <div id="tour-my-wallet-topups">
+        <div {...tourAnchor('mywallet.topups')} id="tour-my-wallet-topups">
           {topupsLoading ? (
             <LoadingSkeleton type="table" rows={3} />
           ) : topups.length === 0 ? (
@@ -110,7 +113,7 @@ export default function MyWalletPage() {
       )}
 
       {activeTab === 'history' && (
-        <div id="tour-my-wallet-history">
+        <div {...tourAnchor('mywallet.history')} id="tour-my-wallet-history">
           {txLoading ? (
             <LoadingSkeleton type="table" rows={4} />
           ) : transactions.length === 0 ? (

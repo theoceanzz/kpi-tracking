@@ -6,6 +6,8 @@ import { dashboardLayoutApi, type DashboardLayoutItem, type LayoutScope } from '
 import type { DashboardWidget } from './ChartWrapper'
 import type { WidgetSettings } from './widgetSettings'
 import { useAutosave } from './useAutosave'
+import { isTourRunning } from '@/store/tourStore'
+import { useTourSandbox } from '@/hooks/useTourSandbox'
 import { useTranslation } from 'react-i18next'
 
 interface Options {
@@ -221,6 +223,9 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets, le
   const immediateRef = useRef(false)
 
   const markDirty = useCallback((immediate = false) => {
+    // Đang có bài hướng dẫn: thao tác vẫn hiện trên lưới nhưng không ghi gì — hết bài,
+    // `useTourSandbox` bên dưới trả lưới về đúng bố cục lúc bắt đầu.
+    if (isTourRunning()) return
     immediateRef.current = immediate
     setRev(r => r + 1)
   }, [])
@@ -231,6 +236,14 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets, le
     // `autosave.schedule` ổn định theo `scope`; thêm nó vào deps sẽ bắn lại mỗi lần render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rev])
+
+  useTourSandbox(
+    () => ({ widgets: widgetsRef.current, removedIds: removedRef.current }),
+    saved => {
+      setWidgets(saved.widgets)
+      setRemovedIds(saved.removedIds)
+    },
+  )
 
   /** Xả hàng đợi tự lưu ngay. Giữ tên cũ vì `CustomizationApi` còn khai nó. */
   const flush = autosave.flush
@@ -322,6 +335,8 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets, le
     setWidgets(defaultWidgets)
     // Đặt lại nghĩa là quay về đúng mặc định, nên xoá luôn mọi dấu "đã gỡ"
     setRemovedIds([])
+    // Trong bài hướng dẫn: chỉ đổi trên màn hình, không xoá bố cục ở server.
+    if (isTourRunning()) return
     try {
       await dashboardLayoutApi.reset(scope)
       rememberSaved(null)
@@ -346,6 +361,7 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets, le
 
     setWidgets(preset)
     setRemovedIds(nextRemoved)
+    if (isTourRunning()) return
     try {
       await persist(preset, nextRemoved)
       offerUndo(t('useDashboardLayout.suggestedLayoutApplied'), snapshot)

@@ -1,10 +1,21 @@
 import { QueryClient } from '@tanstack/react-query'
 
+/**
+ * Thử lại MỘT lần với lỗi mạng / 5xx; KHÔNG thử lại lỗi 4xx (401/403/404/422…) — gọi lại vẫn ra đúng lỗi
+ * đó, chỉ nhân đôi request (log prod từng có ~30 lần 403 cây đơn vị trong 36 giây vì vậy).
+ * 401 đã có interceptor axios lo làm mới phiên.
+ */
+export function shouldRetryQuery(failureCount: number, error: unknown): boolean {
+  const status = (error as { response?: { status?: number } } | null)?.response?.status
+  if (status != null && status >= 400 && status < 500) return false
+  return failureCount < 1
+}
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000,
-      retry: 1,
+      retry: shouldRetryQuery,
       refetchOnWindowFocus: false,
     },
     mutations: {

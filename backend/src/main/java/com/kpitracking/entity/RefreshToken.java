@@ -39,4 +39,14 @@ public class RefreshToken {
     @Column(name = "device_info")
     @Builder.Default
     private String deviceInfo = "Unknown Device";
+
+    /**
+     * Token ngay trước lần xoay gần nhất — vẫn được nhận tới {@link #previousValidUntil} (ân hạn), để các tab
+     * cùng làm mới phiên một lúc không đá nhau ra (V40).
+     */
+    @Column(name = "previous_token")
+    private String previousToken;
+
+    @Column(name = "previous_valid_until")
+    private Instant previousValidUntil;
 }

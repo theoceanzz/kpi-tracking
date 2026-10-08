@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
 import { orgUnitApi } from '../api/orgUnitApi'
 import { useAuthStore } from '@/store/authStore'
+import { canViewOrgTree } from '@/lib/session'
 
 /**
  * Cây đơn vị của tổ chức. Mặc định `staleTime: 0` (trang quản lý đơn vị muốn thấy ngay sau khi
@@ -19,7 +20,9 @@ export function useOrgUnitTree(opts?: { staleTime?: number }) {
       if (!organizationId) throw new Error('No organization ID found')
       return orgUnitApi.getTree(organizationId)
     },
-    enabled: !!organizationId,
+    // Không có ORG:VIEW / ORG:VIEW_TREE thì backend chắc chắn 403 — đừng gọi. Chỗ dùng nhận `undefined`
+    // như lúc chưa tải xong (nhân viên vốn chỉ thấy đơn vị của mình qua membership / useMyUnitChain).
+    enabled: !!organizationId && canViewOrgTree(user),
     staleTime: opts?.staleTime ?? 0,
   })
 }
@@ -82,7 +85,7 @@ export function useOrgUnitSubtree(unitId: string | null) {
       if (!organizationId) throw new Error('No organization ID found')
       return orgUnitApi.getSubtree(organizationId, unitId!)
     },
-    enabled: !!organizationId && !!unitId,
+    enabled: !!organizationId && !!unitId && canViewOrgTree(user),
     staleTime: 0,
   })
 }

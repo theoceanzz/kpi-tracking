@@ -28,6 +28,8 @@ import { useCreatePeriodCycleOption } from '@/components/common/CreatePeriodCycl
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 interface BudgetFormModalProps {
   open: boolean
@@ -110,6 +112,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
   }, [open, editBudget, reset])
 
   const onSubmit = async (data: BudgetFormData) => {
+    if (blockedByTour()) return
     const payload = {
       grantorUserId: data.grantorUserId,
       // Chỉ gửi ĐÚNG MỘT cách khoanh thời gian. Gửi kèm cái thừa sẽ bị backend từ chối
@@ -134,7 +137,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
     'w-full rounded-control border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm'
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('budget.form')}
       open={open}
       onClose={onClose}
       size="lg"
@@ -144,7 +147,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={isCreating || isUpdating}>{t('BudgetFormModal.cancel')}</Button>}
           primary={
-            <Button onClick={handleSubmit(onSubmit)} disabled={isCreating || isUpdating}>
+            <Button {...tourAnchor('budget.form.submit')} onClick={handleSubmit(onSubmit)} disabled={isCreating || isUpdating}>
               {(isCreating || isUpdating) && <Loader2 className="animate-spin" aria-hidden="true" />}
               {isEdit ? t('BudgetFormModal.save') : t('BudgetFormModal.grantBudget')}
             </Button>
@@ -166,7 +169,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
           </div>
         )}
 
-        <div>
+        <div {...tourAnchor('budget.form.recipient')}>
           <label className="text-label mb-1.5 block font-medium">{t('BudgetFormModal.budgetRecipient')}</label>
           {isEdit ? (
             <div className="rounded-control bg-[var(--color-muted)] px-3 py-2 text-sm">
@@ -195,7 +198,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
           )}
         </div>
 
-        <div>
+        <div {...tourAnchor('budget.form.scope')}>
           <label className="text-label mb-1.5 block font-medium">{t('BudgetFormModal.validityRange')}</label>
           <div className="mb-2 flex flex-wrap gap-2 text-sm">
             {(
@@ -292,7 +295,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div>
+          <div {...tourAnchor('budget.form.total')}>
             <label className="text-label mb-1.5 block font-medium">{t('BudgetFormModal.totalPointsGranted')}</label>
             <LocaleNumberInput
               type="number"
@@ -304,7 +307,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
               <p className="mt-1 text-xs text-[var(--color-error)]">{errors.allocatedPoints.message}</p>
             )}
           </div>
-          <div>
+          <div {...tourAnchor('budget.form.max')}>
             <label className="text-label mb-1.5 block font-medium">{t('BudgetFormModal.maxPerPersonTime')}</label>
             <LocaleNumberInput
               type="number"
@@ -319,7 +322,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
           </div>
         </div>
 
-        <div>
+        <div {...tourAnchor('budget.form.notes')}>
           <label className="text-label mb-1.5 block font-medium">{t('BudgetFormModal.notes')}</label>
           <input {...register('note')} className={inputCls} />
         </div>

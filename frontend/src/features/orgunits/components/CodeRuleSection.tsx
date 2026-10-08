@@ -12,6 +12,7 @@ import { Switch as SwitchControl } from '@/components/ui/switch'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /**
  * Mẫu mã tự sinh cho Mục tiêu, Kết quả then chốt và Hạng mục BSC — mỗi công ty một kiểu.
@@ -95,7 +96,7 @@ export default function CodeRuleSection({ organizationId }: { organizationId: st
   if (!rules) return null
 
   return (
-    <section className="mx-auto max-w-4xl overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+    <section {...tourAnchor('coderules.section')} className="mx-auto max-w-4xl overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
       <div className="border-b border-[var(--color-border)] px-5 py-4">
         <h3 className="text-section-title">{t('CodeRuleSection.codeGenerationRules')}</h3>
         <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
@@ -127,12 +128,12 @@ export default function CodeRuleSection({ organizationId }: { organizationId: st
                 </div>
 
                 <div className="flex items-center gap-6 shrink-0">
-                  <Switch
+                  <Switch {...tourAnchor('coderules.auto')}
                     label={t('CodeRuleSection.autoGenerate')}
                     checked={draft.autoGenerate}
                     onChange={next => patch(rule, { autoGenerate: next })}
                   />
-                  <Switch
+                  <Switch {...tourAnchor('coderules.manual')}
                     label={t('CodeRuleSection.allowManualEdit')}
                     checked={draft.allowManualOverride}
                     disabled={!draft.autoGenerate}
@@ -166,7 +167,7 @@ export default function CodeRuleSection({ organizationId }: { organizationId: st
 
                   <div className="flex flex-wrap gap-1.5">
                     {[...rule.supportedTokens, '{###}'].map(token => (
-                      <Button variant="secondary" size="sm" key={token} type="button" title={TOKEN_HINTS()[token] ?? token} onClick={() => patch(rule, { pattern: draft.pattern + token })}>
+                      <Button {...tourAnchor('coderules.token')} variant="secondary" size="sm" key={token} type="button" title={TOKEN_HINTS()[token] ?? token} onClick={() => patch(rule, { pattern: draft.pattern + token })}>
                         {token}
                       </Button>
                     ))}
@@ -192,7 +193,7 @@ export default function CodeRuleSection({ organizationId }: { organizationId: st
         <p className="text-caption">
           {changed.length > 0 ? t('CodeRuleSection.unsavedRules', { count: changed.length }) : ''}{t('CodeRuleSection.codesAlreadyAssignedToExistingData')}
         </p>
-        <Button onClick={handleSave} disabled={changed.length === 0 || updateMutation.isPending}>
+        <Button {...tourAnchor('coderules.save')} onClick={handleSave} disabled={changed.length === 0 || updateMutation.isPending}>
           {updateMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Wand2 aria-hidden="true" />}
           {t('CodeRuleSection.saveRules')}
         </Button>
@@ -258,14 +259,17 @@ function Switch({
   checked,
   disabled,
   onChange,
+  'data-tour': dataTour,
 }: {
   label: string
   checked: boolean
   disabled?: boolean
   onChange: (next: boolean) => void
+  /** Neo cho bài hướng dẫn. */
+  'data-tour'?: string
 }) {
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div data-tour={dataTour} className="flex flex-col items-center gap-1.5">
       <span className={cn(
         'text-eyebrow',
         disabled && 'opacity-60'

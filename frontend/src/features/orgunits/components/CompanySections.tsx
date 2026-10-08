@@ -31,11 +31,15 @@ import { Badge } from '@/components/ui/badge'
 import { formatDateTime, cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { toastUploadError } from '@/lib/upload'
 import { useAuth } from '@/hooks/useAuth'
 import type { UpdateOrganizationRequest } from '../api/organizationApi'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
+import { useTourModal } from '@/components/common/tours/actions'
 
 /** Thông báo lỗi do backend trả về, lùi về câu mặc định nếu phản hồi không nói gì. */
 function apiErrorMessage(error: unknown, fallback: string) {
@@ -172,6 +176,10 @@ export function CompanyInfoSection() {
       toast.error(t('CompanySections.theImageMustNotExceed5mb'))
       return
     }
+    sendBranding(kind, file)
+  }
+
+  const sendBranding = (kind: 'logo' | 'cover', file: File) => {
     setUploadingKind(kind)
     brandingMutation.mutate(
       { kind, file },
@@ -180,7 +188,7 @@ export function CompanyInfoSection() {
           refreshUser()
           toast.success(kind === 'cover' ? t('CompanySections.coverImageUpdated') : t('CompanySections.logoUpdated'))
         },
-        onError: error => toast.error(apiErrorMessage(error, t('CompanySections.couldNotUploadTheImage'))),
+        onError: error => toastUploadError(error, () => sendBranding(kind, file), t('CompanySections.couldNotUploadTheImage')),
         onSettled: () => setUploadingKind(null),
       }
     )
@@ -228,7 +236,7 @@ export function CompanyInfoSection() {
             variant="outline"
             size="sm"
             className="absolute right-4 top-4 bg-[var(--color-card)]"
-            onClick={e => { e.stopPropagation(); openPicker('cover')() }}
+            onClick={e => { e.stopPropagation(); openPicker('cover')() }} {...tourAnchor('company.cover')}
             disabled={uploadingKind !== null}
           >
             {uploadingKind === 'cover' ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Camera aria-hidden="true" />}
@@ -260,7 +268,7 @@ export function CompanyInfoSection() {
               </div>
               <button
                 type="button"
-                onClick={() => logoInputRef.current?.click()}
+                onClick={() => logoInputRef.current?.click()} {...tourAnchor('company.logo')}
                 disabled={uploadingKind !== null}
                 title={t('CompanySections.changeLogo')}
                 aria-label={t('CompanySections.changeLogo')}
@@ -287,7 +295,7 @@ export function CompanyInfoSection() {
               </div>
 
               {!isEditing && (
-                <Button variant="outline" className="shrink-0" onClick={() => setIsEditing(true)}>
+                <Button {...tourAnchor('company.edit')} variant="outline" className="shrink-0" onClick={() => setIsEditing(true)}>
                   <Edit3 aria-hidden="true" /> {t('CompanySections.editProfile')}
                 </Button>
               )}
@@ -296,7 +304,7 @@ export function CompanyInfoSection() {
         </div>
       </section>
 
-      <form onSubmit={handleSubmit(onSave)} className="space-y-5">
+      <form {...tourAnchor('company.profile')} onSubmit={handleSubmit(onSave)} className="space-y-5">
         {/* ── Định danh ── */}
         <FieldCard title={t('CompanySections.identification')}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
@@ -408,13 +416,13 @@ export function CompanyInfoSection() {
 
       {/* ── Cờ tính năng ── Thẻ riêng vì đây là trạng thái BẬT/TẮT, không sửa tại chỗ:
           muốn đổi thì sang trang bật/tắt. */}
-      <section className="space-y-4 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
+      <section {...tourAnchor('company.features')} className="space-y-4 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h3 className="text-section-title">{t('CompanySections.enabledFeatures')}</h3>
             <p className="text-caption">{t('CompanySections.turnOnOffInToolSetup')}</p>
           </div>
-          <Button asChild variant="outline" size="sm" className="shrink-0">
+          <Button {...tourAnchor('company.features-manage')} asChild variant="outline" size="sm" className="shrink-0">
             <Link to="/settings/tools?section=modules">{t('CompanySections.manageFeatures')}</Link>
           </Button>
         </div>
@@ -499,7 +507,11 @@ export function CompanyHierarchySection() {
     }
   }, [org, reset])
 
+  // Bài hướng dẫn mở chế độ sửa để đi qua từng ô; thoát thì huỷ mọi thay đổi gõ dở.
+  useTourModal('ranks.edit', () => setIsEditingHierarchy(true), () => { setIsEditingHierarchy(false); reset() })
+
   const onSaveHierarchy = (data: HierarchyLevelsFormData) => {
+    if (blockedByTour()) return
     // Form chỉ thu tên cấp bậc và nhãn quản lý; `levelOrder`/`roleLevel` do backend suy ra
     // từ thứ tự mảng nên payload không mang hai trường đó.
     updateMutation.mutate({ hierarchyLevels: data.hierarchyLevels as UpdateOrganizationRequest['hierarchyLevels'] }, {
@@ -530,7 +542,7 @@ export function CompanyHierarchySection() {
           </p>
         </div>
         {!isEditingHierarchy && (
-          <Button variant="outline" className="shrink-0" onClick={() => setIsEditingHierarchy(true)}>
+          <Button {...tourAnchor('ranks.edit')} variant="outline" className="shrink-0" onClick={() => setIsEditingHierarchy(true)}>
             <Edit3 aria-hidden="true" /> {t('CompanySections.edit')}
           </Button>
         )}
@@ -540,7 +552,7 @@ export function CompanyHierarchySection() {
         {isEditingHierarchy ? (
           // Cùng bề ngang với chế độ xem, để bấm "sửa" không làm cả khối nhảy rộng ra.
           <form onSubmit={handleSubmit(onSaveHierarchy, toastFirstError)} className="space-y-4">
-            <div className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm text-[var(--color-warning)]">
+            <div {...tourAnchor('ranks.editor.note')} className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm text-[var(--color-warning)]">
               <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
               <span>{t('CompanySections.changingTheStructureAffectsTheUnit')}</span>
             </div>
@@ -554,12 +566,12 @@ export function CompanyHierarchySection() {
 
             <ol className="space-y-2">
               {fields.map((field, index) => (
-                <li key={field.id} className="grid grid-cols-[2rem_1fr] items-start gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-3 sm:grid-cols-[2rem_1fr_1fr_5.5rem] sm:items-center sm:border-0 sm:bg-transparent sm:p-0 sm:px-1">
+                <li {...tourAnchor('ranks.editor.row')} key={field.id} className="grid grid-cols-[2rem_1fr] items-start gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-3 sm:grid-cols-[2rem_1fr_1fr_5.5rem] sm:items-center sm:border-0 sm:bg-transparent sm:p-0 sm:px-1">
                   <span className="flex h-8 w-8 items-center justify-center rounded-control bg-[var(--color-primary)] text-xs font-semibold tabular-nums text-[var(--color-primary-foreground)]">
                     {index + 1}
                   </span>
                   <input type="hidden" {...register(`hierarchyLevels.${index}.id` as const)} />
-                  <div>
+                  <div {...tourAnchor('ranks.editor.name')}>
                     <label className="text-label mb-1 block sm:sr-only">{t('CompanySections.levelName')}</label>
                     <input
                       {...register(`hierarchyLevels.${index}.unitTypeName` as const)}
@@ -568,7 +580,7 @@ export function CompanyHierarchySection() {
                       aria-label={t('CompanySections.levelName2', { value: index + 1 })}
                     />
                   </div>
-                  <div className="col-start-2 sm:col-start-auto">
+                  <div {...tourAnchor('ranks.editor.title')} className="col-start-2 sm:col-start-auto">
                     <label className="text-label mb-1 block sm:sr-only">{t('CompanySections.managerTitle')}</label>
                     <input
                       {...register(`hierarchyLevels.${index}.managerRoleLabel` as const)}
@@ -577,7 +589,7 @@ export function CompanyHierarchySection() {
                       aria-label={t('CompanySections.managerTitleOfLevel', { value: index + 1 })}
                     />
                   </div>
-                  <div className="col-start-2 flex items-center gap-1 sm:col-start-auto sm:justify-end">
+                  <div {...tourAnchor('ranks.editor.order')} className="col-start-2 flex items-center gap-1 sm:col-start-auto sm:justify-end">
                     <Button type="button" variant="ghost" size="icon-sm" disabled={index === 0} onClick={() => move(index, index - 1)} aria-label={t('CompanySections.moveUp')} title={t('CompanySections.moveUp')}>
                       <ArrowUp aria-hidden="true" />
                     </Button>
@@ -601,7 +613,7 @@ export function CompanyHierarchySection() {
               ))}
             </ol>
 
-            <Button
+            <Button {...tourAnchor('ranks.editor.add')}
               type="button"
               variant="outline"
               className="w-full border-dashed"
@@ -612,7 +624,7 @@ export function CompanyHierarchySection() {
 
             <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border)] pt-4">
               <Button type="button" variant="outline" onClick={() => { setIsEditingHierarchy(false); reset() }} disabled={saving}>{t('CompanySections.cancel')}</Button>
-              <Button type="submit" disabled={saving}>
+              <Button {...tourAnchor('ranks.editor.save')} type="submit" disabled={saving}>
                 {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
                 {saving ? t('CompanySections.saving') : t('CompanySections.saveStructure')}
               </Button>
@@ -621,7 +633,7 @@ export function CompanyHierarchySection() {
         ) : (
           // Danh sách cấp bậc là một cái thang: mỗi bậc chỉ có tên đơn vị và chức danh.
           // Ràng bề ngang lại thay vì để tràn 1500px — đọc thành một thang liền mạch.
-          <ol className="divide-y divide-[var(--color-border)] overflow-hidden rounded-card border border-[var(--color-border)]">
+          <ol {...tourAnchor('ranks.list')} className="divide-y divide-[var(--color-border)] overflow-hidden rounded-card border border-[var(--color-border)]">
             {levels.map((level, idx) => {
               const isLast = idx === levels.length - 1
               return (

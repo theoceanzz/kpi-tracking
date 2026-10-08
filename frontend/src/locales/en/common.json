@@ -9,7 +9,8 @@
     "timeout": "The request took too long and was cancelled, please try again",
     "fileTooLarge": "The file exceeds the allowed size",
     "serverUnavailable": "The server is having problems, please try again later",
-    "withRef": "{{message}} (ref: {{ref}})"
+    "withRef": "{{message}} (ref: {{ref}})",
+    "uploadStalled": "The connection stalled while sending the file, so it was not uploaded. Please click Retry."
   },
   "numberInput": {
     "placeholder": "e.g. {{example}}",
@@ -133,5 +134,8 @@
     "newCycle": "Create a new cycle",
     "periodCreatedBack": "Period created — you are back on the previous page; reopen the form to pick it.",
     "cycleCreatedBack": "Cycle created — you are back on the previous page; reopen the form to pick it."
+  },
+  "upload": {
+    "retry": "Retry"
   }
 }

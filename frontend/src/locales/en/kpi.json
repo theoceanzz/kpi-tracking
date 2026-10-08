@@ -1122,6 +1122,7 @@
     "workAssignedSuccessfully": "Work assigned successfully"
   },
   "KpiDetailModal": {
+    "adjustmentApprovalChain": "Adjustment request approval chain",
     "actualWeight": "Actual weight (%)",
     "approvedBy": "Approved by:",
     "belongsToItem": "Belongs to item",
@@ -1149,7 +1150,10 @@
     "totalChildWeight": "Total child weight:",
     "unitInformation": "Unit information",
     "weight": "Weight (%)",
-    "childKpis": "Child KPIs"
+    "childKpis": "Child KPIs",
+    "tabInfo": "Details",
+    "tabDiscussion": "Discussion",
+    "tabTasks": "Tasks"
   },
   "KpiExcelPreviewModal": {
     "addANewRow": "Add a new row",
@@ -1413,7 +1417,8 @@
     "done": "Done",
     "splitFor": "Split for {{name}}",
     "selfApprovedExceedsFullWeight": "The total weight of {{name}} would exceed 100%: {{used}}% is already used, only {{left}}% is left. KPIs you create are approved immediately, so they cannot go over 100%.",
-    "approvedEditExceedsFullWeight": "This KPI is already approved, so the change takes effect immediately: the total weight of {{name}} would exceed 100%. The other KPIs already use {{used}}%, so this one can be at most {{left}}%."
+    "approvedEditExceedsFullWeight": "This KPI is already approved, so the change takes effect immediately: the total weight of {{name}} would exceed 100%. The other KPIs already use {{used}}%, so this one can be at most {{left}}%.",
+    "tourDoesNotSubmit": "The guide is running, so no real KPI is created. Exit the guide to create one."
   },
   "KpiFormParts": {
     "fromSource": "from source"
@@ -1626,7 +1631,9 @@
     "inverseKpi": "Inverse KPI",
     "qualitative": "Qualitative",
     "split": "Split",
-    "childCount": "{{count}} child KPIs"
+    "childCount": "{{count}} child KPIs",
+    "unreadComments": "{{count}} unread comments",
+    "taskProgress": "{{done}}/{{total}} tasks done, {{overdue}} overdue"
   },
   "MyAdjustmentsPage": {
     "approved": "Approved",
@@ -2191,5 +2198,9 @@
   "WorkflowStartCard": {
     "startKpiSetup": "Start KPI setup",
     "tasksWaitingOnYou": "tasks waiting on you"
+  },
+  "KpiLinkPage": {
+    "notFound": "This KPI could not be opened",
+    "back": "Back to My KPIs"
   }
 }

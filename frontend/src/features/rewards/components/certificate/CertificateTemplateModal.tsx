@@ -7,6 +7,7 @@ import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { toastUploadError } from '@/lib/upload'
 import { certificateTemplateSchema, type CertificateTemplateFormData } from '../../schemas/certificateTemplateSchema'
 import { certificateApi } from '../../api/certificateApi'
 import { useCertificateTemplates } from '../../hooks/useCertificates'
@@ -32,6 +33,8 @@ import { perLanguage } from '@/i18n/perLanguage'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
 import { BackgroundNotRemovableError, removeImageBackground } from './removeImageBackground'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 interface CertificateTemplateModalProps {
   open: boolean
@@ -246,12 +249,26 @@ export default function CertificateTemplateModal({
       return
     }
     setUploading(slot)
+    let toSend: File = file
     try {
       const processed =
         slot !== 'background' && autoRemoveBg ? await stripBackground(slot, file, false) : null
-      setSlotUrl(slot, await certificateApi.uploadImage(processed ?? file))
+      toSend = processed ?? file
+      setSlotUrl(slot, await certificateApi.uploadImage(toSend))
     } catch (e) {
-      toast.error(getApiErrorMessage(e, t('CertificateTemplateModal.imageUploadFailed')))
+      toastUploadError(e, () => void resendImage(slot, toSend), t('CertificateTemplateModal.imageUploadFailed'))
+    } finally {
+      setUploading(null)
+    }
+  }
+
+  /** Gửi lại đúng ảnh vừa hỏng (đã tách nền nếu có) — nút Thử lại trên toast. */
+  const resendImage = async (slot: ImageSlot, image: File) => {
+    setUploading(slot)
+    try {
+      setSlotUrl(slot, await certificateApi.uploadImage(image))
+    } catch (e) {
+      toastUploadError(e, () => void resendImage(slot, image), t('CertificateTemplateModal.imageUploadFailed'))
     } finally {
       setUploading(null)
     }
@@ -304,6 +321,7 @@ export default function CertificateTemplateModal({
   const saving = isCreating || isUpdating
 
   const onSubmit = async (data: CertificateTemplateFormData) => {
+    if (blockedByTour()) return
     const payload = {
       name: data.name.trim(),
       preset: data.preset,
@@ -342,7 +360,7 @@ export default function CertificateTemplateModal({
   }
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('cert.form')}
       open
       onClose={onClose}
       size="full"
@@ -353,7 +371,7 @@ export default function CertificateTemplateModal({
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={saving}>{t('CertificateTemplateModal.cancel')}</Button>}
           primary={
-            <Button onClick={handleSubmit(onSubmit)} disabled={saving}>
+            <Button {...tourAnchor('cert.form.submit')} onClick={handleSubmit(onSubmit)} disabled={saving}>
               {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
               {isEdit ? t('CertificateTemplateModal.saveChanges') : t('CertificateTemplateModal.createTemplate')}
             </Button>
@@ -365,7 +383,7 @@ export default function CertificateTemplateModal({
       <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {/* ── Cột trái: biểu mẫu ── */}
         <div className="space-y-6 border-b border-[var(--color-border)] p-5 lg:border-b-0 lg:border-r">
-          <Field label={t('CertificateTemplateModal.templateName')} hint={t('CertificateTemplateModal.onlyShownInTheSelectionList')}>
+          <Field {...tourAnchor('cert.form.name')} label={t('CertificateTemplateModal.templateName')} hint={t('CertificateTemplateModal.onlyShownInTheSelectionList')}>
             <input
               value={name}
               onChange={(e) => setValue('name', e.target.value, { shouldValidate: true })}
@@ -375,7 +393,7 @@ export default function CertificateTemplateModal({
             {errors.name && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.name.message}</p>}
           </Field>
 
-          <div>
+          <div {...tourAnchor('cert.form.style')}>
             <div className="mb-2 text-sm font-medium">{t('CertificateTemplateModal.designStyle')}</div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {CERTIFICATE_PRESETS().map((p) => (
@@ -398,7 +416,7 @@ export default function CertificateTemplateModal({
             </p>
           </div>
 
-          <Field label={t('CertificateTemplateModal.paperSize')}>
+          <Field {...tourAnchor('cert.form.paper')} label={t('CertificateTemplateModal.paperSize')}>
             <div className="flex gap-1.5">
               {[
                 { key: CertificateOrientation.LANDSCAPE, label: 'Ngang (A4)' },
@@ -411,7 +429,7 @@ export default function CertificateTemplateModal({
             </div>
           </Field>
 
-          <div className="space-y-4 border-t border-[var(--color-border)] pt-5">
+          <div {...tourAnchor('cert.form.content')} className="space-y-4 border-t border-[var(--color-border)] pt-5">
             <div className="text-sm font-semibold">{t('CertificateTemplateModal.contentPrintedOnPaper')}</div>
 
             <PlaceholderHelp />
@@ -483,7 +501,7 @@ export default function CertificateTemplateModal({
             </div>
           </div>
 
-          <div className="space-y-4 border-t border-[var(--color-border)] pt-5">
+          <div {...tourAnchor('cert.form.signer')} className="space-y-4 border-t border-[var(--color-border)] pt-5">
             <div className="text-sm font-semibold">{t('CertificateTemplateModal.signer')}</div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label={t('CertificateTemplateModal.signerName')} hint={t('CertificateTemplateModal.emptyTheNameOfThePerson')}>
@@ -538,7 +556,7 @@ export default function CertificateTemplateModal({
             />
           </div>
 
-          <div className="space-y-3 border-t border-[var(--color-border)] pt-5">
+          <div {...tourAnchor('cert.form.colors')} className="space-y-3 border-t border-[var(--color-border)] pt-5">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold">{t('CertificateTemplateModal.color')}</div>
               {(accentColor || inkColor || surfaceColor) && (
@@ -574,7 +592,7 @@ export default function CertificateTemplateModal({
             </div>
           </div>
 
-          <div className="space-y-3 border-t border-[var(--color-border)] pt-5">
+          <div {...tourAnchor('cert.form.flags')} className="space-y-3 border-t border-[var(--color-border)] pt-5">
             <Toggle
               checked={isDefault}
               onChange={v => setValue('isDefault', v)}
@@ -591,7 +609,7 @@ export default function CertificateTemplateModal({
         </div>
 
         {/* ── Cột phải: xem trước ── */}
-        <div className="bg-[var(--color-muted)] p-5">
+        <div {...tourAnchor('cert.form.preview')} className="bg-[var(--color-muted)] p-5">
           <div className="mb-3 text-xs text-[var(--color-muted-foreground)]">
             {t('CertificateTemplateModal.previewWithSampleDataRealFigures')}
           </div>
@@ -612,13 +630,15 @@ function Field({
   label,
   hint,
   children,
+  ...rest
 }: {
   label: string
   hint?: string
   children: React.ReactNode
+  'data-tour'?: string
 }) {
   return (
-    <div>
+    <div {...rest}>
       <label className="mb-1.5 block text-sm font-medium">
         {label}
         {hint && (

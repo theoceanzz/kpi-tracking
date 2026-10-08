@@ -288,6 +288,16 @@ public class FormFillSupport {
         }
     }
 
+    /**
+     * Câu người dùng vừa gõ ở lượt này, bỏ dấu + chữ thường (cùng cách so với {@link #guardGroundedText});
+     * {@code null} khi ngữ cảnh không mang lượt chat (vd. test dựng {@code InvocationParameters} trần).
+     */
+    public String normalizedQuestion(InvocationParameters context) {
+        AgentState state = AgentState.from(context);
+        String question = (state == null || state.getTurn() == null) ? null : state.getTurn().getQuestion();
+        return question == null || question.isBlank() ? null : FormSpec.Field.normalize(question);
+    }
+
     public String reasonOr(String raw) {
         return raw == null || raw.isBlank() ? "Theo yêu cầu của bạn" : raw.trim();
     }

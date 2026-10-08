@@ -10,6 +10,7 @@ import {
   Star,
   ClipboardCheck,
   ListChecks,
+  ListTodo,
   Network,
   Shield,
   MessageSquare,
@@ -284,6 +285,9 @@ export const navItems = perLanguage((): NavItem[] => ([
   },
   // Thư viện tài liệu 3 phạm vi (tri thức cho K.AI). Không gắn aiOnly: tài liệu vẫn xem/tải được khi tổ chức
   // tắt AI. Mọi người đăng nhập đều có ít nhất tab Công ty; tab nào hiện do backend quyết.
+  // Công việc kiểu Lark Tasks: trang riêng 3 cột (không nằm trong "Của tôi" vì đã có cột trái riêng). Huy hiệu = việc
+  // tôi phụ trách quá hạn + tới hạn hôm nay (Sidebar đọc từ useNotificationDots).
+  { id: 'tasks', label: i18n.t('layout:navigation.myTasks'), path: '/tasks', icon: <ListTodo size={20} />, permission: 'TASK:VIEW_OWN', end: true, legacyKeys: ['/my-tasks'] },
   { id: 'documents', label: i18n.t('layout:navigation.documents'), path: '/documents', icon: <BookOpen size={20} />, permission: 'DASHBOARD:VIEW', end: true },
   { id: 'ai-assistant', label: 'K.AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true, aiOnly: true },
 ]))

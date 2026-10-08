@@ -122,6 +122,8 @@ class KpiApprovalChainIT {
     void cleanup() {
         SecurityContextHolder.clearContext();
         pool.shutdownNow();
+        // Mỗi sự kiện duyệt ghi thêm một dòng hệ thống vào khung thảo luận của KPI.
+        jdbc.update("DELETE FROM discussion_comments WHERE target_id = ?", kpiId);
         jdbc.update("DELETE FROM kpi_approval_flows WHERE kpi_criteria_id = ?", kpiId);
         jdbc.update("DELETE FROM quantitative_kpi_details WHERE kpi_criteria_id = ?", kpiId);
         jdbc.update("DELETE FROM kpi_criteria WHERE id = ?", kpiId);

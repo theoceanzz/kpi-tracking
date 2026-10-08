@@ -1,0 +1,49 @@
+{
+  "composer": {
+    "placeholder": "Viết bình luận… Gõ @ để nhắc tên",
+    "hint": "Enter để gửi · Shift+Enter xuống dòng · kéo thả hoặc dán ảnh để đính kèm",
+    "attach": "Đính kèm tệp",
+    "send": "Gửi",
+    "cancel": "Huỷ",
+    "removeFile": "Bỏ tệp",
+    "fileTooLarge": "Tệp \"{{name}}\" vượt quá 10 MB",
+    "fileNotSupported": "Tệp \"{{name}}\" không được hỗ trợ",
+    "tooManyFiles": "Mỗi bình luận đính kèm tối đa {{max}} tệp"
+  },
+  "item": {
+    "deleted": "Bình luận đã bị xoá",
+    "edited": "(đã sửa)",
+    "react": "Thả cảm xúc",
+    "reply": "Trả lời",
+    "more": "Thao tác khác",
+    "edit": "Sửa",
+    "delete": "Xoá",
+    "deleteTitle": "Xoá bình luận?",
+    "deleteDescription": "Bình luận sẽ bị xoá khỏi cuộc thảo luận.",
+    "deleteWithReplies": "Bình luận này có trả lời: nội dung sẽ được thay bằng \"Bình luận đã bị xoá\", các trả lời vẫn giữ."
+  },
+  "reaction": {
+    "LIKE": "Thích",
+    "AGREE": "Đồng ý",
+    "LOVE": "Yêu thích",
+    "CHECK": "Đã xong",
+    "QUESTION": "Cần hỏi thêm"
+  },
+  "system": {
+    "openLinked": "Xem KPI kia"
+  },
+  "thread": {
+    "moreReplies": "Xem thêm {{count}} trả lời",
+    "replyTo": "Trả lời {{name}}…"
+  },
+  "panel": {
+    "empty": "Chưa có thảo luận nào. Hãy là người mở đầu.",
+    "newComments": "Có bình luận mới",
+    "readOnly": "Bạn chỉ xem được cuộc thảo luận này.",
+    "hideSystem": "Ẩn hoạt động hệ thống",
+    "showSystem": "Hiện hoạt động hệ thống"
+  },
+  "link": {
+    "notFound": "Không mở được bình luận này"
+  }
+}

@@ -50,6 +50,8 @@ interface ShellProps {
   flush?: boolean
   /** Neo cho hướng dẫn (tour-*). */
   id?: string
+  /** Neo của bài hướng dẫn — truyền bằng `{...tourAnchor('…')}`, gắn lên khung hộp thoại. */
+  'data-tour'?: string
   className?: string
   children: ReactNode
 }
@@ -141,6 +143,7 @@ function Header({ title, description, headerExtra, onClose, titleId, descId }: {
 
 export function Dialog({
   open, onClose, title, description, headerExtra, footer, size = 'md', dismissible = true, flush, id, className, children,
+  'data-tour': dataTour,
 }: ShellProps) {
   const panelRef = useDialogBehaviour(open, onClose, dismissible)
   const base = useId()
@@ -153,6 +156,7 @@ export function Dialog({
       <div
         ref={panelRef}
         id={id}
+        data-tour={dataTour}
         role="dialog"
         aria-modal="true"
         aria-labelledby={ids.title}
@@ -177,6 +181,7 @@ export function Dialog({
 /** Bảng trượt từ mép phải — cho xem/sửa một bản ghi mà vẫn thấy danh sách phía sau. */
 export function Drawer({
   open, onClose, title, description, headerExtra, footer, size = 'md', dismissible = true, flush, id, className, children,
+  'data-tour': dataTour,
 }: ShellProps) {
   const panelRef = useDialogBehaviour(open, onClose, dismissible)
   const base = useId()
@@ -189,6 +194,7 @@ export function Drawer({
       <div
         ref={panelRef}
         id={id}
+        data-tour={dataTour}
         role="dialog"
         aria-modal="true"
         aria-labelledby={ids.title}

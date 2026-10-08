@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse } from '@/types/api'
 
 export type AiReviewStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED'
@@ -333,10 +334,9 @@ export const aiCriteriaSetApi = {
   upload: (file: File, orgUnitId?: string | null, title?: string) => {
     const form = new FormData()
     form.append('file', file)
-    return axiosInstance.post<ApiResponse<AiCriteriaSet>>(SETS, form, {
+    return sendMultipart<ApiResponse<AiCriteriaSet>>(SETS, form, {
       params: { orgUnitId: orgUnitId ?? undefined, title: title || undefined },
-      headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 180_000,
+      responseTimeoutMs: 180_000,
     }).then(r => r.data.data)
   },
 
@@ -407,9 +407,7 @@ export const aiSelfCheckApi = {
     if (d.qualitativeLevelId) form.append('qualitativeLevelId', d.qualitativeLevelId)
     if (d.note) form.append('note', d.note)
     d.files.forEach(f => form.append('files', f))
-    return axiosInstance.post<ApiResponse<AiSelfCheck>>(SELF, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }).then(r => r.data.data)
+    return sendMultipart<ApiResponse<AiSelfCheck>>(SELF, form).then(r => r.data.data)
   },
 
   get: (id: string) => axiosInstance.get<ApiResponse<AiSelfCheck>>(`${SELF}/${id}`).then(r => r.data.data),

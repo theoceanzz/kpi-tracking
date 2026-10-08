@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const STATUS_META = perLanguage((): Record<TopupOrderStatus, { label: string; cls: string }> => ({
   [TopupOrderStatus.PENDING]: {
@@ -49,7 +50,7 @@ export default function TopupHistoryTable({ data, onResume }: TopupHistoryTableP
             <th className="px-4 py-3">{t('TopupHistoryTable.orderCode')}</th>
             <th className="px-4 py-3 text-right">{t('TopupHistoryTable.requested')}</th>
             <th className="px-4 py-3 text-right">{t('TopupHistoryTable.actuallyReceived')}</th>
-            <th className="px-4 py-3">{t('TopupHistoryTable.status')}</th>
+            <th {...tourAnchor('topups.status')} className="px-4 py-3">{t('TopupHistoryTable.status')}</th>
             <th className="px-4 py-3 text-right">{t('TopupHistoryTable.actions')}</th>
           </tr>
         </thead>
@@ -89,7 +90,7 @@ export default function TopupHistoryTable({ data, onResume }: TopupHistoryTableP
                   {/* Chỉ đơn ĐÃ NHẬN TIỀN mới có biên nhận: chứng từ này xác nhận đã thu tiền,
                       nên nó không tồn tại cho đơn chờ, đơn huỷ hay đơn hết hạn. */}
                   {o.status === TopupOrderStatus.PAID && (
-                    <Button variant="outline" size="sm" className="whitespace-nowrap" type="button" onClick={() => setReceiptOrderId(o.id)}>
+                    <Button {...tourAnchor('topups.receipt')} variant="outline" size="sm" className="whitespace-nowrap" type="button" onClick={() => setReceiptOrderId(o.id)}>
                       <Receipt aria-hidden="true" />
                       {t('TopupHistoryTable.receipt')}
                     </Button>
@@ -97,7 +98,7 @@ export default function TopupHistoryTable({ data, onResume }: TopupHistoryTableP
                   {/* Đơn còn chờ thì mở lại được mã QR cũ để chuyển tiếp — cùng một mã đơn,
                       nên tiền vẫn về đúng chỗ và không sinh thêm đơn treo. */}
                   {o.status === TopupOrderStatus.PENDING && onResume && (
-                    <Button variant="ghost" size="sm" className="whitespace-nowrap" type="button" onClick={() => onResume(o)}>
+                    <Button {...tourAnchor('topups.resume')} variant="ghost" size="sm" className="whitespace-nowrap" type="button" onClick={() => onResume(o)}>
                       <QrCode aria-hidden="true" />
                       {t('TopupHistoryTable.continueTransfer')}
                     </Button>

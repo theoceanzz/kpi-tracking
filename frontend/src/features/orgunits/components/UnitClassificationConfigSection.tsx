@@ -38,6 +38,7 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const SCOPE_OPTS = perLanguage((): { v: UnitClassScope; label: string }[] => ([
   { v: 'this', label: i18n.t('orgunits:UnitClassificationConfigSection.exactlyLevel') },
@@ -181,7 +182,7 @@ function HelpPopover() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="shrink-0" type="button" aria-label={t('UnitClassificationConfigSection.howUnitRatingProfilesWork')} title={t('UnitClassificationConfigSection.howItWorks')}>
+        <Button {...tourAnchor('unitclass.help')} variant="ghost" size="icon" className="shrink-0" type="button" aria-label={t('UnitClassificationConfigSection.howUnitRatingProfilesWork')} title={t('UnitClassificationConfigSection.howItWorks')}>
           <HelpCircle aria-hidden="true" />
         </Button>
       </PopoverTrigger>
@@ -325,10 +326,10 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
         <div className="flex shrink-0 items-center gap-2">
           {dirty && <span className="text-caption text-[var(--color-warning)]">{t('UnitClassificationConfigSection.unsavedChanges')}</span>}
           <HelpPopover />
-          <Button variant="outline" type="button" onClick={reset} disabled={!dirty}>
+          <Button {...tourAnchor('unitclass.reset')} variant="outline" type="button" onClick={reset} disabled={!dirty}>
             <RotateCcw aria-hidden="true" /> {t('UnitClassificationConfigSection.reset2')}
           </Button>
-          <Button type="button" onClick={save} disabled={update.isPending}>
+          <Button {...tourAnchor('unitclass.save')} type="button" onClick={save} disabled={update.isPending}>
             {update.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />} {t('UnitClassificationConfigSection.save')}
           </Button>
         </div>
@@ -336,7 +337,7 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
 
       {/* Chú thích thang mức: hàng mảnh riêng, dính ngay dưới nhan đề vì nó là bảng tra
           dùng suốt lúc soạn điều kiện bên dưới. */}
-      <div id="tour-unitclass-levels" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--color-border)] bg-[var(--color-muted)] px-5 py-2">
+      <div {...tourAnchor('unitclass.levels')} id="tour-unitclass-levels" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--color-border)] bg-[var(--color-muted)] px-5 py-2">
         <span className="text-eyebrow">{t('UnitClassificationConfigSection.levelScaleHighLow')}</span>
         {levels.map(l => (
           <span key={l.name} className="inline-flex items-center gap-1 text-caption">
@@ -349,7 +350,7 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
         {/* ── Cột trái: danh sách hồ sơ ─────────────────────────────── */}
         <div className="border-b border-[var(--color-border)] bg-[var(--color-muted)]/40 p-3 lg:border-b-0 lg:border-r">
           <p className="px-2 pb-2 text-eyebrow">{t('UnitClassificationConfigSection.profiles')}{profiles.length})</p>
-          <ul id="tour-unitclass-profiles" className="space-y-1">
+          <ul {...tourAnchor('unitclass.profiles')} id="tour-unitclass-profiles" className="space-y-1">
             {profiles.map(p => {
               const active = p._key === selected?._key
               const assigned = p.orgUnitIds.map(id => unitNameById[id]).filter(Boolean) as string[]
@@ -385,7 +386,7 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
               )
             })}
           </ul>
-          <Button variant="outline" className="mt-2 w-full border-dashed" id="tour-unitclass-add" type="button" onClick={addProfile}>
+          <Button {...tourAnchor('unitclass.add')} variant="outline" className="mt-2 w-full border-dashed" id="tour-unitclass-add" type="button" onClick={addProfile}>
             <Plus aria-hidden="true" /> {t('UnitClassificationConfigSection.addAProfileForAUnit')}
           </Button>
           <ProfileCoverage profiles={profiles} tree={tree ?? []} cycleNameById={cycleNameById} />
@@ -971,7 +972,7 @@ function ProfileCoverage({ profiles, tree, cycleNameById }: {
 
   return (
     <div className="mt-3 border-t border-[var(--color-border)] pt-3">
-      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full items-center gap-1.5 px-2 text-left text-caption hover:text-[var(--color-foreground)]">
+      <button {...tourAnchor('unitclass.which')} type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full items-center gap-1.5 px-2 text-left text-caption hover:text-[var(--color-foreground)]">
         {open ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
         {t('UnitClassificationConfigSection.whichUnitUsesWhichProfile')}
       </button>
