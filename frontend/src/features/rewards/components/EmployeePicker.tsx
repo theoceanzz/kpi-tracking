@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useApiAllowed } from '@/hooks/useApiAllowed'
 import { useTranslation } from 'react-i18next'
 
 /**
@@ -99,6 +100,7 @@ export default function EmployeePicker({
     [flatUnits, orgUnitId],
   )
 
+  const canListUsers = useApiAllowed('GET', '/users')
   const { data: userPage, isFetching } = useQuery({
     queryKey: ['users', 'rewardPicker', debouncedKeyword, orgUnitId],
     queryFn: () =>
@@ -110,7 +112,7 @@ export default function EmployeePicker({
         page: 0,
         size: 30,
       }),
-    enabled,
+    enabled: enabled && canListUsers,
   })
 
   const candidates = useMemo(() => {

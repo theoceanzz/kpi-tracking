@@ -1,0 +1,4514 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/v1/admin/ai-usage",
+    "platformAdmin": true,
+    "source": "PlatformAdminController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/admin/organizations/{orgId}/ai-budget",
+    "platformAdmin": true,
+    "source": "PlatformAdminController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/admin/organizations/{orgId}/features",
+    "platformAdmin": true,
+    "source": "PlatformAdminController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/admin/organizations/{orgId}/status",
+    "platformAdmin": true,
+    "source": "PlatformAdminController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/admin/organizations",
+    "platformAdmin": true,
+    "source": "PlatformAdminController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/admin/rag/documents/{id}/chunks",
+    "platformAdmin": true,
+    "source": "PlatformRagController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/admin/rag/documents/{id}",
+    "platformAdmin": true,
+    "source": "PlatformRagController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/admin/rag/documents",
+    "platformAdmin": true,
+    "source": "PlatformRagController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/admin/rag/documents",
+    "platformAdmin": true,
+    "source": "PlatformRagController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/admin/rag/search",
+    "platformAdmin": true,
+    "source": "PlatformRagController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/admin/stats",
+    "platformAdmin": true,
+    "source": "PlatformAdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/actions/{actionId}/confirm",
+    "authenticated": true,
+    "source": "AiActionController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/chat/stream",
+    "authenticated": true,
+    "source": "AiController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/chat",
+    "authenticated": true,
+    "source": "AiController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/conversations/{id}/messages",
+    "authenticated": true,
+    "source": "ConversationController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/conversations/{id}/restore",
+    "authenticated": true,
+    "source": "ConversationController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/ai/conversations/{id}",
+    "authenticated": true,
+    "source": "ConversationController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/ai/conversations/{id}",
+    "authenticated": true,
+    "source": "ConversationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/conversations",
+    "authenticated": true,
+    "source": "ConversationController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/conversations",
+    "authenticated": true,
+    "source": "ConversationController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/criteria-sets/{id}/apply",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/criteria-sets/{id}/clone-request",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/criteria-sets/{id}/clone",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/criteria-sets/{id}/confirm",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/ai/criteria-sets/{id}/items",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/criteria-sets/{id}/requests",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/criteria-sets/{id}/stop",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/ai/criteria-sets/{id}",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/criteria-sets/{id}",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/ai/criteria-sets/{id}",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/criteria-sets/manageable-units",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/criteria-sets/requests/{requestId}/approve",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/criteria-sets/requests/{requestId}/reject",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/ai/criteria-sets/requests/{requestId}",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/criteria-sets/requests/pending",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/criteria-sets",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/criteria-sets",
+    "anyOf": [
+      "AI_CRITERIA:MANAGE",
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiCriteriaSetController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/help",
+    "authenticated": true,
+    "source": "RagController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/insights",
+    "authenticated": true,
+    "source": "AiController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/ai/quota/allocations/{userId}",
+    "authenticated": true,
+    "source": "AiQuotaController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/quota/allocations",
+    "authenticated": true,
+    "source": "AiQuotaController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/ai/quota/delegation",
+    "authenticated": true,
+    "source": "AiQuotaController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/quota/me",
+    "authenticated": true,
+    "source": "AiQuotaController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/quota/overview",
+    "authenticated": true,
+    "source": "AiQuotaController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/rag/assets/{name}",
+    "authenticated": true,
+    "source": "RagController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/rag/documents/{id}/chunks",
+    "authenticated": true,
+    "source": "RagController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/ai/rag/documents/{id}",
+    "authenticated": true,
+    "source": "RagController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/rag/documents",
+    "authenticated": true,
+    "source": "RagController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/rag/documents",
+    "authenticated": true,
+    "source": "RagController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/rag/search",
+    "authenticated": true,
+    "source": "RagController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/self-checks/{id}",
+    "authenticated": true,
+    "source": "AiSelfCheckController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/self-checks/availability",
+    "authenticated": true,
+    "source": "AiSelfCheckController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/self-checks/latest",
+    "authenticated": true,
+    "source": "AiSelfCheckController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/self-checks",
+    "authenticated": true,
+    "source": "AiSelfCheckController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/submission-reviews/{id}/rerun",
+    "anyOf": [
+      "AI_REVIEW:USE"
+    ],
+    "source": "AiSubmissionReviewController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/submission-reviews/{id}",
+    "anyOf": [
+      "AI_REVIEW:USE"
+    ],
+    "source": "AiSubmissionReviewController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/submission-reviews/batch",
+    "anyOf": [
+      "AI_REVIEW:USE"
+    ],
+    "source": "AiSubmissionReviewController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/submission-reviews/latest",
+    "anyOf": [
+      "AI_REVIEW:USE"
+    ],
+    "source": "AiSubmissionReviewController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/submission-reviews/report",
+    "anyOf": [
+      "AI_REVIEW:USE"
+    ],
+    "source": "AiSubmissionReviewController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/submission-reviews/settings",
+    "anyOf": [
+      "AI_REVIEW:CONFIG",
+      "AI_REVIEW:USE"
+    ],
+    "source": "AiSubmissionReviewController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/ai/submission-reviews/settings",
+    "anyOf": [
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiSubmissionReviewController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/ai/submission-reviews/unit-settings/{orgUnitId}",
+    "anyOf": [
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiSubmissionReviewController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/ai/submission-reviews/unit-settings/{orgUnitId}",
+    "anyOf": [
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiSubmissionReviewController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ai/submission-reviews/unit-settings",
+    "anyOf": [
+      "AI_REVIEW:CONFIG"
+    ],
+    "source": "AiSubmissionReviewController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/submission-reviews",
+    "anyOf": [
+      "AI_REVIEW:USE"
+    ],
+    "source": "AiSubmissionReviewController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/ai/turns/{turnId}/answer",
+    "authenticated": true,
+    "source": "AiController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/change-password",
+    "authenticated": true,
+    "source": "AuthController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/forgot-password",
+    "authenticated": true,
+    "source": "AuthController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/lark/authorize-url",
+    "authenticated": true,
+    "source": "AuthController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/lark/callback",
+    "authenticated": true,
+    "source": "AuthController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "authenticated": true,
+    "source": "AuthController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/logout",
+    "authenticated": true,
+    "source": "AuthController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/me/avatar",
+    "authenticated": true,
+    "source": "AuthController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/me/onboarding",
+    "authenticated": true,
+    "source": "AuthController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/me",
+    "authenticated": true,
+    "source": "AuthController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/refresh-token",
+    "authenticated": true,
+    "source": "AuthController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/register",
+    "authenticated": true,
+    "source": "AuthController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/resend-verification",
+    "authenticated": true,
+    "source": "AuthController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/reset-password",
+    "authenticated": true,
+    "source": "AuthController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/verify-email",
+    "authenticated": true,
+    "source": "AuthController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/bsc/cascade-policies/{policyId}",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/bsc/cascade-policies/{policyId}",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/bsc/evaluations/{evaluationId}/override",
+    "anyOf": [
+      "BSC:OVERRIDE_SCORE"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/bsc/evaluations/{evaluationId}/waterfall",
+    "anyOf": [
+      "BSC:VIEW"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/bsc/organization/{organizationId}/cascade-policies",
+    "anyOf": [
+      "BSC:VIEW"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/bsc/organization/{organizationId}/cascade-policies",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/bsc/organization/{organizationId}/fixed-perspectives/{code}",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/bsc/organization/{organizationId}/fixed-perspectives",
+    "anyOf": [
+      "BSC:VIEW"
+    ],
+    "source": "BscController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/bsc/organization/{organizationId}/perspectives",
+    "anyOf": [
+      "BSC:VIEW"
+    ],
+    "source": "BscController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/bsc/organization/{organizationId}/perspectives",
+    "anyOf": [
+      "BSC:MANAGE",
+      "BSC:MANAGE_UNIT"
+    ],
+    "source": "BscController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/bsc/organization/{organizationId}/scorecards/import",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/bsc/organization/{organizationId}/scorecards/tree",
+    "anyOf": [
+      "BSC:VIEW"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/bsc/organization/{organizationId}/scorecards",
+    "anyOf": [
+      "BSC:VIEW"
+    ],
+    "source": "BscController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/bsc/organization/{organizationId}/scorecards",
+    "anyOf": [
+      "BSC:MANAGE",
+      "BSC:MANAGE_UNIT"
+    ],
+    "source": "BscController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/bsc/perspectives/{perspectiveId}",
+    "anyOf": [
+      "BSC:MANAGE",
+      "BSC:MANAGE_UNIT"
+    ],
+    "source": "BscController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/bsc/perspectives/{perspectiveId}",
+    "anyOf": [
+      "BSC:MANAGE",
+      "BSC:MANAGE_UNIT"
+    ],
+    "source": "BscController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/bsc/scorecard-perspectives/{itemId}/kpi-plan",
+    "anyOf": [
+      "BSC:VIEW"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/activate",
+    "anyOf": [
+      "BSC:APPROVE"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/approve",
+    "anyOf": [
+      "BSC:APPROVE"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/cascade",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/coverage",
+    "anyOf": [
+      "BSC:VIEW"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/delete-check",
+    "anyOf": [
+      "BSC:VIEW"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/parent",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/reject",
+    "anyOf": [
+      "BSC:APPROVE"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/results/finalize",
+    "anyOf": [
+      "BSC:PUBLISH_SCORE"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/results/items/{itemId}",
+    "anyOf": [
+      "BSC:MANAGE",
+      "BSC:MANAGE_UNIT"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/results/recompute",
+    "anyOf": [
+      "BSC:MANAGE",
+      "BSC:MANAGE_UNIT"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/results/reopen",
+    "anyOf": [
+      "BSC:PUBLISH_SCORE"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/results",
+    "anyOf": [
+      "BSC:VIEW"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/scoring-mode",
+    "anyOf": [
+      "BSC:PUBLISH_SCORE"
+    ],
+    "source": "BscController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/submit",
+    "anyOf": [
+      "BSC:MANAGE",
+      "BSC:MANAGE_UNIT"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/whole-cascade",
+    "anyOf": [
+      "BSC:VIEW"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/whole-cascade",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}",
+    "anyOf": [
+      "BSC:MANAGE",
+      "BSC:MANAGE_UNIT"
+    ],
+    "source": "BscController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}",
+    "anyOf": [
+      "BSC:VIEW"
+    ],
+    "source": "BscController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}",
+    "anyOf": [
+      "BSC:MANAGE",
+      "BSC:MANAGE_UNIT"
+    ],
+    "source": "BscController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/bsc/users/{userId}/linked-weight",
+    "anyOf": [
+      "BSC:VIEW"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/cash/config",
+    "anyOf": [
+      "WALLET:CONFIG"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/cash/config",
+    "anyOf": [
+      "WALLET:CONFIG"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/cash/convert/quote",
+    "anyOf": [
+      "WALLET:VIEW_MY"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/cash/convert",
+    "anyOf": [
+      "WALLET:VIEW_MY"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/cash/me/transactions",
+    "anyOf": [
+      "WALLET:VIEW_MY"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/cash/me",
+    "anyOf": [
+      "WALLET:VIEW_MY"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/cash/receipts/me",
+    "anyOf": [
+      "WALLET:VIEW_MY"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/cash/receipts",
+    "anyOf": [
+      "WALLET:VIEW"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/cash/reconcile",
+    "anyOf": [
+      "WALLET:RECONCILE"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/cash/sepay-events/{id}/resolve",
+    "anyOf": [
+      "WALLET:RECONCILE"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/cash/sepay-events",
+    "anyOf": [
+      "WALLET:RECONCILE"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/cash/topups/{id}/cancel",
+    "anyOf": [
+      "WALLET:VIEW_MY"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/cash/topups/{id}/receipt",
+    "anyOf": [
+      "WALLET:VIEW_MY"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/cash/topups/{id}",
+    "anyOf": [
+      "WALLET:VIEW_MY"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/cash/topups/me",
+    "anyOf": [
+      "WALLET:VIEW_MY"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/cash/topups",
+    "anyOf": [
+      "WALLET:VIEW_MY"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/cash/users/{userId}/transactions",
+    "anyOf": [
+      "WALLET:VIEW"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/cash/wallets/summary",
+    "anyOf": [
+      "WALLET:VIEW"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/cash/wallets",
+    "anyOf": [
+      "WALLET:VIEW"
+    ],
+    "source": "CashWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/chat/organizations/{organizationId}/members/count",
+    "authenticated": true,
+    "source": "ChatController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/conduct/config/{organizationId}/reset",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "ConductController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/conduct/config/{organizationId}/sets/{setId}/default",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "ConductController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/conduct/config/{organizationId}/sets/{setId}",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "ConductController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/conduct/config/{organizationId}/sets/{setId}",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "ConductController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/conduct/config/{organizationId}/sets",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "ConductController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/conduct/config/{organizationId}",
+    "authenticated": true,
+    "source": "ConductController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/conduct/sheet/manager",
+    "anyOf": [
+      "EVALUATION:CREATE"
+    ],
+    "source": "ConductController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/conduct/sheet/self",
+    "authenticated": true,
+    "source": "ConductController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/conduct/sheet",
+    "authenticated": true,
+    "source": "ConductController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/conduct/summary",
+    "anyOf": [
+      "EVALUATION:VIEW"
+    ],
+    "source": "ConductController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/dashboard/layout",
+    "authenticated": true,
+    "source": "DashboardLayoutController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/dashboard/layout",
+    "authenticated": true,
+    "source": "DashboardLayoutController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/dashboard/layout",
+    "authenticated": true,
+    "source": "DashboardLayoutController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/datasources/{datasourceId}/columns",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "DatasourceController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/datasources/{datasourceId}/columns",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "DatasourceController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/datasources/{datasourceId}/data",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "DatasourceController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/datasources/{datasourceId}/rows",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "DatasourceController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/datasources/{datasourceId}/rows",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "DatasourceController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/datasources/{id}",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "DatasourceController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/datasources/{id}",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "DatasourceController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/datasources/{id}",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "DatasourceController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/datasources/columns/{columnId}",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "DatasourceController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/datasources/columns/{columnId}",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "DatasourceController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/datasources/rows/{rowId}",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "DatasourceController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/datasources/rows/{rowId}",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "DatasourceController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/datasources",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "DatasourceController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/datasources",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "DatasourceController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/delegations/{id}",
+    "anyOf": [
+      "ROLE:ASSIGN"
+    ],
+    "source": "OrgUnitDelegationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/delegations/{organizationId}",
+    "anyOf": [
+      "ROLE:ASSIGN"
+    ],
+    "source": "OrgUnitDelegationController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/delegations/{organizationId}",
+    "anyOf": [
+      "ROLE:ASSIGN"
+    ],
+    "source": "OrgUnitDelegationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/discussions/{target}/{targetId}/comments",
+    "authenticated": true,
+    "source": "DiscussionController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/discussions/{target}/{targetId}/comments",
+    "authenticated": true,
+    "source": "DiscussionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/discussions/{target}/{targetId}/mentionable",
+    "authenticated": true,
+    "source": "DiscussionController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/discussions/{target}/{targetId}/read",
+    "authenticated": true,
+    "source": "DiscussionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/discussions/comments/{commentId}/around",
+    "authenticated": true,
+    "source": "DiscussionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/discussions/comments/{commentId}/locate",
+    "authenticated": true,
+    "source": "DiscussionController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/discussions/comments/{commentId}/reactions/{reaction}",
+    "authenticated": true,
+    "source": "DiscussionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/discussions/comments/{commentId}/replies",
+    "authenticated": true,
+    "source": "DiscussionController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/discussions/comments/{commentId}",
+    "authenticated": true,
+    "source": "DiscussionController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/discussions/comments/{commentId}",
+    "authenticated": true,
+    "source": "DiscussionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/{id}/chunks",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/{id}/content",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/documents/{id}/content",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/{id}/convert-online",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/{id}/download",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/documents/{id}/favorite",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/documents/{id}/file",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/{id}/move",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/{id}/open",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/documents/{id}/permanent",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/documents/{id}/pin",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/{id}/promotions",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/{id}/promotions",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/{id}/reindex",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/{id}/restore",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/documents/{id}/shares/{shareId}",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/documents/{id}/shares/{shareId}",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/{id}/shares",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/{id}/shares",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/{id}/versions/{versionId}/download",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/{id}/versions/{versionId}/restore",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/{id}/versions",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/documents/{id}",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/{id}",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/documents/{id}",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/capabilities",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/documents/folders/{folderId}",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/documents/folders/{folderId}",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/folders",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/folders",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/legacy/{id}/replace",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/documents/legacy/{id}",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/legacy",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/online",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/personal/summary",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/documents/personal",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/pinned",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/promotions/{promotionId}/approve",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/promotions/{promotionId}/cancel",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/promotions/{promotionId}/file",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/promotions/{promotionId}/reject",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/promotions/inbox",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/promotions/mine",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/recent",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/share-targets",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/share-units/{unitId}/members",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/share-units",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/storage-stats",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/documents/trash",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/trash",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/usage",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/email-templates/{code}/preview",
+    "anyOf": [
+      "NOTIF:MANAGE"
+    ],
+    "source": "EmailTemplateController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/email-templates/{code}",
+    "anyOf": [
+      "NOTIF:MANAGE"
+    ],
+    "source": "EmailTemplateController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/email-templates/{code}",
+    "anyOf": [
+      "NOTIF:MANAGE"
+    ],
+    "source": "EmailTemplateController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/email-templates/{code}",
+    "anyOf": [
+      "NOTIF:MANAGE"
+    ],
+    "source": "EmailTemplateController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/email-templates/images",
+    "anyOf": [
+      "NOTIF:MANAGE"
+    ],
+    "source": "EmailTemplateController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/email-templates",
+    "anyOf": [
+      "NOTIF:MANAGE"
+    ],
+    "source": "EmailTemplateController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/evaluations/{evaluationId}",
+    "authenticated": true,
+    "source": "EvaluationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/evaluations/score-preview",
+    "authenticated": true,
+    "source": "EvaluationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/evaluations/system-score",
+    "authenticated": true,
+    "source": "EvaluationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/evaluations",
+    "authenticated": true,
+    "source": "EvaluationController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/evaluations",
+    "anyOf": [
+      "EVALUATION:CREATE"
+    ],
+    "source": "EvaluationController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/evidence/{id}",
+    "authenticated": true,
+    "source": "EvidenceAttachmentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/evidence",
+    "authenticated": true,
+    "source": "EvidenceAttachmentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/evidence",
+    "authenticated": true,
+    "source": "EvidenceAttachmentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/answers/{answerId}/hide",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360Controller.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/feedback360/approvals/{subjectId}",
+    "authenticated": true,
+    "source": "Feedback360Controller.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/approvals",
+    "authenticated": true,
+    "source": "Feedback360Controller.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/assignments/{assignmentId}/decline",
+    "authenticated": true,
+    "source": "Feedback360Controller.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/feedback360/assignments/{assignmentId}/draft",
+    "authenticated": true,
+    "source": "Feedback360Controller.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/assignments/{assignmentId}/submit",
+    "authenticated": true,
+    "source": "Feedback360Controller.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/assignments/{assignmentId}",
+    "authenticated": true,
+    "source": "Feedback360Controller.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/analytics",
+    "anyOf": [
+      "FEEDBACK360:MANAGE",
+      "FEEDBACK360:VIEW"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/assignments/{assignmentId}/reopen",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/assignments/{assignmentId}",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/assignments",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/close",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/events",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/export",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/extend",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/generate-raters",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/launch",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/questions",
+    "anyOf": [
+      "FEEDBACK360:MANAGE",
+      "FEEDBACK360:VIEW"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/release",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/remind",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/reopen",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/start",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/subjects/{subjectId}/ai-summary",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/subjects/{subjectId}/assignments",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/subjects/{subjectId}",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/subjects",
+    "anyOf": [
+      "FEEDBACK360:MANAGE",
+      "FEEDBACK360:VIEW"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}/subjects",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}",
+    "anyOf": [
+      "FEEDBACK360:MANAGE",
+      "FEEDBACK360:VIEW"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/feedback360/campaigns/{campaignId}",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/campaigns",
+    "anyOf": [
+      "FEEDBACK360:MANAGE",
+      "FEEDBACK360:VIEW"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/campaigns",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/feedback360/me/nominations/{subjectId}",
+    "authenticated": true,
+    "source": "Feedback360Controller.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/me/nominations",
+    "authenticated": true,
+    "source": "Feedback360Controller.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/me/reports",
+    "anyOf": [
+      "FEEDBACK360:VIEW_MY"
+    ],
+    "source": "Feedback360Controller.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/me/tasks",
+    "authenticated": true,
+    "source": "Feedback360Controller.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/subjects/{subjectId}/report",
+    "anyOf": [
+      "FEEDBACK360:MANAGE",
+      "FEEDBACK360:VIEW",
+      "FEEDBACK360:VIEW_MY"
+    ],
+    "source": "Feedback360Controller.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/templates/{templateId}/default",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/feedback360/templates/{templateId}",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/templates/{templateId}",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/feedback360/templates/{templateId}",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/feedback360/templates",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/feedback360/templates",
+    "anyOf": [
+      "FEEDBACK360:MANAGE"
+    ],
+    "source": "Feedback360AdminController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-adjustments/{requestId}/review",
+    "authenticated": true,
+    "source": "KpiAdjustmentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-adjustments/bulk-review",
+    "anyOf": [
+      "KPI:APPROVE_ADJUSTMENT"
+    ],
+    "source": "KpiAdjustmentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-adjustments/inbox",
+    "authenticated": true,
+    "source": "KpiAdjustmentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-adjustments/my",
+    "authenticated": true,
+    "source": "KpiAdjustmentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-adjustments",
+    "anyOf": [
+      "KPI:APPROVE_ADJUSTMENT"
+    ],
+    "source": "KpiAdjustmentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-adjustments",
+    "authenticated": true,
+    "source": "KpiAdjustmentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-approvals/bulk-approve",
+    "authenticated": true,
+    "source": "KpiApprovalController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-approvals/inbox/count",
+    "authenticated": true,
+    "source": "KpiApprovalController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-approvals/inbox",
+    "authenticated": true,
+    "source": "KpiApprovalController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-approvals/kpi/{kpiId}",
+    "authenticated": true,
+    "source": "KpiApprovalController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-approvals/steps/{stepId}/reassign",
+    "authenticated": true,
+    "source": "KpiApprovalController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-criteria/{kpiId}/approve",
+    "authenticated": true,
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-criteria/{kpiId}/children",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-criteria/{kpiId}/reject",
+    "authenticated": true,
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-criteria/{kpiId}/replace",
+    "anyOf": [
+      "KPI:UPDATE"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-criteria/{kpiId}/revert-approval",
+    "anyOf": [
+      "KPI:REVERT_APPROVAL"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-criteria/{kpiId}/submit",
+    "anyOf": [
+      "KPI:CREATE"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-criteria/{kpiId}/task-replacements",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-criteria/{kpiId}/tasks",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/kpi-criteria/{kpiId}",
+    "anyOf": [
+      "KPI:DELETE"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-criteria/{kpiId}",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/kpi-criteria/{kpiId}",
+    "anyOf": [
+      "KPI:UPDATE"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/kpi-criteria/batch-weight",
+    "anyOf": [
+      "KPI:UPDATE"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-criteria/bulk-delete",
+    "anyOf": [
+      "KPI:DELETE"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-criteria/bulk-submit",
+    "anyOf": [
+      "KPI:CREATE"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-criteria/from-bsc",
+    "anyOf": [
+      "KPI:CREATE"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-criteria/import",
+    "anyOf": [
+      "KPI:IMPORT"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-criteria/my",
+    "anyOf": [
+      "KPI:VIEW_MY"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-criteria/total-weight",
+    "authenticated": true,
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-criteria/weight-headroom",
+    "anyOf": [
+      "KPI:CREATE"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-criteria",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-criteria",
+    "anyOf": [
+      "KPI:CREATE"
+    ],
+    "source": "KpiCriteriaController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-cycles/{cycleId}/evaluation/units/{orgUnitId}/calibrate",
+    "anyOf": [
+      "CYCLE_EVAL:FINALIZE"
+    ],
+    "source": "KpiCycleEvaluationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-cycles/{cycleId}/evaluation/units/{orgUnitId}/calibration",
+    "anyOf": [
+      "CYCLE_EVAL:VIEW"
+    ],
+    "source": "KpiCycleEvaluationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-cycles/{cycleId}/evaluation/units/{orgUnitId}/chain",
+    "anyOf": [
+      "CYCLE_EVAL:VIEW"
+    ],
+    "source": "KpiCycleEvaluationController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-cycles/{cycleId}/evaluation/units/{orgUnitId}/finalize",
+    "anyOf": [
+      "CYCLE_EVAL:FINALIZE"
+    ],
+    "source": "KpiCycleEvaluationController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-cycles/{cycleId}/evaluation/units/{orgUnitId}/reopen",
+    "anyOf": [
+      "CYCLE_EVAL:FINALIZE"
+    ],
+    "source": "KpiCycleEvaluationController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/kpi-cycles/{cycleId}/evaluation/units/{orgUnitId}/score",
+    "anyOf": [
+      "CYCLE_EVAL:FINALIZE"
+    ],
+    "source": "KpiCycleEvaluationController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-cycles/{cycleId}/evaluation/units/{orgUnitId}/send",
+    "anyOf": [
+      "CYCLE_EVAL:SEND"
+    ],
+    "source": "KpiCycleEvaluationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-cycles/{cycleId}/evaluation/units/{orgUnitId}",
+    "anyOf": [
+      "CYCLE_EVAL:VIEW"
+    ],
+    "source": "KpiCycleEvaluationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-cycles/{cycleId}/evaluation/units",
+    "anyOf": [
+      "CYCLE_EVAL:VIEW"
+    ],
+    "source": "KpiCycleEvaluationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-cycles/{cycleId}/evaluation/users/{userId}",
+    "anyOf": [
+      "CYCLE_EVAL:VIEW"
+    ],
+    "source": "KpiCycleEvaluationController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/kpi-cycles/{cycleId}/evaluation/users/{userId}",
+    "anyOf": [
+      "CYCLE_EVAL:FINALIZE"
+    ],
+    "source": "KpiCycleEvaluationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-cycles/{cycleId}/evaluation/users",
+    "anyOf": [
+      "CYCLE_EVAL:VIEW"
+    ],
+    "source": "KpiCycleEvaluationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-cycles/{id}/events",
+    "anyOf": [
+      "KPI_CYCLE:VIEW"
+    ],
+    "source": "KpiCycleController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-cycles/{id}/lock-preview",
+    "anyOf": [
+      "CYCLE_EVAL:FINALIZE"
+    ],
+    "source": "KpiCycleController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/kpi-cycles/{id}",
+    "anyOf": [
+      "KPI_CYCLE:DELETE"
+    ],
+    "source": "KpiCycleController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/kpi-cycles/{id}",
+    "anyOf": [
+      "KPI_CYCLE:UPDATE"
+    ],
+    "source": "KpiCycleController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-cycles",
+    "authenticated": true,
+    "source": "KpiCycleController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-cycles",
+    "anyOf": [
+      "KPI_CYCLE:CREATE"
+    ],
+    "source": "KpiCycleController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/kpi-periods/{id}",
+    "anyOf": [
+      "KPI_PERIOD:DELETE"
+    ],
+    "source": "KpiPeriodController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/kpi-periods/{id}",
+    "anyOf": [
+      "KPI_PERIOD:UPDATE"
+    ],
+    "source": "KpiPeriodController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-periods",
+    "authenticated": true,
+    "source": "KpiPeriodController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-periods",
+    "anyOf": [
+      "KPI_PERIOD:CREATE"
+    ],
+    "source": "KpiPeriodController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-tasks/{id}/assign",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/kpi-tasks/{id}/attachments/{attachmentId}",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-tasks/{id}/attachments",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/kpi-tasks/{id}/checklist/{itemId}",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/kpi-tasks/{id}/checklist/{itemId}",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-tasks/{id}/checklist",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-tasks/{id}/duplicate",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-tasks/{id}/events",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-tasks/{id}/follower-candidates",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/kpi-tasks/{id}/followers/{userId}",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/kpi-tasks/{id}/followers/{userId}",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/kpi-tasks/{id}/reminders",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/kpi-tasks/{id}/status",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-tasks/{id}/subtasks",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/kpi-tasks/{id}",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-tasks/{id}",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/kpi-tasks/{id}",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-tasks/assignable-kpis",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-tasks/assignable-users",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-tasks/badge",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-tasks/move",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-tasks/my",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-tasks/sidebar",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-tasks",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-tasks",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-workflow/config/reset",
+    "anyOf": [
+      "WORKFLOW:MANAGE"
+    ],
+    "source": "KpiWorkflowController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-workflow/config/validate",
+    "anyOf": [
+      "WORKFLOW:MANAGE"
+    ],
+    "source": "KpiWorkflowController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-workflow/config",
+    "authenticated": true,
+    "source": "KpiWorkflowController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/kpi-workflow/config",
+    "anyOf": [
+      "WORKFLOW:MANAGE"
+    ],
+    "source": "KpiWorkflowController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/notifications/{notificationId}/read",
+    "authenticated": true,
+    "source": "NotificationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/notifications/config",
+    "authenticated": true,
+    "source": "NotificationController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/notifications/config",
+    "authenticated": true,
+    "source": "NotificationController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/notifications/kpi-reminder",
+    "authenticated": true,
+    "source": "NotificationController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/notifications/read-all",
+    "authenticated": true,
+    "source": "NotificationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/notifications/unread-count",
+    "authenticated": true,
+    "source": "NotificationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/notifications",
+    "authenticated": true,
+    "source": "NotificationController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/okr/key-results/{keyResultId}",
+    "anyOf": [
+      "OKR:MANAGE"
+    ],
+    "source": "OkrController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/okr/key-results/{keyResultId}",
+    "anyOf": [
+      "OKR:MANAGE"
+    ],
+    "source": "OkrController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/okr/key-results",
+    "anyOf": [
+      "OKR:MANAGE"
+    ],
+    "source": "OkrController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/okr/objectives/{objectiveId}",
+    "anyOf": [
+      "OKR:MANAGE"
+    ],
+    "source": "OkrController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/okr/objectives/{objectiveId}",
+    "anyOf": [
+      "OKR:MANAGE"
+    ],
+    "source": "OkrController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/okr/org-unit/{orgUnitId}/objectives",
+    "anyOf": [
+      "OKR:VIEW"
+    ],
+    "source": "OkrController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/okr/organization/{organizationId}/import",
+    "anyOf": [
+      "OKR:MANAGE"
+    ],
+    "source": "OkrController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/okr/organization/{organizationId}/objectives",
+    "anyOf": [
+      "OKR:VIEW"
+    ],
+    "source": "OkrController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/okr/organization/{organizationId}/objectives",
+    "anyOf": [
+      "OKR:MANAGE"
+    ],
+    "source": "OkrController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations/{orgId}/branding/{kind}",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "OrganizationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{orgId}/code-rules/preview",
+    "anyOf": [
+      "BSC:MANAGE",
+      "BSC:VIEW",
+      "COMPANY:VIEW",
+      "OKR:MANAGE",
+      "OKR:VIEW",
+      "ORG:VIEW"
+    ],
+    "source": "OrgCodeRuleController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{orgId}/code-rules",
+    "anyOf": [
+      "BSC:MANAGE",
+      "BSC:VIEW",
+      "COMPANY:VIEW",
+      "OKR:MANAGE",
+      "OKR:VIEW",
+      "ORG:VIEW"
+    ],
+    "source": "OrgCodeRuleController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/organizations/{orgId}/code-rules",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "OrgCodeRuleController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{orgId}/hierarchy-levels",
+    "anyOf": [
+      "ORG:VIEW"
+    ],
+    "source": "OrganizationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{orgId}/lark-settings/connect-url",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "LarkSettingsController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations/{orgId}/lark-settings/connect/confirm",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "LarkSettingsController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/organizations/{orgId}/lark-settings/connection",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "LarkSettingsController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations/{orgId}/lark-settings/connect",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "LarkSettingsController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations/{orgId}/lark-settings/test",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "LarkSettingsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{orgId}/lark-settings",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "LarkSettingsController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/organizations/{orgId}/lark-settings",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "LarkSettingsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{orgId}/units/{unitId}/chain",
+    "authenticated": true,
+    "source": "OrgUnitController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations/{orgId}/units/{unitId}/logo",
+    "anyOf": [
+      "ORG:UPDATE"
+    ],
+    "source": "OrgUnitController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/organizations/{orgId}/units/{unitId}/move",
+    "anyOf": [
+      "ORG:UPDATE"
+    ],
+    "source": "OrgUnitController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{orgId}/units/{unitId}/subtree",
+    "anyOf": [
+      "ORG:VIEW",
+      "ORG:VIEW_TREE"
+    ],
+    "source": "OrgUnitController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/organizations/{orgId}/units/{unitId}",
+    "anyOf": [
+      "ORG:DELETE"
+    ],
+    "source": "OrgUnitController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{orgId}/units/{unitId}",
+    "anyOf": [
+      "ORG:VIEW",
+      "ORG:VIEW_TREE"
+    ],
+    "source": "OrgUnitController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/organizations/{orgId}/units/{unitId}",
+    "anyOf": [
+      "ORG:UPDATE"
+    ],
+    "source": "OrgUnitController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{orgId}/units/export",
+    "anyOf": [
+      "ORG:VIEW"
+    ],
+    "source": "OrgUnitController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations/{orgId}/units/import",
+    "anyOf": [
+      "ORG:CREATE"
+    ],
+    "source": "OrgUnitController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{orgId}/units/tree",
+    "anyOf": [
+      "ORG:VIEW",
+      "ORG:VIEW_TREE"
+    ],
+    "source": "OrgUnitController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations/{orgId}/units",
+    "anyOf": [
+      "ORG:CREATE"
+    ],
+    "source": "OrgUnitController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/organizations/{orgId}",
+    "anyOf": [
+      "COMPANY:DELETE"
+    ],
+    "source": "OrganizationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{orgId}",
+    "anyOf": [
+      "COMPANY:VIEW",
+      "DASHBOARD:VIEW",
+      "EVALUATION:VIEW"
+    ],
+    "source": "OrganizationController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/organizations/{orgId}",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "OrganizationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations",
+    "anyOf": [
+      "COMPANY:VIEW"
+    ],
+    "source": "OrganizationController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations",
+    "anyOf": [
+      "COMPANY:UPDATE"
+    ],
+    "source": "OrganizationController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/permissions/role/{roleId}/{permissionId}",
+    "anyOf": [
+      "PERMISSION:EDIT"
+    ],
+    "source": "PermissionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/permissions/role/{roleId}",
+    "anyOf": [
+      "PERMISSION:EDIT"
+    ],
+    "source": "PermissionController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/permissions/role/{roleId}",
+    "anyOf": [
+      "PERMISSION:EDIT"
+    ],
+    "source": "PermissionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/permissions",
+    "anyOf": [
+      "PERMISSION:EDIT"
+    ],
+    "source": "PermissionController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/policies/{policyId}/conditions",
+    "anyOf": [
+      "POLICY:UPDATE"
+    ],
+    "source": "PolicyController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/policies/{policyId}",
+    "anyOf": [
+      "POLICY:VIEW"
+    ],
+    "source": "PolicyController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/policies/role/{roleId}/{policyId}",
+    "anyOf": [
+      "POLICY:ASSIGN"
+    ],
+    "source": "PolicyController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/policies/role/{roleId}/{policyId}",
+    "anyOf": [
+      "POLICY:ASSIGN"
+    ],
+    "source": "PolicyController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/policies/role/{roleId}",
+    "anyOf": [
+      "POLICY:VIEW"
+    ],
+    "source": "PolicyController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/policies",
+    "anyOf": [
+      "POLICY:CREATE"
+    ],
+    "source": "PolicyController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/provinces/{provinceId}/districts",
+    "authenticated": true,
+    "source": "ProvinceController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/provinces",
+    "authenticated": true,
+    "source": "ProvinceController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/public/leads",
+    "authenticated": true,
+    "source": "PublicLandingController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/public/organizations",
+    "authenticated": true,
+    "source": "PublicOrganizationController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reminders/assigned-kpi/{assignedKpiId}/user/{userId}",
+    "anyOf": [
+      "REMINDER:SEND"
+    ],
+    "source": "ReminderController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/reports/{id}",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "ReportController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reports/{id}",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "ReportController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/reports/{id}",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "ReportController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reports/{reportId}/datasources",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "ReportController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reports/{reportId}/widgets",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "ReportController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/reports/datasources/{reportDatasourceId}",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "ReportController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/reports/widgets/{widgetId}/toggle-pin",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "ReportController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/reports/widgets/{widgetId}",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "ReportController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/reports/widgets/{widgetId}",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "ReportController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reports/widgets/pinned",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "ReportController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reports",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "ReportController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reports",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "ReportController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/reward-budgets/{id}",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardBudgetController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/reward-budgets/{id}",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardBudgetController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-budgets/me",
+    "anyOf": [
+      "REWARD:GRANT"
+    ],
+    "source": "RewardBudgetController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-budgets",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardBudgetController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-budgets",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardBudgetController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/reward-certificate-templates/{id}",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardCertificateController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/reward-certificate-templates/{id}",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardCertificateController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-certificate-templates/images",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardCertificateController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-certificate-templates/manage",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardCertificateController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-certificate-templates",
+    "anyOf": [
+      "REWARD:VIEW_MY"
+    ],
+    "source": "RewardCertificateController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-certificate-templates",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardCertificateController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-checkins/config",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardCheckinController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/reward-checkins/config",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardCheckinController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-checkins/me",
+    "anyOf": [
+      "REWARD:VIEW_MY"
+    ],
+    "source": "RewardCheckinController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-checkins/me",
+    "anyOf": [
+      "REWARD:VIEW_MY"
+    ],
+    "source": "RewardCheckinController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/reward-gifts/{id}",
+    "anyOf": [
+      "GIFT:MANAGE"
+    ],
+    "source": "RewardGiftController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/reward-gifts/{id}",
+    "anyOf": [
+      "GIFT:MANAGE"
+    ],
+    "source": "RewardGiftController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-gifts/images",
+    "anyOf": [
+      "GIFT:MANAGE"
+    ],
+    "source": "RewardGiftController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-gifts/manage",
+    "anyOf": [
+      "GIFT:MANAGE"
+    ],
+    "source": "RewardGiftController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-gifts",
+    "anyOf": [
+      "REWARD:VIEW_MY"
+    ],
+    "source": "RewardGiftController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-gifts",
+    "anyOf": [
+      "GIFT:MANAGE"
+    ],
+    "source": "RewardGiftController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-grants/{id}/approve",
+    "anyOf": [
+      "REWARD:APPROVE"
+    ],
+    "source": "RewardGrantController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-grants/{id}/cancel",
+    "anyOf": [
+      "REWARD:GRANT"
+    ],
+    "source": "RewardGrantController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-grants/{id}/reject",
+    "anyOf": [
+      "REWARD:APPROVE"
+    ],
+    "source": "RewardGrantController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-grants/{id}/revoke-preview",
+    "anyOf": [
+      "REWARD:APPROVE"
+    ],
+    "source": "RewardGrantController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-grants/{id}/revoke",
+    "anyOf": [
+      "REWARD:APPROVE"
+    ],
+    "source": "RewardGrantController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-grants/{id}",
+    "anyOf": [
+      "REWARD:APPROVE",
+      "REWARD:GRANT",
+      "REWARD:VIEW"
+    ],
+    "source": "RewardGrantController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-grants/my-awards",
+    "anyOf": [
+      "REWARD:VIEW_MY"
+    ],
+    "source": "RewardGrantController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-grants",
+    "anyOf": [
+      "REWARD:APPROVE",
+      "REWARD:GRANT",
+      "REWARD:VIEW"
+    ],
+    "source": "RewardGrantController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-grants",
+    "anyOf": [
+      "REWARD:GRANT"
+    ],
+    "source": "RewardGrantController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-program-runs/{id}/issue",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardProgramRunController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-program-runs/{id}/revert",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardProgramRunController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-program-runs/{id}",
+    "anyOf": [
+      "REWARD:CONFIG",
+      "REWARD:VIEW"
+    ],
+    "source": "RewardProgramRunController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-programs/{id}/preview",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardProgramController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-programs/{id}/runs",
+    "anyOf": [
+      "REWARD:CONFIG",
+      "REWARD:VIEW"
+    ],
+    "source": "RewardProgramController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/reward-programs/{id}",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardProgramController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-programs/{id}",
+    "anyOf": [
+      "REWARD:CONFIG",
+      "REWARD:VIEW"
+    ],
+    "source": "RewardProgramController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/reward-programs/{id}",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardProgramController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-programs",
+    "anyOf": [
+      "REWARD:CONFIG",
+      "REWARD:VIEW"
+    ],
+    "source": "RewardProgramController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-programs",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardProgramController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-redemptions/{id}/approve",
+    "anyOf": [
+      "GIFT:FULFILL"
+    ],
+    "source": "RewardRedemptionController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-redemptions/{id}/cancel",
+    "anyOf": [
+      "GIFT:REDEEM"
+    ],
+    "source": "RewardRedemptionController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-redemptions/{id}/deliver",
+    "anyOf": [
+      "GIFT:FULFILL"
+    ],
+    "source": "RewardRedemptionController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-redemptions/{id}/reject",
+    "anyOf": [
+      "GIFT:FULFILL"
+    ],
+    "source": "RewardRedemptionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-redemptions/me",
+    "anyOf": [
+      "GIFT:REDEEM"
+    ],
+    "source": "RewardRedemptionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/reward-redemptions",
+    "anyOf": [
+      "GIFT:FULFILL"
+    ],
+    "source": "RewardRedemptionController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/reward-redemptions",
+    "anyOf": [
+      "GIFT:REDEEM"
+    ],
+    "source": "RewardRedemptionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/rewards/activity",
+    "anyOf": [
+      "REWARD:VIEW_MY"
+    ],
+    "source": "RewardWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/rewards/leaderboard",
+    "anyOf": [
+      "REWARD:VIEW"
+    ],
+    "source": "RewardWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/rewards/me/transactions",
+    "anyOf": [
+      "REWARD:VIEW_MY"
+    ],
+    "source": "RewardWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/rewards/me",
+    "anyOf": [
+      "REWARD:VIEW_MY"
+    ],
+    "source": "RewardWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/rewards/monthly-summary",
+    "anyOf": [
+      "REWARD:VIEW"
+    ],
+    "source": "RewardWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/rewards/reconcile",
+    "anyOf": [
+      "REWARD:CONFIG"
+    ],
+    "source": "RewardWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/rewards/users/{userId}/transactions",
+    "anyOf": [
+      "REWARD:VIEW"
+    ],
+    "source": "RewardWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/rewards/wallets",
+    "anyOf": [
+      "REWARD:VIEW"
+    ],
+    "source": "RewardWalletController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/roles/{roleId}",
+    "anyOf": [
+      "ROLE:DELETE"
+    ],
+    "source": "RoleController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/roles/{roleId}",
+    "anyOf": [
+      "ROLE:VIEW"
+    ],
+    "source": "RoleController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/roles/{roleId}",
+    "anyOf": [
+      "ROLE:UPDATE"
+    ],
+    "source": "RoleController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/roles",
+    "anyOf": [
+      "ROLE:VIEW"
+    ],
+    "source": "RoleController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/roles",
+    "anyOf": [
+      "ROLE:CREATE"
+    ],
+    "source": "RoleController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/scopes/{code}",
+    "authenticated": true,
+    "source": "ScopeController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/scopes",
+    "authenticated": true,
+    "source": "ScopeController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/sidebar-settings/{organizationId}",
+    "authenticated": true,
+    "source": "SidebarSettingController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/sidebar-settings/{organizationId}",
+    "authenticated": true,
+    "source": "SidebarSettingController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/comparison/deviation",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/comparison/self-vs-manager",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/correlation/behavior-completion",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/distribution/headcount-pyramid",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/distribution/score-histogram",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/distribution/unit-boxplot",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/flow/kpi-cascade",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/flow/kpi-lifecycle",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/flow/okr",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/part/submission-share",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/ranking/rank-delta",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/timeline/submission-composition",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/bsc/attainment-trend",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/bsc/cascade-coverage",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/bsc/item-attainment",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/bsc/overview",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/bsc/rankings",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/bsc/unit-attainment",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/detail-table",
+    "anyOf": [
+      "ORG:VIEW"
+    ],
+    "source": "StatsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/detailed-export",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "StatsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/drill-down",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "StatsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/employee-progress/{userId}",
+    "anyOf": [
+      "USER:VIEW",
+      "USER:VIEW_LIST"
+    ],
+    "source": "StatsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/employees",
+    "anyOf": [
+      "USER:VIEW",
+      "USER:VIEW_LIST"
+    ],
+    "source": "StatsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/matrix/overview",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "MatrixAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/my-analytics",
+    "authenticated": true,
+    "source": "StatsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/my-progress",
+    "authenticated": true,
+    "source": "StatsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/org-unit/kpis/{kpiId}/drawer",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "OrgUnitKpiAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/org-unit/kpis/chart/combo",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "OrgUnitKpiAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/org-unit/kpis/details",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "OrgUnitKpiAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/org-unit/kpis/metrics",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "OrgUnitKpiAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/org-unit/kpis/risks/members/{userId}/overdue-kpis",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "OrgUnitKpiAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/org-unit/kpis/risks/members",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "OrgUnitKpiAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/org-unit/kpis/risks/units/{unitId}/overdue-kpis",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "OrgUnitKpiAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/org-unit/kpis/risks/units",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "OrgUnitKpiAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/org-unit/kpis/weight-budget",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "OrgUnitKpiAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/org-units",
+    "anyOf": [
+      "ORG:VIEW"
+    ],
+    "source": "StatsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/overview",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "StatsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/personal/kpis/chart/combo",
+    "authenticated": true,
+    "source": "PersonalKpiAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/personal/kpis/details",
+    "authenticated": true,
+    "source": "PersonalKpiAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/personal/kpis/metrics",
+    "authenticated": true,
+    "source": "PersonalKpiAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/personal/objectives/chart/combo",
+    "authenticated": true,
+    "source": "PersonalObjectiveAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/personal/objectives/details",
+    "authenticated": true,
+    "source": "PersonalObjectiveAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/personal/objectives/kpis/{id}/drawer",
+    "authenticated": true,
+    "source": "PersonalObjectiveAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/personal/objectives/metrics",
+    "authenticated": true,
+    "source": "PersonalObjectiveAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/chart/combo",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/details/filter-units",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/details",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/key-results/{id}/chart/combo",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/key-results/{id}/metrics",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/key-results/{id}/top-entities",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/kpis/{id}/chart/combo",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/kpis/{id}/metrics",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/kpis/{id}/top-entities",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/metrics/at-risk",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/metrics/completed-count",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/metrics/completion",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/metrics/performance",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/metrics/personnel",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/objectives/{id}/chart/combo",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/objectives/{id}/metrics",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/objectives/{id}/top-entities",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/subordinates/top-entities-dashboard",
+    "anyOf": [
+      "DASHBOARD:VIEW",
+      "KPI:VIEW"
+    ],
+    "source": "SubordinateAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/summary/rankings",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "StatsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/summary/risks",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "StatsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/summary/trend",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "StatsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/summary/unit-comparison",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "StatsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/summary",
+    "anyOf": [
+      "KPI:VIEW"
+    ],
+    "source": "StatsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/unit-classification/overview",
+    "anyOf": [
+      "DASHBOARD:VIEW"
+    ],
+    "source": "UnitClassificationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/submissions/{submissionId}/attachments",
+    "authenticated": true,
+    "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/submissions/{submissionId}/attachments",
+    "authenticated": true,
+    "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/submissions/{submissionId}/return",
+    "anyOf": [
+      "SUBMISSION:REVIEW"
+    ],
+    "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/submissions/{submissionId}/review",
+    "anyOf": [
+      "SUBMISSION:REVIEW"
+    ],
+    "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/submissions/{submissionId}",
+    "authenticated": true,
+    "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/submissions/{submissionId}",
+    "authenticated": true,
+    "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/submissions/{submissionId}",
+    "authenticated": true,
+    "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/submissions/attachments/{attachmentId}",
+    "authenticated": true,
+    "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/submissions/bulk-review",
+    "anyOf": [
+      "SUBMISSION:REVIEW"
+    ],
+    "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/submissions/my",
+    "authenticated": true,
+    "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/submissions",
+    "anyOf": [
+      "SUBMISSION:REVIEW",
+      "SUBMISSION:REVIEW_KPI"
+    ],
+    "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/submissions",
+    "authenticated": true,
+    "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/urbox/brands",
+    "anyOf": [
+      "GIFT:MANAGE"
+    ],
+    "source": "UrboxCatalogController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/urbox/categories",
+    "anyOf": [
+      "GIFT:MANAGE"
+    ],
+    "source": "UrboxCatalogController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/urbox/gifts/import",
+    "anyOf": [
+      "GIFT:MANAGE"
+    ],
+    "source": "UrboxCatalogController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/urbox/gifts",
+    "anyOf": [
+      "GIFT:MANAGE"
+    ],
+    "source": "UrboxCatalogController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/urbox/status",
+    "authenticated": true,
+    "source": "UrboxCatalogController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/user-roles/assign/bulk",
+    "anyOf": [
+      "ROLE:ASSIGN"
+    ],
+    "source": "UserRoleController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/user-roles/assign",
+    "anyOf": [
+      "ROLE:ASSIGN"
+    ],
+    "source": "UserRoleController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/user-roles/org-unit/{orgUnitId}/remove-all",
+    "anyOf": [
+      "ROLE:ASSIGN"
+    ],
+    "source": "UserRoleController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/user-roles/org-unit/{orgUnitId}/remove-bulk",
+    "anyOf": [
+      "ROLE:ASSIGN"
+    ],
+    "source": "UserRoleController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/user-roles/org-unit/{orgUnitId}",
+    "anyOf": [
+      "ROLE:VIEW"
+    ],
+    "source": "UserRoleController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/user-roles/revoke",
+    "anyOf": [
+      "ROLE:ASSIGN"
+    ],
+    "source": "UserRoleController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/user-roles/user/{userId}",
+    "anyOf": [
+      "ROLE:VIEW"
+    ],
+    "source": "UserRoleController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/users/{userId}",
+    "anyOf": [
+      "USER:DELETE"
+    ],
+    "source": "UserController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/{userId}",
+    "anyOf": [
+      "USER:VIEW",
+      "USER:VIEW_LIST"
+    ],
+    "source": "UserController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/users/{userId}",
+    "anyOf": [
+      "USER:UPDATE"
+    ],
+    "source": "UserController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/users/import",
+    "anyOf": [
+      "USER:IMPORT"
+    ],
+    "source": "UserController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/users/me/preferences",
+    "authenticated": true,
+    "source": "UserController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users",
+    "anyOf": [
+      "USER:VIEW",
+      "USER:VIEW_LIST"
+    ],
+    "source": "UserController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/users",
+    "anyOf": [
+      "USER:CREATE"
+    ],
+    "source": "UserController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/webhooks/sepay",
+    "authenticated": true,
+    "source": "SepayWebhookController.java"
+  }
+]

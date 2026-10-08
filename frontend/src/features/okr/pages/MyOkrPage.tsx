@@ -24,6 +24,7 @@ import { OkrStatus, type KeyResultResponse, type ObjectiveResponse } from '../ty
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const STATUS_LABEL = perLanguage((): Record<OkrStatus, { label: string; variant: 'success' | 'secondary' | 'destructive' }> => ({
   [OkrStatus.ACTIVE]: { label: i18n.t('okr:MyOkrPage.running'), variant: 'success' },
@@ -163,11 +164,11 @@ export default function MyOkrPage() {
       >
         {/* Nút phụ luôn ở hàng dưới, phải — cùng bố cục với BSC của tôi ở mọi vai trò. */}
         <div className="flex flex-wrap gap-2 sm:justify-end">
-          <Button asChild variant="outline">
+          <Button {...tourAnchor('myokr.analytics')} asChild variant="outline">
             <Link to="/analytics?section=my-objectives"><TrendingUp aria-hidden="true" /> {t('MyOkrPage.viewAnalytics')}</Link>
           </Button>
           {hasPermission('OKR:MANAGE') && (
-            <Button asChild variant="outline">
+            <Button {...tourAnchor('myokr.manage')} asChild variant="outline">
               <Link to="/settings/tools?section=okr"><ExternalLink aria-hidden="true" /> {t('MyOkrPage.okrManagement')}</Link>
             </Button>
           )}
@@ -242,7 +243,7 @@ function ObjectiveCard({ objective: o, open, onToggle, kpisByKr, directKpis, isM
   const st = STATUS_LABEL()[o.status] ?? STATUS_LABEL()[OkrStatus.ACTIVE]
 
   return (
-    <section className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+    <section {...tourAnchor('myokr.objective')} className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
       <div className="flex items-start gap-3 px-4 py-3">
         <Button variant="ghost" size="icon-sm" className="mt-0.5 shrink-0" onClick={onToggle} aria-expanded={open} aria-label={open ? t('MyOkrPage.collapse') : t('MyOkrPage.expand')}>
           {open ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}

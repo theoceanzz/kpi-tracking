@@ -24,9 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -65,37 +63,37 @@ public class EvidenceAttachmentService {
                 .findByOrganizationIdAndTargetTypeAndTargetKeyOrderByCreatedAtAsc(t.organizationId(), type, key));
     }
 
-    @Transactional
+    /** Tệp đi lên NGOÀI transaction — khuôn chung {@link CloudinaryStorageService#uploadThenSave}. */
     public List<AttachmentResponse> upload(EvidenceTargetType type, String key, MultipartFile[] files, String note)
             throws IOException {
-        User me = currentUser();
-        Target t = resolve(type, key);
-        requireCanView(me, type, t);
-
-        // Cùng chính sách với bài nộp: kiểm cả lô trước khi đụng Cloudinary, đếm cả tệp đang có.
-        attachmentPolicy.validate(files, repository.countByOrganizationIdAndTargetTypeAndTargetKey(t.organizationId(), type, key));
-
         String folder = "evidence/" + type.name().toLowerCase() + "/" + key.replace(':', '_');
-        List<AttachmentResponse> out = new ArrayList<>();
-        for (MultipartFile file : files) {
-            Map<String, String> info = cloudinaryStorageService.uploadFile(file, folder);
+        return cloudinaryStorageService.uploadThenSave(files, folder, () -> {
+            User me = currentUser();
+            Target t = resolve(type, key);
+            requireCanView(me, type, t);
+            // Cùng chính sách với bài nộp: kiểm cả lô trước khi đụng Cloudinary, đếm cả tệp đang có.
+            attachmentPolicy.validate(files, repository.countByOrganizationIdAndTargetTypeAndTargetKey(t.organizationId(), type, key));
+            return new UploadContext(me, t);
+        }, (ctx, stored) -> stored.stream().map(f -> {
+            MultipartFile file = f.source();
             EvidenceAttachment saved = repository.save(EvidenceAttachment.builder()
-                    .organization(t.unit().getOrgHierarchyLevel().getOrganization())
+                    .organization(ctx.target().unit().getOrgHierarchyLevel().getOrganization())
                     .targetType(type)
                     .targetKey(key)
                     .fileName(attachmentPolicy.safeFileName(file.getOriginalFilename()))
-                    .fileUrl(info.get("url"))
+                    .fileUrl(f.url())
                     .fileSize(file.getSize())
                     .contentType(file.getContentType())
                     .storageProvider(StorageProvider.CLOUDINARY)
-                    .storageKey(info.get("public_id"))
+                    .storageKey(f.publicId())
                     .note(note == null || note.isBlank() ? null : note.trim())
-                    .uploadedBy(me)
+                    .uploadedBy(ctx.me())
                     .build());
-            out.add(mapper.toResponse(saved));
-        }
-        return out;
+            return mapper.toResponse(saved);
+        }).toList());
     }
+
+    private record UploadContext(User me, Target target) {}
 
     @Transactional
     public void delete(UUID id) {

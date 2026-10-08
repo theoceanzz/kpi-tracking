@@ -22,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,8 +46,34 @@ public class SubmissionAttachmentService {
     }
     
 
-    @Transactional
+    /**
+     * Tệp đi lên Cloudinary NGOÀI transaction, theo khuôn chung
+     * {@link CloudinaryStorageService#uploadThenSave}: kiểm tra → đẩy tệp → kiểm lại + lưu.
+     */
     public List<AttachmentResponse> uploadAttachments(UUID submissionId, MultipartFile[] files) throws IOException {
+        return cloudinaryStorageService.uploadThenSave(files, "submissions/" + submissionId,
+                () -> assertCanUpload(submissionId, files),
+                (ctx, stored) -> stored.stream().map(f -> {
+                    MultipartFile file = f.source();
+                    SubmissionAttachment attachment = SubmissionAttachment.builder()
+                            .submission(ctx.submission())
+                            // Tên do client gửi, có thể chứa cả đường dẫn — cắt về tên cơ sở trước khi lưu.
+                            .fileName(attachmentPolicy.safeFileName(file.getOriginalFilename()))
+                            .fileUrl(f.url())
+                            .fileSize(file.getSize())
+                            .contentType(file.getContentType())
+                            .storageProvider(StorageProvider.CLOUDINARY)
+                            .storageKey(f.publicId())
+                            .uploadedBy(ctx.uploader())
+                            .build();
+                    return submissionMapper.toAttachmentResponse(attachmentRepository.save(attachment));
+                }).toList());
+    }
+
+    private record PreparedUpload(KpiSubmission submission, User uploader) {}
+
+    /** Gọi trong transaction: {@code assertWritable} cần FOR SHARE trên kỳ. */
+    private PreparedUpload assertCanUpload(UUID submissionId, MultipartFile[] files) {
         User currentUser = getCurrentUser();
 
         KpiSubmission submission = submissionRepository.findById(submissionId)
@@ -70,30 +95,7 @@ public class SubmissionAttachmentService {
         // Đếm cả số tệp báo cáo ĐANG có, vì giới hạn là của báo cáo chứ không phải của lần gửi —
         // chỉ đếm mảng gửi lên thì tải 5 tệp rồi tải tiếp 5 tệp nữa vẫn lọt.
         attachmentPolicy.validate(files, attachmentRepository.findBySubmissionId(submissionId).size());
-
-        List<AttachmentResponse> responses = new ArrayList<>();
-
-        for (MultipartFile file : files) {
-            String folder = "submissions/" + submissionId;
-            java.util.Map<String, String> uploadInfo = cloudinaryStorageService.uploadFile(file, folder);
-
-            SubmissionAttachment attachment = SubmissionAttachment.builder()
-                    .submission(submission)
-                    // Tên do client gửi, có thể chứa cả đường dẫn — cắt về tên cơ sở trước khi lưu.
-                    .fileName(attachmentPolicy.safeFileName(file.getOriginalFilename()))
-                    .fileUrl(uploadInfo.get("url"))
-                    .fileSize(file.getSize())
-                    .contentType(file.getContentType())
-                    .storageProvider(StorageProvider.CLOUDINARY)
-                    .storageKey(uploadInfo.get("public_id"))
-                    .uploadedBy(currentUser)
-                    .build();
-
-            attachment = attachmentRepository.save(attachment);
-            responses.add(submissionMapper.toAttachmentResponse(attachment));
-        }
-
-        return responses;
+        return new PreparedUpload(submission, currentUser);
     }
 
     @Transactional(readOnly = true)

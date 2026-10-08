@@ -93,4 +93,18 @@ public class KpiCriteriaResponse {
     private Instant lastReturnedAt;
     /** Vị trí trong chuỗi duyệt, tính cho người đang xem. {@code null} khi không đang chờ duyệt. */
     private com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse approval;
+    /** Số bình luận chưa đọc của người xem trong khung thảo luận của KPI. */
+    private Long unreadComments;
+    /** Tổng bình luận người dùng (không tính dòng hệ thống). */
+    private Long commentCount;
+    /** Tiến độ công việc gắn KPI mà người xem thấy được: "x/y việc", số quá hạn. */
+    private TaskProgress taskProgress;
+
+    @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class TaskProgress {
+        private long done;
+        /** Không tính việc đã huỷ. */
+        private long total;
+        private long overdue;
+    }
 }

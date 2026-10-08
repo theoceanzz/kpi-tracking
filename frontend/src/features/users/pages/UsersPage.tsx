@@ -27,6 +27,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useRoles } from '@/features/organization/hooks/useRoles'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 export default function UsersPage() {
   const { t } = useTranslation('users')
@@ -204,6 +206,9 @@ export default function UsersPage() {
     })
   }
 
+  // Bài hướng dẫn mở form TẠO MỚI để đi qua từng ô (không gửi — xem `blockedByTour`).
+  useTourModal('users.form', () => { if (!canCreate) return; setEditUser(null); setShowForm(true) }, () => { setShowForm(false); setEditUser(null) })
+
   const handleRowClick = (user: User) => {
     setEditUser(user)
     setShowForm(true)
@@ -247,13 +252,13 @@ export default function UsersPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             {canImport && (
-              <Button variant="outline" id="tour-users-import" onClick={() => setShowImportGuide(true)} disabled={importMutation.isPending}>
+              <Button {...tourAnchor('users.import')} variant="outline" id="tour-users-import" onClick={() => setShowImportGuide(true)} disabled={importMutation.isPending}>
                 {importMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Upload aria-hidden="true" />}
                 {t('UsersPage.excelImport')}
               </Button>
             )}
             {canCreate && (
-              <Button id="tour-users-add" onClick={() => { setEditUser(null); setShowForm(true) }}>
+              <Button {...tourAnchor('users.add')} id="tour-users-add" onClick={() => { setEditUser(null); setShowForm(true) }}>
                 <Plus aria-hidden="true" /> {t('UsersPage.addPeople')}
               </Button>
             )}
@@ -264,14 +269,14 @@ export default function UsersPage() {
 
       <FilterBar id="tour-users-filters" search={{ value: keyword, onChange: handleKeywordChange, placeholder: t('UsersPage.searchByNameOrEmail') }}>
         <Select value={roleFilter} onValueChange={handleRoleChange}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label={t('UsersPage.title')}><SelectValue placeholder={t('UsersPage.title')} /></SelectTrigger>
+          <SelectTrigger {...tourAnchor('users.role-filter')} className="w-full sm:w-auto sm:min-w-44" aria-label={t('UsersPage.title')}><SelectValue placeholder={t('UsersPage.title')} /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">{t('UsersPage.allTitles')}</SelectItem>
             {assignableRoles.map(role => <SelectItem key={role.id} value={role.name}>{role.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={orgUnitFilter} onValueChange={handleOrgUnitChange}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-56" aria-label={t('UsersPage.unit')}><SelectValue placeholder={t('UsersPage.unit')} /></SelectTrigger>
+          <SelectTrigger {...tourAnchor('users.unit-filter')} className="w-full sm:w-auto sm:min-w-56" aria-label={t('UsersPage.unit')}><SelectValue placeholder={t('UsersPage.unit')} /></SelectTrigger>
           <SelectContent className="max-h-[300px]">
             {allUnits.filter(u => !!u.id).map((unit: OrgUnitTreeResponse) => (
               <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>

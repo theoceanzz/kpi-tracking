@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 import { InfoHint } from '@/components/common/InfoHint'
 import AiUnitSelect from './AiUnitSelect'
 import { useAiReviewReport } from '../hooks/useAiReview'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /** Ngưỡng nghiệm thu trong tài liệu phân tích: sai số trung bình ≤ 8 điểm, ≥ 70 % trong ±5 điểm. */
 const MAE_TARGET = 8
@@ -42,7 +43,7 @@ export default function AiReviewReportSection() {
   const { data: report, isLoading, isError } = useAiReviewReport(periodId, unitId ?? undefined)
 
   return (
-    <div className="space-y-4 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
+    <div {...tourAnchor('aireport.section')} className="space-y-4 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <BarChart3 size={20} className="mt-0.5 text-[var(--color-ai)]" aria-hidden="true" />

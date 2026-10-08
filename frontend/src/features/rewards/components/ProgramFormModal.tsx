@@ -35,6 +35,8 @@ import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 const DEFAULT_TIERS = [
   { fromRank: 1, toRank: 1, points: 500 },
@@ -186,6 +188,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
   const tierMsg = tierError(tiers)
 
   const onSubmit = async (data: ProgramFormData) => {
+    if (blockedByTour()) return
     const payload = {
       name: data.name.trim(),
       description: data.description.trim() || undefined,
@@ -214,7 +217,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
   const totalIfFull = maxTierCost(tiers)
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('program.form')}
       open={open}
       onClose={onClose}
       size="lg"
@@ -224,7 +227,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={isCreating || isUpdating}>{tr('ProgramFormModal.cancel')}</Button>}
           primary={
-            <Button onClick={handleSubmit(onSubmit)} disabled={isCreating || isUpdating}>
+            <Button {...tourAnchor('program.form.submit')} onClick={handleSubmit(onSubmit)} disabled={isCreating || isUpdating}>
               {(isCreating || isUpdating) && <Loader2 className="animate-spin" aria-hidden="true" />}
               {isEdit ? tr('ProgramFormModal.save') : tr('ProgramFormModal.createProgram')}
             </Button>
@@ -234,7 +237,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
     >
       <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-4">
-        <div>
+        <div {...tourAnchor('program.form.name')}>
           <label className="text-label mb-1.5 block font-medium">{tr('ProgramFormModal.programName')}</label>
           <input
             {...register('name')}
@@ -247,7 +250,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
         {/* Quyết định NGAY TỪ ĐẦU: luật thường trực hay chỉ cho một kỳ. Trước đây phải
             vào màn hình chạy mới tuỳ biến được, người dùng phải hiểu hai khái niệm rời
             nhau mới dùng nổi. */}
-        <div>
+        <div {...tourAnchor('program.form.applies')}>
           <label className="text-label mb-2 block font-medium">{tr('ProgramFormModal.appliesTo')}</label>
           <div className="grid gap-2 sm:grid-cols-2">
             <button
@@ -302,7 +305,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
           )}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div {...tourAnchor('program.form.ranking')} className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="text-label mb-1.5 block font-medium">{tr('ProgramFormModal.rankBy')}</label>
             <Select
@@ -347,7 +350,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
           </div>
         </div>
 
-        <div>
+        <div {...tourAnchor('program.form.units')}>
           <label className="text-label mb-1.5 block font-medium">{tr('ProgramFormModal.unitScope')}</label>
           <Select value={orgUnitId} onValueChange={v => setValue('orgUnitId', v)}>
             <SelectTrigger className={inputCls}>
@@ -366,7 +369,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
         </div>
 
         {/* ── Bậc thưởng ── */}
-        <div>
+        <div {...tourAnchor('program.form.tiers')}>
           <label className="text-label mb-2 block font-medium">{tr('ProgramFormModal.defaultRewardTiers')}</label>
           <TierEditor tiers={tiers} onChange={t => setValue('tiers', t, { shouldValidate: true })} />
 
@@ -416,7 +419,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
           </div>
         </div>
 
-        <div>
+        <div {...tourAnchor('program.form.tie')}>
           <label className="text-label mb-1.5 block font-medium">{tr('ProgramFormModal.whenPeopleTie')}</label>
           <Select value={tiePolicy} onValueChange={(v) => setValue('tiePolicy', v as RewardTiePolicy)}>
             <SelectTrigger className={inputCls}>
@@ -451,7 +454,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
           {tr('ProgramFormModal.on')}
         </label>
 
-        <div className="rounded-card border border-[var(--color-border)] px-4 py-3">
+        <div {...tourAnchor('program.form.auto')} className="rounded-card border border-[var(--color-border)] px-4 py-3">
           <label className="text-label flex cursor-pointer items-start gap-2">
             <input
               type="checkbox"

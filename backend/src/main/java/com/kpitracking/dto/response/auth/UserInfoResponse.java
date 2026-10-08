@@ -22,6 +22,11 @@ public class UserInfoResponse {
     private Boolean requirePasswordChange;
     private Boolean hasSeenOnboarding;
     private Boolean isPlatformAdmin;
+    /**
+     * Đăng nhập được nhưng chưa thuộc tổ chức nào (không có membership, không phải quản trị nền tảng):
+     * frontend không được gọi API theo tổ chức mà đưa người dùng sang màn hình hướng dẫn.
+     */
+    private Boolean needsOrganization;
     /** Ngôn ngữ người dùng tự chọn; null = chưa chọn. */
     private String preferredLanguage;
     /** Ngôn ngữ thực dùng: tự chọn → mặc định của tổ chức → vi. */

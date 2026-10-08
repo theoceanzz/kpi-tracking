@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { userApi } from '../api/userApi'
+import { useApiAllowed } from '@/hooks/useApiAllowed'
 import type { PageParams } from '@/types/api'
 import type { UpdateUserRequest } from '@/types/user'
 import { toast } from 'sonner'
@@ -14,10 +15,11 @@ export function useUsers(
   params: PageParams & { keyword?: string; orgUnitIds?: string[]; organizationId?: string; role?: string; sortBy?: string; direction?: string; includeInactive?: boolean } = {},
   options: { enabled?: boolean } = {},
 ) {
+  const allowed = useApiAllowed('GET', '/users') // USER:VIEW / USER:VIEW_LIST
   return useQuery({
     queryKey: ['users', params],
     queryFn: () => userApi.getAll(params),
-    enabled: options.enabled ?? true,
+    enabled: (options.enabled ?? true) && allowed,
   })
 }
 

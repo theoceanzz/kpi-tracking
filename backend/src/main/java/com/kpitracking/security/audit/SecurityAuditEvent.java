@@ -21,6 +21,8 @@ public enum SecurityAuditEvent {
     WALLET_TRANSACTION,
     /** 403 — thiếu quyền hoặc chạm vào dữ liệu tổ chức khác. */
     ACCESS_DENIED,
+    /** Một người dính quá nhiều 403 trong thời gian ngắn — {@link ForbiddenBurstDetector}. */
+    FORBIDDEN_BURST,
     /** Bị AuthRateLimitFilter chặn. */
     RATE_LIMITED,
     /** Thư viện tài liệu (docs/DOCUMENTS_DESIGN.md §10): tải lên, đổi phạm vi, xoá, tải về tài liệu đơn vị/công ty,

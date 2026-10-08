@@ -11,6 +11,8 @@ import { useGiftShop } from '../hooks/useGifts'
 import type { GiftItem, Redemption } from '../types'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourAction } from '@/components/common/tours/actions'
 
 interface GiftShopGridProps {
   /** Số dư hiện tại, để hiện "thiếu bao nhiêu điểm" ngay trên thẻ quà. */
@@ -20,6 +22,7 @@ interface GiftShopGridProps {
 export default function GiftShopGrid({ balance }: GiftShopGridProps) {
   const { t } = useTranslation('rewards')
   const [redeeming, setRedeeming] = useState<GiftItem | null>(null)
+  useTourAction('myrewards.redeem.close', () => setRedeeming(null))
   // Mã quà phải bật lên NGAY sau khi đổi. Bắt nhân viên tự mở lại lịch sử để tìm mã là
   // cách chắc chắn nhất để họ tưởng đổi hụt và gọi cho bộ phận hỗ trợ.
   const [issued, setIssued] = useState<Redemption | null>(null)
@@ -35,7 +38,7 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
 
   if (!gifts || gifts.length === 0) {
     return (
-      <div className="rounded-card border border-dashed border-[var(--color-border)]">
+      <div {...tourAnchor('myrewards.shop')} className="rounded-card border border-dashed border-[var(--color-border)]">
         <EmptyState
           title={t('GiftShopGrid.theShopHasNoGiftsYet')}
           description={t('GiftShopGrid.whenTheCompanyAddsGiftsTo')}
@@ -46,7 +49,7 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
 
   return (
     <>
-      <div id="tour-gift-shop-grid" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div {...tourAnchor('myrewards.shop')} id="tour-gift-shop-grid" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {gifts.map((gift) => {
           const shortBy = gift.pointCost - balance
           // Hai lý do KHÔNG đổi được rất khác nhau — hết hàng thì chờ cũng vô ích, còn
@@ -149,7 +152,7 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
                         {t('GiftShopGrid.short')} {shortBy.toLocaleString(intlLocale())} {t('GiftShopGrid.pointsTopUpWhenRedeeming')}
                       </p>
                     )}
-                    <Button className="w-full" onClick={() => setRedeeming(gift)} disabled={outOfStock}>
+                    <Button {...tourAnchor('myrewards.redeem')} className="w-full" onClick={() => setRedeeming(gift)} disabled={outOfStock}>
                       <Gift aria-hidden="true" />
                       {outOfStock ? t('GiftShopGrid.outOfStock') : t('GiftShopGrid.giftRedemption')}
                     </Button>

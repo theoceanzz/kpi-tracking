@@ -41,6 +41,8 @@ import ConductInlineSheet, { type ConductSheetHandle } from '@/features/conduct/
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { blockedByTour } from '@/components/common/tours/guard'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 interface StaffEvaluationModalProps {
   open: boolean
@@ -433,7 +435,7 @@ export default function StaffEvaluationModal({
 
   return (
     <>
-    <Dialog
+    <Dialog {...tourAnchor('staffeval.dialog')}
       open={open}
       onClose={onClose}
       size="xl"
@@ -464,8 +466,8 @@ export default function StaffEvaluationModal({
           note={t('StaffEvaluationModal.approveAllSubmissionsAtOnceAnd')}
           secondary={<Button variant="outline" onClick={onClose} disabled={submitMutation.isPending}>{justEvaluated ? t('StaffEvaluationModal.close') : t('StaffEvaluationModal.cancel')}</Button>}
           primary={!justEvaluated && (
-            <Button
-              onClick={handleSubmit(data => submitMutation.mutate(data))}
+            <Button {...tourAnchor('staffeval.submit')}
+              onClick={handleSubmit(data => { if (!blockedByTour()) submitMutation.mutate(data) })}
               disabled={submitMutation.isPending || (submissionList.length === 0 && !periodEnded) || awaitingResubmission.length > 0}
               title={awaitingResubmission.length > 0
                 ? t('StaffEvaluationModal.finalizeBlockedAwaitingResubmission', { count: awaitingResubmission.length })
@@ -511,7 +513,7 @@ export default function StaffEvaluationModal({
             {/* ── 1. Chỉ tiêu KPI ─────────────────────────────────────────────
                 Bảng đọc + chấm từng KPI. Cột "chấm" dùng Select/Input chuẩn, ô chấm định lượng
                 đứng cạnh điểm hệ thống để thấy mình đang nâng/hạ bao nhiêu. */}
-            <Section
+            <Section {...tourAnchor('staffeval.kpis')}
               title={t('StaffEvaluationModal.kpis2', { length: submissionList.length })}
               hint={submissionList.length > 0 ? t('StaffEvaluationModal.systemScoreScored', { totalAutoScore: formatNumber(totalAutoScore), totalManagerScore: formatNumber(totalManagerScore) }) : undefined}
             >
@@ -599,7 +601,7 @@ export default function StaffEvaluationModal({
             {/* ── 2. Chấm điểm đợt ─────────────────────────────────────────────
                 Cùng khuôn "nhãn | ô nhập" với phiếu chốt kỳ: điểm cuối, hạnh kiểm, rồi xếp loại
                 là KẾT QUẢ ở hàng cuối. Thay cho tấm thẻ tím sticky chiếm nửa màn hình. */}
-            <Section title={t('StaffEvaluationModal.scoreThePeriod')} hint={readOnly ? t('StaffEvaluationModal.youAreInViewOnlyMode') : undefined}>
+            <Section {...tourAnchor('staffeval.score')} title={t('StaffEvaluationModal.scoreThePeriod')} hint={readOnly ? t('StaffEvaluationModal.youAreInViewOnlyMode') : undefined}>
               <div className="divide-y divide-[var(--color-border)] rounded-card border border-[var(--color-border)]">
                 <ScoreRow
                   label={<>{t('StaffEvaluationModal.endOfPeriodScore')} {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
@@ -713,7 +715,7 @@ export default function StaffEvaluationModal({
             </Section>
 
             {/* ── 3. Nhận xét & minh chứng ───────────────────────────────────── */}
-            <Section title={t('StaffEvaluationModal.commentsEvidence')}>
+            <Section {...tourAnchor('staffeval.comments')} title={t('StaffEvaluationModal.commentsEvidence')}>
                 {priorManagerEvals.length > 0 && (
                   <Collapsible label={t('StaffEvaluationModal.commentsFromTheLevelsThatScored')} count={priorManagerEvals.length} countLabel={t('StaffEvaluationModal.comments')}>
                     <ul className="space-y-3">

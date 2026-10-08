@@ -11,6 +11,7 @@ import F360RatingToggle from '@/features/feedback360/components/F360RatingToggle
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /**
  * Bật/tắt module của tổ chức.
@@ -271,7 +272,7 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
   }
 
   return (
-    <section className="mx-auto max-w-4xl overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+    <section {...tourAnchor('modules.list')} className="mx-auto max-w-4xl overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
       <div className="border-b border-[var(--color-border)] px-5 py-4">
         <h3 className="text-section-title">{t('ModuleSections.modulesFeatures')}</h3>
         <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
@@ -309,7 +310,7 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
                   )}
 
                   <div className="flex items-center gap-4 pt-1">
-                    <Button variant="ghost" size="sm" type="button" onClick={() => setOpenField(isOpen ? null : mod.field)} aria-expanded={isOpen}>
+                    <Button {...tourAnchor('modules.details')} variant="ghost" size="sm" type="button" onClick={() => setOpenField(isOpen ? null : mod.field)} aria-expanded={isOpen}>
                       {t('ModuleSections.details')}
                       <ChevronDown aria-hidden="true" className={cn('transition-transform', isOpen && 'rotate-180')} />
                     </Button>
@@ -336,7 +337,7 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
 
                 {/* Công tắc thẳng một cột bên phải ở mọi dòng — đây là thứ duy nhất
                     người dùng đến trang này để bấm. */}
-                <Switch
+                <Switch {...tourAnchor('modules.switch')}
                   checked={enabled}
                   onCheckedChange={() => handleToggle(mod)}
                   disabled={savingField === mod.field}

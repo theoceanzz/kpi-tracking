@@ -11,6 +11,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { useTranslation } from 'react-i18next'
 import { useStateDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 /**
  * Bước 2 của luồng đánh giá kỳ: CHẤM ĐIỂM PHÒNG BAN — mở từ nút "Chấm" trên dải bước.
@@ -51,6 +53,7 @@ export default function UnitScoreDialog({
   const dirty = (manual ? parsed : null) !== override || (manual && reason.trim() !== (summary.overrideReason ?? ''))
 
   const save = async () => {
+    if (blockedByTour()) return
     if (manual) {
       if (parsed == null || !Number.isFinite(parsed)) { toast.error(t('UnitScoreDialog.invalidUnitScore')); return }
       if (parsed < 0 || parsed > maxScore) { toast.error(t('UnitScoreDialog.theUnitScoreMustBeBetween', { maxScore })); return }
@@ -64,7 +67,7 @@ export default function UnitScoreDialog({
   }
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('unitscore.dialog')}
       open
       onClose={onClose}
       size="md"
@@ -75,7 +78,7 @@ export default function UnitScoreDialog({
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={isSaving}>{t('UnitScoreDialog.close')}</Button>}
           primary={canEdit && (
-            <Button onClick={save} disabled={isSaving || !dirty}>
+            <Button {...tourAnchor('unitscore.save')} onClick={save} disabled={isSaving || !dirty}>
               {isSaving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}
               {t('UnitScoreDialog.saveDepartmentScore')}
             </Button>
@@ -86,7 +89,7 @@ export default function UnitScoreDialog({
       <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-4">
         {/* Con số sẽ có hiệu lực — đổi màu/nhãn theo từng phím gõ. */}
-        <div className="flex flex-wrap items-end justify-between gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-4">
+        <div {...tourAnchor('unitscore.summary')} className="flex flex-wrap items-end justify-between gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-4">
           <div>
             <p className="text-eyebrow mb-1">{t('UnitScoreDialog.unitScore')}</p>
             {effective != null ? (
@@ -125,7 +128,7 @@ export default function UnitScoreDialog({
 
         {canEdit ? (
           <>
-            <div className="flex flex-wrap items-end gap-2">
+            <div {...tourAnchor('unitscore.manual')} className="flex flex-wrap items-end gap-2">
               <label className="flex flex-col gap-1.5">
                 <span className="text-eyebrow">{t('UnitScoreDialog.scoreTheUnitManually')}</span>
                 <Input
@@ -147,7 +150,7 @@ export default function UnitScoreDialog({
               )}
             </div>
             {/* Thanh kéo đi cùng ô nhập (một giá trị). Chưa gõ gì thì nút kéo đứng ở trung bình. */}
-            <div className="relative max-w-md px-2">
+            <div {...tourAnchor('unitscore.slider')} className="relative max-w-md px-2">
               {/* Vạch mốc trung bình thành viên: canh theo tâm nút kéo (rộng ~16px). */}
               {auto != null && auto >= 0 && auto <= maxScore && maxScore > 0 && (
                 <div

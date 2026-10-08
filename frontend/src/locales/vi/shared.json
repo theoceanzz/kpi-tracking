@@ -1,129 +1,4 @@
 {
-  "ai_assistant": {
-    "askInPlainLanguage": "🤖 Hỏi thẳng bằng tiếng Việt",
-    "conversationsKeepTheirThreadSoYou": "Hội thoại được giữ theo mạch, nên hỏi tiếp \"còn phòng B thì sao\" mà không cần nhắc lại bối cảnh.",
-    "eachQuestionUsesQuota": "🪙 Mỗi câu hỏi tốn hạn mức",
-    "figuresSummarizedByTheAssistantShould": "Số liệu do trợ lý tóm tắt vẫn nên đối chiếu ở phần Phân tích trước khi đưa vào báo cáo chính thức.",
-    "kAiCanReadKpiData": "K.AI đọc được dữ liệu KPI trong phạm vi bạn có quyền xem. Hỏi như hỏi một đồng nghiệp: \"phòng nào đang chậm nhất kỳ này\", \"so sánh quý trước với quý này\".",
-    "suggestionsAndPastConversations": "💡 Gợi ý và hội thoại cũ",
-    "theAssistantSeesExactlyWhatYou": "Trợ lý chỉ thấy đúng những gì bạn được thấy — nó không vượt qua phân quyền.",
-    "theAssistantUsesTheTokenQuota": "Trợ lý dùng hạn mức token mà đơn vị bạn được chia hằng tháng. Hết hạn mức thì K.AI ngừng trả lời cho tới kỳ sau hoặc tới khi được cấp thêm.",
-    "theSuggestionCardsAtTheTop": "Các thẻ gợi ý ở đầu màn là những phát hiện trợ lý tự rút ra từ số liệu hiện tại — bấm vào để hỏi sâu thêm. Cột bên trái lưu lại các cuộc hội thoại trước."
-  },
-  "analytics": {
-    "aBoldChipMeansTheCard": "Chip tô đậm là ô đã đặt khoảng riêng; chip nhạt là đang theo mặc định.",
-    "aCardSayingResultsNotComputed": "Ô báo \"chưa tính kết quả\" nghĩa là đợt đó chưa bấm Tính lại ở tab Kết quả đợt của thẻ điểm. Số ở đây đọc kết quả đã tính, không tự bịa.",
-    "achievementTrend": "Diễn biến mức đạt",
-    "addChart": "Thêm biểu đồ",
-    "addsMoreFromTheLibraryOn": "lấy thêm từ thư viện; trên ô thì nắm cụm chấm để kéo thả, kéo mép để đổi cỡ, menu góc phải để cấu hình, ghim hoặc xoá.",
-    "againstThe100TargetTheNumber": "so với mục tiêu 100%, số",
-    "aKpiSummaryOfTheUnit": "Tổng hợp KPI của đơn vị bạn phụ trách: tiến độ chung, tỉ lệ trễ hạn, xếp hạng nhân sự và các điểm rủi ro — tất cả theo khoảng thời gian đang lọc.",
-    "alreadyFiltersForLowProgressAnd": "đã lọc sẵn phần tiến độ thấp và sắp hết hạn — đó là thứ đáng xem đầu tiên mỗi tuần.",
-    "amIImprovingOrDeclining": "tôi đang tiến bộ hay đi xuống.",
-    "amILateOnAnySubmission": "tôi có đang trễ bài nào không.",
-    "and": ", và",
-    "atRiskObjectives": "Mục tiêu rủi ro",
-    "bscAchievement": "mức đạt BSC",
-    "bscHealthOfThePeriod": "🧭 Sức khoẻ BSC của đợt",
-    "capturesExactlyTheCardYouAre": ": chụp lại đúng ô đang xem để dán thẳng vào email hay slide họp, khỏi phải chụp màn hình rồi cắt.",
-    "cascadeCoverage": "độ phủ phân rã",
-    "cascadeCoverage2": "Độ phủ phân rã",
-    "changeTheCycleRightOnEach": "⏱️ Đổi kỳ ngay trên từng ô",
-    "checkBeforeAsking": "🧾 Đối chiếu trước khi thắc mắc",
-    "childUnitsPerformanceProgressSubmissions": "Đơn vị con: hiệu suất, tiến độ, nộp bài",
-    "chooseTheChartsYouWantTo": "🧱 Tự chọn biểu đồ muốn xem",
-    "comparesChildUnitsWithEachOther": "so các đơn vị con với nhau.",
-    "copyImage": "Sao chép ảnh",
-    "distributionMattersMoreThanTheAverage": "🔲 Phân bố quan trọng hơn trung bình",
-    "doNotRankUnitsByAn": "Đừng xếp hạng đơn vị chỉ bằng một con số trung bình — hình dạng của phân bố mới nói lên điều cần xử lý.",
-    "dotIsAUnitFailingThe": "là đơn vị không qua cửa chặn dù tổng điểm có thể vẫn cao. Chuyển sang \"Theo cây\" trong bảng cấu hình để xem đúng thứ tự công ty → phòng → team kèm trạng thái thẻ.",
-    "downToEachPerson": "🧑‍🤝‍🧑 Xuống tới từng người",
-    "eachCardHasItsOwnTime": "🗓️ Mỗi ô một khoảng thời gian",
-    "eachCardIsComputedOverThe": "Mỗi ô tính theo khoảng thời gian ghi ở dòng chip dưới tiêu đề — bấm chip để đổi. So sánh hai kỳ thì đổi khoảng rồi đọc lại cùng một ô, đừng so ô của kỳ này với ô của kỳ khác.",
-    "eachCardPicksItsOwnTime": "🗓️ Mỗi ô tự chọn khoảng thời gian",
-    "eachCardPicksItsOwnUnit": "Mỗi ô tự chọn đơn vị và đợt trong bảng cấu hình. Ô \"một đợt\" lấy đợt muộn nhất có kết quả trong khoảng bạn chọn.",
-    "eachCardsPeriodCycleOrDate": "Đợt, kỳ hoặc khoảng ngày của từng ô ghi ở dòng chip dưới tiêu đề — bấm vào để đổi cho riêng ô đó. Muốn xem lại một đợt cũ thì mở đúng ô muốn xem.",
-    "eachKpiAgainstTargetAndFloor": "Từng chỉ tiêu so với mục tiêu và sàn",
-    "eachViewHasAPeriodOr": "Trong mỗi góc nhìn đều có bộ chọn đợt hoặc kỳ. Số liệu chỉ có nghĩa khi bạn biết nó thuộc khoảng thời gian nào.",
-    "evaluationScoresAcrossPeriods": "Điểm đánh giá qua các đợt:",
-    "evaluationScoresAcrossPeriods2": "Điểm đánh giá qua các đợt",
-    "everyFigureIsPerCycle": "📅 Mọi con số đều theo kỳ",
-    "fiveCardsOverallProgressOverallPerformance": "Năm ô: tiến độ tổng quan, hiệu suất tổng quan, số mục tiêu đã hoàn thành, số mục tiêu đang ở diện rủi ro, và tổng nhân sự thuộc phạm vi bạn quản lý.",
-    "fiveSummaryCardsKpisYouHold": "Năm ô tóm tắt: chỉ tiêu đang đảm nhiệm, tiến độ, điểm số và tình trạng bài nộp qua các đợt đã chấm.",
-    "fourScorecardFiguresForThePeriod": "Bốn con số của thẻ điểm trong đợt:",
-    "hoverOverACardAndGrab": "Rê chuột lên một ô rồi nắm cụm chấm để kéo đổi vị trí, kéo mép để đổi cỡ; bấm",
-    "hoverOverACardOpenThe": "Rê chuột lên ô, mở menu ở góc phải và chọn",
-    "inEffectHowManyUnits": "đang áp dụng, bao nhiêu đơn vị",
-    "isTheBscScorecardIsThe": "là thẻ điểm BSC: công ty có đi đúng chiến lược không. Dòng “Dành cho” trên mỗi thẻ nói mục đó có phải của bạn không.",
-    "isTheUnitYouManageAnd": "là đơn vị bạn quản lý, và so sánh đơn vị đó với các đơn vị khác.",
-    "isYourOwnResultsOnlyPeople": "là kết quả của riêng bạn — chỉ người nộp báo cáo mới có.",
-    "kpisTrendsAndCascading": "🎯 Chỉ tiêu, xu hướng và phân rã",
-    "lookAtTheRiskCardFirst": "🚨 Nhìn vào ô rủi ro trước",
-    "myKpiList": "Danh sách KPI tôi đảm nhiệm:",
-    "objectivesOfTheWholeUnit": "👥 Mục tiêu của cả đơn vị",
-    "objectivesThatFallIntoTheRisk": "Mục tiêu vào diện rủi ro thường không tự thoát ra. Xử lý lúc còn nửa kỳ thì kịp; để tới cuối kỳ thì chỉ còn cách giải thích.",
-    "okrOff": "tắt OKR",
-    "okrOn": "bật OKR",
-    "oneAchievementDotPerUnitThe": "Mỗi đơn vị một chấm mức đạt, vạch đứng là mục tiêu 100%. Chấm",
-    "onNarrowScreensTheTreeIs": "Trên màn hình hẹp, cây nằm sau nút \"Chọn đơn vị\" ở đầu phần nội dung.",
-    "passTheGateItems": "qua hạng mục chặn",
-    "peopleByRole": "Cơ cấu nhân sự theo vai trò",
-    "peopleRanking": "Xếp hạng nhân sự",
-    "personal": "Cá nhân",
-    "plotsAchievementAcrossPeriodsSplittableBy": "vẽ mức đạt qua các đợt, tách được theo 4 lĩnh vực;",
-    "putsActualsNextToTheTarget": "đặt thực tế cạnh mục tiêu và sàn của từng dòng trên thẻ điểm;",
-    "recordsTheScoreAndCommentsOf": "ghi lại điểm và nhận xét của từng đợt. Thấy điểm không như mong đợi thì xem ở đây trước khi hỏi quản lý — thường lý do đã nằm sẵn trong nhận xét.",
-    "red": "đỏ",
-    "scorecardAchievementOfEachUnit": "🏢 Mức đạt thẻ điểm của từng đơn vị",
-    "seeAnEmptyChartCheckThe": "Thấy biểu đồ trống? Kiểm tra bộ chọn đợt trước khi kết luận là không có dữ liệu — thường là đang đứng ở một đợt chưa ai nộp gì.",
-    "seeOkrOrSeeKpi": "🔀 Thấy OKR hay thấy KPI",
-    "showsAFewIndividualsPullingThe": "cho thấy một vài cá nhân kéo tụt phần còn lại.",
-    "showsAWholeDepartmentBehindPlan": "cho thấy cả một phòng ban đang chậm so với kế hoạch.",
-    "showsKpis": "thì xem theo chỉ tiêu KPI.",
-    "showsObjectivesAndKeyResults": "thì xem theo mục tiêu và kết quả then chốt;",
-    "showsWhichKpisAssignedToUnits": "cho biết chỉ tiêu nào đã giao xuống đơn vị đủ, thiếu hay vượt.",
-    "showsWhoCarriesWhichObjectiveSo": "cho biết ai đang gánh mục tiêu nào, để nhận ra người quá tải và người chưa được giao gì. Khối",
-    "startAtTheTopLevelAnd": "Bắt đầu ở cấp cao nhất rồi bấm vào một đơn vị để đi xuống cấp dưới của nó — cứ thế tới tận từng nhân sự.",
-    "submissionApprovalStatus": "Tình trạng duyệt bài nộp:",
-    "takeFiguresOffTheScreen": "📋 Mang số liệu ra khỏi màn hình",
-    "theBlock": "Khối",
-    "theCard": "Ô",
-    "theCardFollowsClickItTo": ". Bấm vào đó để mở bảng cấu hình: chọn theo đợt, theo kỳ, hoặc khoảng ngày tự do cho riêng ô ấy.",
-    "theCardIsViewingClickIt": ". Bấm vào để đổi cho riêng ô đó — không có bộ lọc chung cho cả trang.",
-    "theChipRowUnderEachCards": "Dòng chip dưới tiêu đề mỗi ô ghi ô đó đang xem",
-    "theColoredStripShowsTheSelected": "Dải màu ghi tên đơn vị đang chọn, cấp của nó, số nhân sự và tổng số KPI. Đây là mốc để biết mọi con số bên dưới đang nói về phạm vi nào.",
-    "theFirstTwoGroupsChangeWith": "Hai cụm đầu đổi theo cấu hình tổ chức:",
-    "theFixesAreCompletelyDifferentThe": "Cách xử lý khác hẳn nhau: cái đầu là vấn đề mục tiêu đặt quá cao hoặc thiếu nguồn lực, cái sau là chuyện của từng người.",
-    "theLayoutIsRememberedForYour": "Bố cục nhớ riêng cho tài khoản của bạn, không ảnh hưởng tới ai khác. Lỡ tay thì có nút đặt lại mặc định.",
-    "theLayoutIsRememberedForYour2": "Bố cục nhớ riêng cho tài khoản bạn, không ảnh hưởng tới người khác. Lỡ tay thì có nút đặt lại mặc định trong thư viện.",
-    "theMemberTableAndRatingMatrix": "Bảng thành viên và ma trận xếp loại cho thấy nhân sự phân bố ra sao giữa các hạng. Một đơn vị điểm trung bình đẹp nhưng dồn hết vào hạng giữa là chuyện khác hẳn với đơn vị có cả người xuất sắc lẫn người yếu.",
-    "thePictureOfYourUnit": "🏛️ Bức tranh của đơn vị bạn",
-    "theTrendMattersMoreThanTodays": "📈 Xu hướng quan trọng hơn con số hôm nay",
-    "theUnitObjectiveAndKrTree": "Bảng \"Cây mục tiêu và KR của đơn vị\" bên dưới nối mục tiêu với các chỉ tiêu cụ thể đang đẩy nó đi.",
-    "theUnitTreeOnTheLeft": "🌳 Cây đơn vị bên trái",
-    "theyAreNotTwoParallelSets": "Không phải hai bộ thẻ song song — mỗi lúc chỉ một cặp hiện ra, nên bạn sẽ không thấy đủ cả bốn thẻ.",
-    "thisIsViewOnlyToAdd": "Ở đây chỉ xem kết quả. Muốn thêm bớt chỉ tiêu, đổi trọng số, phân rã xuống đơn vị hay tính lại kết quả đợt thì sang \"Thiết lập công cụ › Quản lý BSC\".",
-    "thisRowOfCardsSummarizesAll": "Dãy ô này tóm tắt toàn bộ mục tiêu bạn đang nắm. Tiến độ của một mục tiêu là tổng hợp từ các kết quả then chốt bên dưới nó, không nhập tay.",
-    "thisScreenCanBeRearranged": "🧱 Màn hình này sắp xếp lại được",
-    "threeBlocksAnswerThreeQuestions": "🥧 Ba khối trả lời ba câu hỏi",
-    "threeGroupsThreeViews": "🔭 Ba cụm, ba tầm nhìn",
-    "timeRange": "khoảng thời gian nào",
-    "toAddMoreFromTheLibrary": "để lấy thêm từ thư viện. Mọi thay đổi tự lưu.",
-    "trendChartsShowWhetherYouAre": "Biểu đồ xu hướng cho biết bạn đang tăng tốc hay chững lại. Đạt 60% ở giữa kỳ mà đường đi ngang thì đáng lo hơn là 40% mà đang dốc lên.",
-    "twoKindsOfSlowDoNot": "⚠️ Hai loại chậm, đừng nhầm",
-    "underEachCardsTitleAChip": "Dưới tiêu đề mỗi ô có dòng chip cho biết ô đang theo",
-    "unit": "Đơn vị",
-    "unit2": "đơn vị nào",
-    "unitAndTimeRangeLiveOn": "🗓️ Đơn vị và khoảng thời gian nằm ở từng ô",
-    "unitScorecards": "thẻ điểm đơn vị",
-    "whereMyWorkIsStuck": "việc của tôi đang đọng ở khâu nào.",
-    "whereToEditScorecards": "🔧 Sửa thẻ điểm ở đâu",
-    "whereYouAre": "📍 Bạn đang đứng ở đâu",
-    "whereYourObjectivesStand": "🎯 Mục tiêu của bạn đang tới đâu",
-    "whetherKpisAssignedToUnitsAre": "— chỉ tiêu đã giao xuống đơn vị đủ hay thiếu.",
-    "wholeCompany": "Toàn công ty",
-    "yourOwnResults": "📊 Kết quả của riêng bạn"
-  },
   "AssigneeAvatars": {
     "assignees": "Đảm nhiệm:"
   },
@@ -222,40 +97,45 @@
     "imageCopiedToTheClipboard": "Đã sao chép ảnh vào Clipboard!"
   },
   "dashboard": {
-    "addAndRemoveContent": "➕ Thêm và bớt nội dung",
-    "addChart": "Thêm biểu đồ",
+    "addBody": "Bấm nút này để mở thư viện biểu đồ — hoặc bấm Tiếp theo, hướng dẫn sẽ mở giúp bạn.",
+    "addTitle": "Thêm biểu đồ",
     "aDeputyBothManagesAnArea": "Phó vừa quản một mảng vừa là người có KPI riêng, nên bố cục mặc định gồm cả một widget cấp đơn vị và một widget cá nhân.",
-    "atTheTopOfTheLibrary": "ngay đầu thư viện, rồi sửa dần. Lỡ tay vẫn còn nút Hoàn tác trong thông báo hiện ra.",
-    "click": "Bấm",
-    "customize": "Tuỳ chỉnh",
-    "customizeRightOnTheTitleBar": "⚙️ Tuỳ chỉnh ngay trên thanh tiêu đề",
-    "eachCardHereIs": "Mỗi ô ở đây là",
-    "exactlyTheChartAndExactlyThe": "đúng biểu đồ và đúng số liệu",
-    "hideShow": "Ẩn/Hiện",
-    "inEditMode": "Trong chế độ chỉnh sửa,",
-    "keepsTheWidgetButTemporarilyPuts": "giữ widget lại nhưng tạm cất khỏi lưới.",
-    "notSureWhereToStartChoose": "Chưa biết bắt đầu từ đâu thì chọn một",
-    "onTheAnalyticsStatisticsPageNot": "bên trang Phân tích & Thống kê, không phải một bản dựng lại — nên con số hai nơi luôn khớp nhau.",
-    "opensTheWidgetLibraryClickA": "mở thư viện widget: bấm một thẻ để thêm, bấm lại để gỡ.",
+    "autosaveBody": "Không cần bấm Lưu: thả tay là bố cục được lưu, trạng thái Đang lưu / Đã lưu hiện ở đây. Bố cục lưu riêng cho từng người, từng vai trò.",
+    "autosaveTitle": "Tự động lưu",
+    "cardBody": "Bấm một thẻ để thêm biểu đồ vào trang, bấm lại để gỡ. Nhãn \"Gợi ý cho bạn\" đánh dấu biểu đồ hợp với vị trí của bạn.",
+    "cardTitle": "Bấm thẻ để thêm",
+    "cellBody": "Số liệu trong ô lấy đúng từ trang Phân tích & Thống kê, nên hai nơi luôn khớp nhau. Rê chuột lên biểu đồ để xem chi tiết.",
+    "cellTitle": "Mỗi ô là một biểu đồ",
+    "doneBody": "Đóng thư viện. Những gì bạn đã thêm hay gỡ đều đã được lưu.",
+    "doneTitle": "Xong",
+    "dragBody": "Giữ cụm chấm này rồi kéo ô tới vị trí mới. Các ô khác tự dồn lại cho vừa.",
+    "dragTitle": "Kéo để đổi chỗ",
+    "filterBody": "Chọn chip gợi ý để chỉ xem những biểu đồ hợp với vị trí của bạn; chọn Tất cả để xem mọi biểu đồ.",
+    "filterTitle": "Lọc theo vị trí của bạn",
+    "groupsBody": "Bấm tên nhóm để cuộn tới đó. Con số cho biết nhóm có bao nhiêu biểu đồ.",
+    "groupsTitle": "Nhảy nhanh theo nhóm",
+    "helpBody": "Bạn đã nắm xong trang Tổng quan. Cần xem lại thì bấm nút này — mỗi màn hình đều có hướng dẫn riêng.",
+    "helpTitle": "Xem lại hướng dẫn",
+    "introDeputyTitle": "Bảng dành cho phó đơn vị",
+    "introDirectorTitle": "Bảng dành cho giám đốc",
+    "introHeadTitle": "Bảng dành cho trưởng đơn vị",
+    "introStaffTitle": "Bảng dành cho bạn",
+    "menuBody": "Nút ⋮ có Cấu hình, Sao chép ảnh, Lên/Xuống, Đổi độ rộng và Gỡ khỏi trang. Không dùng chuột vẫn sắp xếp được bằng menu này.",
+    "menuTitle": "Menu của ô",
     "overviewDeputyHead": "Tổng quan (Phó đơn vị)",
     "overviewDirector": "Tổng quan (Giám đốc)",
     "overviewPersonal": "Tổng quan (Cá nhân)",
     "overviewUnitHead": "Tổng quan (Trưởng đơn vị)",
-    "rememberToClickSaveLeavingWith": "Nhớ bấm Lưu — thoát bằng Huỷ sẽ bỏ hết thay đổi trong lượt chỉnh sửa đó.",
-    "submissionsAndKpisPendingApprovalAre": "Bài nộp và chỉ tiêu chờ duyệt nằm ở mục Quản lý hiệu suất trên thanh bên.",
-    "submittingReportsAndViewingYourEvaluations": "Nộp báo cáo và xem đánh giá của bạn nằm ở mục \"Của tôi\" trên thanh bên.",
-    "suggestedLayout": "bố cục gợi ý",
-    "theBoardForDeputyHeads": "🤝 Bảng dành cho phó đơn vị",
-    "theBoardForDirectors": "📊 Bảng dành cho giám đốc",
-    "theBoardForUnitHeads": "👥 Bảng dành cho trưởng đơn vị",
-    "theBoardForYou": "⭐ Bảng dành cho bạn",
-    "theHomePageIsYourWidget": "🧩 Trang chủ là lưới widget của bạn",
+    "presetsBody": "Áp cả một bộ biểu đồ dựng sẵn chỉ với một lần bấm. Có hỏi xác nhận trước, và vẫn còn nút Hoàn tác sau đó.",
+    "presetsTitle": "Bố cục gợi ý",
+    "resetBody": "Đưa trang về bố cục mặc định của vai trò. Có hỏi xác nhận trước khi đặt lại.",
+    "resetTitle": "Đặt lại bố cục",
+    "resizeBody": "Kéo góc hoặc cạnh của ô để làm ô to hơn hay nhỏ lại.",
+    "resizeTitle": "Kéo góc để đổi kích thước",
+    "searchBody": "Gõ tên hoặc mô tả để lọc nhanh. Bạn có thể gõ thử ngay bây giờ.",
+    "searchTitle": "Tìm biểu đồ",
     "theHomePageShowsTheKpis": "Trang chủ hiện KPI bạn đang đảm nhiệm: xu hướng theo thời gian và bảng chi tiết từng chỉ tiêu — bấm vào một dòng để xem toàn bộ bài nộp và điểm của nó.",
-    "theLayoutIsSavedPerPerson": "Bố cục được lưu theo từng người và từng vai trò, nên bạn sắp thế nào thì lần sau mở ra vẫn thế.",
-    "toEnterEditModeDragAnd": "để vào chế độ chỉnh sửa: kéo-thả đổi chỗ, kéo cạnh đổi kích thước, hoặc dùng các nút mũi tên ngay trên mỗi ô nếu bạn không dùng chuột.",
     "unitLevelWidgetsHereFollowThe": "Widget cấp đơn vị ở đây bám theo phạm vi bạn quản: tiến độ của phòng, ai đang trễ hạn, và bảng xếp hạng nhân sự thuộc quyền bạn.",
-    "wantToGoDeeperIntoA": "Muốn đi sâu hơn một ô nào đó? Mở mục Phân tích — cùng dữ liệu, thêm bộ lọc thời gian và đợt.",
-    "wantToSeeOnlyYourOwn": "Muốn xem riêng kết quả của chính bạn? Dùng công tắc \"Dashboard cá nhân\" ở đầu trang.",
     "youSeeBothUnitLevelWidgets": "Bạn thấy được cả widget cấp đơn vị (xu hướng KPI, hiệu suất từng đơn vị, rủi ro, xếp hạng) lẫn widget cá nhân của chính bạn."
   },
   "DashboardCustomizeChrome": {
@@ -346,7 +226,12 @@
     "noFlowsInThisScopeYet": "Chưa có luồng nào trong phạm vi này"
   },
   "GlobalUploadProgress": {
+    "dismiss": "Đóng",
+    "filesDone": "{{done}}/{{total}} tệp",
     "processing": "Đang xử lý",
+    "reload": "Tải lại",
+    "retry": "Thử lại",
+    "takingLong": "Đang lâu hơn bình thường. Bấm Tải lại nếu chờ mãi không xong.",
     "uploadComplete": "Tải lên hoàn tất",
     "uploadError": "Lỗi tải lên",
     "uploading": "Đang tải lên..."
@@ -373,105 +258,6 @@
     "noDataToBuildTheDistribution": "Chưa có dữ liệu để dựng phân phối",
     "ofTotal": "% tổng số",
     "quantity": "Số lượng"
-  },
-  "inherited": {
-    "adjustFigures": "điều chỉnh số liệu",
-    "adjustmentRequestsAreUsuallyTimeSensitive": "Các yêu cầu điều chỉnh thường mang tính thời điểm. Hãy ưu tiên xử lý các mục có",
-    "agreeOnAndApproveGoalsRight": "💡 Hãy thống nhất và phê duyệt mục tiêu ngay từ đầu kỳ để nhân viên có lộ trình làm việc rõ ràng.",
-    "andEmployeesProgressOverTime": "và sự tiến bộ của nhân viên theo thời gian.",
-    "andTheKpiIsInStatus": "và chỉ tiêu đã ở trạng thái",
-    "aPowerfulFilteringToolThatLets": "Đây là công cụ lọc mạnh mẽ giúp quản lý dễ dàng tìm kiếm và theo dõi KPI của bất kỳ nhân viên nào trong kỳ đánh giá.",
-    "approvalFlow": "🔄 Luồng Phê duyệt",
-    "approved": "Đã duyệt (Approved)",
-    "approved2": "Đã duyệt",
-    "assignWork": "ủy quyền/giao việc",
-    "atTheEndInIt": "ở cuối. Trong đó,",
-    "bulkApprove": "Phê duyệt hàng loạt",
-    "buttonAsSoonAsYouFinish": "ngay khi bạn hoàn thành một phần hoặc toàn bộ chỉ tiêu để cập nhật kết quả.",
-    "cascadeGoals": "🌿 Phân rã Mục tiêu (Delegate)",
-    "cascadeKpi": "Phân rã chỉ tiêu",
-    "centralizedKpiManagement": "🎯 Quản lý Chỉ tiêu Tập trung",
-    "changeControl": "🔄 Kiểm soát Thay đổi",
-    "checkCarefullyTheTargetsYourManager": "💡 Hãy kiểm tra kỹ các \"Mục tiêu (Target)\" mà quản lý đã giao để lập kế hoạch triển khai hiệu quả.",
-    "clickARequestToSeeThe": "Nhấn vào yêu cầu để xem",
-    "clickEachRowToSeeThe": "Nhấn vào từng dòng để xem",
-    "clickThe": "Nhấn nút",
-    "closelyTrackTheStatusOfEach": "Theo dõi sát sao trạng thái của từng KPI từ lúc khởi tạo cho đến khi hoàn thành.",
-    "closelyTrackYourManagersApprovalProgress": "Theo dõi sát sao tiến độ phê duyệt từ cấp trên đối với các báo cáo kết quả của bạn.",
-    "competencyGrowthChart": "biểu đồ tăng trưởng năng lực",
-    "countdown": "đếm ngược thời gian",
-    "detailedReason": "Lý do chi tiết",
-    "duringTheWorkIfObjectiveChanges": "Trong quá trình làm việc, nếu có những biến động khách quan từ thị trường hoặc tổ chức, nhân viên có thể gửi yêu cầu",
-    "eachRowHasAMenu": "Mỗi dòng có menu",
-    "easilyLookUpResultsFromMany": "Dễ dàng tra cứu lại kết quả từ nhiều kỳ trước đó để theo dõi",
-    "evaluationDetails": "Chi tiết Đánh giá",
-    "evidenceDocuments": "Tài liệu minh chứng",
-    "evidenceForTheChange": "📎 Bằng chứng Thay đổi",
-    "fairEvaluation": "🔍 Đánh giá Công tâm",
-    "filterByUnit": "🏢 Lọc Theo Đơn vị",
-    "filterPrioritize": "⚡ Lọc & Ưu tiên",
-    "filterUrgentRequests": "🚥 Lọc Yêu cầu Cấp bách",
-    "forTheManagerToApprove": "để quản lý phê duyệt.",
-    "hereYouCanCompareTheGap": "Tại đây bạn có thể đối chiếu sự chênh lệch giữa Điểm tự chấm của nhân viên và Điểm phê duyệt cuối cùng của quản lý.",
-    "historyLookup": "📂 Tra cứu Lịch sử",
-    "howMuchThisGoalAffectsYour": "Mức độ ảnh hưởng của mục tiêu này đến tổng điểm cuối kỳ của bạn.",
-    "howTheResultIsMeasuredVnd": "Cách thức đo lường kết quả (VNĐ, %, Giờ, Sản phẩm...).",
-    "ifASubmissionIs": "Nếu bài nộp bị",
-    "ifOverdueTheRequestClosesAutomatically": "⚠️ Nếu quá hạn, yêu cầu sẽ tự động bị đóng để đảm bảo tính kỷ luật của dữ liệu hệ thống. Nếu bị từ chối, hãy đọc kỹ nhận xét để bổ sung lý do thuyết phục hơn cho lần sau.",
-    "importantMakeSureTheTotalWeight": "⚠️ QUAN TRỌNG: Hãy đảm bảo tổng trọng số (%) của các KPI cho một nhân viên phải đạt đúng 100% để hệ thống tính điểm chính xác.",
-    "isAboutToRunOutTo": "sắp hết để đảm bảo tính kỷ luật dữ liệu.",
-    "isAShortcutTo": "là phím tắt để",
-    "kpisThatMeetTheStandardTo": "các KPI đã đạt chuẩn để đẩy nhanh tiến độ thiết lập mục tiêu cho cả bộ phận.",
-    "n24Hours": "24 giờ",
-    "noteEachRequestOnlyHas": "Lưu ý: Mỗi yêu cầu chỉ có thời hạn",
-    "onlyAcceptWhenTheReasonIs": "💡 Chỉ chấp thuận khi lý do thực sự hợp lý, khách quan và có minh chứng đi kèm nếu cần thiết.",
-    "onlyShownWhenTheOrganizationHas": "Chỉ hiện khi tổ chức bật",
-    "performanceResults": "📈 Kết quả Hiệu suất",
-    "personalObjectivesBoard": "📝 Bảng Mục tiêu Cá nhân",
-    "progress": "Tiến độ:",
-    "quickHandling": "⚡ Xử lý Nhanh",
-    "rankingBoard": "🏆 Bảng Xếp hạng",
-    "readYourManagersFeedbackCarefullyThen": ", hãy đọc kỹ phần phản hồi của quản lý để chỉnh sửa và gửi lại ngay lập tức.",
-    "rejected": "Từ chối (Rejected)",
-    "rememberOnlyKpisInThe": "💡 Ghi nhớ: Chỉ những KPI ở trạng thái",
-    "reviewDepartmentByDepartmentToEnsure": "Duyệt theo từng phòng ban để đảm bảo tính công bằng và nhất quán về khối lượng công việc giữa các nhân sự có vị trí tương đương nhau.",
-    "reviewGoals": "🤝 Xét duyệt Mục tiêu",
-    "reviewOverview": "📊 Tổng quan Xét duyệt",
-    "setGoals": "✍️ Thiết lập Mục tiêu",
-    "specificMeasurableAchievableRelevantTimeBound": "(Cụ thể, Đo lường được, Khả thi, Thực tế, Có thời hạn).",
-    "startAssigningKpisToYourTeam": "Bắt đầu giao KPI cho đội ngũ của bạn. Hãy ghi nhớ nguyên tắc",
-    "statusOfficiallyTakeEffectAndCount": "mới chính thức có hiệu lực và được tính vào kết quả đánh giá cuối kỳ.",
-    "submissionStatus": "🚥 Trạng thái Bài nộp",
-    "submit": "\"Nộp bài\"",
-    "summaryFiguresToQuicklyGraspThe": "Các số liệu tổng hợp giúp bạn nắm bắt nhanh khối lượng công việc đang chờ xử lý và tiến độ phê duyệt chung của toàn đơn vị.",
-    "theEmployeeAttached": "mà nhân viên đã đính kèm.",
-    "theEmployeeGave": "mà nhân viên đưa ra.",
-    "theKeyParametersYouNeedTo": "Các thông số quan trọng bạn cần nắm vững để tối ưu điểm số:",
-    "thisIsTheArchiveOfThe": "Đây là kho lưu trữ toàn bộ lịch sử báo cáo và minh chứng bạn đã gửi đi.",
-    "thisIsTheFinalScoreSheet": "Đây là \"bảng điểm\" cuối cùng phản ánh nỗ lực của bạn hoặc đội ngũ trong suốt kỳ đánh giá.",
-    "thisIsTheMostImportantStep": "Đây là bước quan trọng nhất để đảm bảo nhân viên không đặt mục tiêu quá thấp hoặc quá xa rời thực tế.",
-    "thisResultIsTheMostImportant": "💡 Kết quả này là cơ sở quan trọng nhất cho các chính sách Khen thưởng, Thăng tiến và Đào tạo của công ty.",
-    "tipIfAGoalNoLonger": "Mẹo: Nếu mục tiêu không còn phù hợp với thực tế, hãy sử dụng tính năng \"Yêu cầu điều chỉnh\" để gửi đề xuất lên cấp trên.",
-    "tipLeaveSincereCommentsFeedbackPositive": "💡 Mẹo: Hãy để lại những lời nhận xét (Feedback) chân thành. Phản hồi tích cực hoặc góp ý xây dựng sẽ giúp nhân viên cải thiện hiệu suất rõ rệt trong các đợt tiếp theo.",
-    "tipOnlyApproveWhenYouAre": "Mẹo: Chỉ phê duyệt khi bạn đã chắc chắn các chỉ tiêu tuân thủ đúng định hướng của công ty.",
-    "tipTheSystemAutomaticallyCreatesA": "Mẹo: Hệ thống sẽ tự động tạo một chỉ tiêu con liên kết với chỉ tiêu này, giúp việc theo dõi dòng chảy chỉ tiêu trở nên minh bạch và tự động hoàn toàn.",
-    "toSubordinates": "cho cấp dưới.",
-    "trackExecute": "🚀 Theo dõi & Thực hiện",
-    "trackTheHandlingDeadline": "⏳ Theo dõi Hạn xử lý",
-    "unitOfMeasure": "Đơn vị:",
-    "useFiltersToPrioritizeApprovingImportant": "Sử dụng bộ lọc để ưu tiên phê duyệt các báo cáo quan trọng hoặc các nhân sự có hạn chót gần nhất.",
-    "waterfall": "thác nước",
-    "weight": "Trọng số:",
-    "welcomeAllTheTasksAndGoals": "Chào mừng bạn! Mọi nhiệm vụ và mục tiêu bạn cần thực hiện trong kỳ này đều được tập trung tại đây.",
-    "whenApprovingSubmissionsClickEachRow": "Khi phê duyệt bài nộp, hãy nhấn vào từng dòng để xem chi tiết",
-    "whereTheTargetAdjustmentRequestsYou": "Nơi lưu trữ và theo dõi trạng thái các mong muốn điều chỉnh mục tiêu mà bạn đã gửi lên cấp trên.",
-    "workLog": "📂 Nhật ký Công việc",
-    "youCan": "Bạn có thể",
-    "youCanFilterByDepartmentKpi": "Bạn có thể lọc theo phòng ban, trạng thái chỉ tiêu hoặc tìm đích danh một nhân viên cụ thể.",
-    "youCanQuicklyFilterByEach": "💡 Bạn có thể lọc nhanh theo từng phòng ban con để quản lý tập trung hơn.",
-    "youCanUseThisDataTo": "💡 Bạn có thể sử dụng dữ liệu này để đối chiếu điểm số hoặc làm bằng chứng bảo vệ kết quả công việc khi kết thúc kỳ đánh giá.",
-    "youMakeTheFinalDecisionOn": "⚠️ Bạn là người quyết định cuối cùng có chấp thuận các thay đổi này hay không.",
-    "yourRequests": "🔄 Yêu cầu của Bạn"
   },
   "Lollipop": {
     "value": "Giá trị ({{trim}})",
@@ -500,104 +286,6 @@
     "readAloud": "Đọc bằng giọng nói",
     "stopReading": "Dừng đọc"
   },
-  "my_space": {
-    "above": "trên",
-    "aCardWithARedDot": "Thẻ nào có chấm đỏ nghĩa là ở đó có việc chưa xong — thường là bài nộp tới hạn.",
-    "adjustmentRequest": "đề nghị điều chỉnh",
-    "aRedDotIsWorkWaiting": "🔴 Chấm đỏ là việc đang chờ bạn",
-    "breakingADailyStreakLosesThe": "Chuỗi ngày liên tiếp bị đứt là mất luôn phần thưởng chuỗi, phải gây lại từ đầu.",
-    "certificates": "Chứng nhận",
-    "choose": "Chọn",
-    "clickingRedeemDeductsPointsImmediatelyBefore": "Bấm đổi là điểm bị trừ ngay, trước khi quà được giao. Yêu cầu chuyển sang tab",
-    "conversionIsOneWayMoneyTo": "Chiều đổi chỉ có một: tiền ra điểm được, điểm về lại tiền thì không.",
-    "convertAtTheCurrentRate": "🔁 Quy đổi theo tỉ giá hiện hành",
-    "convertToPoints": "Đổi sang điểm",
-    "eachCardShowsThePointPrice": "Mỗi thẻ hiện giá theo điểm và số lượng còn lại. Món chưa đủ điểm ghi rõ bạn còn",
-    "eachCriterionHasAScoreField": "Mỗi tiêu chí có ô điểm và ô",
-    "eachRowShowsTheReasonThe": "Từng dòng ghi rõ lý do, người trao và thời điểm. Đây là chỗ đối chiếu khi bạn thấy số dư không khớp với những gì mình nhớ.",
-    "eachTopUpHasItsOwn": "Mỗi lệnh nạp có nội dung chuyển khoản riêng và một khoảng thời gian hiệu lực. Chuyển đúng nội dung thì hệ thống tự khớp và cộng tiền, thường trong vài phút.",
-    "enterTheAmountYouWantTo": "Nhập số tiền muốn đổi, hệ thống hiện ngay số điểm nhận được. Tỉ giá do tổ chức đặt và có thể thay đổi — số điểm tính theo tỉ giá tại đúng thời điểm bạn bấm đổi.",
-    "evaluations": "đánh giá",
-    "everyBalanceMovement": "🧾 Mọi biến động số dư",
-    "everythingThatIsYours": "👤 Mọi thứ của riêng bạn",
-    "evidence": "dẫn chứng",
-    "evidenceMattersMoreThanTheScore": "📝 Dẫn chứng quan trọng hơn điểm",
-    "exportExcel": "Xuất Excel",
-    "exportsTheWholeFormToA": "lấy nguyên phiếu ra tệp để lưu hoặc in.",
-    "fieldTheManagerScoresBasedOn": ". Quản lý chấm dựa trên dẫn chứng bạn nêu, nên bỏ trống ô này là tự bỏ mất phần lập luận của mình.",
-    "fourTabsSpendViewShowOff": "🗂️ Bốn tab: tiêu, xem, khoe, nhận",
-    "giftShop": "Cửa hàng quà",
-    "ifAKpiNoLongerFits": ". Chỉ tiêu không còn phù hợp thì gửi",
-    "ifAnItemStaysPendingToo": "Món nằm quá lâu ở trạng thái chờ thì nhắc người phụ trách thưởng — điểm của bạn đã bị trừ rồi.",
-    "ifTheCompanyHasNotBuilt": "Công ty chưa dựng mẫu riêng thì màn hình in vẫn có sẵn vài thiết kế để chọn.",
-    "ifTheTransferDescriptionIsWrong": "Ghi sai nội dung chuyển khoản thì lệnh không tự khớp được, phải nhờ người quản trị đối soát tay.",
-    "inTheTopCornerIsAlways": "ở góc trên luôn có mặt, không phụ thuộc bạn đang mở tab nào. Bấm là hiện mã QR chuyển khoản kèm nội dung cần ghi.",
-    "isSeparateBecauseTheyAreTwo": "tách riêng vì đó là hai số dư khác nhau: điểm thưởng và tiền thật.",
-    "isTheKpisAssignedToYou": "là chỉ tiêu được giao, bài nộp đã gửi, kết quả đánh giá và các yêu cầu điều chỉnh bạn đã tạo.",
-    "itemsWaitingToBeReceived": "📦 Món đang chờ nhận",
-    "kpis": "chỉ tiêu",
-    "longListsArePaginatedUseThe": "Danh sách chia trang khi dài — dùng thanh phân trang ở cuối để lùi về các tháng trước.",
-    "missingACardTheWalletGroup": "Thẻ nào không thấy? Cụm Ví chỉ hiện khi tổ chức bật module thưởng hoặc ví tiền.",
-    "noMentalMathNeeded": ", khỏi phải nhẩm.",
-    "notEveryRewardComesWithA": "Không phải lần thưởng nào cũng có giấy khen — chỉ những lần cấp trên chọn kèm chứng nhận mới hiện ở đây, để bạn tải về hoặc in ra.",
-    "onceConvertedItCannotBeReversed": "Đổi xong thì không quay lại được. Đổi vừa đủ cho món quà định lấy, đừng đổi hết một lần.",
-    "onceTheUnitHasFinalizedThe": "Đơn vị đã chốt đánh giá kỳ thì phiếu chuyển sang chỉ xem — lúc đó phải nhờ quản lý mở khoá ở mục Đánh giá kỳ.",
-    "onePeriod": "một đợt",
-    "or": "hoặc",
-    "outOfStockAndNotEnough": "Hết hàng và thiếu điểm là hai chuyện khác nhau: hết hàng thì chờ cũng vô ích, thiếu điểm thì tích thêm là đổi được.",
-    "overdueOrdersAreCancelledAutomaticallyCreate": "Đơn quá hạn thì tự huỷ — tạo đơn mới rồi chuyển lại. Đừng chuyển theo mã QR cũ đã hết hạn, tiền sẽ rơi vào diện chờ đối soát tay.",
-    "pointHistory": "Lịch sử điểm",
-    "pointsAreDeductedTheMomentYou": "⚠️ Điểm trừ ngay lúc bấm",
-    "receive": "→ nhận",
-    "redeemedGifts": "Quà đã đổi",
-    "redeemPointsForGifts": "🛍️ Đổi điểm lấy quà",
-    "reports": "báo cáo",
-    "saveAndExport": "💾 Lưu và xuất",
-    "saveSelfAssessment": "Lưu tự đánh giá",
-    "savesYourPart": "ghi phần của bạn.",
-    "selfScoreConduct": "🤝 Tự chấm hạnh kiểm",
-    "short": "thiếu bao nhiêu",
-    "submit": "→ nộp",
-    "theButton": "Nút",
-    "theCheckInCardIsPlaced": "Thẻ điểm danh đặt ngay dưới số dư,",
-    "theCheckInCardSitsOutside": "📅 Thẻ điểm danh nằm ngoài tab",
-    "theFeedAboveIsTheReward": "Bảng tin phía trên là hoạt động thưởng của cả tổ chức — xem người khác được ghi nhận vì việc gì.",
-    "theFigureBoxesOnTheCard": "Các ô số liệu trên card cho biết điểm bạn tự chấm, điểm quản lý đã cho, thang điểm, và bộ tiêu chí đang áp cho kỳ này.",
-    "theFourCardsOfTheWork": "Bốn thẻ của cụm Công việc chạy theo một vòng: nhận",
-    "theGroup": "Cụm",
-    "theNumberOnEachTabIs": "Con số trên mỗi tab là số bản ghi đang có trong tab đó.",
-    "theQrCodeExpires": "⏳ Mã QR có hạn",
-    "thereIsNoRefundButtonThink": "Không có nút hoàn lại. Cân nhắc trước khi bấm, nhất là với món giá cao.",
-    "theStatusOfEachRedemptionFrom": "Trạng thái của từng lần đổi quà, từ lúc gửi yêu cầu tới lúc được xác nhận đã giao.",
-    "theTabRowOnPurposeIf": "hàng tab — cố ý như vậy: nếu nó nằm trong một tab thì hôm nào bạn không mở đúng tab đó là mất chuỗi.",
-    "theWalletHoldsYourRealCash": "Ví giữ số dư tiền thật của bạn: nạp vào bằng chuyển khoản, và đổi được sang điểm thưởng theo tỉ giá tổ chức đặt.",
-    "theWeightColumnShowsWhichCriteria": "Cột trọng số cho biết tiêu chí nào nặng ký nhất — dồn dẫn chứng vào những tiêu chí đó trước.",
-    "theWholeCycle": "cả kỳ",
-    "thisCardIsYourCurrentPoint": "Thẻ này là số dư điểm hiện có. Điểm tới từ ba nguồn: quản lý trao tay, chương trình tự động, và điểm danh hằng ngày.",
-    "thisIsMoneyNotPoints": "💰 Đây là tiền, không phải điểm",
-    "thisIsTheSourceLedgerFor": "Đây là sổ gốc khi có khiếu nại: số dư hiện tại luôn bằng tổng các dòng ở đây.",
-    "toConvert": "để quy đổi,",
-    "toDownloadCertificates": "để tải giấy khen,",
-    "toLookUpEveryMovement": "để tra mọi biến động.",
-    "toOpenTheFormUntilYou": "để mở phiếu. Chưa chọn thì chưa có phiếu nào hiện ra.",
-    "topUp": "Nạp tiền",
-    "topUpByBankTransfer": "🏦 Nạp bằng chuyển khoản",
-    "topUpFromAnywhere": "➕ Nạp tiền ở đâu cũng được",
-    "topUpOrders": "Đơn nạp tiền",
-    "topUpsConversionsToPointsAnd": "Nạp, đổi sang điểm và các điều chỉnh khác, kèm thời điểm và lý do.",
-    "toRedeemPoints": "để đổi điểm,",
-    "toSeeWherePointsComeFrom": "để xem điểm đến và đi từ đâu,",
-    "toTrackItemsWaitingToBe": "để theo dõi món đang chờ nhận.",
-    "toTrackTopUpsWaitingTo": "để theo dõi lệnh nạp đang chờ khớp,",
-    "waitingForThePersonInCharge": "chờ người phụ trách xác nhận.",
-    "wallet": "Ví",
-    "walletHistory": "Lịch sử ví",
-    "wherePointsComeFromAndGo": "🧾 Điểm đến và đi từ đâu",
-    "work": "Công việc",
-    "yourCertificates": "🏅 Giấy khen của bạn",
-    "yourRewardPoints": "🎁 Điểm thưởng của bạn",
-    "yourWorkLoop": "🔁 Vòng công việc của bạn"
-  },
   "OnboardingTour": {
     "eachPageHasItsOwnGuide": "Mỗi trang sẽ có hướng dẫn riêng khi bạn truy cập lần đầu. Bạn cũng có thể xem lại hướng dẫn bất kỳ lúc nào bằng nút",
     "onTheTitleBar": "trên thanh tiêu đề.",
@@ -616,57 +304,6 @@
     "of": "trong",
     "pageN": "Trang {{page}}",
     "nextPage": "Trang sau"
-  },
-  "performance": {
-    "aLockedRowShowsWhichUnit": "Dòng bị khoá ghi rõ đơn vị nào đã khoá nó. Muốn sửa thì phải chọn đúng đơn vị đó rồi mở khoá — không sửa vòng qua được.",
-    "and": "và",
-    "andOnlyThenDoesTheNext": ", cấp trên mới duyệt tiếp. Bấm vào một cấp để nhảy thẳng sang đơn vị đó.",
-    "aRedNumberIsWorkWaiting": "🔢 Số đỏ là việc đang chờ bạn",
-    "assignKpisToPeopleAndUnits": "Giao chỉ tiêu cho người và đơn vị, rồi duyệt những chỉ tiêu cấp dưới tự đề xuất. Xong bước này thì cả kỳ mới có thứ để đo.",
-    "avgRatingAndAvgQualitativeAre": "TB xếp loại và TB định tính là đầu vào để xếp loại cả đơn vị theo tiêu chuẩn đặt ở \"Thiết lập công cụ › Xếp loại đơn vị\".",
-    "chooseTheCycleAndUnitFirst": "🎯 Chọn kỳ và đơn vị trước",
-    "combinesSeveralPeriodsIntoASummary": "gom nhiều đợt lại thành kết quả tổng hợp và xếp loại.",
-    "cycle": "kỳ",
-    "cycleEvaluation": "Đánh giá kỳ",
-    "directManagerAssessment": "Cán bộ QLTT đánh giá:",
-    "emailsTheResultsToEachEmployee": "email kết quả cho từng nhân viên.",
-    "employeeSelfAssessment": "Nhân viên tự đánh giá:",
-    "evaluation": "Đánh giá",
-    "exportExcel": "Xuất Excel",
-    "exportSendAndFinalize": "📤 Xuất, gửi, và chốt",
-    "exportsTheWholeTableToA": "lấy nguyên bảng ra tệp.",
-    "finalizeDepartmentEvaluation": "Chốt đánh giá phòng ban",
-    "finalizedScore": "Điểm chốt:",
-    "isScoringEachSubmissionOfA": "là chấm từng bài nộp của một đợt.",
-    "isTheScoringPartByPeriod": "là phần chấm điểm: theo từng đợt, rồi tổng hợp thành kết quả cả kỳ.",
-    "isTheSettingAndApprovalPart": "là phần đặt và duyệt: thiết lập chỉ tiêu, phê duyệt chỉ tiêu cấp dưới gửi lên, và xử lý yêu cầu điều chỉnh giữa chừng.",
-    "kpis": "Chỉ tiêu",
-    "kpisNotYetApprovedDoNot": "Chỉ tiêu chưa được duyệt thì không tính vào kết quả. Đầu kỳ nên soát hàng chờ duyệt cho sạch.",
-    "lettingTheFirstTwoColumnsDiffer": "Để hai cột đầu lệch nhau nhiều mà không có nhận xét là nguồn khiếu nại phổ biến nhất. Ghi lý do vào ô nhận xét.",
-    "locked": "khoá",
-    "lockingByLevel": "🔒 Khoá theo cấp",
-    "locksTheCycleAndCapturesThe": "khoá kỳ lại và chụp luôn xếp loại đơn vị.",
-    "metricRowAndUnitRating": "📊 Dãy chỉ số và xếp loại đơn vị",
-    "n1StartOfCycleSetAnd": "1️⃣ Đầu kỳ: đặt và chốt chỉ tiêu",
-    "n2EndOfPeriodScoring": "2️⃣ Cuối đợt: chấm điểm",
-    "nextToItIsTheFinal": "bên cạnh là kết quả cuối cùng cấp trên đọc — ghi rõ \"tạm tính\" hay \"đã chốt\".",
-    "periodEvaluation": "Đánh giá đợt",
-    "periodEvaluationScoresEachSubmissionThis": "Đánh giá đợt chấm từng lần nộp. Màn này gom các đợt trong một kỳ lại thành kết quả tổng hợp và xếp loại chính thức.",
-    "sendEvaluations": "Gửi đánh giá",
-    "theGroup": "Cụm",
-    "theLifeCycleOfAKpi": "📈 Vòng đời một chỉ tiêu",
-    "theMetricCardsAreTheAverage": "Các ô chỉ số là điểm trung bình của cả đơn vị trong kỳ. Khối",
-    "theRedNumberOnCardsAnd": "Con số đỏ trên thẻ và trên tab là số việc trong hàng chờ của riêng bạn. Không có số nghĩa là đang sạch.",
-    "theResultRecordedForTheCycle": "kết quả được ghi nhận cho kỳ.",
-    "theScoreTheyGaveThemselves": "điểm họ tự chấm.",
-    "theScoreYouGive": "điểm bạn cho.",
-    "theWholeScreenIsEmptyThese": "thì cả màn hình trống. Hai bộ chọn này quyết định mọi con số bên dưới; ô tìm kiếm bên trái lọc trong danh sách đã chọn.",
-    "thisStripIsTheApprovalChain": "Dải này là chuỗi duyệt: trưởng đơn vị → các cấp trên → giám đốc. Cấp dưới chốt xong thì kết quả bị",
-    "threeScoreColumnsThreeScorers": "👤 Ba cột điểm, ba người chấm",
-    "unit": "đơn vị",
-    "unitRating": "Xếp loại đơn vị",
-    "unlockingToEditOverwritesWhatThe": "Mở khoá để sửa là ghi đè lên thứ cấp dưới đã ký. Chỉ làm khi thực sự có sai sót, và nên báo lại cho họ.",
-    "withoutChoosingA": "Chưa chọn"
   },
   "PeriodFilterSelect": {
     "allPeriods": "Tất cả các đợt"
@@ -693,526 +330,6 @@
     "for": "Dành cho:",
     "noItemsAreAvailableToYour": "Không có mục nào khả dụng với tài khoản của bạn ở trang này.",
     "theCurrentRoleHasNoPermission": "Vai trò hiện tại chưa được cấp quyền, hoặc các tính năng liên quan đang tắt."
-  },
-  "setup_company": {
-    "addEmployees": "thêm nhân viên",
-    "addingOrRemovingATierAffects": "Thêm hoặc bớt một tầng sẽ ảnh hưởng tới toàn bộ đơn vị đã tạo theo cấu trúc cũ.",
-    "addOneAtATime": "➕ Thêm lẻ",
-    "aDefaultThatIsTooBroad": "Đặt mặc định quá rộng là người lạ đăng nhập một phát có ngay quyền xem dữ liệu cả đơn vị. Chọn vai trò hẹp nhất rồi nâng sau.",
-    "administration": "quản trị",
-    "allAccounts": "👥 Toàn bộ tài khoản",
-    "alwaysPreviewBeforeSavingSentMail": "Luôn xem trước trước khi lưu: thư đã gửi thì không rút lại được.",
-    "and": "và",
-    "andAssignThemToThoseTwo": "và gán họ vào hai thứ đó.",
-    "approval": "phê duyệt",
-    "aRoleIsBothAStandardized": "Vai trò vừa là chức danh chuẩn hoá trong toàn công ty, vừa là bộ quyền đi kèm.",
-    "asFor": ". Còn",
-    "assign": "Gán",
-    "assignTo": "Gán vào",
-    "aUnitWithoutAPersonIn": "Đơn vị không có người phụ trách sẽ làm tắc chuỗi duyệt KPI của cả đơn vị đó — không ai nhận được việc cần duyệt.",
-    "automaticallyFilledVariables": "🧩 Biến được điền tự động",
-    "beCarefulWithPowerfulPermissions": "🔑 Cẩn trọng với quyền mạnh",
-    "buildTheOrganization": "🏗️ Dựng bộ máy",
-    "businessProfile": "🏢 Hồ sơ doanh nghiệp",
-    "callEverythingByYourNames": "🏷️ Gọi mọi thứ theo tên của bạn",
-    "chart": "Sơ đồ:",
-    "checkConnection": "Kiểm tra kết nối",
-    "clearingAFieldReturnsThatItem": "Xoá trống ô nhập là mục đó quay về nhãn mặc định — không cần nhớ tên gốc là gì.",
-    "click": "Bấm",
-    "clickACardToOpenIt": "Bấm một thẻ để mở. Lưới sẽ thu lại thành hàng tab mảnh nhường chỗ cho nội dung, và đường dẫn ghi lại mục đang xem nên bookmark được.",
-    "clickEachPersonToCompleteTheir": "Bấm vào từng người để hoàn thiện hồ sơ:",
-    "companyLevels": "Cấp bậc công ty",
-    "connectToLark": "🔗 Nối với Lark",
-    "connectToLark2": "Kết nối với Lark",
-    "createAUnitPlaceItUnder": "Tạo đơn vị, đặt nó dưới đơn vị cha, rồi gán",
-    "default": "mặc định",
-    "defaultsForTheWholeOrganization": "🔔 Mặc định cho cả tổ chức",
-    "doItInTheWrongOrder": "Làm ngược thứ tự thì tới bước thêm nhân viên sẽ không có đơn vị hay vai trò nào để chọn.",
-    "doNotGrantTheFullAdministration": "Đừng cấp trọn bộ quyền quản trị cho một vai trò đông người chỉ để tiện — mọi thay đổi cấu hình sau đó sẽ khó truy ra ai làm.",
-    "eachRowIsAnEventA": "Mỗi dòng là một sự kiện — có chỉ tiêu cần duyệt, có bài nộp mới, sắp tới hạn nộp. Hai công tắc bên phải là",
-    "eachRowIsATierIn": "Mỗi dòng là một tầng trong cây đơn vị, xếp từ trên xuống. Bạn đặt tên loại đơn vị của tầng đó (Khối, Chi nhánh, Phòng, Tổ...) và chức danh của người phụ trách.",
-    "eachRowShowsTheDefaultLabel": "Mỗi dòng hiện nhãn mặc định, cụm của nó, và khoá kỹ thuật in mờ bên dưới. Nhãn chỉ là cách hiển thị: đổi tên không mất dữ liệu, không đổi quyền.",
-    "editProfile": "Chỉnh sửa hồ sơ",
-    "filterByUnitRoleOrAccount": "Lọc theo đơn vị, vai trò hoặc trạng thái tài khoản.",
-    "filtersByBothTheDefaultLabels": "lọc theo cả nhãn mặc định lẫn nhãn bạn đã đặt. Sửa xong phải bấm",
-    "finalizeTheLevelStructureAsSoon": "Nên chốt cấu trúc cấp bậc ngay khi khởi tạo tổ chức, trước khi dựng cây đơn vị và nhập nhân sự.",
-    "findQuicklyAndEditInBulk": "tìm nhanh và sửa hàng loạt.",
-    "firstBuildThe": "trước, dựng",
-    "followTheStepsInOrder": "🪜 Làm theo thứ tự các bước",
-    "forEveryEmployeeAfterEditingRemember": "cho mọi nhân viên. Sửa xong nhớ bấm",
-    "forLargeStaffListsUse": "Với danh sách nhân sự lớn, dùng",
-    "forPeopleWhoJoinAfterThe": "Dùng cho người mới vào sau đợt nhập ban đầu.",
-    "grant": "Cấp",
-    "groupedByWhereTheItemAppears": "📍 Chia theo NƠI mục hiện ra",
-    "hereClick": "vào đây → bấm",
-    "hierarchyChart": "📐 Sơ đồ phân cấp",
-    "howManyTiersTheCompanyHas": "— công ty có mấy tầng và mỗi tầng gọi là gì (Khối, Phòng, Tổ...).",
-    "howManyTiersYourCompanyHas": "🪜 Công ty bạn có mấy tầng",
-    "howTheAppTalksToEmployees": "— app nói chuyện với nhân viên như thế nào.",
-    "importALargeUnitTreeFrom": "Nhập cây đơn vị lớn bằng Excel thay vì tạo tay từng đơn vị — có nút nhập ngay trên màn hình này.",
-    "importFromExcel": "📥 Nhập từ Excel",
-    "importFromExcel2": "nhập từ Excel",
-    "inHtmlModeScriptAndIframe": "Ở chế độ HTML, thẻ script, iframe và các handler onclick bị loại bỏ khi lưu — đây là thư gửi ra ngoài nên không cho chạy mã.",
-    "insteadOfCreatingByHandDownload": "thay vì tạo tay. Tải file mẫu trong hộp thoại để biết đúng thứ tự cột.",
-    "inTheOrganizationTree": "trong cây tổ chức.",
-    "inTheRightCornerOfThis": "ở góc phải card này.",
-    "inTheRightCornerToEdit": "ở góc phải để sửa chúng cùng lĩnh vực hoạt động, mã số thuế, quy mô nhân sự và mô tả công ty.",
-    "inYourCompanysOwnTermsChoose": "theo ngôn ngữ của công ty bạn, chọn sự kiện nào gửi thông báo, sửa nội dung email hệ thống, và nối với Lark.",
-    "isTheSidebarRowsAndEach": "là các dòng trên sidebar, còn mỗi khối tiếp theo là các mục nằm bên trong một trang cụ thể.",
-    "itIsSplitThisWayBecause": "Chia như vậy vì phần lớn màn hình giờ là mục trong trang — danh sách phẳng sẽ có hơn hai mươi dòng mà không biết dòng nào ở đâu.",
-    "leavingTheScreenWithoutSavingLoses": "Rời màn hình khi chưa lưu là mất hết những gì vừa gõ, không có hộp thoại nhắc lại.",
-    "levelsDecideTheShapeOfThe": "Cấp bậc quyết định hình dạng của cây đơn vị. Đặt trước khi dựng cơ cấu, đổi sau sẽ ảnh hưởng tới các đơn vị đã tạo.",
-    "linkWithYourOwnAccount": "👤 Liên kết bằng chính tài khoản của bạn",
-    "list": "Danh sách:",
-    "listOfEnabledFeatures": "🔎 Danh sách tính năng đang bật",
-    "mailCatalogGrouped": "✉️ Danh mục thư, chia theo nhóm",
-    "mailContentIsInAnotherSection": "✉️ Nội dung thư ở mục khác",
-    "mailToTheInboxAnd": "(thư vào hộp thư) và",
-    "missingEitherOfTheseThePerson": "Thiếu một trong hai thứ này thì người đó không nhận được chỉ tiêu và không xuất hiện trong bất kỳ báo cáo nào.",
-    "n1BasicDeclarations": "1️⃣ Khai báo nền",
-    "n2RolesStructureEmployees": "2️⃣ Vai trò → Cơ cấu → Nhân viên",
-    "n3TheGroupFewPeopleNotice": "3️⃣ Cụm ít ai để ý",
-    "nameBusinessCodeThen": "Tên, mã doanh nghiệp, rồi",
-    "navigationBar": "Thanh điều hướng",
-    "nextAndOnlyThen": "sau, rồi mới",
-    "notAssignedMeansNotUsableYet": "📝 Chưa gán thì chưa dùng được",
-    "notRequiredToRunButIt": "Không bắt buộc để chạy được, nhưng là phần làm app trông giống của riêng tổ chức bạn.",
-    "openTheChartToSeeThe": "Mở sơ đồ để nhìn thứ bậc giữa các chức danh. Thứ bậc này quyết định luồng báo cáo và chuỗi duyệt: ai duyệt của ai.",
-    "organization": "Tổ chức",
-    "people": "Con người",
-    "peopleSigningInFromLarkFor": "Người từ Lark đăng nhập lần đầu sẽ được tạo tài khoản tự động và xếp vào đơn vị, vai trò khai ở bước này. Từng người vẫn chỉnh lại được sau.",
-    "permissions": "quyền (Permissions)",
-    "permissionsJustAddedOnLarkOnly": "Quyền vừa thêm bên Lark chỉ có hiệu lực sau khi phiên bản ứng dụng được duyệt. Thấy trạng thái \"Added\" là chưa đủ.",
-    "permissionsOfThe": "Các quyền dạng",
-    "preview": "Xem trước",
-    "previewSaveOrResetToDefault": "👁️ Xem trước, lưu, hoặc về mặc định",
-    "renameAnyItemOnTheMenu": "Đổi nhãn của bất kỳ mục nào trên menu và bên trong từng trang — \"Chỉ tiêu\" thành \"Định mức\", \"Đợt\" thành \"Tháng\", tuỳ tổ chức bạn quen gọi thế nào.",
-    "renameEveryMenuItem": "đổi tên mọi mục trên menu",
-    "renamingDoesNotChangeFunction": "↩️ Đổi tên không đổi chức năng",
-    "rendersATrialMailWithSample": "dựng thử thư với dữ liệu mẫu.",
-    "restoreDefault": "Khôi phục mặc định",
-    "returnsTheTemplateToTheOriginal": "đưa mẫu về bản gốc — nút này mờ đi khi mẫu chưa từng bị sửa.",
-    "rightNextToItAllFields": "ở ngay cạnh — mọi ô nhập được ghi cùng một lần.",
-    "roles": "vai trò",
-    "rolesAndPermissions": "🛡️ Vai trò và quyền hạn",
-    "sameDataTwoViewsDependingOn": "Cùng dữ liệu, hai cách xem tuỳ việc bạn đang làm:",
-    "saveChanges": "Lưu thay đổi",
-    "saveSettings": "Lưu cấu hình",
-    "searchAndFilter": "🔍 Tìm và lọc",
-    "searchBeforeEditingAndRememberTo": "🔍 Tìm rồi mới sửa, và nhớ Lưu",
-    "searchItems": "Tìm mục",
-    "seeTheOverallManagementFlowAnd": "nhìn tổng thể luồng quản lý và quan hệ giữa các đơn vị.",
-    "setEarlyChangeLate": "⏳ Đặt sớm, sửa muộn",
-    "settingsHereApplyAsThe": "Thiết lập ở đây áp làm",
-    "signInOnceAndTheSystem": ", đăng nhập một lần, hệ thống tự nhận diện công ty của bạn rồi ghi nhớ — không phải nhập tay tên hay mã tổ chức.",
-    "someItemDisappearedFromTheMenu": "Thấy một mục nào đó biến mất khỏi menu? Kiểm tra danh sách này trước tiên.",
-    "someVariablesAreRequiredWithoutThem": "Vài biến là bắt buộc: thiếu chúng thì hệ thống từ chối lưu và báo đỏ ngay dưới ô soạn. Bỏ liên kết đặt lại mật khẩu đi là người nhận không còn cách nào làm xong việc thư đang yêu cầu.",
-    "switchBetweenTheVisualEditorAnd": "Chuyển qua lại giữa trình soạn trực quan và chế độ HTML đầy đủ mà không mất nội dung — hai chế độ dùng chung một chuỗi HTML.",
-    "system": "Hệ thống",
-    "thatAreReplacedWhenSendingThe": "được thay lúc gửi — tên người nhận, tên đợt, đường dẫn tới việc cần xử lý. Danh sách biến dùng được hiện ngay cạnh ô soạn.",
-    "thatMatchesTheirWork": "đúng với công việc của họ.",
-    "theBusinessNameAndCodeAppear": "Tên và mã doanh nghiệp xuất hiện trên báo cáo xuất ra, trong email hệ thống gửi đi và trên đầu các bản in. Bấm",
-    "theCard": "Ô",
-    "theCentralPlaceToManageEvery": "Nơi tập trung quản lý mọi tài khoản người dùng của tổ chức.",
-    "theFourSystemSectionsLetYou": "Bốn mục Hệ thống cho phép",
-    "theInAppBellEachTurned": "(chuông trong app), bật tắt riêng từng cái.",
-    "theLastCardListsTheModules": "Thẻ cuối trang liệt kê những module tổ chức đang dùng. Đây chỉ là chỗ",
-    "theLeftColumnListsEveryType": "Cột trái liệt kê mọi loại thư hệ thống gửi đi. Chấm tròn xanh nghĩa là mẫu đã được tuỳ chỉnh; dấu ✕ nghĩa là loại thư đó đang tắt, hệ thống sẽ không gửi.",
-    "theLogoAndCoverImageAre": "Logo và ảnh bìa đổi riêng bằng nút máy ảnh ngay trên ảnh, không cần vào chế độ sửa.",
-    "theMailSubjectAndContentThat": "— tiêu đề và nội dung thư — nằm ở mục \"Thiết lập email\" ngay bên cạnh.",
-    "theNamesYouSetHereAre": "Tên bạn đặt ở đây được dùng khắp app: lúc tạo đơn vị mới, trên báo cáo, trong bộ lọc. Đặt đúng từ mà nhân viên vẫn nói hằng ngày thì không ai phải dịch trong đầu.",
-    "theNumberOfPeopleAssignedTo": "Số nhân sự đang được gán cho từng nhóm vai trò chính, để soát nhanh xem có ai bị bỏ sót.",
-    "theNumberOfTiersYouMay": ". Số tầng bạn được phép tạo lấy theo cấu trúc đã khai ở mục \"Cấp bậc công ty\".",
-    "thePeopleGroupHasTheRight": "Cụm Con người có thứ tự đúng: tạo",
-    "thePersonInCharge": "người phụ trách",
-    "thereIsAButtonInThe": "Có nút mở thẳng trang quản trị của Lark ở bước trước — làm song song hai cửa sổ sẽ nhanh hơn.",
-    "theStepsAreNumberedAndUnlock": "Các bước đánh số và mở khoá dần: khai ứng dụng bên Lark → dán",
-    "theSubjectAndContentUse": "Tiêu đề và nội dung dùng các",
-    "theSubtitleRightUnderTheHeading": "Dòng phụ ngay dưới nhan đề đếm số mục đang được đổi tên — nhìn đó là biết công ty đã tuỳ biến tới đâu.",
-    "theTableIsSplitIntoBlocks": "Bảng chia thành từng khối: khối",
-    "theTopStripShowsTheStatus": "Dải trên cùng nói ngay trạng thái: đã bật đăng nhập bằng Lark chưa, và đang liên kết với tổ chức Lark nào. Nối rồi thì nhân viên đăng nhập bằng tài khoản Lark, khỏi nhớ thêm mật khẩu.",
-    "thisDecides": "Ở đây quyết định",
-    "thisIsNotJustAChart": "Đây không chỉ là sơ đồ để xem. Cây đơn vị quyết định ai thấy dữ liệu của ai, chỉ tiêu chảy xuống theo đường nào, và báo cáo tổng hợp cộng dồn ra sao.",
-    "thisTreeDecidesALot": "🔗 Cây này quyết định nhiều thứ",
-    "threeGroupsThreeQuestions": "🗂️ Ba cụm, ba câu hỏi",
-    "tipFilterByStatusToReview": "Mẹo: lọc theo trạng thái để soát các tài khoản đang bị khoá trước mỗi kỳ đánh giá.",
-    "toRolesThenAssignRolesTo": "cho vai trò, rồi gán vai trò cho người — không cấp quyền lẻ cho từng cá nhân.",
-    "toTurnThemOnOffGo": "— muốn bật tắt thì sang \"Thiết lập công cụ › Module & tính năng\".",
-    "turnOnBothForUrgentMatters": "Việc gấp thì bật cả hai; việc lặp lại thường xuyên thì chỉ để chuông, kẻo hộp thư nhân viên đầy thư hệ thống rồi họ bỏ qua luôn thư quan trọng.",
-    "twoChannelsToggledIndependently": "📨 Hai kênh, bật độc lập",
-    "twoWaysToViewTheSame": "👁️ Hai cách nhìn cùng một cây",
-    "typeAllowInterferingWithOtherPeoples": "cho phép can thiệp vào dữ liệu của người khác và đổi cấu hình toàn tổ chức.",
-    "unit": "đơn vị",
-    "unitAndRoleForNewPeople": "🗺️ Đơn vị và vai trò cho người mới",
-    "unitTree": "cây đơn vị",
-    "useYourCompanysOwnNames": "🏷️ Gọi đúng tên của công ty bạn",
-    "variables": "biến",
-    "visualEditingOrHtmlEditing": "🖊️ Soạn trực quan hoặc soạn HTML",
-    "whatToSend": "gửi cái gì",
-    "whetherToSend": "có gửi hay không",
-    "whoHoldsWhichRole": "📊 Ai đang ở vai nào",
-    "whoThisCompanyIsAndHow": "— công ty này là ai, có mấy cấp.",
-    "whoWorksWhereAndWhatThey": "— ai làm ở đâu, được làm gì.",
-    "view": "xem"
-  },
-  "setup_tools": {
-    "aBudgetSoYouDoNot": "💰 Hạn mức để khỏi phải xin duyệt",
-    "aConductCriteriaSetIsA": "Một bộ tiêu chí hạnh kiểm là danh sách tiêu chí hành vi kèm",
-    "aCycle": "Kỳ",
-    "aCycleGroupsPeriods": "🗓️ Kỳ gom đợt",
-    "aCycleGroupsPeriods2": "📆 Kỳ gom đợt",
-    "aCycleIsAMonthQuarter": "Một kỳ là Tháng / Quý / 6 Tháng / Năm. Hai con số trên card cho biết tổ chức đang có bao nhiêu kỳ và đã gom được bao nhiêu đợt vào các kỳ đó.",
-    "addAndRemoveLevels": "➕ Thêm và bớt mức",
-    "addAProfileWhenTheSales": "Thêm hồ sơ khi khối kinh doanh và khối hỗ trợ cần chuẩn khác nhau. Mỗi hồ sơ gán cho một nhóm đơn vị (đơn vị con tự kế thừa) và cho một kỳ.",
-    "addGift": "Thêm quà",
-    "addLevel": "Thêm mức",
-    "aKeyResultLinkedToA": "Key Result có liên kết với KPI thì tiến độ chạy theo KPI đó theo thời gian thực — sửa tay sẽ bị ghi đè.",
-    "aKpiPeriodIsOneOfficial": "Một \"Đợt KPI\" là một chu kỳ làm việc và đánh giá chính thức của công ty.",
-    "all": "đủ",
-    "all2": "Tất cả",
-    "allSixStatusesAreShownAs": "Sáu trạng thái hiện hết ra thành chip, không giấu trong dropdown. Đang chờ duyệt là việc của bạn; các trạng thái còn lại để tra cứu lại về sau.",
-    "alwaysKeepADefaultProfileA": "Nên luôn giữ một hồ sơ mặc định. Đơn vị không khớp hồ sơ nào và cũng không có mặc định thì không ra xếp loại.",
-    "aMissingCardMeansTheOrganization": "Thẻ nào không thấy nghĩa là tổ chức đang tắt công cụ đó — bật lại ở mục \"Module & tính năng\".",
-    "aMissingTabMeansTheOrganization": "Thiếu tab nào nghĩa là tổ chức đang tắt module tương ứng ở mục \"Module & tính năng\" — không phải bạn thiếu quyền.",
-    "and": "và",
-    "andFillInTheCellValues": ", và điền lại giá trị ô.",
-    "andQuantitative": "mang tính chiến lược và các",
-    "anObjectivesProgressIsComputedAutomatically": "Tiến độ của Objective được tính tự động từ các Key Result thuộc về nó.",
-    "answersWhichRulesTheOrganizationScores": "trả lời \"tổ chức chấm điểm theo luật nào\" — bật tắt công cụ, thang điểm, ma trận, tiêu chuẩn xếp loại. Đặt một lần, thỉnh thoảng mới sửa.",
-    "aPeriod": "Đợt",
-    "aPeriodIsOneRoundOf": "🗓️ Một đợt là một lần nộp và chấm",
-    "applyStandardsToWholeDepartments": "áp tiêu chuẩn cho cả phòng ban.",
-    "approvingPutsThePointsIntoThe": "Duyệt là điểm vào ví nhân viên ngay. Thu hồi được, nhưng nhân viên đã thấy thông báo — nên đọc lý do trước khi bấm.",
-    "aRatingOnlyComesOutWhen": "Chỉ ra xếp loại khi có ĐỦ HAI TRỤC. Người chỉ có một loại KPI thì thiếu một trục — trừ khi tổ chức bật Chấm hạnh kiểm để bù vào.",
-    "aResultFallsIntoTheLevel": ". Một kết quả rơi vào mức có ngưỡng cao nhất mà nó vượt qua — nên ngưỡng phải phủ kín từ 0 trở lên.",
-    "aSetIsAssignedToOne": ". Bộ được gán cho một hoặc nhiều kỳ; kỳ nào không được gán thì dùng",
-    "asTheOpenOneToJump": "với mục đang mở. Muốn nhảy sang cụm khác thì quay về lưới thẻ bằng nút mũi tên ở góc trên bên trái.",
-    "atTheBottomSkipSavingAnd": "ở cuối — bỏ qua bước lưu là thay đổi mất khi rời màn hình.",
-    "atTheTopOfTheList": "ở đầu danh sách. Xong thì bấm",
-    "automatic": "Tự động:",
-    "automaticButYouStillClickRun": "⚙️ \"Tự động\" nhưng vẫn phải bấm chạy",
-    "automaticPrograms": "Chương trình tự động",
-    "automaticProgramsCheckIns": "Chương trình tự động, Điểm danh.",
-    "aWalletOutOfBalanceIs": "Ví lệch sổ là lỗi dữ liệu tiền tệ, không phải cảnh báo nghiệp vụ. Cần kiểm tra ngay chứ không để tồn.",
-    "aWeightedConductCriteriaSetScored": "bộ tiêu chí hành vi có trọng số, chấm riêng thành một phiếu.",
-    "behavioralKpis": "KPI hành vi:",
-    "bscScoresAreStillComputedAnd": ": vẫn tính và lưu điểm BSC để đối chiếu, nhưng điểm chính thức vẫn là điểm hệ thống cũ.",
-    "budgets": "Hạn mức",
-    "byDefaultTheScreenIsIn": "Mặc định màn hình ở chế độ",
-    "byTheShareOfItsPeople": "theo tỉ lệ nhân sự đạt từng mức bên trong nó.",
-    "cardView": "dạng thẻ",
-    "cellValuesMustBeIntegersOf": "Giá trị ô phải là số nguyên từ 1 trở lên, nhãn không được trùng và không được để trống — hệ thống chặn lưu nếu vi phạm.",
-    "certificateTemplates": "Mẫu chứng nhận.",
-    "certificateTemplates2": "Mẫu chứng nhận",
-    "changingTheScaleMidCycleMeans": "Đổi thang giữa kỳ làm các đợt đã chấm và các đợt sắp chấm không còn cùng đơn vị đo. Nên chốt trước khi mở kỳ đầu tiên.",
-    "changingTheScoringScaleMidCycle": "Sửa thang điểm giữa kỳ sẽ làm lệch các đợt đã chấm. Nên chốt trước khi mở kỳ đầu tiên.",
-    "checkedInToday": "Đã điểm danh hôm nay",
-    "checkIns": "Điểm danh",
-    "choosesALevelDirectly": "chọn thẳng một mức",
-    "chooseThePeriodCyclePreviewThe": ", chọn đợt/kỳ, xem trước bảng xếp hạng, rồi mới phát điểm.",
-    "click": "Bấm",
-    "clickThePencilIconHereTo": "Bấm biểu tượng bút ở đây để mở chế độ sửa: đổi tên hai trục, đổi nhãn từng dải, thêm hàng hoặc cột bằng nút",
-    "color": "màu",
-    "column": "+ Cột",
-    "columnOrderWhenExportingSpreadsheets": "thứ tự cột khi xuất bảng tính.",
-    "columnsIntoAPersonsFinalRating": "(cột) thành xếp loại cuối cùng của một người. Làm tốt việc nhưng thái độ kém, hay ngược lại, đều không tự động thành loại cao nhất.",
-    "combineConductScoreWithKpiInto": "ghép điểm hành vi với % KPI thành xếp loại cá nhân, rồi",
-    "conditionsOfSoLevelOrderMatters": "mọi điều kiện — nên thứ tự mức quan trọng, dùng mũi tên lên/xuống để sắp lại.",
-    "conduct": "Hạnh kiểm:",
-    "conductCriteriaSets": "Bộ tiêu chí hạnh kiểm",
-    "conductScore": "điểm hành vi",
-    "configuration": "Cấu hình",
-    "convertedToPoints": "Đã đổi ra điểm",
-    "convertResultsIntoScores": "quy đổi kết quả thành điểm,",
-    "countsPeopleWhoHaveToppedUp": "đếm người đã từng nạp ít nhất một lần.",
-    "createAnInspiring": "Tạo một",
-    "createProgram": "Tạo chương trình",
-    "createTheCycleFirstThenGo": "Tạo kỳ trước, rồi sang tab \"Đợt đánh giá\" gán đợt vào — đợt không thuộc kỳ nào thì không vào được đánh giá tổng hợp.",
-    "datesDecideEverything": "⚙️ Mốc thời gian quyết định mọi thứ",
-    "defaultSet": "bộ mặc định",
-    "deletingACycleDoesNotDelete": "Xoá một kỳ không xoá các đợt bên trong — chúng chỉ bị gỡ khỏi kỳ và trở thành đợt rời.",
-    "doesTheLedgerBalance": "🧾 Sổ có cân không",
-    "doNotConfuseTheTwoBalances": "Đừng nhầm hai số dư. Tiền đổi được sang điểm, nhưng điểm KHÔNG quy ngược lại thành tiền.",
-    "doNotRunOnASchedule": "không tự chạy theo lịch",
-    "duplicate": "nhân bản",
-    "duplicateInsteadOfRetyping": "📑 Nhân bản thay vì gõ lại",
-    "each": "Mỗi",
-    "eachCyclesOperations": "vận hành hằng kỳ",
-    "eachLevelHasA": "Mỗi mức gồm",
-    "eachPerson": "từng người",
-    "eachScorecardHasTwoModes": "Mỗi bộ có hai chế độ.",
-    "eachSwitchOpensAnAreaOf": "Mỗi công tắc mở ra một mảng chức năng: OKR, BSC, KPI hành vi, thác nước, thưởng điểm, ví tiền. Tắt cái nào thì cái đó biến mất khỏi sidebar, khỏi lưới thẻ và khỏi các bước đánh giá.",
-    "edit": "Chỉnh sửa",
-    "editLabelsAddOrRemoveBands": "✏️ Sửa nhãn, thêm bớt dải",
-    "employeesClickEveryDayThemselves": "📅 Nhân viên tự bấm mỗi ngày",
-    "employeesSubmitReportsByPeriodRatings": "Nhân viên nộp báo cáo theo đợt; xếp loại và khen thưởng thì tính theo kỳ.",
-    "employeesWillSee": "\"Nhân viên sẽ thấy\"",
-    "evaluationCycle": "kỳ đánh giá",
-    "evaluationCycles": "Kỳ đánh giá",
-    "evaluationMatrix": "Ma trận đánh giá",
-    "evaluationPeriods": "Đợt đánh giá",
-    "everyKpiActivityIsAttachedTo": "— mọi hoạt động KPI đều gắn vào một đợt nằm trong một kỳ. Chưa có đợt nào đang mở thì nhân viên không nộp báo cáo được.",
-    "exchangeRate": "💱 Tỉ giá quy đổi",
-    "expiredBudgetsDoNotRenewAutomatically": "Hạn mức hết hạn không tự gia hạn. Đầu kỳ mới nên rà lại danh sách này.",
-    "filterByNameCycleTypeAnd": "Lọc theo tên, theo loại kỳ và theo khoảng thời gian. Hai nút ở cuối thanh đổi giữa xem",
-    "filterByStatus": "🔖 Lọc theo trạng thái",
-    "filterByStatusToSeparateThe": "Lọc theo trạng thái để tách phần",
-    "findAndFilterOldCycles": "🔍 Tìm và lọc kỳ cũ",
-    "findPeopleByNameFilterBy": "Tìm người theo tên, lọc theo vai trò và trạng thái, rồi đặt hạn mức cho từng người. Ai dùng hết phần được chia thì K.AI ngừng trả lời cho tới khi được cấp thêm.",
-    "firstLevelFromTheTop": "đầu tiên từ trên xuống",
-    "firstThenAddSpecific": "truyền cảm hứng trước, rồi thêm các",
-    "forgettingToOpenAPeriodMeans": "Quên mở đợt là toàn tổ chức không nộp được báo cáo — triệu chứng hay bị báo là \"hệ thống lỗi\".",
-    "forThePeriodEmployeesCanOnly": "cho đợt. Nhân viên chỉ nộp được báo cáo trong khoảng này, và hệ thống tự nhắc khi sắp tới hạn.",
-    "fromTheListYouDeclareHere": "trong danh sách bạn khai ở đây. Ô hướng dẫn màu xanh này giải thích ý nghĩa từng cột ngay tại chỗ.",
-    "giftCatalogForPoints": "🛍️ Danh mục quà đổi điểm",
-    "giftDeliveryQueue": "📦 Hàng chờ giao quà",
-    "giftRedemption": "Đổi quà:",
-    "giftRedemptionRequests": "Yêu cầu đổi quà",
-    "gifts": "Quà tặng",
-    "giftsGiftRedemptionRequests": "Quà tặng, Yêu cầu đổi quà.",
-    "giveApprove": "Trao & duyệt:",
-    "giveNewPoints": "✍️ Trao điểm mới",
-    "givingPointsToEmployeesSettingBudgets": ": trao điểm cho nhân viên, đặt hạn mức cho quản lý, và cho phép đổi điểm lấy quà. Tiền thật nằm ở mục \"Quản lý ví\".",
-    "groupsSeveralPeriodsIntoOneCombined": "gom nhiều đợt lại để ra một kết quả tổng hợp (quý, nửa năm, năm).",
-    "happenOpenEvaluationCyclesBuildOkr": ": mở kỳ đánh giá, dựng OKR/BSC, trao thưởng, quản ví, chia hạn mức AI.",
-    "holding": "Đang giữ",
-    "howManyPointsIsTheScale": "🔢 Thang mấy điểm",
-    "ifNextCycleOnlyDiffersIn": "Kỳ sau chỉ khác vài tiêu chí thì dùng",
-    "ifNothingEverComesInAfter": "Điền xong mà mãi không thấy giao dịch nào về thường là gõ nhầm số tài khoản, hoặc chưa liên kết bên SePay. Chuyển thử một khoản nhỏ là cách nhanh nhất để biết cả chuỗi đã thông.",
-    "ifTheTableIsWiderThan": "Bảng rộng hơn màn hình thì vuốt ngang ngay trong bảng — cột nhãn hàng được ghim lại nên không mất dấu.",
-    "ifTheTotalIsNot100": "Tổng khác 100% thì điểm tổng không bao giờ đạt đủ thang — phiếu chấm sẽ báo cảnh báo vàng ngay trên đầu bảng.",
-    "inEditModeEachLevelHas": "Ở chế độ chỉnh sửa, mỗi mức có nút thùng rác để xoá và có",
-    "inEffect": "đang hiệu lực",
-    "inOfficialModeEvaluationsAreBlocked": "Ở chế độ chính thức, đánh giá bị chặn nếu còn KPI chưa gán hạng mục. Rà cho hết trước khi chuyển.",
-    "inTheRightCornerOfThis": "ở góc phải card này mới mở được các ô nhập; nút",
-    "inTheSameGroup": "cùng cụm",
-    "isAttachedToACycleAnd": "gắn với một kỳ và một phạm vi đơn vị. Bên trong là các hạng mục chia theo bốn lĩnh vực cố định của BSC, mỗi hạng mục một trọng số.",
-    "isMoneyToppedUpButNot": "là tiền đã nạp mà chưa đổi thành điểm — phần này tổ chức đang nợ nhân viên.",
-    "isOneRoundOfSubmissionAnd": "là một lần nộp và chấm (thường theo tháng).",
-    "isOnTheCardAtThe": "nằm trên card ở đầu mục. Chọn người, nhập số điểm và ghi lý do — lý do là thứ hiện lên bảng tin cho cả tổ chức đọc, nên viết cụ thể việc đã làm.",
-    "isThePartAlreadySpent": "là phần đã tiêu.",
-    "isTheRealCostOfThe": "là chi phí thật của tính năng. Nhìn hai số này trước khi tăng điểm mỗi lượt.",
-    "isWhere": "là nơi",
-    "itTakesEffectImmediatelyAboveThe": "của mình thì có hiệu lực ngay. Vượt hạn mức, hoặc vượt mức tối đa mỗi lần, thì thành đề nghị nằm chờ ở đây.",
-    "keyResults": "Kết quả then chốt (Key Results)",
-    "kpiCompletion": "% hoàn thành KPI",
-    "letLowerLevelsAllocateThemselves": "🔁 Cho cấp dưới tự chia",
-    "levelScaleForReference": "🎨 Thang mức để tra",
-    "limitsAndQrCodeLifetime": "⏲️ Hạn mức và hạn giờ của mã QR",
-    "limitsTheAmountPerTopUp": "Giới hạn số tiền mỗi lần nạp và thời gian sống của mã QR. Mã hết hạn thì đơn nạp tự huỷ, nhân viên tạo đơn mới — đặt quá ngắn sẽ sinh nhiều đơn treo.",
-    "lookUpWhenThereIsA": "🔍 Tra cứu khi có khiếu nại",
-    "maximumScore": "điểm tối đa",
-    "measurableByNumbersRevenueNumberOf": "đo được bằng số — doanh thu, số hồ sơ, tỉ lệ lỗi.",
-    "mineMyPoints": "Của tôi › Điểm của tôi",
-    "modeClick": ". Bấm",
-    "monthQuarterYear": "Tháng, Quý, Năm",
-    "moveWithinTheGroup": "↔️ Đi tiếp trong cụm",
-    "mustBeOnForTheQualitative": "bật thì mới có thang điểm định tính và Ma trận đánh giá.",
-    "n1CreateTheScorecardThenAdd": "1️⃣ Tạo bộ, rồi thêm hạng mục",
-    "n1StartHere": "1️⃣ Bắt đầu từ đây",
-    "n2ScoringRules": "2️⃣ Luật chấm điểm",
-    "n3ThenOperations": "3️⃣ Rồi mới tới vận hành",
-    "name": "tên",
-    "nameLevelsInYourCompanysLanguage": "💬 Đặt tên theo ngôn ngữ công ty",
-    "newOrganizationsShouldGo": "Tổ chức mới nên đi:",
-    "newOrganizationsShouldGoThroughThe": "Tổ chức mới nên đi theo thứ tự các thẻ từ trái sang phải, trên xuống dưới — chúng được xếp đúng theo thứ tự phụ thuộc.",
-    "newScorecard": "Bộ tiêu chí mới",
-    "nextToItConvertsAFew": "bên cạnh quy đổi sẵn vài mức hay gặp, để bạn thấy ngay hệ quả của con số vừa nhập.",
-    "nextToItReturnsTheWhole": "bên cạnh đưa cả thang về bộ mặc định của hệ thống.",
-    "noFormulaOnlyLevels": "🗣️ Không có công thức, chỉ có mức",
-    "notDeductedFromAnyManagersPersonal": ", không trừ vào hạn mức cá nhân của quản lý nào.",
-    "notIncludingExpiredOnesEachBudget": ", không gộp hạn mức đã hết hạn. Mỗi hạn mức có khoảng thời gian riêng và thanh tiến trình cho biết đã dùng bao nhiêu.",
-    "numberOfPeriodsOnEachRow": "🔗 Số đợt trên mỗi dòng",
-    "objectiveFirstKeyResultsAfter": "➕ Objective trước, Key Result sau",
-    "objectives": "Mục tiêu (Objectives)",
-    "ofAQuantitativeKpiEveryCompletion": "của một chỉ tiêu định lượng. Mọi % hoàn thành đều quy về thang này, nên đổi nó là đổi ý nghĩa của mọi điểm số đang có.",
-    "official": "Chính thức",
-    "okrHelpsTheWholeOrganizationFocus": "OKR giúp cả tổ chức tập trung vào số ít việc thực sự có tác động lớn.",
-    "onceConfiguredOpenAn": "Cấu hình xong thì mở",
-    "oneCriteriaSetPerCycle": "🤝 Mỗi kỳ một bộ tiêu chí",
-    "oneProfilePerGroupOfUnits": "🎯 Một hồ sơ cho mỗi nhóm đơn vị",
-    "oneSetOfRulesPerProfile": "📋 Mỗi hồ sơ một bộ luật",
-    "onTheOldSetAndEdit": "trên chính bộ cũ rồi sửa, thay vì tạo bộ trống. Bộ cũ vẫn giữ nguyên cho các kỳ đã chấm xong.",
-    "openAProfileToSeeThe": "Mở một hồ sơ ra sẽ thấy các",
-    "openASetToEditCriterion": "Mở một bộ ra để sửa tên tiêu chí và trọng số. Điểm từng tiêu chí nhân trọng số rồi cộng lại thành điểm hạnh kiểm.",
-    "orByShortTermCampaignDepending": "hoặc theo chiến dịch ngắn hạn, tuỳ mô hình vận hành của doanh nghiệp.",
-    "orderedFromHighToLowEach": "xếp từ cao xuống thấp, mỗi mức là một chuỗi điều kiện kiểu \"≥ 30% nhân sự đạt Loại 4 trở lên\".",
-    "organizationsCommonFund": "quỹ chung của tổ chức",
-    "outOfStockLocksAutomatically": "📦 Hết hàng thì tự khoá",
-    "parallel": "Chạy song song",
-    "partFromTheDeliveredPartThe": "khỏi phần đã giao. Số trên tab đếm đúng phần đang chờ.",
-    "pastTransactionsKeepTheOldRate": "Giao dịch đã thực hiện giữ nguyên tỉ giá cũ trong lịch sử, nên đổi con số này không làm sai số liệu quá khứ.",
-    "pending": "chờ xử lý",
-    "peopleBalances": "Số dư nhân sự",
-    "peopleWithABudgetCanReward": "Người có hạn mức tự thưởng được ngay. Vượt hạn mức hoặc vượt mức tối đa mỗi lần thì lượt trao đó chuyển thành đề nghị chờ duyệt.",
-    "periods": "Số đợt",
-    "points": "điểm",
-    "pointsAreDeductedOnRedemption": "⏱️ Điểm trừ ngay lúc đổi",
-    "pointsAwardedByProgramsComeFrom": "Điểm phát từ chương trình lấy từ",
-    "pointsComeFromTheCommonFund": "🏦 Điểm lấy từ quỹ chung",
-    "pointsGivenThisMonth": "Điểm đã phát tháng này",
-    "pointsPerCheckInTimesHeadcount": "Điểm mỗi lượt nhân với số nhân sự nhân với số ngày làm việc — con số nhỏ ở đây cộng dồn rất nhanh.",
-    "position": "Vị trí:",
-    "positionValueBsc": "📊 Vị trí · Giá trị · % BSC",
-    "programs": "Chương trình",
-    "progressUpdatesItself": "📊 Tiến độ tự cập nhật",
-    "qualitative": "Định tính:",
-    "qualitativeScale": "Thang điểm định tính",
-    "quantitative": "Định lượng:",
-    "quantitativeScale": "Thang điểm định lượng",
-    "queue": "Hàng đợi",
-    "queueOrAll": "🔀 Hàng đợi hay tất cả",
-    "quotasResetMonthlyUnusedAmountsDo": "Hạn mức đặt lại theo tháng — phần chưa dùng hết không cộng dồn sang tháng sau.",
-    "rating": "loại",
-    "ratingForTheWholeUnit": "🏢 Xếp loại cho cả đơn vị",
-    "ratingLevels": "🪜 Các mức xếp loại",
-    "ratingLevels2": "mức xếp loại",
-    "readTheTableInTwoDirections": "📐 Đọc bảng theo hai chiều",
-    "receivingAccount": "🏧 Tài khoản nhận tiền",
-    "recognition": "Ghi nhận:",
-    "resettingToDefaultOverwritesEveryLevel": "Đặt lại mặc định ghi đè toàn bộ mức bạn đã khai, không hỏi lại lần hai và không hoàn tác được.",
-    "reviewOldPeriods": "🔍 Xem lại các đợt cũ",
-    "rewardBudgets": "Hạn mức thưởng",
-    "rewardPoints": "Thưởng điểm",
-    "rewardPointsNotMoney": "🎁 Điểm thưởng, không phải tiền",
-    "rewardProposals": "Đề nghị thưởng",
-    "rewardProposalsBudgets": "Đề nghị thưởng, Hạn mức.",
-    "rewardsWallet": "Thưởng & Ví:",
-    "rewardTiersDeclaredInTheConfiguration": "Bậc thưởng khai trong cấu hình chỉ là mặc định — mỗi lần chạy vẫn sửa lại được cho riêng lần đó.",
-    "row": "+ Hàng",
-    "rowsWith": "(hàng) với",
-    "run": "▷ Chạy",
-    "runInParallelThenMakeIt": "🚀 Chạy song song rồi mới chính thức",
-    "saveSettings": "Lưu cấu hình",
-    "scorecard": "bộ tiêu chí",
-    "scorecardsAcross4Areas": "🧭 Bộ tiêu chí theo 4 lĩnh vực",
-    "scorersReadExactlyTheNameYou": "Người chấm đọc đúng cái tên bạn gõ ở đây. \"Vượt mong đợi / Đạt / Cần cải thiện\" dễ chấm nhất quán hơn \"Mức 1 / Mức 2 / Mức 3\".",
-    "scoresByItemTheBalanceRadar": "Điểm theo từng hạng mục, radar cân bằng và phần đối chiếu BSC với điểm hệ thống nằm ở",
-    "scoreThreshold": "ngưỡng điểm",
-    "scoringScales": "Thang điểm",
-    "searchByNameOrEmailFilter": "Tìm theo tên hoặc email, lọc theo đơn vị, rồi mở một ví ra xem toàn bộ lịch sử biến động của người đó.",
-    "sepayReconciliation": "Đối soát SePay",
-    "setItUpBy": "Thiết lập theo",
-    "setThe": "Đặt",
-    "setTheRuleOnce": "🏆 Đặt luật một lần",
-    "setupOrderTheFirstTime": "🚦 Thứ tự dựng lần đầu",
-    "sevenTabsFourKindsOfWork": "🗂️ Bảy tab, bốn nhóm việc",
-    "shorteningTheEndDateOfA": "Rút ngắn ngày kết thúc của một đợt đang chạy sẽ chặn ngay những người chưa kịp nộp.",
-    "showsEveryTransactionTheSystemReceived": "hiện mọi giao dịch hệ thống nhận được, dùng khi tra cứu lại một khoản cũ.",
-    "showsHowManyPeopleActuallyUse": "cho biết bao nhiêu người thực sự dùng, còn",
-    "showsHowManyPeriodsTheCycle": "cho biết kỳ đó đã gom được mấy đợt. Kỳ có 0 đợt thì đánh giá kỳ sẽ không có gì để tổng hợp.",
-    "showsOnlyTransactionsThatNeedYou": "chỉ hiện giao dịch cần bạn xử lý.",
-    "slowHandlingMeansPeopleHaveLost": "Xử lý chậm nghĩa là người ta đã mất điểm mà chưa nhận được gì — đây là nguồn khiếu nại phổ biến nhất của module thưởng.",
-    "soManagersCanRewardOnTheir": "(để quản lý tự thưởng được) →",
-    "soPointsHaveSomewhereToBe": "(để điểm có chỗ tiêu) → rồi mới bật",
-    "startAndEndDates": "ngày bắt đầu và ngày kết thúc",
-    "statisticsBscScorecard": "Thống kê › Thẻ điểm BSC",
-    "strategyManagementOkr": "🎯 Quản trị chiến lược (OKR)",
-    "streakRulesAreDecidedByThe": "Luật tính chuỗi do máy chủ quyết định, không phải trình duyệt — đổi giờ máy cá nhân không lách được.",
-    "tableView": "dạng bảng",
-    "templatesAreUsedWhenPrintingA": "Mẫu được dùng lúc in chứng nhận cho một lượt thưởng. Không phải lượt thưởng nào cũng có giấy khen — chỉ những lượt cấp trên chọn kèm chứng nhận mới hiện ở \"Của tôi › Điểm của tôi › Chứng nhận\".",
-    "thatItSatisfies": "mà nó thoả",
-    "thatMeasureSuccess": "định lượng để đo mức thành công.",
-    "theAccountNumberAndBankCode": "Số tài khoản và mã ngân hàng là",
-    "theAllocationPool": "📊 Túi để phân bổ",
-    "theAmountOfMoneyThatConverts": "Số tiền đổi được 1 điểm. Bảng",
-    "theBscScoreReplacesTheSystem": ": điểm BSC thay luôn điểm hệ thống cho các đánh giá chốt từ đó về sau.",
-    "theButton": "Nút",
-    "theButtonNextToTheHeading": "Nút \"?\" ngay cạnh nhan đề mở phần giải thích dài; \"Đặt lại\" đưa hồ sơ về bộ mẫu; \"Lưu\" ghi mọi hồ sơ cùng lúc.",
-    "theCheckInCardShowsOn": "Thẻ điểm danh hiện ở trang",
-    "theColorHereIsTheColor": "Màu ở đây chính là màu hiện trên bảng đánh giá và trong báo cáo, nên chọn màu tương phản rõ giữa các mức kề nhau.",
-    "theColumn": "Cột",
-    "theCompanysOwnCertificates": "🏅 Giấy khen của riêng công ty",
-    "theConvertedScoreUsedAsAn": "điểm quy đổi, dùng làm trục cho ma trận xếp loại.",
-    "theCorrespondingCompletionLevelWhenComputing": "mức hoàn thành tương ứng khi tính điểm BSC — chỉ hiện khi tổ chức bật BSC.",
-    "theEmployeeReceives": "nhân viên nhận được.",
-    "theFeedAboveTheTabRow": "Bảng tin phía trên hàng tab là hoạt động thưởng của cả tổ chức — ai vừa được ghi nhận vì việc gì.",
-    "theFirstSwitchTurnsTheWhole": "Công tắc đầu tiên bật/tắt cả tính năng — tắt thì thẻ biến mất khỏi màn hình nhân viên, lịch sử điểm đã phát vẫn giữ nguyên. Bên dưới là điểm mỗi lượt và mức thưởng thêm cho chuỗi ngày liên tiếp.",
-    "theGoldNumberOnATab": "Số vàng trên tab là số việc đang chờ bạn xử lý — có số thì vào tab đó trước.",
-    "theGroup": "Cụm",
-    "theImportButtonHereCanImport": "Nút \"Import\" ở đây nhập được cả bộ tiêu chí kèm trọng số, hoặc chỉ danh mục hạng mục — chọn đúng loại tệp trong menu đổ xuống.",
-    "theMatrixCombinesThe": "Ma trận ghép",
-    "theMatrixInThePreviousSection": "Ma trận ở mục trước xếp loại",
-    "theNextThreeCardsFormA": "Ba thẻ kế tiếp nối nhau thành một chuỗi:",
-    "theNumberInThePurpleBlock": "Số ở khối tím là",
-    "theOrganizationsMasterSwitches": "🎛️ Công tắc tổng của tổ chức",
-    "thereIsAUrboxGiftCatalog": "Có nút \"Kho quà UrBox\" khi tổ chức bật tích hợp — lấy voucher có sẵn thay vì tự nhập từng món.",
-    "theScorerChoosesAPresetLevel": "người chấm chọn một mức có sẵn — thái độ, kỷ luật.",
-    "theseThreeCardsShowHowMuch": "Ba ô này cho biết còn bao nhiêu để chia. Với quản lý cao nhất, túi là ngân sách của cả công ty; với trưởng đơn vị, túi lấy chính từ hạn mức cá nhân của họ.",
-    "theSystemKeepsDataForMany": "Hệ thống lưu dữ liệu nhiều năm. Dùng bộ lọc để mở lại hoặc so sánh cấu hình của những chu kỳ đã qua.",
-    "theTableSuitsComparingDatesCards": "— bảng hợp khi đối chiếu ngày tháng, thẻ hợp khi lướt nhanh.",
-    "theTextOnTheTableCounts": "Dòng chữ trên bảng đếm riêng số hạn mức",
-    "theTopCardIsYourOwn": "Thẻ trên cùng là token AI của riêng bạn — phần bạn dùng khi chat với K.AI. Nó tách khỏi túi dùng để chia cho người khác ở ngay bên dưới.",
-    "theTopLeftCellNamesThe": "Ô góc trên trái ghi tên hai trục kèm mũi tên chỉ chiều. Dò hàng theo điểm hành vi, dò cột theo % KPI, ô giao nhau chính là",
-    "theTopStripStatesTheStatus": "Dải trên cùng nói thẳng tình trạng: xanh là sổ cân, vàng là còn giao dịch chưa khớp đơn, lệch số tiền, hoặc có ví lệch sổ cái.",
-    "theTotalWeightMustEqual100": "⚖️ Tổng trọng số phải bằng 100%",
-    "theTotalWeightOfItemsIn": "Tổng trọng số các hạng mục trong một bộ phải bằng 100%. Thẻ nào lệch sẽ báo ngay trên chính thẻ đó.",
-    "theUnitIsPlacedInThe": "Đơn vị được xếp vào mức",
-    "theWalletIsCompletelySeparateFrom": "Ví tách hẳn khỏi điểm thưởng: số dư ở đây là tiền, có nạp vào qua chuyển khoản và có đối soát với ngân hàng.",
-    "theWholeDepartment": "cả phòng ban",
-    "thisIsRealMoney": "🏦 Đây là tiền thật",
-    "thisIsTheMasterSwitchTurning": "Đây là công tắc tổng. Bật/tắt một module ở đây sẽ làm xuất hiện hoặc biến mất cả những thẻ khác trên chính lưới này, lẫn các mục ở những trang khác.",
-    "thisIsTheSectionToTouch": "Đây là mục cần đụng tới đều đặn nhất trong cả trang. Đầu mỗi chu kỳ, mở đợt mới; hết hạn, đóng lại để chốt số.",
-    "thisSectionRates": ". Mục này xếp loại",
-    "thisTabRowOnlyListsThe": "Hàng tab này chỉ liệt kê các mục",
-    "thisThinRowListsTheCurrent": "Hàng mảnh này liệt kê các mức xếp loại đang có kèm màu. Nó là bảng tra dùng suốt lúc soạn điều kiện bên dưới — tên mức ở đây chính là tên bạn chọn trong từng điều kiện.",
-    "thisWholeSectionRunsOn": "Toàn bộ mục này chạy trên",
-    "threeFiguresForTheWholeOrganization": "👛 Ba con số của cả tổ chức",
-    "threeScalesThreeKindsOfQuestion": "📏 Ba thang điểm, ba loại câu hỏi",
-    "toBuildTheVietqrCodeWithout": "để dựng mã VietQR. Thiếu chúng thì nhân viên không tạo được đơn nạp.",
-    "toCreateOneThenClickThe": "để tạo, rồi bấm vào thẻ để mở ra và thêm hạng mục vào từng lĩnh vực. Hạng mục phải có trước thì mới có thứ để chia trọng số.",
-    "toDeclareANewItemName": "để khai món mới: tên, ảnh, giá theo điểm và số lượng còn lại. Đây chính là những gì nhân viên thấy ở \"Của tôi › Điểm của tôi › Cửa hàng quà\".",
-    "toDeclareTheRuleWhoeverMakes": "để khai luật: ai lọt top của đợt/kỳ thì được bao nhiêu điểm. Hợp với những khoản lặp lại đều đặn; khoản đột xuất thì dùng tab Đề nghị thưởng.",
-    "toLookThingsUp": "để tra cứu,",
-    "toMatchTransferTransactions": "để khớp giao dịch chuyển khoản.",
-    "toMeasureItAnObjectiveWithout": "cụ thể để đo nó. Objective không có Key Result thì không tính được tiến độ.",
-    "tools": "Công cụ",
-    "toSetTheReceivingAccountAnd": "để đặt tài khoản nhận tiền và tỉ giá,",
-    "turningOffAModuleDoesNot": "Tắt một module KHÔNG xoá dữ liệu đã có — chỉ ẩn đi. Bật lại là dữ liệu cũ trở về nguyên vẹn.",
-    "turnOnSetPointsRewardStreaks": "🎚️ Bật, đặt điểm, thưởng chuỗi",
-    "turnThisSwitchOnAndUnit": "Bật công tắc này thì trưởng đơn vị chia được token cho nhân sự của họ — và phần chia đó trừ vào chính hạn mức của họ, không đụng tới túi của bạn.",
-    "twoAxesIntoOneRating": "🔲 Hai trục thành một xếp loại",
-    "twoDifferentBalancesPointsAndMoney": "hai số dư khác nhau (điểm và tiền), bật độc lập được.",
-    "twoFiguresToCalibrateThePoints": "📈 Hai con số để cân mức điểm",
-    "twoGroupsTwoKindsOfWork": "🧩 Hai cụm, hai loại việc",
-    "twoRequiredFields": "hai trường bắt buộc",
-    "twoTimeLayersDoNotMix": "Hai tầng thời gian, đừng nhầm:",
-    "unitRating": "Xếp loại đơn vị",
-    "unlikeQuantitativeTheScorer": "Khác định lượng ở chỗ người chấm",
-    "unmatchedTransactionsAreUsuallyBecauseEmployees": "Giao dịch chưa khớp thường do nhân viên chuyển sai nội dung. Mở giao dịch ra để gán tay vào đúng đơn nạp.",
-    "validityHasATimeLimit": "⏳ Hiệu lực có thời hạn",
-    "value": "Giá trị:",
-    "valueAndBscAreIndependentA": "Giá trị và % BSC độc lập nhau: một mức có thể đáng 3.5 điểm trên thang 5 mà vẫn tính là 80% hoàn thành.",
-    "viewConfigureReconcile": "🗂️ Xem, cấu hình, đối soát",
-    "viewFirstEditLater": "✏️ Xem trước, sửa sau",
-    "viewOnly": "chỉ xem",
-    "walletConfiguration": "Cấu hình ví",
-    "wallets": "Số ví",
-    "walletsOutOfBalanceWithThe": "🚨 Ví lệch sổ",
-    "weights": "trọng số",
-    "whatDependsOnWhat": "🔗 Cái nào kéo theo cái nào",
-    "whenAManagerGivesPoints": "Quản lý trao điểm",
-    "whenAWalletIsOutOf": "Khi có ví lệch so với sổ cái, một dải đỏ hiện ngay dưới ba ô này. Bấm vào dải đó để lọc đúng những ví đang lệch — đây là đường duy nhất xem chúng là ví nào.",
-    "whenEmployeesClickRedeemPointsAre": "Nhân viên bấm đổi là điểm bị trừ ngay, chưa cần bạn duyệt. Yêu cầu nằm ở đây chờ bạn xác nhận đã giao quà.",
-    "whenEmployeesClickThePointsGo": ". Nhân viên bấm là điểm vào thẳng ví của họ, không trừ hạn mức của quản lý nào.",
-    "whenOnAnalyticsSwitchesFromViewing": "bật thì phần Phân tích đổi từ xem theo KPI sang xem theo mục tiêu.",
-    "whenOnThereIsASection": "bật thì có mục dựng bộ tiêu chí và góc nhìn BSC bên Phân tích.",
-    "whenSettingUpForTheFirst": "Dựng lần đầu thì vào Cấu hình trước — chưa có số tài khoản thì nhân viên không tạo được đơn nạp.",
-    "whenTheQuantityReaches0The": "Số lượng về 0 thì món đó hiện là hết hàng bên phía nhân viên, không đổi được nữa. Muốn ngừng hẳn một món thì sửa số lượng chứ không cần xoá — xoá làm mất lịch sử đổi quà cũ.",
-    "whenTheQuotaRunsOutThe": "📉 Hết hạn mức thì trợ lý ngừng trả lời",
-    "whenTheyAreUsed": "🖨️ Dùng khi nào",
-    "whereToSeeTheResults": "📊 Xem kết quả ở đâu",
-    "whereYouSetStrategic": "Nơi đặt các",
-    "withAnEmptyShopRewardPoints": "Cửa hàng trống thì điểm thưởng không dùng được vào việc gì. Khai vài món trước khi bật module thưởng.",
-    "withAPoolOf0Nothing": "Túi bằng 0 thì không chia được cho ai. Công ty chưa được cấp ngân sách thì phải liên hệ quản trị hệ thống.",
-    "withinTheBudgetNoApprovalNeeded": "🤝 Trong hạn mức thì không cần duyệt",
-    "withinTheirBudget": "trong hạn mức",
-    "withoutADefaultSetUnassignedCycles": "Không có bộ mặc định thì các kỳ chưa gán sẽ không mở được phiếu chấm — màn hình hạnh kiểm của nhân viên trống trơn.",
-    "withoutAnOpenPeriodNobodyCan": "🚦 Không có đợt mở thì không ai nộp được",
-    "withoutAnyTemplateThePrintScreen": "Chưa tạo mẫu nào thì màn hình in vẫn có sẵn sáu thiết kế. Mẫu ở đây là bản riêng của công ty bạn — có logo, chữ ký và lời văn cố định.",
-    "withoutGrantingBudgetsToAnyoneEvery": "Không cấp hạn mức cho ai thì mọi lượt trao điểm đều dồn vào hàng chờ duyệt của bạn.",
-    "youClick": ". Bạn bấm",
-    "yourOwnQuota": "🪙 Hạn mức của chính bạn"
   },
   "StableGridLayout": {
     "couldNotDraw": "Không vẽ được \"",
@@ -1251,12 +368,26 @@
     "section": "Mục",
     "thisScreenHasAGuideYou": "Màn hình này có hướng dẫn bạn chưa xem",
     "userGuide": "Hướng dẫn sử dụng",
-    "page": "Trang"
+    "page": "Trang",
+    "newGuideAvailable": "Có hướng dẫn mới",
+    "new": "Mới",
+    "series": "Bài tiếp"
   },
   "TourHost": {
-    "continue": "TIẾP TỤC",
-    "skip": "BỎ QUA",
-    "step": "Bước"
+    "stepOf": "Bước {{current}} / {{total}}",
+    "back": "Quay lại",
+    "next": "Tiếp theo",
+    "finish": "Hoàn tất",
+    "close": "Đóng hướng dẫn",
+    "closeHint": "Đóng hướng dẫn (Esc)",
+    "backHint": "Bước trước (←)",
+    "nextHint": "Bước tiếp theo (→)",
+    "resumeTitle": "Học tiếp?",
+    "resumeBody": "Lần trước bạn dừng ở bước {{current}} / {{total}} của bài \"{{title}}\".",
+    "resumeContinue": "Học tiếp từ bước {{current}}",
+    "resumeRestart": "Bắt đầu lại",
+    "nextTour": "Tiếp: {{title}}",
+    "noSubmit": "Đang trong hướng dẫn nên không lưu gì thật. Thoát hướng dẫn (Esc) rồi làm lại để lưu."
   },
   "TrendModeToggle": {
     "composition": "Cơ cấu %",
@@ -1304,5 +435,2820 @@
     "allCyclesPeriods": "Tất cả kỳ / đợt",
     "wholeCycle": "Cả kỳ {{name}}",
     "clearFilters": "Bỏ lọc"
+  },
+  "kpiCreate": {
+    "part1": "Tạo KPI (1/3): Bối cảnh",
+    "part2": "Tạo KPI (2/3): Nguồn và nội dung",
+    "part3": "Tạo KPI (3/3): Gửi duyệt",
+    "introTitle": "Tạo một chỉ tiêu",
+    "introBody": "Form đi theo ba chặng: bối cảnh (đợt, đơn vị, người nhận), nguồn chỉ tiêu, rồi nội dung và con số. Hướng dẫn chỉ mở form cho bạn xem, không tạo gì.",
+    "addTitle": "Mở form tạo chỉ tiêu",
+    "addBody": "Bấm \"Tạo chỉ tiêu\" để mở form — hoặc bấm Tiếp theo, hướng dẫn sẽ mở giúp bạn.",
+    "typeTitle": "Định lượng hay định tính",
+    "typeBody": "Định lượng chấm theo con số đạt được so với mục tiêu. Định tính không có con số, được chấm theo thang đánh giá định tính.",
+    "periodTitle": "Chọn đợt đánh giá",
+    "periodBody": "Chỉ tiêu thuộc về một đợt. Đợt của kỳ đã khoá bị mờ và không chọn được; cuối danh sách có lối tắt tạo đợt mới.",
+    "frequencyTitle": "Tần suất chốt",
+    "frequencyBody": "Bao lâu người thực hiện báo cáo kết quả một lần. Danh sách chỉ có các tần suất không dài hơn loại đợt đã chọn.",
+    "deadlineTitle": "Hạn chót",
+    "deadlineBody": "Để trống thì hạn là ngày kết thúc đợt. Nếu đặt riêng, hạn phải nằm trong đợt.",
+    "unitsTitle": "Đơn vị thực hiện",
+    "unitsBody": "Bấm để chọn đơn vị nhận chỉ tiêu. Đơn vị đã chọn quyết định danh sách người nhận và bộ BSC / OKR nào áp dụng.",
+    "assigneesTitle": "Giao thực hiện",
+    "assigneesBody": "Chọn người thực hiện trong các đơn vị đã chọn. Nhân viên tự lập chỉ tiêu thì người nhận luôn là chính mình.",
+    "assigneeFilterTitle": "Tìm người nhận",
+    "assigneeFilterBody": "Gõ tên hoặc email để tìm nhanh, hoặc bấm một vai trò để chỉ hiện người giữ vai trò đó.",
+    "sourceTitle": "Nguồn của chỉ tiêu",
+    "sourceBody": "Tự do, theo một hạng mục BSC, hoặc theo một kết quả then chốt (KR) của OKR. Chọn nguồn thì mục tiêu, đơn vị tính, trọng số và tên được điền sẵn.",
+    "sourceBscTitle": "Theo hạng mục BSC",
+    "sourceBscBody": "Chọn hạng mục trong bộ tiêu chí BSC của đơn vị ở đợt này; con số bên phải là mục tiêu và trọng số của hạng mục. Đơn vị đã có bộ BSC cho đợt thì chỉ tiêu tính điểm phải gắn hạng mục hoặc KR.",
+    "sourceOkrTitle": "Theo kết quả then chốt (OKR)",
+    "sourceOkrBody": "Chọn một KR thuộc mục tiêu của đơn vị đã chọn. Mục tiêu được điền sẵn bằng phần KR còn phải đạt.",
+    "reverseTitle": "KPI ngược",
+    "reverseBody": "Bật khi càng thấp càng tốt, như tỷ lệ lỗi hay chi phí. Ô mục tiêu khi đó thành \"Ngưỡng mục tiêu\", ô tối thiểu thành \"Ngưỡng tối đa chấp nhận\".",
+    "bonusTitle": "KPI thưởng",
+    "bonusBody": "Chỉ tiêu không bắt buộc, không tính vào tổng 100% trọng số. Ô trọng số khi đó là điểm thưởng.",
+    "nameTitle": "Tên chỉ tiêu",
+    "nameBody": "Ngắn và nói rõ đo cái gì, ví dụ \"Doanh thu tháng 10\". Tên hiện trong danh sách, báo cáo và thông báo.",
+    "aiTitle": "Gợi ý AI",
+    "aiBody": "K.AI đọc số liệu và tài liệu của đơn vị rồi đề xuất chỉ tiêu. Bấm Điền trên đề xuất để đưa thẳng vào form này.",
+    "descriptionTitle": "Mô tả chi tiết",
+    "descriptionBody": "Ghi bối cảnh và cách đo để người thực hiện và người duyệt hiểu giống nhau.",
+    "targetTitle": "Mục tiêu mong muốn",
+    "targetBody": "Con số cần đạt. Với KPI ngược, đây là ngưỡng — càng thấp càng tốt.",
+    "minimumTitle": "Mục tiêu tối thiểu",
+    "minimumBody": "Dưới mức này coi như chưa đạt. Với KPI ngược, đây là ngưỡng tối đa còn chấp nhận được.",
+    "unitTitle": "Đơn vị tính",
+    "unitBody": "Ví dụ VNĐ, %, khách hàng. Đơn vị tính hiện cạnh mọi con số của chỉ tiêu.",
+    "weightTitle": "Trọng số",
+    "weightBody": "Phần trăm của chỉ tiêu trong tổng 100% của người thực hiện ở đợt này. Gắn hạng mục BSC thì đây là trọng số trong hạng mục.",
+    "submitTitle": "Tạo chỉ tiêu",
+    "submitBody": "Bấm để lưu. Có quyền tự duyệt thì chỉ tiêu được duyệt ngay; nếu không, nó ở trạng thái Nháp và cần gửi duyệt. Trong lúc học, nút này không tạo gì.",
+    "tabsTitle": "Lọc theo trạng thái",
+    "tabsBody": "Nháp là chỉ tiêu chưa gửi; Chờ duyệt đang đi qua chuỗi duyệt; Bị trả lại cần sửa rồi gửi lại.",
+    "myDraftsTitle": "Bản nháp của bạn",
+    "myDraftsBody": "Lối tắt tới các chỉ tiêu bạn tạo mà chưa gửi duyệt.",
+    "rowSelectTitle": "Chọn để gửi cả loạt",
+    "rowSelectBody": "Tích các chỉ tiêu nháp; thanh dưới cùng hiện nút \"Gửi duyệt\" cho tất cả chỉ tiêu đã chọn.",
+    "personSelectTitle": "Chọn hết của một người",
+    "personSelectBody": "Chọn nhanh mọi chỉ tiêu gửi được của người này trong một lần bấm.",
+    "rowMenuTitle": "Gửi từng chỉ tiêu",
+    "rowMenuBody": "Menu ⋮ có Gửi duyệt. Chỉ gửi được khi tổng trọng số của người thực hiện trong đợt đúng 100%.",
+    "submitAiTitle": "Gửi duyệt bằng K.AI",
+    "submitAiBody": "K.AI kiểm tra trọng số rồi gửi hộ các bản nháp của đơn vị và đợt đang chọn, sau khi bạn xác nhận.",
+    "chainTitle": "Sau khi gửi",
+    "chainBody": "Chỉ tiêu chuyển sang Chờ duyệt và được duyệt lần lượt bởi trưởng các đơn vị, từ đơn vị của chỉ tiêu lên tới gốc. Bị trả lại thì sửa rồi gửi lại.",
+    "helpTitle": "Xem lại bất cứ lúc nào",
+    "helpBody": "Bạn đã đi hết luồng tạo chỉ tiêu. Ba bài này luôn có trong menu của nút Hướng dẫn."
+  },
+  "tourSetupCompany": {
+    "intro": {
+      "t": "Thiết lập công ty",
+      "b": "Ba cụm: Tổ chức (công ty có mấy cấp), Con người (ai làm ở đâu, được làm gì) và Hệ thống (app nói chuyện với nhân viên thế nào). Bấm một thẻ để mở mục đó."
+    },
+    "cards": {
+      "info": {
+        "b": "Tên, mã doanh nghiệp, logo và danh sách tính năng đang bật. Thường chỉ sửa một lần lúc khởi tạo."
+      },
+      "ranks": {
+        "b": "Công ty có mấy cấp và mỗi cấp gọi là gì. Nên chốt trước khi dựng cây đơn vị."
+      },
+      "org-structure": {
+        "b": "Dựng cây đơn vị và gán trưởng mỗi đơn vị. Cây này quyết định chuỗi duyệt và ai thấy dữ liệu của ai."
+      },
+      "users": {
+        "b": "Thêm nhân sự, gán đơn vị và chức danh. Thiếu một trong hai thì người đó chưa nhận được chỉ tiêu."
+      },
+      "delegations": {
+        "b": "Cho một người quản lý thêm đơn vị ngoài cây của họ, có thời hạn."
+      },
+      "roles": {
+        "b": "Vai trò và bộ quyền đi kèm. Gán quyền cho vai trò rồi gán vai trò cho người, không cấp quyền lẻ."
+      },
+      "sidebar": {
+        "b": "Đổi tên các mục trên menu và trong từng trang cho đúng thuật ngữ của công ty."
+      },
+      "notifications": {
+        "b": "Sự kiện nào gửi email, sự kiện nào chỉ báo chuông, và nhắc hạn đánh giá."
+      },
+      "email": {
+        "b": "Sửa tiêu đề và nội dung các thư hệ thống gửi đi, theo từng ngôn ngữ."
+      },
+      "api": {
+        "b": "Nối với Lark để nhân viên đăng nhập bằng tài khoản Lark."
+      },
+      "ai-docs": {
+        "b": "Tài liệu nội bộ để K.AI đọc khi trả lời câu hỏi về công ty."
+      },
+      "kpi-workflow": {
+        "b": "Bật tắt các bước trong luồng KPI của tổ chức, xem dưới dạng sơ đồ."
+      }
+    },
+    "info": {
+      "cover": {
+        "t": "Ảnh bìa",
+        "b": "Bấm để đổi ảnh bìa của công ty. Đổi ảnh không cần vào chế độ sửa."
+      },
+      "logo": {
+        "t": "Logo",
+        "b": "Logo hiện trên báo cáo xuất ra và trong email hệ thống. Bấm biểu tượng máy ảnh để đổi."
+      },
+      "edit": {
+        "t": "Chỉnh sửa hồ sơ",
+        "b": "Mở chế độ sửa cho tên, lĩnh vực, mã số thuế, quy mô và mô tả công ty."
+      },
+      "profile": {
+        "t": "Thông tin định danh",
+        "b": "Các ô này chỉ sửa được sau khi bấm Chỉnh sửa hồ sơ. Sửa xong bấm Lưu ở cuối khối."
+      },
+      "features": {
+        "t": "Tính năng đang bật",
+        "b": "Chấm xanh là module tổ chức đang dùng. Khối này chỉ để xem."
+      },
+      "featuresManage": {
+        "t": "Quản lý tính năng",
+        "b": "Muốn bật tắt module thì bấm đây để sang Thiết lập công cụ › Module & tính năng."
+      }
+    },
+    "ranks": {
+      "list": {
+        "t": "Các cấp của công ty",
+        "b": "Mỗi dòng là một tầng của cây đơn vị, từ trên xuống, kèm chức danh người quản lý tầng đó."
+      },
+      "edit": {
+        "t": "Sửa cấp bậc",
+        "b": "Đổi tên, thêm bớt hoặc sắp lại thứ tự cấp. Thêm bớt cấp ảnh hưởng tới các đơn vị đã tạo, nên chốt sớm."
+      }
+    },
+    "roles": {
+      "stats": {
+        "t": "Số liệu vai trò",
+        "b": "Tổng số vai trò, bao nhiêu do hệ thống tạo, bao nhiêu tự tạo, và bao nhiêu thuộc cấp lãnh đạo."
+      },
+      "add": {
+        "t": "Thêm vai trò",
+        "b": "Tạo vai trò mới với tên, cấp quản lý và vị trí phân cấp, rồi chọn quyền cho nó."
+      },
+      "hierarchy": {
+        "t": "Quyền theo phân cấp",
+        "b": "Đặt quyền áp chung cho mọi vai trò cùng một cấp, khỏi phải gán lại cho từng vai trò."
+      },
+      "search": {
+        "t": "Tìm vai trò",
+        "b": "Gõ tên hoặc mã định danh để lọc nhanh danh sách."
+      },
+      "table": {
+        "t": "Danh sách vai trò",
+        "b": "Mỗi dòng cho biết vị trí phân cấp và vai trò đó do hệ thống hay tự tạo."
+      },
+      "rowMenu": {
+        "t": "Thao tác trên vai trò",
+        "b": "Menu này có Phân quyền, Chỉnh sửa và Xoá vai trò. Vai trò hệ thống được bảo vệ, không xoá được."
+      }
+    },
+    "org": {
+      "viewMode": {
+        "t": "Sơ đồ hay danh sách",
+        "b": "Sơ đồ để nhìn tổng thể luồng quản lý; danh sách để tìm và sửa nhanh."
+      },
+      "content": {
+        "t": "Cây đơn vị",
+        "b": "Bấm một đơn vị để sửa, thêm đơn vị con hoặc gán trưởng. Đơn vị không có trưởng sẽ làm tắc chuỗi duyệt KPI."
+      },
+      "createRoot": {
+        "t": "Tạo đơn vị gốc",
+        "b": "Cây chưa có gì thì bắt đầu bằng đơn vị gốc — thường là cả công ty."
+      },
+      "import": {
+        "t": "Nhập từ Excel",
+        "b": "Cây lớn thì nhập một lượt từ tệp Excel thay vì tạo tay từng đơn vị."
+      },
+      "export": {
+        "t": "Xuất Excel",
+        "b": "Lấy cả cây ra tệp Excel để rà soát hoặc sửa hàng loạt rồi nhập lại."
+      }
+    },
+    "users": {
+      "add": {
+        "t": "Thêm nhân sự",
+        "b": "Tạo một tài khoản lẻ, chọn đơn vị và chức danh ngay trong form."
+      },
+      "import": {
+        "t": "Nhập từ Excel",
+        "b": "Danh sách đông thì nhập từ Excel; hộp thoại có tệp mẫu đúng thứ tự cột."
+      },
+      "search": {
+        "t": "Tìm nhân sự",
+        "b": "Gõ tên hoặc email để tìm nhanh."
+      },
+      "roleFilter": {
+        "t": "Lọc theo chức danh",
+        "b": "Chỉ hiện những người giữ một chức danh."
+      },
+      "unitFilter": {
+        "t": "Lọc theo đơn vị",
+        "b": "Chỉ hiện nhân sự của một đơn vị."
+      },
+      "table": {
+        "t": "Danh sách nhân sự",
+        "b": "Bấm một dòng để mở hồ sơ. Cột Vai trò và Đơn vị trống nghĩa là người đó chưa nhận được chỉ tiêu."
+      },
+      "rowMenu": {
+        "t": "Thao tác trên nhân sự",
+        "b": "Menu này có Chỉnh sửa hồ sơ, Ngắt quyền hệ thống và Xoá tài liệu cá nhân."
+      }
+    },
+    "delegations": {
+      "add": {
+        "t": "Uỷ quyền mới",
+        "b": "Chọn người, đơn vị được quản lý thêm và thời hạn. Có thể cho phép ký thay trưởng đơn vị."
+      },
+      "note": {
+        "t": "Uỷ quyền chỉ nới phạm vi",
+        "b": "Uỷ quyền không cấp quyền mới: người không có quyền chốt kỳ thì được uỷ quyền vẫn không chốt được."
+      },
+      "list": {
+        "t": "Uỷ quyền đang có",
+        "b": "Mỗi dòng ghi người được uỷ quyền, từ đơn vị nào sang đơn vị nào, và còn hiệu lực hay không. Chưa có uỷ quyền nào thì ô này trống."
+      },
+      "revoke": {
+        "t": "Thu hồi",
+        "b": "Bấm để chấm dứt uỷ quyền ngay, không cần chờ hết hạn."
+      }
+    },
+    "sidebar": {
+      "header": {
+        "t": "Đổi tên mục điều hướng",
+        "b": "Dòng phụ dưới nhan đề đếm số mục đã đổi tên. Đổi tên không đổi chức năng hay quyền."
+      },
+      "search": {
+        "t": "Tìm mục",
+        "b": "Lọc theo cả tên mặc định lẫn tên đã đặt."
+      },
+      "note": {
+        "t": "Chia theo nơi hiện ra",
+        "b": "Khối đầu là các dòng trên sidebar, các khối sau là mục bên trong từng trang."
+      },
+      "scope": {
+        "t": "Một khối",
+        "b": "Mỗi dòng có tên mặc định và ô để gõ tên mới. Để trống là quay về tên mặc định."
+      },
+      "resetItem": {
+        "t": "Về tên mặc định",
+        "b": "Bấm để xoá tên đã đặt của riêng mục này."
+      },
+      "save": {
+        "t": "Lưu thay đổi",
+        "b": "Mọi ô được ghi cùng một lần. Rời trang khi chưa lưu là mất những gì vừa gõ."
+      }
+    },
+    "notif": {
+      "events": {
+        "t": "Từng sự kiện",
+        "b": "Mỗi dòng là một sự kiện, hai công tắc Email và Hệ thống bật riêng. Việc lặp lại thường xuyên thì chỉ nên để chuông."
+      },
+      "save": {
+        "t": "Lưu cấu hình",
+        "b": "Thiết lập ở đây là mặc định cho mọi nhân viên. Sửa xong nhớ bấm Lưu."
+      },
+      "deadline": {
+        "t": "Nhắc hạn đánh giá",
+        "b": "Nhắc trưởng đơn vị trước khi đợt hoặc kỳ đóng nếu còn người chưa được chấm. Đặt 0 ngày để tắt."
+      }
+    },
+    "email": {
+      "language": {
+        "t": "Ngôn ngữ của thư",
+        "b": "Mỗi ngôn ngữ có nội dung riêng; người nhận nhận bản theo ngôn ngữ của họ."
+      },
+      "list": {
+        "t": "Các loại thư",
+        "b": "Danh sách mọi thư hệ thống gửi đi, chia theo nhóm."
+      },
+      "template": {
+        "t": "Chọn một mẫu",
+        "b": "Bấm để mở mẫu thư đó ở khung bên phải."
+      },
+      "enabled": {
+        "t": "Bật hoặc tắt thư",
+        "b": "Tắt thì hệ thống không gửi loại thư này nữa. Thư bảo mật như khôi phục mật khẩu luôn bật."
+      },
+      "notifLink": {
+        "t": "Thư do thông báo quyết định",
+        "b": "Một số thư bật tắt theo cấu hình thông báo — bấm đây để sang đó."
+      },
+      "subject": {
+        "t": "Tiêu đề và biến",
+        "b": "Biến như tên người nhận được điền lúc gửi. Thiếu biến bắt buộc thì không lưu được."
+      },
+      "advanced": {
+        "t": "Chế độ HTML",
+        "b": "Chuyển giữa soạn trực quan và soạn HTML đầy đủ mà không mất nội dung."
+      },
+      "preview": {
+        "t": "Xem trước",
+        "b": "Dựng thử thư với dữ liệu mẫu. Nên xem trước khi lưu — thư đã gửi thì không rút lại được."
+      },
+      "reset": {
+        "t": "Khôi phục mặc định",
+        "b": "Đưa mẫu về bản gốc. Nút mờ khi mẫu chưa từng bị sửa."
+      },
+      "save": {
+        "t": "Lưu mẫu",
+        "b": "Lưu tiêu đề và nội dung cho ngôn ngữ đang chọn."
+      }
+    },
+    "lark": {
+      "status": {
+        "t": "Trạng thái kết nối",
+        "b": "Dải này cho biết đã bật đăng nhập bằng Lark chưa và đang liên kết với tổ chức Lark nào."
+      },
+      "createApp": {
+        "t": "Bước 1: tạo ứng dụng",
+        "b": "Cần tài khoản quản trị Lark: vào Lark Developer Console và tạo một Custom App."
+      },
+      "configure": {
+        "t": "Bước 2: khai báo bên Lark",
+        "b": "Sao chép các giá trị ở đây dán vào Lark Console, rồi tạo phiên bản và publish ứng dụng."
+      },
+      "credentials": {
+        "t": "Bước 3: App ID và App Secret",
+        "b": "Lấy ở trang Credentials & Basic Info của ứng dụng vừa tạo, dán vào đây rồi lưu."
+      },
+      "test": {
+        "t": "Kiểm tra kết nối",
+        "b": "Bấm để thử ngay App ID và App Secret vừa nhập."
+      },
+      "connect": {
+        "t": "Liên kết công ty",
+        "b": "Đăng nhập Lark một lần, KeyGo tự nhận diện công ty và ghi nhớ."
+      },
+      "defaults": {
+        "t": "Đơn vị và vai trò cho người mới",
+        "b": "Người đăng nhập Lark lần đầu được tạo tài khoản và xếp vào đây. Chọn vai trò hẹp nhất rồi nâng sau."
+      },
+      "enable": {
+        "t": "Bật đăng nhập bằng Lark",
+        "b": "Bật xong, công ty hiện ở màn hình chọn công ty và nhân viên đăng nhập được bằng Lark."
+      }
+    },
+    "aidocs": {
+      "card": {
+        "t": "Tài liệu cho K.AI",
+        "b": "K.AI đọc tài liệu công ty ở thư viện tài liệu khi trả lời câu hỏi về quy định, quy trình."
+      },
+      "open": {
+        "t": "Mở thư viện",
+        "b": "Sang trang Tài liệu, phạm vi Công ty, để thêm hoặc sửa tài liệu."
+      }
+    },
+    "workflow": {
+      "org": {
+        "t": "Luồng của tổ chức",
+        "b": "Áp dụng cho mọi người. Không có quyền cấu hình thì vẫn xem được luồng đang chạy."
+      },
+      "graph": {
+        "t": "Sơ đồ luồng",
+        "b": "Mỗi nút là một bước. Bấm một nút để xem chi tiết và bật tắt; bước lõi không tắt được."
+      },
+      "reset": {
+        "t": "Đặt lại mặc định",
+        "b": "Đưa luồng về cấu hình gốc của hệ thống."
+      },
+      "save": {
+        "t": "Lưu thay đổi",
+        "b": "Chỉ lưu được khi không còn cảnh báo phụ thuộc giữa các bước."
+      },
+      "fullscreen": {
+        "t": "Toàn màn hình",
+        "b": "Mở sơ đồ rộng hết màn hình; bấm Esc để thoát."
+      },
+      "mine": {
+        "t": "Hiển thị của tôi",
+        "b": "Ẩn bớt bước khỏi màn hình của riêng bạn. Không đổi gì với người khác."
+      },
+      "mineToggle": {
+        "t": "Ẩn hoặc hiện một bước",
+        "b": "Bấm để ẩn bước này khỏi màn hình của bạn, bấm lại để hiện."
+      }
+    }
+  },
+  "tourSetupTools": {
+    "intro": {
+      "t": "Thiết lập công cụ",
+      "b": "Cụm Cấu hình đặt luật chấm điểm, đặt một lần. Cụm Công cụ là việc vận hành hằng kỳ: kỳ đợt, OKR, BSC, thưởng, ví, AI. Thẻ nào không thấy là tổ chức đang tắt công cụ đó."
+    },
+    "cards": {
+      "modules": {
+        "b": "Công tắc tổng: bật tắt OKR, BSC, KPI hành vi, thác nước, thưởng, ví. Tổ chức mới nên bắt đầu từ đây."
+      },
+      "scoring": {
+        "b": "Thang điểm định lượng, các mức định tính và bộ tiêu chí hạnh kiểm. Nên chốt trước khi mở kỳ đầu tiên."
+      },
+      "matrix": {
+        "b": "Ghép điểm hành vi với % KPI thành xếp loại cuối của từng người."
+      },
+      "unit-class": {
+        "b": "Xếp loại cả đơn vị theo tỉ lệ nhân sự đạt từng mức."
+      },
+      "code-rules": {
+        "b": "Mẫu sinh mã cho mục tiêu OKR và bộ tiêu chí BSC."
+      },
+      "kpi-cycles": {
+        "b": "Mở kỳ và đợt. Mọi chỉ tiêu và bài nộp đều gắn vào một đợt."
+      },
+      "okr": {
+        "b": "Đặt mục tiêu chiến lược và kết quả then chốt đo nó."
+      },
+      "bsc": {
+        "b": "Dựng thẻ điểm BSC công ty và phân rã xuống phòng ban."
+      },
+      "rewards": {
+        "b": "Trao điểm thưởng, cấp hạn mức, điểm danh, giấy khen và quà đổi điểm."
+      },
+      "wallet": {
+        "b": "Ví tiền thật của nhân viên: số dư, cấu hình nạp và đối soát chuyển khoản."
+      },
+      "ai-quota": {
+        "b": "Chia hạn mức token K.AI cho từng người."
+      },
+      "ai-review": {
+        "b": "AI gợi ý điểm khi chấm bài nộp và bộ tiêu chí AI dựa vào."
+      }
+    },
+    "modules": {
+      "list": {
+        "t": "Danh sách module",
+        "b": "Tắt module nào thì mục menu và các bước liên quan biến mất theo. Tắt không xoá dữ liệu, bật lại là dữ liệu cũ trở về."
+      },
+      "switch": {
+        "t": "Công tắc",
+        "b": "Bấm để bật hoặc tắt module này cho cả tổ chức."
+      },
+      "details": {
+        "t": "Chi tiết",
+        "b": "Xem module kéo theo những gì, ví dụ bật BSC thì có mục dựng bộ tiêu chí và góc nhìn BSC bên Thống kê."
+      }
+    },
+    "scoring": {
+      "tabs": {
+        "t": "Ba loại thang",
+        "b": "Định lượng đo bằng số, Định tính chọn một mức có sẵn, Hạnh kiểm chấm theo bộ tiêu chí hành vi. Thiếu tab nào là module đó đang tắt."
+      }
+    },
+    "quant": {
+      "edit": {
+        "t": "Chỉnh sửa",
+        "b": "Màn hình mặc định chỉ xem; bấm đây mới mở các ô nhập."
+      },
+      "reset": {
+        "t": "Đặt lại mặc định",
+        "b": "Đưa cả thang về bộ mặc định của hệ thống, ghi đè mọi mức bạn đã khai."
+      },
+      "max": {
+        "t": "Thang điểm tối đa",
+        "b": "Điểm tối đa của một chỉ tiêu định lượng. Đổi giữa kỳ làm các đợt đã chấm không còn cùng đơn vị đo."
+      },
+      "levels": {
+        "t": "Các mức xếp loại",
+        "b": "Mỗi mức có tên, ngưỡng điểm và màu. Điểm từ ngưỡng trở lên rơi vào mức đó, mức cao hơn được ưu tiên."
+      }
+    },
+    "qual": {
+      "edit": {
+        "t": "Chỉnh sửa",
+        "b": "Bấm để sửa tên mức, giá trị và % BSC."
+      },
+      "reset": {
+        "t": "Đặt lại mặc định",
+        "b": "Đưa các mức về bộ mặc định, ghi đè những gì đã khai."
+      },
+      "guide": {
+        "t": "Ý nghĩa các cột",
+        "b": "Giá trị là điểm quy đổi dùng cho ma trận; % BSC là mức hoàn thành khi tính điểm BSC."
+      },
+      "levels": {
+        "t": "Các mức đánh giá",
+        "b": "Người chấm chọn đúng tên mức ở đây. Đặt tên theo cách công ty vẫn nói để chấm nhất quán."
+      }
+    },
+    "conduct": {
+      "sets": {
+        "t": "Bộ tiêu chí hạnh kiểm",
+        "b": "Mỗi bộ gán cho một hoặc nhiều kỳ; kỳ chưa gán dùng bộ mặc định. Mở một bộ để sửa tiêu chí và trọng số."
+      },
+      "groups": {
+        "t": "Chia theo nhóm",
+        "b": "Gom tiêu chí thành nhóm. Khi có nhóm, trọng số tiêu chí là % trong nhóm và các nhóm cộng lại 100%."
+      },
+      "addSet": {
+        "t": "Thêm bộ tiêu chí",
+        "b": "Tạo bộ mới cho kỳ có tiêu chí khác. Bộ cũ giữ nguyên cho các kỳ đã chấm."
+      },
+      "help": {
+        "t": "Cách hoạt động",
+        "b": "Mở phần giải thích bộ tiêu chí hạnh kiểm được gán và tính điểm thế nào."
+      },
+      "reset": {
+        "t": "Đặt lại bộ mặc định",
+        "b": "Đưa bộ mặc định về 4 tiêu chí, mỗi tiêu chí 25%."
+      }
+    },
+    "matrix": {
+      "guide": {
+        "t": "Hai trục thành một xếp loại",
+        "b": "Hàng là điểm hành vi, cột là % hoàn thành KPI. Chỉ ra xếp loại khi người đó có đủ cả hai trục."
+      },
+      "table": {
+        "t": "Đọc bảng",
+        "b": "Dò hàng theo điểm hành vi, dò cột theo % KPI; ô giao nhau là mức xếp loại."
+      },
+      "edit": {
+        "t": "Chỉnh sửa",
+        "b": "Đổi tên trục, nhãn từng dải, thêm hàng hoặc cột và điền lại giá trị ô."
+      },
+      "reset": {
+        "t": "Đặt lại mặc định",
+        "b": "Đưa ma trận về bảng mặc định."
+      }
+    },
+    "unitclass": {
+      "levels": {
+        "t": "Thang mức",
+        "b": "Các mức xếp loại từ cao xuống thấp — tên mức ở đây là tên bạn chọn khi soạn điều kiện."
+      },
+      "profiles": {
+        "t": "Hồ sơ xếp loại",
+        "b": "Mỗi hồ sơ là một bộ luật. Đơn vị được xếp vào mức đầu tiên từ trên xuống mà nó thoả mọi điều kiện."
+      },
+      "add": {
+        "t": "Thêm hồ sơ",
+        "b": "Tạo hồ sơ riêng cho một nhóm đơn vị; đơn vị con tự kế thừa."
+      },
+      "which": {
+        "t": "Đơn vị nào dùng hồ sơ nào",
+        "b": "Mở để rà đơn vị nào đang theo hồ sơ nào. Nên luôn giữ một hồ sơ mặc định."
+      },
+      "help": {
+        "t": "Cách hoạt động",
+        "b": "Mở phần giải thích hồ sơ xếp loại đơn vị."
+      },
+      "reset": {
+        "t": "Hoàn tác",
+        "b": "Bỏ các thay đổi chưa lưu."
+      },
+      "save": {
+        "t": "Lưu",
+        "b": "Ghi mọi hồ sơ cùng một lần."
+      }
+    },
+    "coderules": {
+      "section": {
+        "t": "Quy tắc sinh mã",
+        "b": "Mỗi dòng là mẫu mã của một loại đối tượng, như mục tiêu OKR hay bộ tiêu chí BSC."
+      },
+      "auto": {
+        "t": "Tự sinh",
+        "b": "Bật thì mã được tạo tự động theo mẫu khi tạo mới."
+      },
+      "manual": {
+        "t": "Cho sửa tay",
+        "b": "Bật thì người tạo vẫn sửa được mã đã sinh."
+      },
+      "token": {
+        "t": "Thành phần mẫu",
+        "b": "Bấm một thành phần để chèn vào mẫu, ví dụ năm hay số thứ tự. Rê chuột để xem giải thích."
+      },
+      "save": {
+        "t": "Lưu quy tắc",
+        "b": "Lưu mọi mẫu đã đổi."
+      }
+    },
+    "kpiCycles": {
+      "tabs": {
+        "t": "Kỳ và đợt",
+        "b": "Đợt là một lần nộp và chấm, thường theo tháng. Kỳ gom nhiều đợt thành kết quả tổng hợp; xếp loại và thưởng tính theo kỳ."
+      }
+    },
+    "cycles": {
+      "stats": {
+        "t": "Số liệu",
+        "b": "Tổ chức đang có bao nhiêu kỳ và đã gom được bao nhiêu đợt vào các kỳ."
+      },
+      "add": {
+        "t": "Tạo kỳ mới",
+        "b": "Chọn loại kỳ và khoảng thời gian, rồi gom các đợt vào kỳ."
+      },
+      "search": {
+        "t": "Tìm kỳ",
+        "b": "Gõ tên kỳ để lọc nhanh."
+      },
+      "more": {
+        "t": "Bộ lọc phụ",
+        "b": "Lọc theo loại kỳ và khoảng thời gian."
+      },
+      "table": {
+        "t": "Danh sách kỳ",
+        "b": "Cột Số đợt cho biết kỳ gom được mấy đợt. Kỳ 0 đợt thì đánh giá kỳ không có gì để tổng hợp."
+      },
+      "edit": {
+        "t": "Sửa kỳ",
+        "b": "Kỳ đã khoá thì nút bị mờ. Kỳ chỉ khoá khi chốt đánh giá kỳ của đơn vị gốc."
+      },
+      "history": {
+        "t": "Lịch sử kỳ",
+        "b": "Xem ai khoá hay mở lại kỳ và vào lúc nào."
+      }
+    },
+    "periods": {
+      "stats": {
+        "t": "Số liệu",
+        "b": "Tổng số đợt của tổ chức."
+      },
+      "add": {
+        "t": "Tạo đợt mới",
+        "b": "Đặt tên, loại đợt, ngày bắt đầu và kết thúc. Nhân viên chỉ nộp được trong khoảng này."
+      },
+      "search": {
+        "t": "Tìm đợt",
+        "b": "Gõ tên đợt để lọc nhanh."
+      },
+      "table": {
+        "t": "Danh sách đợt",
+        "b": "Mỗi dòng có kỳ chứa nó, mốc thời gian và lịch nhắc nộp."
+      },
+      "edit": {
+        "t": "Sửa đợt",
+        "b": "Rút ngắn ngày kết thúc của đợt đang chạy sẽ chặn ngay người chưa kịp nộp."
+      },
+      "delete": {
+        "t": "Xoá đợt",
+        "b": "Đợt thuộc kỳ đã khoá thì không sửa, không xoá được."
+      }
+    },
+    "okr": {
+      "add": {
+        "t": "Mục tiêu mới",
+        "b": "Tạo Objective trước, rồi thêm các Key Result đo nó."
+      },
+      "list": {
+        "t": "Danh sách mục tiêu",
+        "b": "Tiến độ của Objective tính tự động từ các Key Result bên trong."
+      },
+      "addKr": {
+        "t": "Thêm kết quả",
+        "b": "Thêm một Key Result định lượng cho mục tiêu này. KR liên kết KPI thì tiến độ chạy theo KPI."
+      },
+      "edit": {
+        "t": "Sửa mục tiêu",
+        "b": "Đổi tên, thời gian, đơn vị phụ trách của mục tiêu."
+      },
+      "import": {
+        "t": "Nhập Excel",
+        "b": "Nhập nhiều mục tiêu và KR một lượt từ tệp Excel."
+      }
+    },
+    "bsc": {
+      "tree": {
+        "t": "Cây BSC",
+        "b": "Cây thẻ điểm từ công ty xuống phòng ban. Mở một nhánh để sửa hạng mục, trọng số và phân rã xuống cấp dưới."
+      },
+      "card": {
+        "t": "Một thẻ điểm",
+        "b": "Bấm để mở hạng mục, độ phủ phân rã và kết quả đợt. Menu của thẻ có chuyển giữa chạy song song và chính thức."
+      },
+      "add": {
+        "t": "Bộ tiêu chí mới",
+        "b": "Tạo thẻ điểm cho một kỳ và một đơn vị, rồi thêm hạng mục theo bốn lĩnh vực."
+      },
+      "import": {
+        "t": "Import",
+        "b": "Nhập cả bộ tiêu chí kèm trọng số, hoặc chỉ danh mục hạng mục."
+      },
+      "policy": {
+        "t": "Chính sách",
+        "b": "Trần điểm công nhận và ràng buộc KPI phải liên kết BSC."
+      }
+    },
+    "rewards": {
+      "tabs": {
+        "t": "Bảy tab",
+        "b": "Đề nghị thưởng và Hạn mức để trao điểm; Chương trình và Điểm danh tự động; Mẫu chứng nhận; Quà tặng và Yêu cầu đổi quà."
+      }
+    },
+    "grants": {
+      "filters": {
+        "t": "Lọc theo trạng thái",
+        "b": "Chờ duyệt là việc của bạn; các trạng thái khác để tra lại."
+      },
+      "award": {
+        "t": "Thưởng điểm",
+        "b": "Chọn người, nhập số điểm và lý do. Lý do hiện trên bảng tin cho cả tổ chức đọc."
+      },
+      "ai": {
+        "t": "Duyệt bằng K.AI",
+        "b": "K.AI rà các đề nghị chờ duyệt và đề xuất duyệt hay từ chối."
+      },
+      "table": {
+        "t": "Danh sách đề nghị",
+        "b": "Trong hạn mức thì có hiệu lực ngay; vượt hạn mức thì nằm đây chờ duyệt."
+      }
+    },
+    "budgets": {
+      "note": {
+        "t": "Hạn mức để khỏi xin duyệt",
+        "b": "Người có hạn mức tự thưởng được ngay; vượt hạn mức thì thành đề nghị chờ duyệt."
+      },
+      "add": {
+        "t": "Cấp hạn mức",
+        "b": "Chọn quản lý, số điểm, mức tối đa mỗi lần và thời hạn."
+      },
+      "table": {
+        "t": "Danh sách hạn mức",
+        "b": "Thanh tiến trình cho biết đã dùng bao nhiêu. Hạn mức hết hạn không tự gia hạn."
+      }
+    },
+    "programs": {
+      "note": {
+        "t": "Phải bấm chạy",
+        "b": "Chương trình không tự chạy theo lịch: bấm Chạy, chọn đợt hoặc kỳ, xem trước bảng xếp hạng rồi mới phát."
+      },
+      "add": {
+        "t": "Tạo chương trình",
+        "b": "Khai luật: ai lọt top của đợt hoặc kỳ thì được bao nhiêu điểm."
+      },
+      "table": {
+        "t": "Danh sách chương trình",
+        "b": "Điểm phát từ chương trình lấy từ quỹ chung, không trừ hạn mức của quản lý."
+      },
+      "run": {
+        "t": "Chạy",
+        "b": "Chọn đợt hoặc kỳ, sửa bậc thưởng riêng cho lần chạy nếu cần, rồi phát điểm."
+      }
+    },
+    "checkin": {
+      "note": {
+        "t": "Điểm danh hằng ngày",
+        "b": "Nhân viên tự bấm ở trang Điểm của tôi; điểm vào thẳng ví của họ."
+      },
+      "stats": {
+        "t": "Hai con số",
+        "b": "Số người điểm danh hôm nay và số điểm đã phát tháng này — xem trước khi tăng điểm mỗi lượt."
+      },
+      "form": {
+        "t": "Cấu hình",
+        "b": "Bật tắt tính năng, điểm mỗi lượt và chu kỳ chuỗi ngày."
+      },
+      "milestones": {
+        "t": "Mốc chuỗi",
+        "b": "Thưởng thêm khi nhân viên điểm danh liên tiếp đủ số ngày."
+      },
+      "save": {
+        "t": "Lưu cài đặt",
+        "b": "Lưu cấu hình điểm danh."
+      }
+    },
+    "cert": {
+      "intro": {
+        "t": "Mẫu giấy khen",
+        "b": "Chưa tạo mẫu nào thì màn in vẫn có sẵn sáu thiết kế; mẫu ở đây có logo và chữ ký của công ty."
+      },
+      "add": {
+        "t": "Tạo mẫu",
+        "b": "Soạn mẫu giấy khen riêng của công ty."
+      },
+      "edit": {
+        "t": "Sửa mẫu",
+        "b": "Đổi lời văn, logo hoặc chữ ký của mẫu."
+      }
+    },
+    "gifts": {
+      "add": {
+        "t": "Thêm quà",
+        "b": "Khai tên, ảnh, giá điểm và số lượng — đúng thứ nhân viên thấy ở Cửa hàng quà."
+      },
+      "urbox": {
+        "t": "Kho quà UrBox",
+        "b": "Lấy voucher có sẵn thay vì tự nhập từng món."
+      },
+      "table": {
+        "t": "Danh mục quà",
+        "b": "Số lượng về 0 thì món đó hết hàng. Muốn ngừng một món thì sửa số lượng thay vì xoá."
+      }
+    },
+    "redemptions": {
+      "filters": {
+        "t": "Lọc theo trạng thái",
+        "b": "Tách phần chờ giao khỏi phần đã xong."
+      },
+      "table": {
+        "t": "Yêu cầu đổi quà",
+        "b": "Điểm đã bị trừ lúc nhân viên đổi; yêu cầu nằm đây chờ bạn xác nhận đã giao."
+      },
+      "retry": {
+        "t": "Hỏi lại nhà cung cấp",
+        "b": "Với voucher chưa xuất được, bấm để hỏi lại và lấy mã."
+      },
+      "reject": {
+        "t": "Từ chối và hoàn điểm",
+        "b": "Huỷ yêu cầu và trả điểm về ví nhân viên."
+      }
+    },
+    "wallet": {
+      "tabs": {
+        "t": "Ví tiền thật",
+        "b": "Số dư nhân sự để tra cứu, Cấu hình để đặt tài khoản nhận tiền và tỉ giá, Đối soát SePay để khớp chuyển khoản."
+      }
+    },
+    "cashwallets": {
+      "stats": {
+        "t": "Bốn con số",
+        "b": "Đang giữ là tiền đã nạp chưa đổi thành điểm — phần tổ chức đang nợ nhân viên."
+      },
+      "filters": {
+        "t": "Tìm và lọc",
+        "b": "Tìm theo tên hoặc email, lọc theo đơn vị."
+      },
+      "table": {
+        "t": "Danh sách ví",
+        "b": "Bấm một ví để xem toàn bộ biến động của người đó."
+      }
+    },
+    "walletcfg": {
+      "bank": {
+        "t": "Tài khoản nhận tiền",
+        "b": "Số tài khoản và ngân hàng để dựng mã VietQR. Thiếu thì nhân viên không tạo được đơn nạp."
+      },
+      "rate": {
+        "t": "Tỉ giá quy đổi",
+        "b": "Số tiền đổi được 1 điểm. Giao dịch cũ giữ nguyên tỉ giá lúc đó."
+      },
+      "limits": {
+        "t": "Hạn mức nạp",
+        "b": "Giới hạn mỗi lần nạp và thời gian hiệu lực của mã QR."
+      },
+      "receipt": {
+        "t": "Biên nhận",
+        "b": "Thông tin in trên biên nhận gửi cho nhân viên sau khi nạp."
+      },
+      "status": {
+        "t": "Tình trạng thiết lập",
+        "b": "Liệt kê những gì còn thiếu để nhân viên nạp được tiền."
+      },
+      "preview": {
+        "t": "Nhân viên sẽ thấy",
+        "b": "Bảng quy đổi mẫu theo tỉ giá vừa nhập."
+      },
+      "sepay": {
+        "t": "Kết nối SePay",
+        "b": "Liên kết SePay để giao dịch chuyển khoản tự về và tự khớp đơn nạp."
+      },
+      "save": {
+        "t": "Lưu cài đặt",
+        "b": "Lưu cấu hình ví."
+      }
+    },
+    "sepay": {
+      "status": {
+        "t": "Sổ có cân không",
+        "b": "Xanh là sổ cân; vàng là còn giao dịch chưa khớp hoặc có ví lệch sổ cái."
+      },
+      "scope": {
+        "t": "Cần xử lý hay toàn bộ",
+        "b": "Cần xử lý chỉ hiện giao dịch chưa khớp; Toàn bộ lịch sử để tra lại khoản cũ."
+      },
+      "table": {
+        "t": "Giao dịch nhận được",
+        "b": "Mỗi dòng là một khoản chuyển khoản hệ thống nhận từ SePay."
+      },
+      "handle": {
+        "t": "Xử lý",
+        "b": "Gán tay giao dịch vào đúng đơn nạp khi nhân viên chuyển sai nội dung."
+      }
+    },
+    "aiquota": {
+      "mine": {
+        "t": "Hạn mức của bạn",
+        "b": "Token AI của riêng bạn khi chat với K.AI, tách khỏi phần để chia cho người khác."
+      },
+      "pool": {
+        "t": "Túi để phân bổ",
+        "b": "Còn bao nhiêu để chia. Túi bằng 0 thì không chia được cho ai."
+      },
+      "delegation": {
+        "t": "Cho cấp dưới tự chia",
+        "b": "Bật thì trưởng đơn vị chia được token cho nhân sự của họ, trừ vào hạn mức của chính họ."
+      },
+      "people": {
+        "t": "Hạn mức từng người",
+        "b": "Tìm người, lọc theo vai trò và đặt hạn mức tháng. Hết hạn mức thì K.AI ngừng trả lời tới tháng sau."
+      }
+    },
+    "aireview": {
+      "settings": {
+        "t": "AI gợi ý điểm khi chấm",
+        "b": "Quản lý bấm \"Nhờ AI xem trước\" khi chấm; AI đọc bài nộp và tệp minh chứng rồi gợi ý điểm. AI không tự ghi điểm."
+      },
+      "toggle": {
+        "t": "Bật hoặc tắt",
+        "b": "Tắt thì nút nhờ AI biến mất khỏi màn chấm của mọi người."
+      },
+      "weights": {
+        "t": "Trọng số điểm gợi ý",
+        "b": "Điểm gợi ý ghép từ nhiều phần; chỉnh tỉ trọng từng phần ở đây."
+      },
+      "save": {
+        "t": "Lưu",
+        "b": "Lưu cấu hình AI gợi ý điểm."
+      },
+      "criteria": {
+        "t": "Bộ tiêu chí chấm",
+        "b": "Mỗi đơn vị áp một tài liệu quy chế; đơn vị con không có thì dùng của đơn vị cha."
+      },
+      "upload": {
+        "t": "Tải quy chế lên",
+        "b": "Chọn tệp Word, PDF hoặc Excel và đơn vị; AI bóc thành tiêu chí để bạn duyệt rồi áp dụng."
+      },
+      "report": {
+        "t": "AI lệch bao nhiêu",
+        "b": "So điểm AI với điểm quản lý đã chốt trong đợt. Mục tiêu là lệch ít và phần lớn trong ±5 điểm."
+      }
+    }
+  },
+  "tourPerformance": {
+    "intro": {
+      "t": "Quản lý hiệu suất",
+      "b": "Cụm Chỉ tiêu là phần đặt và duyệt chỉ tiêu. Cụm Đánh giá là phần chấm điểm theo đợt rồi tổng hợp theo kỳ. Số đỏ trên thẻ là việc đang chờ bạn."
+    },
+    "cards": {
+      "kpi-criteria": {
+        "b": "Tạo, giao và gửi duyệt chỉ tiêu. Chỉ tiêu chưa được duyệt thì không tính vào kết quả."
+      },
+      "kpi-criteria-pending": {
+        "b": "Chỉ tiêu đang chờ đúng bạn ở bước hiện tại của chuỗi duyệt."
+      },
+      "kpi-adjustments-pending": {
+        "b": "Đề nghị sửa mục tiêu, trọng số hoặc ngưng chỉ tiêu giữa đợt; mỗi yêu cầu có 24 giờ để xử lý."
+      },
+      "submissions-org-unit": {
+        "b": "Duyệt bài nộp và chấm điểm từng nhân sự trong một đợt."
+      },
+      "cycle-evaluation": {
+        "b": "Gom các đợt của một kỳ thành điểm tổng hợp và chốt xếp loại. Chốt ở đơn vị gốc thì khoá cả kỳ."
+      },
+      "feedback360": {
+        "b": "Chiến dịch lấy ý kiến cấp trên, đồng nghiệp và cấp dưới về từng người."
+      }
+    },
+    "criteria": {
+      "stats": {
+        "t": "Số liệu",
+        "b": "Tổng số chỉ tiêu, bao nhiêu đang nháp và bao nhiêu đang chờ duyệt theo bộ lọc hiện tại."
+      },
+      "add": {
+        "t": "Tạo chỉ tiêu",
+        "b": "Mở form tạo chỉ tiêu. Bài \"Tạo KPI\" ở cuối hướng dẫn này đi qua từng ô của form."
+      },
+      "import": {
+        "t": "Nhập Excel",
+        "b": "Tạo nhiều chỉ tiêu một lượt từ tệp Excel; hộp thoại có hướng dẫn và tệp mẫu."
+      },
+      "submitAi": {
+        "t": "Gửi duyệt bằng K.AI",
+        "b": "K.AI kiểm tra trọng số rồi gửi hộ các bản nháp của đơn vị và đợt đang chọn, sau khi bạn xác nhận."
+      },
+      "period": {
+        "t": "Đợt",
+        "b": "Mọi con số trên trang theo đợt đang chọn."
+      },
+      "type": {
+        "t": "Loại chỉ tiêu",
+        "b": "Lọc định lượng hay định tính, chỉ tiêu cha, thường, thưởng hay ngược."
+      },
+      "sort": {
+        "t": "Sắp xếp",
+        "b": "Theo ngày tạo, tên, trọng số hoặc mục tiêu."
+      },
+      "more": {
+        "t": "Bộ lọc phụ",
+        "b": "Lọc theo ngày tạo, hạng mục BSC hoặc mục tiêu và kết quả then chốt OKR."
+      },
+      "search": {
+        "t": "Tìm",
+        "b": "Gõ tên chỉ tiêu hoặc tên người."
+      },
+      "view": {
+        "t": "Nhóm và dạng xem",
+        "b": "Mở hoặc đóng mọi nhóm, và đổi giữa dạng bảng với dạng thẻ."
+      },
+      "tabs": {
+        "t": "Trạng thái",
+        "b": "Nháp là chưa gửi; Chờ duyệt đang đi qua chuỗi duyệt; Bị trả lại cần sửa rồi gửi lại."
+      },
+      "list": {
+        "t": "Danh sách",
+        "b": "Gom theo đơn vị và người. Dòng tiêu đề nhóm cho biết tổng trọng số đã đủ 100% chưa."
+      },
+      "rowMenu": {
+        "t": "Menu của chỉ tiêu",
+        "b": "Xem chi tiết, sửa, gửi duyệt, phân rã hoặc thêm chỉ tiêu con tuỳ trạng thái."
+      }
+    },
+    "pending": {
+      "stats": {
+        "t": "Số liệu",
+        "b": "Chờ tôi duyệt là việc của bạn ngay bây giờ; Đã duyệt và Đã trả lại để tra lại."
+      },
+      "ai": {
+        "t": "Duyệt bằng K.AI",
+        "b": "K.AI rà các chỉ tiêu đang chờ bạn và đề xuất duyệt hay trả lại."
+      },
+      "period": {
+        "t": "Đợt",
+        "b": "Chỉ hiện chỉ tiêu của đợt đang chọn."
+      },
+      "search": {
+        "t": "Tìm",
+        "b": "Tìm theo tên chỉ tiêu, đơn vị hoặc người."
+      },
+      "tabs": {
+        "t": "Trạng thái",
+        "b": "Chờ duyệt là phần đang chờ đúng bạn ở bước hiện tại của chuỗi."
+      },
+      "table": {
+        "t": "Danh sách chờ",
+        "b": "Có quyền duyệt cuối thì bấm duyệt là chốt; không thì chỉ tiêu được chuyển lên cấp trên."
+      },
+      "personApprove": {
+        "t": "Duyệt cả người",
+        "b": "Duyệt một lượt mọi chỉ tiêu đang chờ của người này."
+      },
+      "view": {
+        "t": "Xem chi tiết",
+        "b": "Mở chỉ tiêu để xem con số, nguồn và lịch sử duyệt trước khi quyết."
+      },
+      "approve": {
+        "t": "Duyệt",
+        "b": "Duyệt bước của bạn. Chỉ người đang giữ bước hiện tại mới bấm được."
+      },
+      "reject": {
+        "t": "Trả lại",
+        "b": "Trả chỉ tiêu về cho người tạo kèm lý do để họ sửa."
+      },
+      "bulk": {
+        "t": "Duyệt hàng loạt",
+        "b": "Duyệt tất cả chỉ tiêu đã chọn trong một lần."
+      }
+    },
+    "adj": {
+      "stats": {
+        "t": "Số liệu",
+        "b": "Số yêu cầu chờ xử lý, đã duyệt và đã từ chối. Mỗi yêu cầu có 24 giờ để xử lý."
+      },
+      "ai": {
+        "t": "Duyệt bằng K.AI",
+        "b": "K.AI rà các yêu cầu đang chờ và đề xuất cách xử lý."
+      },
+      "period": {
+        "t": "Đợt",
+        "b": "Chỉ hiện yêu cầu của đợt đang chọn."
+      },
+      "tabs": {
+        "t": "Trạng thái",
+        "b": "Chờ xử lý là việc của bạn; các tab còn lại để tra lại."
+      },
+      "table": {
+        "t": "Danh sách yêu cầu",
+        "b": "Mỗi dòng là một đề nghị sửa mục tiêu, trọng số hoặc ngưng chỉ tiêu, kèm lý do."
+      },
+      "view": {
+        "t": "Xem chi tiết",
+        "b": "Đọc lý do và so số cũ với số đề nghị trước khi quyết."
+      },
+      "approve": {
+        "t": "Duyệt",
+        "b": "Chấp thuận thay đổi; chỉ tiêu cập nhật theo đề nghị."
+      },
+      "reject": {
+        "t": "Từ chối",
+        "b": "Giữ nguyên chỉ tiêu và ghi lý do cho người đề nghị."
+      },
+      "bulk": {
+        "t": "Xử lý hàng loạt",
+        "b": "Duyệt hoặc từ chối mọi yêu cầu đã chọn trong một lần."
+      }
+    },
+    "subs": {
+      "stats": {
+        "t": "Số liệu",
+        "b": "Số nhân sự, số bài chờ duyệt và số người đã được đánh giá trong đợt."
+      },
+      "unit": {
+        "t": "Đơn vị",
+        "b": "Chọn đơn vị cần chấm."
+      },
+      "period": {
+        "t": "Đợt",
+        "b": "Chọn đợt cần chấm."
+      },
+      "search": {
+        "t": "Tìm nhân sự",
+        "b": "Gõ tên để tìm nhanh."
+      },
+      "aiBatch": {
+        "t": "Nhờ AI xem trước cả đơn vị",
+        "b": "AI đọc trước bài nộp của mọi người bạn chấm được, chạy nền; lúc chấm sẽ có sẵn điểm gợi ý."
+      },
+      "aiApprove": {
+        "t": "Duyệt bằng K.AI",
+        "b": "K.AI rà bài nộp đang chờ và đề xuất điểm để bạn xác nhận."
+      },
+      "aiRemind": {
+        "t": "Nhắc nộp bằng K.AI",
+        "b": "K.AI tìm người chưa nộp bài và soạn lời nhắc."
+      },
+      "table": {
+        "t": "Danh sách nhân sự",
+        "b": "Người còn bài chờ duyệt xếp lên đầu. Cột Người chấm cho biết ai đang chấm người đó."
+      },
+      "score": {
+        "t": "Chấm điểm",
+        "b": "Mở phiếu chấm của người này: duyệt từng bài nộp và cho điểm."
+      },
+      "viewEval": {
+        "t": "Xem đánh giá",
+        "b": "Xem lại phiếu đã chấm."
+      },
+      "next": {
+        "t": "Bước tiếp theo",
+        "b": "Chấm xong đợt thì sang bước kế của luồng, thường là đánh giá kỳ."
+      }
+    },
+    "cycleeval": {
+      "unit": {
+        "t": "Đơn vị",
+        "b": "Chọn đơn vị cần tổng hợp. Chưa chọn đơn vị và kỳ thì màn hình trống."
+      },
+      "cycle": {
+        "t": "Kỳ",
+        "b": "Chọn kỳ; điểm kỳ là trung bình các đợt bên trong."
+      },
+      "stats": {
+        "t": "Chỉ số và xếp loại đơn vị",
+        "b": "Điểm trung bình của cả đơn vị trong kỳ và xếp loại đơn vị, ghi rõ tạm tính hay đã chốt."
+      },
+      "flow": {
+        "t": "Dải luồng",
+        "b": "Trạng thái và nút của từng bước nằm ngay trong ô bước đó. Chốt ở đơn vị gốc thì khoá cả kỳ; đơn vị con chốt không khoá kỳ."
+      },
+      "table": {
+        "t": "Bảng điểm kỳ",
+        "b": "Mỗi dòng có điểm các đợt do quản lý chấm, xếp loại kỳ và điểm chốt kỳ."
+      },
+      "view": {
+        "t": "Xem chi tiết",
+        "b": "Mở điểm từng đợt của người này và ghi nhận xét."
+      },
+      "export": {
+        "t": "Xuất Excel",
+        "b": "Lấy nguyên bảng điểm kỳ ra tệp."
+      },
+      "send": {
+        "t": "Gửi đánh giá",
+        "b": "Gửi kết quả đánh giá kỳ qua email cho từng nhân viên."
+      },
+      "ai": {
+        "t": "Nhờ K.AI",
+        "b": "K.AI kiểm tra trạng thái các đợt, dựng bảng điểm và chờ bạn xác nhận."
+      }
+    },
+    "f360": {
+      "create": {
+        "t": "Tạo chiến dịch",
+        "b": "Chọn người được đánh giá; hệ thống đề xuất người chấm từ cây tổ chức."
+      },
+      "filters": {
+        "t": "Lọc chiến dịch",
+        "b": "Xem chiến dịch nháp, đang chạy hoặc đã kết thúc."
+      },
+      "list": {
+        "t": "Danh sách chiến dịch",
+        "b": "Mỗi thẻ cho biết hạn và số phiếu đã nộp. Phiếu đồng nghiệp và cấp dưới được ẩn danh."
+      }
+    }
+  },
+  "tourMySpace": {
+    "intro": {
+      "t": "Của tôi",
+      "b": "Cụm Công việc là chỉ tiêu của bạn, bài nộp, đánh giá và các đề nghị bạn đã gửi. Cụm Ví tách riêng điểm thưởng và tiền thật. Chấm đỏ trên thẻ là việc đang chờ bạn."
+    },
+    "cards": {
+      "my-kpi": {
+        "b": "Chỉ tiêu bạn đang đảm nhận, gom theo đợt. Nộp báo cáo và tự đánh giá từ đây."
+      },
+      "my-okr": {
+        "b": "Mục tiêu và kết quả then chốt mà chỉ tiêu của bạn đang góp vào."
+      },
+      "my-bsc": {
+        "b": "Bộ tiêu chí BSC của đơn vị bạn và các cấp trên."
+      },
+      "my-submissions": {
+        "b": "Báo cáo kết quả bạn đã nộp và trạng thái duyệt của chúng."
+      },
+      "evaluations": {
+        "b": "Kết quả đánh giá từng đợt và phiếu tự đánh giá của bạn."
+      },
+      "my-adjustments": {
+        "b": "Đề nghị đổi mục tiêu, trọng số hoặc dừng chỉ tiêu bạn đã gửi."
+      },
+      "my-conduct": {
+        "b": "Phiếu chấm hạnh kiểm: bạn tự chấm, quản lý chấm."
+      },
+      "my-feedback360": {
+        "b": "Phiếu 360 cần chấm cho đồng nghiệp và báo cáo 360 của bạn."
+      },
+      "my-rewards": {
+        "b": "Số dư điểm thưởng, điểm danh, cửa hàng quà và lịch sử điểm."
+      },
+      "my-cash-wallet": {
+        "b": "Số dư tiền, nạp tiền và đổi sang điểm."
+      }
+    },
+    "mykpi": {
+      "ai": {
+        "t": "Nhờ K.AI",
+        "b": "K.AI tóm tắt chỉ tiêu kỳ này và điểm dự kiến của bạn."
+      },
+      "search": {
+        "t": "Tìm chỉ tiêu",
+        "b": "Gõ tên chỉ tiêu để lọc."
+      },
+      "view": {
+        "t": "Dạng xem",
+        "b": "Đổi giữa dạng bảng và dạng thẻ."
+      },
+      "table": {
+        "t": "Chỉ tiêu theo đợt",
+        "b": "Mỗi khối là một đợt; mỗi dòng có mục tiêu, trọng số và tiến độ."
+      },
+      "submit": {
+        "t": "Nộp báo cáo",
+        "b": "Mở form nộp kết quả cho chỉ tiêu này, kèm tệp minh chứng."
+      },
+      "adjust": {
+        "t": "Đề nghị điều chỉnh",
+        "b": "Gửi đề nghị đổi mục tiêu, trọng số hoặc dừng chỉ tiêu cho quản lý."
+      },
+      "selfEval": {
+        "t": "Tự đánh giá đợt",
+        "b": "Khi đợt kết thúc, bấm để tự chấm trước khi quản lý chấm."
+      }
+    },
+    "myokr": {
+      "objective": {
+        "t": "Một mục tiêu",
+        "b": "Bấm để mở các kết quả then chốt; dòng \"Bạn góp\" cho biết chỉ tiêu nào của bạn góp vào."
+      },
+      "search": {
+        "t": "Tìm",
+        "b": "Tìm theo tên mục tiêu hoặc kết quả then chốt."
+      },
+      "analytics": {
+        "t": "Xem phân tích",
+        "b": "Sang trang Thống kê để xem biểu đồ tiến độ."
+      },
+      "manage": {
+        "t": "Quản lý OKR",
+        "b": "Sang trang thiết lập OKR nếu bạn có quyền quản lý."
+      }
+    },
+    "mybsc": {
+      "scorecard": {
+        "t": "Bộ tiêu chí",
+        "b": "Bộ BSC đang xem. Bộ của cấp trên chỉ để tham khảo; điểm BSC tính theo bộ gắn đúng đơn vị của bạn."
+      },
+      "perspective": {
+        "t": "Một lĩnh vực",
+        "b": "Các hạng mục của lĩnh vực này kèm trọng số và kết quả."
+      },
+      "search": {
+        "t": "Tìm hạng mục",
+        "b": "Gõ tên hạng mục để lọc."
+      },
+      "analytics": {
+        "t": "Xem phân tích",
+        "b": "Sang trang Thống kê để xem điểm BSC chi tiết."
+      },
+      "manage": {
+        "t": "Quản lý BSC",
+        "b": "Sang trang thiết lập BSC nếu bạn có quyền quản lý."
+      }
+    },
+    "mysub": {
+      "stats": {
+        "t": "Số liệu",
+        "b": "Số bài đã nộp theo từng trạng thái."
+      },
+      "add": {
+        "t": "Nộp báo cáo",
+        "b": "Chọn chỉ tiêu và nhập kết quả, kèm tệp minh chứng."
+      },
+      "search": {
+        "t": "Tìm",
+        "b": "Tìm theo tên chỉ tiêu."
+      },
+      "tabs": {
+        "t": "Trạng thái",
+        "b": "Nháp là chưa gửi; Chờ duyệt đang chờ quản lý; Bị trả lại cần sửa rồi gửi lại."
+      },
+      "drafts": {
+        "t": "Bản nháp chưa gửi",
+        "b": "Lối tắt tới các bài bạn lưu nháp mà chưa gửi duyệt."
+      },
+      "list": {
+        "t": "Danh sách bài nộp",
+        "b": "Mỗi dòng là một lần nộp kèm kết quả và trạng thái duyệt."
+      },
+      "edit": {
+        "t": "Sửa bản nháp",
+        "b": "Mở lại bài nháp để sửa số hoặc thêm tệp."
+      },
+      "send": {
+        "t": "Gửi duyệt",
+        "b": "Gửi bài nháp cho quản lý duyệt. Đã gửi thì không sửa được nữa."
+      }
+    },
+    "eval": {
+      "add": {
+        "t": "Tự đánh giá",
+        "b": "Mở phiếu tự đánh giá cho một đợt đã kết thúc."
+      },
+      "selfNow": {
+        "t": "Tự đánh giá ngay",
+        "b": "Có đợt vừa kết thúc mà bạn chưa tự chấm thì nút này hiện ra."
+      },
+      "period": {
+        "t": "Đợt",
+        "b": "Lọc kết quả theo đợt."
+      },
+      "table": {
+        "t": "Kết quả đánh giá",
+        "b": "Mỗi dòng có điểm bạn tự chấm, điểm quản lý và xếp loại."
+      },
+      "view": {
+        "t": "Xem chi tiết",
+        "b": "Mở phiếu đánh giá đầy đủ, kèm nhận xét của quản lý."
+      }
+    },
+    "myadj": {
+      "add": {
+        "t": "Tạo yêu cầu điều chỉnh",
+        "b": "Chọn chỉ tiêu rồi đề nghị đổi mục tiêu, trọng số hoặc dừng nó. Quản lý có 24 giờ để phản hồi."
+      },
+      "list": {
+        "t": "Yêu cầu đã gửi",
+        "b": "Theo dõi yêu cầu nào đang chờ, đã duyệt hay bị từ chối."
+      }
+    },
+    "myconduct": {
+      "target": {
+        "t": "Chọn đợt hoặc kỳ",
+        "b": "Chọn một đợt hoặc kỳ để mở phiếu chấm hạnh kiểm."
+      },
+      "sheet": {
+        "t": "Phiếu hạnh kiểm",
+        "b": "Mỗi dòng là một tiêu chí: cột của bạn để tự chấm, cột quản lý do quản lý chấm."
+      },
+      "saveSelf": {
+        "t": "Lưu phần tự chấm",
+        "b": "Lưu điểm và dẫn chứng bạn tự chấm."
+      },
+      "export": {
+        "t": "Xuất",
+        "b": "Lấy phiếu ra tệp."
+      },
+      "ai": {
+        "t": "Nhờ K.AI",
+        "b": "K.AI đọc phiếu của bạn: tự chấm, quản lý chấm và tiêu chí còn thiếu dẫn chứng."
+      }
+    },
+    "myf360": {
+      "waiting": {
+        "t": "Đang chờ bạn",
+        "b": "Phiếu 360 bạn cần chấm cho người khác. Phiếu đồng nghiệp và cấp dưới được ẩn danh."
+      },
+      "done": {
+        "t": "Đã hoàn thành",
+        "b": "Các phiếu bạn đã nộp."
+      },
+      "reports": {
+        "t": "Báo cáo 360 của tôi",
+        "b": "Kết quả người khác đánh giá bạn, khi chiến dịch đã kết thúc."
+      }
+    },
+    "myrewards": {
+      "balance": {
+        "t": "Số dư điểm",
+        "b": "Điểm thưởng bạn đang có để đổi quà."
+      },
+      "checkin": {
+        "t": "Điểm danh",
+        "b": "Bấm mỗi ngày để nhận điểm; điểm danh liên tiếp có thưởng thêm."
+      },
+      "tabs": {
+        "t": "Các tab",
+        "b": "Cửa hàng quà, lịch sử điểm, chứng nhận và yêu cầu đổi quà."
+      },
+      "shop": {
+        "t": "Cửa hàng quà",
+        "b": "Mỗi thẻ ghi giá điểm và còn thiếu bao nhiêu điểm nếu chưa đủ. Cửa hàng còn trống nghĩa là quản trị chưa thêm quà."
+      },
+      "redeem": {
+        "t": "Đổi quà",
+        "b": "Bấm để đổi; điểm bị trừ ngay và yêu cầu chờ giao."
+      },
+      "history": {
+        "t": "Lịch sử điểm",
+        "b": "Mọi lần nhận và tiêu điểm của bạn."
+      },
+      "certificates": {
+        "t": "Chứng nhận",
+        "b": "Giấy khen kèm các lần bạn được thưởng; chưa có lần thưởng nào kèm chứng nhận thì ô này trống."
+      },
+      "redemptions": {
+        "t": "Yêu cầu đổi quà",
+        "b": "Theo dõi quà đã đổi đang chờ giao hay đã nhận."
+      },
+      "redeemView": {
+        "t": "Xem mã quà",
+        "b": "Quà nhận ngay có mã (voucher) — bấm để xem và sao chép mã."
+      },
+      "redeemCancel": {
+        "t": "Huỷ yêu cầu",
+        "b": "Yêu cầu còn chờ thì huỷ được; điểm được hoàn lại vào ví ngay."
+      },
+      "certPrint": {
+        "t": "In giấy khen",
+        "b": "Mở giấy khen của lần thưởng đó để in hoặc lưu PDF."
+      }
+    },
+    "mywallet": {
+      "balance": {
+        "t": "Số dư tiền",
+        "b": "Tiền bạn đã nạp và chưa đổi sang điểm."
+      },
+      "topup": {
+        "t": "Nạp tiền",
+        "b": "Tạo đơn nạp và chuyển khoản theo mã VietQR."
+      },
+      "tabs": {
+        "t": "Các tab",
+        "b": "Đổi sang điểm, lịch sử nạp và lịch sử giao dịch."
+      },
+      "convert": {
+        "t": "Đổi sang điểm",
+        "b": "Chuyển tiền trong ví thành điểm thưởng theo tỉ giá của công ty. Điểm không đổi ngược lại thành tiền."
+      },
+      "topups": {
+        "t": "Đơn nạp",
+        "b": "Các đơn nạp bạn đã tạo; đơn chưa thanh toán có thể mở lại."
+      },
+      "history": {
+        "t": "Lịch sử giao dịch",
+        "b": "Mọi biến động tiền trong ví của bạn."
+      },
+      "convertRate": {
+        "t": "Tỉ giá",
+        "b": "Số tiền đổi được một điểm. Điểm vào ví điểm ngay sau khi đổi."
+      },
+      "convertPoints": {
+        "t": "Số điểm muốn đổi",
+        "b": "Gõ số điểm; ô bên cạnh tính số tiền sẽ bị trừ."
+      },
+      "convertCost": {
+        "t": "Tiền bị trừ",
+        "b": "Chuyển đỏ khi ví không đủ tiền, kèm dòng báo thiếu bao nhiêu."
+      },
+      "convertMax": {
+        "t": "Đổi tối đa",
+        "b": "Điền sẵn số điểm lớn nhất mà số dư hiện tại đổi được."
+      },
+      "convertSubmit": {
+        "t": "Đổi điểm",
+        "b": "Trừ tiền và cộng điểm ngay. Điểm không đổi ngược lại thành tiền."
+      },
+      "topupStatus": {
+        "t": "Trạng thái đơn",
+        "b": "Chờ chuyển khoản, đã nhận tiền, hết hạn hay đã huỷ."
+      },
+      "topupReceipt": {
+        "t": "Biên nhận",
+        "b": "Xem biên nhận của đơn đã nhận tiền."
+      },
+      "topupResume": {
+        "t": "Tiếp tục thanh toán",
+        "b": "Đơn còn chờ thì mở lại mã QR và nội dung chuyển khoản."
+      },
+      "ledgerType": {
+        "t": "Loại giao dịch",
+        "b": "Nạp tiền, đổi ra điểm, nhận hoặc điều chỉnh."
+      },
+      "ledgerExplain": {
+        "t": "Diễn giải",
+        "b": "Chi tiết của giao dịch, ví dụ tỉ giá lúc đổi ra điểm."
+      }
+    }
+  },
+  "tourAnalytics": {
+    "intro": {
+      "t": "Thống kê",
+      "b": "Ba tầm nhìn: kết quả của riêng bạn, đơn vị bạn quản lý và so sánh giữa các đơn vị, rồi thẻ điểm BSC. Bật OKR thì hai thẻ đầu xem theo mục tiêu thay cho chỉ tiêu."
+    },
+    "cards": {
+      "my-objectives": {
+        "b": "Mục tiêu và kết quả then chốt của bạn theo thời gian."
+      },
+      "my": {
+        "b": "Kết quả chỉ tiêu của riêng bạn: xu hướng, chi tiết từng chỉ tiêu."
+      },
+      "subordinate": {
+        "b": "Mục tiêu của đơn vị bạn quản lý và tiến độ từng người."
+      },
+      "summary": {
+        "b": "Đơn vị bạn phụ trách đang ở đâu: chỉ số chung, xu hướng, xếp hạng nhân sự."
+      },
+      "drilldown": {
+        "b": "Đặt các đơn vị cạnh nhau: xếp loại, ma trận, phân rã."
+      },
+      "bsc": {
+        "b": "Điểm theo hạng mục BSC, radar cân bằng và đối chiếu với điểm hệ thống."
+      }
+    },
+    "myObjectives": {
+      "intro": {
+        "t": "Mục tiêu của tôi",
+        "b": "Tiến độ các mục tiêu và kết quả then chốt bạn góp vào, theo khoảng thời gian bạn chọn ở từng ô."
+      },
+      "ai": {
+        "t": "Nhờ K.AI",
+        "b": "Hỏi K.AI về số liệu của góc nhìn này."
+      }
+    },
+    "my": {
+      "intro": {
+        "t": "Kết quả của tôi",
+        "b": "Kết quả chỉ tiêu của riêng bạn. Biểu đồ trống thì kiểm tra khoảng thời gian của ô trước — thường là đợt chưa ai nộp gì."
+      },
+      "ai": {
+        "t": "Nhờ K.AI",
+        "b": "Hỏi K.AI về số liệu của góc nhìn này."
+      }
+    },
+    "subordinate": {
+      "intro": {
+        "t": "Đơn vị tôi quản lý",
+        "b": "Mục tiêu của đơn vị bạn quản lý, tiến độ từng người và hiệu suất đơn vị con."
+      },
+      "ai": {
+        "t": "Nhờ K.AI",
+        "b": "Hỏi K.AI về số liệu của góc nhìn này."
+      }
+    },
+    "summary": {
+      "intro": {
+        "t": "Đơn vị tôi quản lý",
+        "b": "Tiến độ chung, xu hướng, xếp hạng nhân sự và điểm rủi ro của đơn vị bạn phụ trách."
+      },
+      "ai": {
+        "t": "Biến động hạng",
+        "b": "K.AI so hạng các đơn vị con giữa hai đợt đánh giá gần nhất."
+      }
+    },
+    "drilldown": {
+      "intro": {
+        "t": "So sánh giữa các đơn vị",
+        "b": "Đặt các đơn vị cạnh nhau để thấy phòng nào chậm cả khối và người nào kéo tụt phần còn lại."
+      },
+      "ai": {
+        "t": "Lệch tự chấm",
+        "b": "K.AI chỉ ra đơn vị con tự chấm lệch nhiều nhất so với điểm quản lý."
+      },
+      "sidebar": {
+        "t": "Cây đơn vị",
+        "b": "Chọn nhánh đơn vị cần so sánh; các ô bên phải đổi theo."
+      }
+    },
+    "bsc": {
+      "intro": {
+        "t": "Thẻ điểm BSC",
+        "b": "Điểm theo từng hạng mục, radar cân bằng bốn lĩnh vực và phần đối chiếu điểm BSC với điểm hệ thống."
+      },
+      "ai": {
+        "t": "Nhờ K.AI",
+        "b": "Hỏi K.AI về số liệu của góc nhìn này."
+      }
+    },
+    "grid": {
+      "add": {
+        "t": "Thêm biểu đồ",
+        "b": "Mở thư viện để thêm biểu đồ vào góc nhìn này. Bố cục nhớ riêng cho tài khoản bạn."
+      },
+      "cell": {
+        "t": "Một ô biểu đồ",
+        "b": "Rê chuột để xem chi tiết; bấm vào dòng hay cột để đi sâu khi biểu đồ cho phép."
+      },
+      "drag": {
+        "t": "Kéo để đổi chỗ",
+        "b": "Giữ cụm chấm để kéo ô; kéo góc hoặc cạnh để đổi cỡ. Thả tay là tự lưu."
+      },
+      "menu": {
+        "t": "Menu của ô",
+        "b": "Có Cấu hình, Sao chép ảnh, Ghim vào tổng quan, Lên/Xuống, Đổi độ rộng và Gỡ khỏi trang."
+      },
+      "config": {
+        "t": "Bảng cấu hình",
+        "b": "Đơn vị, khoảng thời gian và dạng hiển thị đặt riêng cho từng ô — không có bộ lọc chung cho cả trang."
+      }
+    }
+  },
+  "tourAiAssistant": {
+    "intro": {
+      "t": "Trợ lý K.AI",
+      "b": "Hỏi bằng tiếng Việt về hiệu suất, mục tiêu hay nhân sự. K.AI chỉ thấy đúng những dữ liệu bạn được xem."
+    },
+    "starter": {
+      "t": "Câu hỏi gợi ý",
+      "b": "Chưa biết hỏi gì thì bấm một gợi ý để bắt đầu."
+    },
+    "composer": {
+      "t": "Ô hỏi",
+      "b": "Gõ câu hỏi; ghim tệp minh chứng nếu muốn K.AI đọc cùng. Shift + Enter để xuống dòng."
+    },
+    "send": {
+      "t": "Gửi",
+      "b": "Gửi câu hỏi. Hội thoại giữ mạch, nên hỏi tiếp \"còn phòng B thì sao\" mà không cần nhắc lại bối cảnh."
+    },
+    "sidebar": {
+      "t": "Hội thoại cũ",
+      "b": "Mở lại các cuộc hội thoại trước để hỏi tiếp."
+    },
+    "new": {
+      "t": "Hội thoại mới",
+      "b": "Bắt đầu một mạch hỏi mới với bối cảnh trống."
+    },
+    "quota": {
+      "t": "Mỗi câu hỏi tốn hạn mức",
+      "b": "K.AI dùng hạn mức token tháng của bạn; hết thì ngừng trả lời tới tháng sau. Số liệu K.AI tóm tắt nên đối chiếu ở Thống kê trước khi đưa vào báo cáo."
+    }
+  },
+  "tourWork": {
+    "tasks": {
+      "intro": {
+        "t": "Công việc",
+        "b": "Việc cần làm gắn với chỉ tiêu: bạn phụ trách, bạn theo dõi hoặc bạn giao. Bấm một việc để mở chi tiết, bình luận và việc con."
+      },
+      "views": {
+        "t": "Các danh sách",
+        "b": "Tôi phụ trách, Tôi theo dõi, Tôi tạo, Tôi giao cho người khác, Đã hoàn thành, và việc theo từng chỉ tiêu."
+      },
+      "create": {
+        "t": "Tạo việc",
+        "b": "Tạo việc mới với người phụ trách, hạn và chỉ tiêu gắn kèm. Phím tắt: N."
+      },
+      "mode": {
+        "t": "Danh sách, Kanban, Lịch",
+        "b": "Đổi cách xem: danh sách để rà, Kanban để kéo theo trạng thái, Lịch để xem theo hạn."
+      },
+      "group": {
+        "t": "Nhóm theo",
+        "b": "Gom việc theo trạng thái, hạn, người phụ trách hoặc chỉ tiêu."
+      },
+      "sort": {
+        "t": "Sắp xếp",
+        "b": "Đổi thứ tự trong danh sách."
+      },
+      "filter": {
+        "t": "Lọc",
+        "b": "Lọc theo trạng thái, hạn, độ ưu tiên hoặc đợt."
+      },
+      "search": {
+        "t": "Tìm việc",
+        "b": "Gõ tên việc để tìm nhanh."
+      },
+      "quickAdd": {
+        "t": "Thêm nhanh",
+        "b": "Gõ tên việc và nhấn Enter để tạo ngay trong danh sách."
+      }
+    },
+    "docs": {
+      "intro": {
+        "t": "Tài liệu",
+        "b": "Tài liệu cá nhân, của đơn vị và của công ty ở một chỗ. K.AI đọc đúng những gì mỗi người được xem."
+      },
+      "new": {
+        "t": "Tạo mới",
+        "b": "Soạn tài liệu hoặc bảng tính trực tuyến, tải tệp lên, hoặc tạo thư mục."
+      },
+      "nav": {
+        "t": "Điều hướng",
+        "b": "Trang chủ có tài liệu gần đây và đã ghim; nhóm Drive chia theo phạm vi."
+      },
+      "mine": {
+        "t": "Của tôi",
+        "b": "Tài liệu cá nhân của bạn; chia sẻ cho ai thì người đó mới thấy."
+      },
+      "unit": {
+        "t": "Đơn vị",
+        "b": "Tài liệu chung của đơn vị bạn thuộc về."
+      },
+      "company": {
+        "t": "Công ty",
+        "b": "Tài liệu cả công ty, như quy chế và quy trình. K.AI dựa vào đây khi trả lời về công ty."
+      },
+      "requests": {
+        "t": "Đề xuất",
+        "b": "Đề xuất đưa tài liệu lên phạm vi rộng hơn đang chờ duyệt."
+      },
+      "trash": {
+        "t": "Thùng rác",
+        "b": "Tài liệu đã xoá nằm đây một thời gian rồi mới mất hẳn; khôi phục được."
+      },
+      "main": {
+        "t": "Nội dung",
+        "b": "Danh sách thư mục và tài liệu của mục đang chọn. Bấm một tài liệu để xem, chia sẻ hoặc xem phiên bản."
+      }
+    }
+  },
+  "tourForms": {
+    "usersForm": {
+      "title": "Thêm nhân sự — từng ô",
+      "add": {
+        "t": "Thêm nhân sự",
+        "b": "Nút này mở form tạo tài khoản. Bấm vào nó hoặc bấm Tiếp theo để xem form."
+      },
+      "form": {
+        "t": "Form thêm nhân sự",
+        "b": "Điền đủ các ô có dấu * rồi bấm Tạo. Đang trong hướng dẫn nên form không gửi đi đâu cả."
+      },
+      "name": {
+        "t": "Họ và tên",
+        "b": "Tên đầy đủ, hiện ở mọi danh sách, phiếu đánh giá và email gửi cho người này."
+      },
+      "code": {
+        "t": "Mã nhân viên",
+        "b": "Không bắt buộc. Nên điền đúng mã nội bộ để nhập/xuất Excel và đối chiếu với hệ thống khác."
+      },
+      "email": {
+        "t": "Email",
+        "b": "Dùng để đăng nhập và nhận thông báo. Mỗi email chỉ gắn với một tài khoản."
+      },
+      "password": {
+        "t": "Mật khẩu ban đầu",
+        "b": "Ít nhất 8 ký tự. Bấm Gợi ý để sinh mật khẩu mạnh, biểu tượng con mắt để xem lại; thanh bên dưới báo độ mạnh."
+      },
+      "phone": {
+        "t": "Số điện thoại",
+        "b": "Không bắt buộc, chỉ để liên hệ."
+      },
+      "unit": {
+        "t": "Đơn vị",
+        "b": "Người này làm ở đơn vị nào. Đơn vị quyết định ai duyệt KPI của họ và họ thấy dữ liệu của ai."
+      },
+      "role": {
+        "t": "Vai trò",
+        "b": "Chỉ hiện các vai trò hợp với cấp của đơn vị vừa chọn. Vai trò mang theo bộ quyền của người này."
+      },
+      "submit": {
+        "t": "Tạo tài khoản",
+        "b": "Bấm Tạo để lưu. Người mới đăng nhập bằng email và mật khẩu vừa đặt; muốn sửa sau thì bấm vào dòng của họ."
+      }
+    },
+    "rolesForm": {
+      "title": "Tạo vai trò — từng ô",
+      "add": {
+        "t": "Thêm vai trò",
+        "b": "Nút này mở form tạo vai trò. Bấm vào nó hoặc bấm Tiếp theo để xem form."
+      },
+      "form": {
+        "t": "Form vai trò",
+        "b": "Vai trò gồm tên, cấp quản lý và vị trí trong cấp. Quyền chọn ở bài sau, trong ngăn Phân quyền."
+      },
+      "name": {
+        "t": "Tên vai trò",
+        "b": "Tên mọi người sẽ thấy, ví dụ \"Trưởng phòng Marketing\". Vai trò hệ thống chỉ đổi được tên."
+      },
+      "level": {
+        "t": "Cấp quản lý",
+        "b": "Vai trò thuộc tầng nào của cây đơn vị (lấy từ mục Cấp bậc). Người chỉ nhận được vai trò cùng cấp với đơn vị của họ."
+      },
+      "rank": {
+        "t": "Vị trí trong cấp",
+        "b": "Trưởng, Phó hoặc Thành viên. Mỗi cấp chỉ có một vai trò Trưởng và một vai trò Phó; Trưởng giữ bước duyệt KPI của đơn vị."
+      },
+      "submit": {
+        "t": "Xác nhận tạo",
+        "b": "Lưu vai trò. Sau đó mở menu của dòng vai trò › Phân quyền để chọn quyền cho nó."
+      }
+    },
+    "rolesPerms": {
+      "title": "Phân quyền cho vai trò",
+      "drawer": {
+        "t": "Ngăn phân quyền",
+        "b": "Mở từ menu của một vai trò › Phân quyền. Bài đang mở ngăn của vai trò đầu danh sách."
+      },
+      "defaults": {
+        "t": "Áp dụng quyền mặc định",
+        "b": "Gợi ý bộ quyền chuẩn theo vị trí (giám đốc, trưởng, phó, nhân viên). Có bước xem trước rồi mới thêm vào."
+      },
+      "search": {
+        "t": "Tìm quyền",
+        "b": "Gõ mã quyền hoặc tên nhóm, ví dụ KPI hay APPROVE, để lọc nhanh."
+      },
+      "group": {
+        "t": "Nhóm quyền",
+        "b": "Quyền gom theo đối tượng (KPI, Bài nộp…). Con số x/y cho biết đã chọn bao nhiêu quyền trong nhóm."
+      },
+      "groupToggle": {
+        "t": "Chọn cả nhóm",
+        "b": "Chọn hoặc bỏ toàn bộ quyền của nhóm trong một lần bấm."
+      },
+      "item": {
+        "t": "Một quyền",
+        "b": "Bấm để bật hoặc tắt. Rê chuột lên để đọc quyền đó cho phép làm gì."
+      },
+      "save": {
+        "t": "Lưu quyền",
+        "b": "Thay đổi chỉ có hiệu lực sau khi bấm Lưu; bấm Huỷ để bỏ hết."
+      },
+      "hierarchyBtn": {
+        "t": "Quyền theo phân cấp",
+        "b": "Nút này mở hộp đặt bộ quyền chuẩn cho MỌI vai trò cùng lúc, theo vị trí của từng vai trò."
+      },
+      "legend": {
+        "t": "Chú giải",
+        "b": "Xanh là đủ quyền, vàng là một phần, dấu × là không có."
+      },
+      "matrix": {
+        "t": "Ma trận quyền",
+        "b": "Mỗi dòng là một quyền, mỗi cột là một vai trò. Đọc dọc một cột để biết vai trò đó sẽ có những quyền gì."
+      },
+      "apply": {
+        "t": "Áp dụng cho cả công ty",
+        "b": "Ghi đè quyền hiện tại của mọi vai trò theo ma trận. Chỉ bấm khi muốn đặt lại quyền từ đầu."
+      }
+    },
+    "orgForm": {
+      "title": "Thêm đơn vị — từng ô",
+      "form": {
+        "t": "Form đơn vị",
+        "b": "Mở bằng nút thêm đơn vị con trên sơ đồ, hoặc Tạo đơn vị gốc. Bài đang mở form thêm đơn vị con dưới đơn vị gốc."
+      },
+      "logo": {
+        "t": "Logo",
+        "b": "Không bắt buộc. Logo hiện trên sơ đồ và thẻ đơn vị."
+      },
+      "parent": {
+        "t": "Thuộc và cấp",
+        "b": "Đơn vị cha và cấp của đơn vị mới, tự điền theo chỗ bạn bấm thêm."
+      },
+      "name": {
+        "t": "Tên đơn vị",
+        "b": "Tên hiện trên sơ đồ, báo cáo và chuỗi duyệt."
+      },
+      "code": {
+        "t": "Mã đơn vị",
+        "b": "Mã ngắn, không trùng, dùng khi nhập/xuất Excel."
+      },
+      "type": {
+        "t": "Loại đơn vị",
+        "b": "Tên loại của đơn vị, ví dụ Phòng, Ban, Nhóm."
+      },
+      "status": {
+        "t": "Trạng thái hoạt động",
+        "b": "Đang hoạt động hay đã ngừng. Mặc định là đang hoạt động."
+      },
+      "relation": {
+        "t": "Quan hệ với cấp trên",
+        "b": "Trực tuyến, Tham mưu hay Giám sát. Chỉ đổi kiểu nét trên sơ đồ; duyệt và quyền xem vẫn đi theo đơn vị cha."
+      },
+      "contact": {
+        "t": "Liên hệ",
+        "b": "Email và số điện thoại chung của đơn vị, không bắt buộc."
+      },
+      "location": {
+        "t": "Địa điểm",
+        "b": "Tỉnh/thành, phường/xã và địa chỉ chi tiết. Ô chọn có tìm kiếm."
+      },
+      "roles": {
+        "t": "Vai trò được phép",
+        "b": "Giới hạn vai trò nào được gán cho người trong đơn vị này. Vai trò không hợp cấp bị khoá, kèm lý do."
+      },
+      "submit": {
+        "t": "Lưu",
+        "b": "Lưu đơn vị. Đơn vị mới hiện ngay trên sơ đồ."
+      }
+    },
+    "ranksEdit": {
+      "title": "Sửa cấp bậc — từng ô",
+      "open": {
+        "t": "Chỉnh sửa",
+        "b": "Nút này mở chế độ sửa cấp bậc ngay trong khối. Bấm vào nó hoặc bấm Tiếp theo."
+      },
+      "note": {
+        "t": "Lưu ý",
+        "b": "Đổi cấu trúc cấp ảnh hưởng tới các đơn vị đã tạo, nên chốt sớm."
+      },
+      "row": {
+        "t": "Một cấp",
+        "b": "Mỗi dòng là một tầng của cây đơn vị, số thứ tự là cấp (1 là cao nhất)."
+      },
+      "name": {
+        "t": "Tên cấp",
+        "b": "Tên loại đơn vị ở tầng này, ví dụ Chi nhánh, Phòng, Nhóm."
+      },
+      "managerTitle": {
+        "t": "Chức danh quản lý",
+        "b": "Người đứng đầu đơn vị ở tầng này gọi là gì, ví dụ Giám đốc, Trưởng phòng."
+      },
+      "order": {
+        "t": "Sắp xếp và xoá",
+        "b": "Mũi tên đổi thứ tự cấp; thùng rác xoá cấp. Luôn cần ít nhất 2 cấp."
+      },
+      "add": {
+        "t": "Thêm cấp",
+        "b": "Thêm một tầng mới ở cuối."
+      },
+      "save": {
+        "t": "Lưu cấu trúc",
+        "b": "Lưu lại; bấm Huỷ bên cạnh để bỏ mọi thay đổi."
+      }
+    },
+    "delegationsForm": {
+      "title": "Tạo uỷ quyền — từng ô",
+      "add": {
+        "t": "Uỷ quyền",
+        "b": "Nút này mở form uỷ quyền. Bấm vào nó hoặc bấm Tiếp theo để xem form."
+      },
+      "form": {
+        "t": "Form uỷ quyền",
+        "b": "Cho một người quản lý thêm các đơn vị ngoài phạm vi sẵn có của họ."
+      },
+      "delegate": {
+        "t": "Người được uỷ quyền",
+        "b": "Chọn người nhận. Danh sách gom theo đơn vị, gõ tên để tìm."
+      },
+      "units": {
+        "t": "Đơn vị được quản lý",
+        "b": "Chọn được nhiều đơn vị. Đơn vị ở cấp cao hơn người nhận bị ẩn, có dòng báo số đơn vị bị ẩn."
+      },
+      "subtree": {
+        "t": "Gồm cả đơn vị cấp dưới",
+        "b": "Bật thì quyền phủ luôn mọi đơn vị con. Tắt để chỉ giao đúng đơn vị đã chọn."
+      },
+      "leader": {
+        "t": "Được làm thay trưởng đơn vị",
+        "b": "Bật khi người nhận phải làm việc của trưởng, ví dụ chấm hạnh kiểm."
+      },
+      "expires": {
+        "t": "Hết hạn",
+        "b": "Để trống là không hết hạn. Uỷ quyền còn hiệu lực trọn ngày đã chọn."
+      },
+      "reason": {
+        "t": "Lý do",
+        "b": "Ghi chú cho người sau đọc, ví dụ \"Trưởng nhóm đi công tác\"."
+      },
+      "submit": {
+        "t": "Uỷ quyền",
+        "b": "Lưu uỷ quyền. Thu hồi bất cứ lúc nào ở danh sách bên dưới."
+      }
+    },
+    "myKpiAdjust": {
+      "title": "Đề nghị điều chỉnh một KPI",
+      "open": {
+        "t": "Nút điều chỉnh",
+        "b": "Trên mỗi KPI còn hạn có nút này. Bấm vào nó hoặc bấm Tiếp theo để mở form đề nghị của KPI đầu danh sách."
+      }
+    },
+    "myKpiSelfEval": {
+      "title": "Tự đánh giá một đợt",
+      "open": {
+        "t": "Tự đánh giá đợt này",
+        "b": "Đợt đã xong mà bạn chưa tự đánh giá thì đầu nhóm đợt có nút này. Bấm vào nó hoặc bấm Tiếp theo để mở phiếu."
+      }
+    },
+    "adjForm": {
+      "dialog": {
+        "t": "Form đề nghị điều chỉnh",
+        "b": "Đề nghị đổi số hoặc xin dừng một KPI; đề nghị đi theo chuỗi duyệt như khi tạo KPI."
+      },
+      "note": {
+        "t": "Lưu ý",
+        "b": "Đổi được mục tiêu, mức tối thiểu hoặc xin dừng KPI. Ai duyệt thì xem ở chuỗi duyệt sau khi gửi."
+      },
+      "mode": {
+        "t": "Thay đổi thông số / Xin dừng",
+        "b": "Chọn sửa con số, hoặc xin dừng hẳn chỉ tiêu."
+      },
+      "numbers": {
+        "t": "Mục tiêu và tối thiểu mới",
+        "b": "Để nguyên ô nào thì ô đó không đổi. Đơn vị đo hiện ngay trong ô."
+      },
+      "reason": {
+        "t": "Lý do điều chỉnh",
+        "b": "Bắt buộc. Viết cụ thể vì sao cần đổi — người duyệt đọc lý do này đầu tiên."
+      },
+      "submit": {
+        "t": "Gửi đề nghị",
+        "b": "Gửi đi duyệt. Theo dõi kết quả ở mục Đề nghị điều chỉnh của tôi."
+      }
+    },
+    "evalForm": {
+      "dialog": {
+        "t": "Phiếu tự đánh giá",
+        "b": "Bạn tự chấm đợt của mình trước khi quản lý chấm."
+      },
+      "context": {
+        "t": "Bối cảnh",
+        "b": "Chọn đợt cần tự đánh giá. Chỉ hiện đợt bạn có KPI."
+      },
+      "score": {
+        "t": "Bạn tự chấm",
+        "b": "Điểm hệ thống tính từ kết quả KPI; bạn sửa được và bấm nút khôi phục để về điểm hệ thống."
+      },
+      "evidence": {
+        "t": "Minh chứng và ý kiến",
+        "b": "Đính kèm minh chứng và viết vài dòng về đợt của bạn."
+      },
+      "submit": {
+        "t": "Gửi đánh giá",
+        "b": "Gửi phiếu cho quản lý. Gửi rồi thì phiếu chỉ còn xem được."
+      }
+    },
+    "myAdjForm": {
+      "title": "Gửi đề nghị điều chỉnh — từng bước",
+      "add": {
+        "t": "Tạo đề nghị",
+        "b": "Nút này mở hộp chọn KPI cần điều chỉnh. Bấm vào nó hoặc bấm Tiếp theo."
+      },
+      "picker": {
+        "t": "Chọn KPI",
+        "b": "Chỉ liệt kê KPI còn điều chỉnh được: đợt chưa kết thúc và chưa có đề nghị đang chờ."
+      },
+      "search": {
+        "t": "Tìm KPI",
+        "b": "Gõ tên để lọc nhanh."
+      },
+      "item": {
+        "t": "Một KPI",
+        "b": "Bấm vào KPI để mở form đề nghị cho nó. KPI đang có đề nghị chờ duyệt bị mờ, không chọn được."
+      }
+    },
+    "evalFormTour": {
+      "title": "Tự đánh giá — từng ô",
+      "add": {
+        "t": "Tự đánh giá",
+        "b": "Nút này mở phiếu tự đánh giá. Bấm vào nó hoặc bấm Tiếp theo để xem phiếu."
+      }
+    },
+    "redeemForm": {
+      "title": "Đổi quà — từng bước",
+      "open": {
+        "t": "Đổi ngay",
+        "b": "Mỗi món quà có nút này. Bấm vào nó hoặc bấm Tiếp theo để mở hộp đổi quà của món đầu tiên."
+      },
+      "gift": {
+        "t": "Món quà",
+        "b": "Tên, số điểm, giá trị và số còn lại của món quà."
+      },
+      "quantity": {
+        "t": "Số lượng",
+        "b": "Đổi bao nhiêu món; số điểm trừ tính theo số lượng."
+      },
+      "balance": {
+        "t": "Số dư",
+        "b": "Điểm hiện có, điểm sẽ bị trừ và điểm còn lại. Thiếu điểm thì hộp báo thiếu bao nhiêu."
+      },
+      "notes": {
+        "t": "Ghi chú",
+        "b": "Không bắt buộc, ví dụ cỡ áo."
+      },
+      "submit": {
+        "t": "Đổi quà",
+        "b": "Đổi và trừ điểm. Thiếu điểm mà ví tiền đủ thì nút đổi thành dùng ví để mua thêm điểm rồi đổi."
+      }
+    },
+    "topupForm": {
+      "title": "Nạp ví — từng bước",
+      "add": {
+        "t": "Nạp tiền",
+        "b": "Nút này mở hộp nạp tiền vào ví. Bấm vào nó hoặc bấm Tiếp theo để xem."
+      },
+      "dialog": {
+        "t": "Hộp nạp ví",
+        "b": "Nạp bằng chuyển khoản ngân hàng; tiền vào ví khi ngân hàng báo đã nhận."
+      },
+      "amount": {
+        "t": "Số tiền",
+        "b": "Nhập số tiền muốn nạp, trong khoảng tối thiểu – tối đa hiện ngay bên dưới."
+      },
+      "quick": {
+        "t": "Chọn nhanh",
+        "b": "Bấm một mức có sẵn thay cho gõ tay."
+      },
+      "submit": {
+        "t": "Tạo mã chuyển khoản",
+        "b": "Tạo lệnh nạp kèm mã QR và nội dung chuyển khoản. Phải giữ đúng nội dung, sai nội dung thì tiền không tự vào ví."
+      }
+    },
+    "reviewKpi": {
+      "title": "Xem và duyệt một KPI",
+      "dialog": {
+        "t": "Hộp xem KPI",
+        "b": "Bấm tên một KPI trong danh sách để mở hộp này. Bài đang mở KPI đầu danh sách."
+      },
+      "facts": {
+        "t": "Số liệu chính",
+        "b": "Mục tiêu, mức tối thiểu, trọng số, tần suất và các hạn chót của KPI."
+      },
+      "assignees": {
+        "t": "Người thực hiện",
+        "b": "Ai sẽ nhận KPI này. Kiểm tra trước khi duyệt."
+      },
+      "chain": {
+        "t": "Chuỗi duyệt",
+        "b": "Các bước duyệt từ đơn vị của KPI lên tới gốc, bước nào đã xong, đang chờ ai."
+      },
+      "reject": {
+        "t": "Trả lại",
+        "b": "Mở ô nhập lý do. KPI quay về người tạo kèm lý do; gửi lại sẽ duyệt lại từ bước đầu."
+      },
+      "approve": {
+        "t": "Duyệt",
+        "b": "Duyệt bước của bạn. Còn bước phía trên thì KPI chuyển lên người giữ bước đó, chưa chạy ngay."
+      }
+    },
+    "reviewAdj": {
+      "title": "Xem và duyệt một đề nghị điều chỉnh",
+      "dialog": {
+        "t": "Hộp đề nghị điều chỉnh",
+        "b": "Bấm một đề nghị trong danh sách để mở hộp này. Bài đang mở đề nghị đầu danh sách."
+      },
+      "reason": {
+        "t": "Lý do điều chỉnh",
+        "b": "Người đề nghị giải thích vì sao cần sửa KPI."
+      },
+      "compare": {
+        "t": "Hiện tại → đề xuất",
+        "b": "Bảng so từng chỉ số: giá trị đang có và giá trị xin đổi."
+      },
+      "reject": {
+        "t": "Từ chối",
+        "b": "Mở ô ghi chú rồi từ chối; người đề nghị nhận thông báo kèm ghi chú."
+      },
+      "approve": {
+        "t": "Duyệt",
+        "b": "Mở ô ghi chú (và tỷ lệ bù trừ nếu có) rồi duyệt. Đề nghị điều chỉnh luôn đi hết chuỗi duyệt."
+      }
+    },
+    "staffEval": {
+      "title": "Phiếu chấm điểm đợt của nhân viên",
+      "dialog": {
+        "t": "Phiếu chấm",
+        "b": "Bấm Chấm điểm trên dòng một người để mở phiếu. Bài đang mở phiếu của người đầu danh sách (cần chọn một đợt cụ thể)."
+      },
+      "kpis": {
+        "t": "Chỉ tiêu KPI",
+        "b": "Từng bài nộp với kết quả, mục tiêu và điểm hệ thống; ô bên cạnh để bạn chấm lại nếu cần."
+      },
+      "score": {
+        "t": "Chấm điểm đợt",
+        "b": "Điểm tổng của đợt (mặc định là tổng điểm bạn đã chấm), cùng hạnh kiểm và xếp loại ma trận nếu tổ chức bật."
+      },
+      "comments": {
+        "t": "Nhận xét và minh chứng",
+        "b": "Nhận xét của các cấp đã chấm trước và ô nhận xét của bạn."
+      },
+      "submit": {
+        "t": "Phê duyệt và chốt đánh giá",
+        "b": "Duyệt đồng loạt các bài nộp và lưu kết quả chính thức. Còn bài bị trả lại chưa nộp lại thì nút bị khoá."
+      }
+    },
+    "cycleEval": {
+      "title": "Chấm, chốt và gửi đánh giá kỳ",
+      "unitScore": {
+        "t": "Chấm điểm phòng ban",
+        "b": "Mở từ dải bước ở đầu trang, ở bước hiệu chỉnh. Mặc định điểm phòng là trung bình điểm thành viên."
+      },
+      "unitSummary": {
+        "t": "Điểm đơn vị",
+        "b": "Điểm hiện tại và đang là điểm trung bình hay điểm chấm tay."
+      },
+      "unitManual": {
+        "t": "Chấm tay",
+        "b": "Gõ điểm khác trung bình; khi đó phải ghi lý do. Nút bên cạnh trả về điểm trung bình."
+      },
+      "unitSlider": {
+        "t": "Thanh kéo",
+        "b": "Kéo để chọn điểm, nhãn xếp loại đổi theo."
+      },
+      "unitSave": {
+        "t": "Lưu điểm phòng",
+        "b": "Chỉ bấm được khi đã đổi điểm."
+      },
+      "finalize": {
+        "t": "Khoá kết quả",
+        "b": "Hộp này mở từ nút chốt trên dải bước: điểm đơn vị sẽ khoá và các cảnh báo trước khi khoá."
+      },
+      "finalizeComment": {
+        "t": "Nhận xét",
+        "b": "Không bắt buộc, lưu cùng kết quả đã khoá."
+      },
+      "finalizeUnfinished": {
+        "t": "KPI chưa xong",
+        "b": "Chọn cách xử lý từng KPI còn dở trước khi khoá; chưa chọn hết thì không khoá được."
+      },
+      "finalizeConfirm": {
+        "t": "Xác nhận khoá",
+        "b": "Khoá kết quả kỳ của đơn vị. Chốt ở đơn vị gốc thì khoá luôn cả kỳ."
+      },
+      "send": {
+        "t": "Gửi kết quả đánh giá",
+        "b": "Mở từ nút Gửi đánh giá. Tìm và chọn người nhận email kết quả."
+      },
+      "sendList": {
+        "t": "Danh sách nhân viên",
+        "b": "Tick từng người, hoặc bấm chọn tất cả ở trên."
+      },
+      "sendSubmit": {
+        "t": "Gửi",
+        "b": "Gửi email kết quả cho những người đã chọn."
+      }
+    },
+    "f360Form": {
+      "title": "Tạo chiến dịch 360 — từng ô",
+      "add": {
+        "t": "Tạo chiến dịch",
+        "b": "Nút này mở form chiến dịch đánh giá 360. Bấm vào nó hoặc bấm Tiếp theo để xem form."
+      },
+      "name": {
+        "t": "Tên chiến dịch",
+        "b": "Ví dụ \"Đánh giá 360 năm 2026\"."
+      },
+      "purpose": {
+        "t": "Mục đích",
+        "b": "Chỉ để phát triển, hay được tính vào xếp loại. Tính vào xếp loại thì bắt buộc chọn kỳ KPI."
+      },
+      "cycle": {
+        "t": "Kỳ KPI",
+        "b": "Kỳ mà kết quả 360 gắn vào."
+      },
+      "window": {
+        "t": "Thời gian",
+        "b": "Ngày mở và hạn đánh giá, tự gợi ý theo kỳ. Bấm Điều chỉnh để sửa."
+      },
+      "description": {
+        "t": "Mô tả",
+        "b": "Lời nhắn cho người đánh giá, không bắt buộc."
+      },
+      "questions": {
+        "t": "Câu hỏi đánh giá",
+        "b": "Bộ năng lực và câu hỏi, mỗi năng lực có trọng số. Có thể chép câu hỏi từ chiến dịch cũ."
+      },
+      "process": {
+        "t": "Quy trình",
+        "b": "Người được đánh giá có tự đánh giá không, có tự đề cử người chấm không, và có xem được báo cáo của mình không."
+      },
+      "advanced": {
+        "t": "Tuỳ chọn nâng cao",
+        "b": "Ẩn danh, tự động hoá (tóm tắt AI, tự đóng), trọng số theo nhóm và giới hạn tự chọn người chấm."
+      },
+      "submit": {
+        "t": "Tạo chiến dịch",
+        "b": "Chiến dịch được lưu ở dạng nháp; thêm người được đánh giá rồi mới khởi động."
+      }
+    },
+    "newSub": {
+      "title": "Nộp báo cáo kết quả — từng ô",
+      "intro": {
+        "t": "Nộp báo cáo kết quả",
+        "b": "Trang này ghi kết quả bạn đạt được cho một KPI, kèm giải trình và minh chứng, rồi gửi cho quản lý duyệt. Bài đi qua từng ô, không gửi gì."
+      },
+      "kpi": {
+        "t": "Chỉ tiêu",
+        "b": "Chọn KPI cần báo cáo. Mở từ nút Nộp bài trên một KPI thì ô này đã chọn sẵn."
+      },
+      "actual": {
+        "t": "Kết quả thực tế",
+        "b": "Con số bạn đạt được (KPI định tính thì chọn mức). Điểm hệ thống tính từ số này so với mục tiêu."
+      },
+      "note": {
+        "t": "Giải trình",
+        "b": "Bạn đạt được bằng cách nào, có gì đặc biệt — người duyệt đọc ở đây."
+      },
+      "files": {
+        "t": "Minh chứng",
+        "b": "Kéo thả ảnh, PDF, Word, Excel, hoặc lấy tệp có sẵn từ thư viện tài liệu. Có minh chứng thì bài nộp đáng tin hơn."
+      },
+      "side": {
+        "t": "Chỉ tiêu đang báo cáo",
+        "b": "Mục tiêu, tối thiểu, trọng số, đợt và số lần đã nộp của KPI — để đối chiếu khi điền."
+      },
+      "draft": {
+        "t": "Lưu nháp",
+        "b": "Lưu lại để sửa tiếp sau. Bản nháp sửa được bất cứ lúc nào; gửi duyệt rồi thì không."
+      },
+      "submit": {
+        "t": "Gửi báo cáo",
+        "b": "Hỏi lại một lần rồi gửi cho quản lý duyệt."
+      }
+    },
+    "cycleForm": {
+      "title": "Tạo kỳ đánh giá — từng ô",
+      "add": {
+        "t": "Tạo kỳ mới",
+        "b": "Nút này mở form tạo kỳ. Bấm vào nó hoặc bấm Tiếp theo để xem form."
+      },
+      "form": {
+        "t": "Form kỳ đánh giá",
+        "b": "Kỳ gom nhiều đợt lại để đánh giá chung cuối kỳ, ví dụ một năm gồm bốn quý."
+      },
+      "mode": {
+        "t": "Cách dựng kỳ",
+        "b": "Chọn thời gian trước rồi nhặt đợt nằm trong khoảng đó, hoặc chọn đợt trước để thời gian kỳ tự ôm trọn các đợt. Đổi qua lại không mất dữ liệu đã nhập."
+      },
+      "name": {
+        "t": "Tên kỳ",
+        "b": "Tên mọi người sẽ thấy, ví dụ \"Năm 2026\" hay \"Nửa đầu 2026\"."
+      },
+      "type": {
+        "t": "Loại kỳ",
+        "b": "Tháng, quý, nửa năm hay năm. Loại kỳ quyết định ngày kết thúc chuẩn; lệch chuẩn thì form hỏi lại trước khi lưu."
+      },
+      "evalMode": {
+        "t": "Chế độ đánh giá cuối kỳ",
+        "b": "Định lượng (theo số liệu KPI), định tính hoặc cả hai. Tổ chức chưa bật định tính thì chỉ có định lượng."
+      },
+      "dates": {
+        "t": "Thời gian",
+        "b": "Ngày giờ bắt đầu và kết thúc kỳ. Khi chọn đợt trước, hai ô này tự tính từ các đợt đã chọn."
+      },
+      "periods": {
+        "t": "Đợt trong kỳ",
+        "b": "Tick các đợt thuộc kỳ ngay lúc tạo, khỏi phải sang tab Đợt chỉnh từng đợt."
+      },
+      "description": {
+        "t": "Mô tả",
+        "b": "Mục tiêu chung của kỳ, không bắt buộc."
+      },
+      "submit": {
+        "t": "Xác nhận",
+        "b": "Lưu kỳ. Kỳ chỉ bị khoá khi chốt đánh giá kỳ của đơn vị gốc, không có nút khoá riêng."
+      }
+    },
+    "periodForm": {
+      "title": "Tạo đợt — từng ô",
+      "add": {
+        "t": "Tạo đợt mới",
+        "b": "Nút này mở form tạo đợt. Bấm vào nó hoặc bấm Tiếp theo để xem form."
+      },
+      "form": {
+        "t": "Form đợt",
+        "b": "Đợt là khoảng thời gian giao và nộp KPI, ví dụ tháng 10 hay quý 4."
+      },
+      "name": {
+        "t": "Tên đợt",
+        "b": "Tên hiện ở bộ lọc và trên mọi KPI của đợt."
+      },
+      "type": {
+        "t": "Loại chu kỳ",
+        "b": "Tuần, tháng, quý… Chọn loại thì ngày kết thúc được gợi ý theo ngày bắt đầu."
+      },
+      "cycle": {
+        "t": "Thuộc kỳ đánh giá",
+        "b": "Không bắt buộc. Gắn đợt vào kỳ để kết quả đợt được gộp khi đánh giá cuối kỳ."
+      },
+      "dates": {
+        "t": "Thời gian",
+        "b": "Ngày giờ bắt đầu và kết thúc đợt. KPI của đợt chỉ nộp trong khoảng này."
+      },
+      "reminder": {
+        "t": "Nhắc nhở",
+        "b": "Lúc gửi thông báo nhắc nộp, mặc định ở giữa đợt."
+      },
+      "submit": {
+        "t": "Xác nhận",
+        "b": "Lưu đợt. Đợt mới hiện ngay ở bộ lọc đợt của các màn KPI."
+      }
+    },
+    "objectiveForm": {
+      "title": "Tạo mục tiêu OKR — từng ô",
+      "add": {
+        "t": "Thêm mục tiêu",
+        "b": "Nút này mở form mục tiêu. Bấm vào nó hoặc bấm Tiếp theo để xem form."
+      },
+      "form": {
+        "t": "Form mục tiêu",
+        "b": "Mục tiêu (Objective) là điều tổ chức muốn đạt; con số đo nằm ở các kết quả then chốt bên dưới."
+      },
+      "name": {
+        "t": "Tên và mã",
+        "b": "Tên mục tiêu, kèm mã. Mã có thể tự cấp theo quy tắc sinh mã của tổ chức."
+      },
+      "description": {
+        "t": "Mô tả chi tiết",
+        "b": "Vì sao mục tiêu này quan trọng, không bắt buộc."
+      },
+      "dates": {
+        "t": "Thời gian",
+        "b": "Ngày bắt đầu và kết thúc của mục tiêu."
+      },
+      "units": {
+        "t": "Phòng ban",
+        "b": "Đơn vị cùng theo đuổi mục tiêu. Chọn nhiều đơn vị thì mỗi kết quả then chốt sẽ chia % cho từng đơn vị."
+      },
+      "status": {
+        "t": "Trạng thái",
+        "b": "Trạng thái hiện tại của mục tiêu."
+      },
+      "bsc": {
+        "t": "Hạng mục BSC",
+        "b": "Gắn mục tiêu vào một hạng mục của thẻ điểm BSC, không bắt buộc."
+      },
+      "submit": {
+        "t": "Lưu",
+        "b": "Lưu mục tiêu. Sau đó thêm kết quả then chốt ngay trên dòng của nó."
+      }
+    },
+    "krForm": {
+      "title": "Thêm kết quả then chốt — từng ô",
+      "add": {
+        "t": "Thêm kết quả then chốt",
+        "b": "Nút này trên mỗi mục tiêu mở form KR. Bài đang mở form KR của mục tiêu đầu danh sách."
+      },
+      "form": {
+        "t": "Form kết quả then chốt",
+        "b": "KR là con số đo mức đạt của mục tiêu. KPI có thể lấy KR làm nguồn khi tạo."
+      },
+      "name": {
+        "t": "Tên và mã",
+        "b": "Tên KR, ví dụ \"Doanh thu kênh online\". Mã có thể tự cấp."
+      },
+      "description": {
+        "t": "Mô tả chi tiết",
+        "b": "Cách tính hay nguồn số liệu, không bắt buộc."
+      },
+      "numbers": {
+        "t": "Đơn vị, hiện tại, mục tiêu",
+        "b": "Đơn vị đo, giá trị đang có và giá trị cần đạt. % hoàn thành tính từ ba số này."
+      },
+      "allocation": {
+        "t": "% phân bổ theo đơn vị",
+        "b": "Chỉ hiện khi mục tiêu có nhiều đơn vị. Tổng các ô phải bằng 100%."
+      },
+      "submit": {
+        "t": "Lưu",
+        "b": "Lưu KR vào mục tiêu."
+      }
+    },
+    "bscForm": {
+      "title": "Tạo bộ tiêu chí BSC — từng ô",
+      "add": {
+        "t": "Tạo bộ tiêu chí",
+        "b": "Nút này mở form thẻ điểm BSC. Bấm vào nó hoặc bấm Tiếp theo để xem form."
+      },
+      "name": {
+        "t": "Tên bộ tiêu chí",
+        "b": "Ví dụ \"Chiến lược Q3/2026\"."
+      },
+      "applyScope": {
+        "t": "Áp dụng theo",
+        "b": "Theo kỳ: chọn một kỳ, mọi đợt trong kỳ tự áp dụng. Theo đợt: tick từng đợt."
+      },
+      "periods": {
+        "t": "Kỳ / đợt áp dụng",
+        "b": "Thời gian thẻ điểm có hiệu lực. Ô này đổi theo lựa chọn Áp dụng theo."
+      },
+      "scope": {
+        "t": "Phạm vi áp dụng",
+        "b": "Đơn vị dùng thẻ này. Đơn vị chưa có thẻ riêng thì chưa chấm điểm BSC; muốn theo thẻ công ty thì phân rã xuống."
+      },
+      "vision": {
+        "t": "Tuyên bố chiến lược",
+        "b": "Câu chiến lược trung tâm mà mọi hạng mục phục vụ, không bắt buộc."
+      },
+      "emptyPolicy": {
+        "t": "Hạng mục chưa có KPI",
+        "b": "Chọn cách tính điểm khi một hạng mục chưa có KPI nào; mỗi lựa chọn có dòng giải thích hệ quả."
+      },
+      "items": {
+        "t": "Hạng mục và trọng số",
+        "b": "Tick hạng mục để đưa vào thẻ; tổng trọng số các hạng mục được tick phải bằng 100%."
+      },
+      "split": {
+        "t": "Chia đều",
+        "b": "Chia đều trọng số cho các hạng mục đang được tick."
+      },
+      "area": {
+        "t": "Khía cạnh",
+        "b": "Hạng mục gom theo bốn khía cạnh BSC (tài chính, khách hàng…). Bút chì cạnh tên để đổi tên, đổi màu khía cạnh."
+      },
+      "addItem": {
+        "t": "Thêm hạng mục",
+        "b": "Tạo hạng mục mới ngay trong khía cạnh này."
+      },
+      "rowToggle": {
+        "t": "Chọn hạng mục",
+        "b": "Bấm để đưa hạng mục vào hoặc bỏ khỏi thẻ. Hạng mục do cấp trên giao bị khoá."
+      },
+      "rowWeight": {
+        "t": "Trọng số hạng mục",
+        "b": "Phần trăm của hạng mục trong tổng điểm thẻ."
+      },
+      "submit": {
+        "t": "Xác nhận tạo",
+        "b": "Lưu thẻ điểm. Khi tạo nhanh còn có nút Lưu nháp bên cạnh."
+      }
+    },
+    "awardForm": {
+      "title": "Thưởng điểm — từng ô",
+      "add": {
+        "t": "Thưởng điểm",
+        "b": "Nút này mở form thưởng điểm cho nhân viên. Bấm vào nó hoặc bấm Tiếp theo để xem form."
+      },
+      "form": {
+        "t": "Form thưởng điểm",
+        "b": "Chọn người, số điểm và lý do. Điểm vào ví điểm của họ để đổi quà."
+      },
+      "budget": {
+        "t": "Hạn mức của bạn",
+        "b": "Số điểm còn được thưởng trong hạn mức và mức tối đa mỗi người mỗi lần."
+      },
+      "people": {
+        "t": "Chọn nhân viên",
+        "b": "Tìm và chọn một hoặc nhiều người nhận."
+      },
+      "points": {
+        "t": "Điểm mỗi người",
+        "b": "Số điểm mỗi người nhận; ô bên cạnh tính tổng cho cả nhóm."
+      },
+      "reason": {
+        "t": "Lý do thưởng",
+        "b": "Hiện trong lịch sử điểm của nhân viên nên viết cụ thể. Có kèm giấy khen thì lý do cũng in lên đó."
+      },
+      "certificate": {
+        "t": "Kèm giấy khen",
+        "b": "Bật để người nhận có giấy khen in được, rồi chọn mẫu chứng nhận."
+      },
+      "submit": {
+        "t": "Thưởng ngay / Gửi duyệt",
+        "b": "Vượt hạn mức hoặc không có quyền tự duyệt thì nút thành Gửi đề nghị duyệt, chờ cấp trên."
+      }
+    },
+    "budgetForm": {
+      "title": "Cấp hạn mức thưởng — từng ô",
+      "add": {
+        "t": "Cấp hạn mức",
+        "b": "Nút này mở form cấp hạn mức thưởng. Bấm vào nó hoặc bấm Tiếp theo để xem form."
+      },
+      "form": {
+        "t": "Form hạn mức",
+        "b": "Hạn mức là số điểm một người được tự thưởng cho người khác trong một khoảng thời gian."
+      },
+      "recipient": {
+        "t": "Người được cấp hạn mức",
+        "b": "Người sẽ được tự thưởng điểm trong hạn mức này."
+      },
+      "scope": {
+        "t": "Khoảng hiệu lực",
+        "b": "Theo kỳ, theo đợt hoặc chọn khoảng ngày. Mỗi người chỉ có một hạn mức tại một thời điểm, nên các khoảng không được đè lên nhau."
+      },
+      "total": {
+        "t": "Tổng điểm được cấp",
+        "b": "Tổng số điểm người này được thưởng ra trong khoảng hiệu lực."
+      },
+      "max": {
+        "t": "Tối đa mỗi người/lần",
+        "b": "Trần điểm cho một người nhận trong một lần thưởng."
+      },
+      "notes": {
+        "t": "Ghi chú",
+        "b": "Không bắt buộc, chỉ người quản trị thấy."
+      },
+      "submit": {
+        "t": "Lưu",
+        "b": "Lưu hạn mức. Khi sửa sau, không hạ được tổng xuống dưới số đã thưởng."
+      }
+    },
+    "programForm": {
+      "title": "Chương trình thưởng tự động — từng ô",
+      "add": {
+        "t": "Tạo chương trình",
+        "b": "Nút này mở form chương trình thưởng tự động. Bấm vào nó hoặc bấm Tiếp theo để xem form."
+      },
+      "form": {
+        "t": "Form chương trình",
+        "b": "Chương trình xếp hạng người theo kết quả rồi phát điểm theo bậc khi kỳ/đợt kết thúc."
+      },
+      "name": {
+        "t": "Tên chương trình",
+        "b": "Ví dụ \"Top KPI hằng quý\"."
+      },
+      "applies": {
+        "t": "Áp dụng cho",
+        "b": "Mọi kỳ/đợt (chạy lặp lại) hoặc một kỳ/đợt cụ thể, dùng cho đợt thưởng riêng như tổng kết cuối năm."
+      },
+      "ranking": {
+        "t": "Xếp hạng theo",
+        "b": "Kỳ hay đợt, và chỉ số dùng để xếp hạng."
+      },
+      "units": {
+        "t": "Phạm vi đơn vị",
+        "b": "Xếp hạng trong toàn công ty hay trong từng đơn vị."
+      },
+      "tiers": {
+        "t": "Bậc thưởng mặc định",
+        "b": "Điểm cho từng hạng. Chỉ là mặc định — mỗi lần chạy vẫn sửa được."
+      },
+      "tie": {
+        "t": "Khi có người đồng hạng",
+        "b": "Cùng hạng cùng nhận, hoặc trả đúng số người theo thứ tự cố định."
+      },
+      "auto": {
+        "t": "Tự động phát",
+        "b": "Bật thì điểm vào ví khi kỳ/đợt kết thúc mà không ai soát trước; vẫn phát tay sớm hơn được."
+      },
+      "submit": {
+        "t": "Lưu",
+        "b": "Lưu chương trình. Nút chạy trên dòng của nó cho xem trước rồi mới phát."
+      }
+    },
+    "giftForm": {
+      "title": "Thêm quà — từng ô",
+      "add": {
+        "t": "Thêm quà",
+        "b": "Nút này mở form thêm quà vào cửa hàng điểm. Bấm vào nó hoặc bấm Tiếp theo để xem form."
+      },
+      "form": {
+        "t": "Form quà",
+        "b": "Quà là thứ nhân viên đổi bằng điểm thưởng."
+      },
+      "image": {
+        "t": "Ảnh quà",
+        "b": "Tải ảnh hiện trên thẻ quà trong cửa hàng."
+      },
+      "name": {
+        "t": "Tên và mô tả",
+        "b": "Tên quà và vài dòng mô tả cho người đổi."
+      },
+      "points": {
+        "t": "Điểm đổi và tồn kho",
+        "b": "Số điểm cần để đổi một món và số lượng còn. Tick Không giới hạn nếu không cần đếm."
+      },
+      "delivery": {
+        "t": "Cách nhận quà",
+        "b": "Cần trao tay: yêu cầu đổi nằm chờ tới khi có người đánh dấu đã trao. Nhận ngay: đổi xong là hoàn tất, ví dụ ngày nghỉ phép."
+      },
+      "submit": {
+        "t": "Lưu",
+        "b": "Lưu quà. Bỏ tick Đang bày bán để ẩn quà mà không xoá."
+      }
+    },
+    "certificateForm": {
+      "title": "Mẫu chứng nhận — từng ô",
+      "add": {
+        "t": "Tạo mẫu",
+        "b": "Nút này mở trình soạn mẫu giấy khen. Bấm vào nó hoặc bấm Tiếp theo để xem."
+      },
+      "name": {
+        "t": "Tên mẫu",
+        "b": "Chỉ hiện trong danh sách chọn mẫu, không in lên giấy."
+      },
+      "style": {
+        "t": "Kiểu thiết kế",
+        "b": "Chọn một kiểu có sẵn làm nền, rồi sửa chữ, màu, ảnh bên dưới."
+      },
+      "paper": {
+        "t": "Khổ giấy",
+        "b": "Ngang hoặc dọc."
+      },
+      "content": {
+        "t": "Nội dung in",
+        "b": "Dòng dẫn, tiêu đề, phụ đề, đoạn thân, dòng cuối và các công tắc hiện logo, tên tổ chức, điểm, lý do."
+      },
+      "signer": {
+        "t": "Người ký",
+        "b": "Tên, chức danh, ảnh chữ ký/con dấu, logo riêng và ảnh nền. Có thể tự xoá nền ảnh."
+      },
+      "colors": {
+        "t": "Màu",
+        "b": "Màu nhấn, màu chữ và màu nền."
+      },
+      "flags": {
+        "t": "Mặc định và đang dùng",
+        "b": "Đặt làm mẫu mặc định của công ty, hoặc tắt Đang dùng để ẩn khỏi danh sách chọn."
+      },
+      "preview": {
+        "t": "Xem trước",
+        "b": "Giấy khen hiện đúng như sẽ in, cập nhật ngay khi bạn sửa."
+      },
+      "submit": {
+        "t": "Tạo mẫu",
+        "b": "Lưu mẫu. Mẫu dùng được ngay khi thưởng điểm kèm giấy khen."
+      }
+    },
+    "taskForm": {
+      "title": "Tạo việc — từng ô",
+      "add": {
+        "t": "Tạo việc",
+        "b": "Nút này mở hộp tạo việc. Bấm vào nó hoặc bấm Tiếp theo để xem."
+      },
+      "form": {
+        "t": "Hộp tạo việc",
+        "b": "Mỗi việc gắn với một KPI của người phụ trách, để tiến độ việc nằm cạnh chỉ tiêu nó phục vụ."
+      },
+      "name": {
+        "t": "Tên việc",
+        "b": "Gõ tên rồi Ctrl + Enter để tạo nhanh."
+      },
+      "owner": {
+        "t": "Người phụ trách",
+        "b": "Mặc định là bạn. Giao cho người khác cần quyền giao việc, và chỉ chọn được người trong đơn vị bạn quản lý."
+      },
+      "kpi": {
+        "t": "KPI",
+        "b": "Bắt buộc. Chỉ hiện KPI của người phụ trách mà bạn xem được; đổi người phụ trách thì phải chọn lại."
+      },
+      "due": {
+        "t": "Hạn",
+        "b": "Ngày và giờ (không bắt buộc) phải xong."
+      },
+      "priority": {
+        "t": "Ưu tiên",
+        "b": "Mức ưu tiên, dùng để sắp và lọc danh sách việc."
+      },
+      "more": {
+        "t": "Thêm chi tiết",
+        "b": "Mở thêm: ai xem được (công khai trong phạm vi KPI hoặc riêng tư), mô tả và checklist mỗi dòng một bước."
+      },
+      "submit": {
+        "t": "Tạo",
+        "b": "Tạo việc và mở ngay chi tiết của nó để giao thêm người theo dõi, nhắc hạn, lặp lại."
+      }
+    },
+    "docsCreate": {
+      "title": "Tạo tài liệu, tải lên, tạo thư mục",
+      "menu": {
+        "t": "Menu Mới",
+        "b": "Nút Mới mở menu này: tài liệu mới, bảng tính mới, tải tài liệu lên, thư mục mới."
+      },
+      "onlineTitle": {
+        "t": "Tài liệu mới — tên",
+        "b": "Đặt tên rồi bấm Tạo để mở trình soạn thảo trực tuyến. Bảng tính mới dùng cùng hộp này."
+      },
+      "onlineScope": {
+        "t": "Phạm vi",
+        "b": "Cá nhân, Đơn vị hay Công ty. Chọn Đơn vị thì chọn thêm đơn vị nào. Đang đứng trong một phạm vi thì ô này tự ẩn."
+      },
+      "onlineSubmit": {
+        "t": "Tạo",
+        "b": "Tạo tài liệu trống và mở trình soạn thảo."
+      },
+      "uploadDrop": {
+        "t": "Tải tài liệu lên — chọn tệp",
+        "b": "Kéo thả hoặc bấm để chọn tệp. Tên tệp được điền sẵn làm tiêu đề."
+      },
+      "uploadTitle": {
+        "t": "Tiêu đề",
+        "b": "Tên hiện trong thư viện; sửa lại cho dễ tìm."
+      },
+      "uploadMeta": {
+        "t": "Phạm vi, danh mục, đơn vị",
+        "b": "Ai thấy tài liệu và nó thuộc loại nào."
+      },
+      "uploadDescription": {
+        "t": "Mô tả",
+        "b": "Vài dòng nói tài liệu dùng để làm gì, không bắt buộc."
+      },
+      "uploadAi": {
+        "t": "Dùng cho AI",
+        "b": "Bật thì K.AI đọc tài liệu khi trả lời người trong phạm vi đó. Tắt thì tài liệu vẫn được lưu để xem và tải về."
+      },
+      "uploadSubmit": {
+        "t": "Tải lên",
+        "b": "Tải tệp lên thư viện."
+      },
+      "folderName": {
+        "t": "Thư mục mới — tên",
+        "b": "Đặt tên thư mục."
+      },
+      "folderScope": {
+        "t": "Phạm vi",
+        "b": "Thư mục thuộc phạm vi nào; tài liệu bên trong theo phạm vi đó."
+      },
+      "folderSubmit": {
+        "t": "Tạo",
+        "b": "Tạo thư mục."
+      }
+    }
   }
 }

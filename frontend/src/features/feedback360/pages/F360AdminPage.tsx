@@ -18,6 +18,8 @@ import { fmtDate } from '../utils/f360Format'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 type Filter = 'active' | 'draft' | 'done' | 'all'
 const FILTERS = perLanguage((): { key: Filter; label: string; match: (s: F360CampaignStatus) => boolean }[] => ([
@@ -44,6 +46,7 @@ export default function F360AdminPage() {
   const [params, setParams] = useSearchParams()
   const campaignId = params.get('campaign')
   const [creating, setCreating] = useState(false)
+  useTourModal('f360.form', () => { if (canManage) setCreating(true) }, () => setCreating(false))
 
   const { data: campaigns = [], isLoading } = useF360Campaigns()
   const m = useF360CampaignMutations()
@@ -89,7 +92,7 @@ export default function F360AdminPage() {
           { label: t('F360AdminPage.running'), value: running, icon: Users },
           { label: t('F360AdminPage.totalCampaigns'), value: campaigns.length },
         ]}
-        actions={canManage ? <Button onClick={() => setCreating(true)}><Plus /> {t('F360AdminPage.createCampaign')}</Button> : undefined}
+        actions={canManage ? <Button {...tourAnchor('f360.create')} onClick={() => setCreating(true)}><Plus /> {t('F360AdminPage.createCampaign')}</Button> : undefined}
       />
 
       {isLoading && <LoadingSkeleton rows={4} />}
@@ -106,7 +109,7 @@ export default function F360AdminPage() {
 
       {!isLoading && campaigns.length > 0 && (
         <>
-          <div className="flex w-fit flex-wrap gap-0.5 rounded-control bg-[var(--color-muted)] p-0.5" role="tablist" aria-label={t('F360AdminPage.filterCampaigns')}>
+          <div {...tourAnchor('f360.filters')} className="flex w-fit flex-wrap gap-0.5 rounded-control bg-[var(--color-muted)] p-0.5" role="tablist" aria-label={t('F360AdminPage.filterCampaigns')}>
             {FILTERS().filter(f => canManage || f.key !== 'draft').map(f => {
               const count = campaigns.filter(c => f.match(c.status)).length
               return (
@@ -123,7 +126,7 @@ export default function F360AdminPage() {
               {t('F360AdminPage.noCampaignsInThisSection')}
             </p>
           ) : (
-            <div className="grid gap-3 lg:grid-cols-2">
+            <div {...tourAnchor('f360.list')} className="grid gap-3 lg:grid-cols-2">
               {shown.map(c => <CampaignCard key={c.id} campaign={c} onOpen={() => setParam('campaign', c.id)} />)}
             </div>
           )}

@@ -14,6 +14,7 @@ import { stageIcon, STAGE_ACTORS } from '../workflowStageIcons'
 import WorkflowGraph from './graph/WorkflowGraph'
 import StageInspector from './graph/StageInspector'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /**
  * Cấu hình luồng KPI cho toàn tổ chức — vẽ thành sơ đồ nút–cạnh, chỉnh ngay trên sơ đồ.
@@ -142,7 +143,7 @@ export default function OrgWorkflowPanel() {
         )}
       >
         <div className="flex shrink-0 flex-col gap-4 border-b border-[var(--color-border)] p-5 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
+          <div {...tourAnchor('workflow.org')} className="flex items-center gap-3">
             <div
               className={
                 readOnly
@@ -167,17 +168,17 @@ export default function OrgWorkflowPanel() {
                 trình nào là thông tin hữu ích cho mọi người, chỉ có quyền SỬA mới cần gác. */}
             {!readOnly && (
               <>
-                <Button variant="outline" onClick={() => resetMutation.mutate()} disabled={resetMutation.isPending}>
+                <Button {...tourAnchor('workflow.reset')} variant="outline" onClick={() => resetMutation.mutate()} disabled={resetMutation.isPending}>
                   {resetMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <RotateCcw aria-hidden="true" />}
                   {t('OrgWorkflowPanel.resetToDefault')}
                 </Button>
-                <Button onClick={save} disabled={updateMutation.isPending || !dirty || warnings.length > 0}>
+                <Button {...tourAnchor('workflow.save')} onClick={save} disabled={updateMutation.isPending || !dirty || warnings.length > 0}>
                   {updateMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
                   {t('OrgWorkflowPanel.saveChanges')}
                 </Button>
               </>
             )}
-            <Button
+            <Button {...tourAnchor('workflow.fullscreen')}
               variant="outline"
               size="icon"
               onClick={() => setFullscreen((v) => !v)}

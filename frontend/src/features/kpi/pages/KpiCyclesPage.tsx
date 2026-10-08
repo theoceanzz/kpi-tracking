@@ -34,6 +34,9 @@ import i18n from 'i18next'
 import { useStateDraft } from '@/hooks/useFormDraft'
 import { useCreateFromLink } from '@/components/common/CreatePeriodCycleOption'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
+import { useTourModal } from '@/components/common/tours/actions'
 
 // Loại kỳ: Tháng / Quý / 6 Tháng / Năm — mẫu gợi ý, thời gian vẫn chỉnh tự do.
 const CYCLE_TYPES: KpiFrequency[] = ['MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY']
@@ -106,6 +109,7 @@ export default function KpiCyclesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   // Đến từ mục "+ Tạo kỳ mới" trong một ô chọn: mở sẵn form, tạo xong quay về trang cũ.
   const { returnAfterCreate, cancelReturn } = useCreateFromLink('cycle', () => { setEditCycle(null); setShowForm(true) })
+  useTourModal('cycles.form', () => { setEditCycle(null); setShowForm(true) }, () => setShowForm(false))
   // Kỳ không khoá ở đây: chỉ khoá kết quả ở đơn vị gốc (màn Đánh giá kỳ) mới khoá kỳ.
   const [historyTarget, setHistoryTarget] = useState<KpiCycle | null>(null)
 
@@ -161,7 +165,7 @@ export default function KpiCyclesPage() {
             { label: t('KpiCyclesPage.periodsGrouped'), value: stats.periods, icon: Layers },
           ]}
           actions={
-            <Button onClick={() => { setEditCycle(null); setShowForm(true) }}>
+            <Button {...tourAnchor('cycles.add')} onClick={() => { setEditCycle(null); setShowForm(true) }}>
               <Plus aria-hidden="true" /> {t('KpiCyclesPage.createANewCycle')}
             </Button>
           }
@@ -211,7 +215,7 @@ export default function KpiCyclesPage() {
           </div>
         ) : viewMode === 'TABLE' ? (
           <div className="overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-            <table className="w-full">
+            <table {...tourAnchor('cycles.table')} className="w-full">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
                   <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('KpiCyclesPage.cycleName')}</th>
@@ -334,9 +338,9 @@ function CycleRowActions({ cycle, onEdit, onDelete, onHistory }: CycleRowActions
   return (
     <div className="flex items-center justify-end gap-1">
       <LockedHint reason={reason}>
-        <Button variant="ghost" size="icon-sm" onClick={onEdit} disabled={locked} aria-label={t('KpiCyclesPage.edit')} title={locked ? undefined : t('KpiCyclesPage.edit')}><Pencil aria-hidden="true" /></Button>
+        <Button {...tourAnchor('cycles.edit')} variant="ghost" size="icon-sm" onClick={onEdit} disabled={locked} aria-label={t('KpiCyclesPage.edit')} title={locked ? undefined : t('KpiCyclesPage.edit')}><Pencil aria-hidden="true" /></Button>
       </LockedHint>
-      <Button variant="ghost" size="icon-sm" onClick={onHistory} aria-label={t('KpiCyclesPage.cycleHistory')} title={t('KpiCyclesPage.cycleHistory')}><History aria-hidden="true" /></Button>
+      <Button {...tourAnchor('cycles.history')} variant="ghost" size="icon-sm" onClick={onHistory} aria-label={t('KpiCyclesPage.cycleHistory')} title={t('KpiCyclesPage.cycleHistory')}><History aria-hidden="true" /></Button>
       <LockedHint reason={reason}>
         <Button variant="ghost" size="icon-sm" onClick={onDelete} disabled={locked} aria-label={t('KpiCyclesPage.delete')} title={locked ? undefined : t('KpiCyclesPage.delete')} className="text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /></Button>
       </LockedHint>
@@ -523,6 +527,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (blockedByTour()) return
     if (isPeriodFirst && !selectedPeriodIds.length) {
       toast.error(t('KpiCyclesPage.pleaseChooseAtLeastOnePeriod'))
       return
@@ -552,7 +557,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
 
   return (
     <>
-    <Dialog
+    <Dialog {...tourAnchor('cycles.form')}
       open
       onClose={onClose}
       size="md"
@@ -563,7 +568,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={isSubmitting}>{t('KpiCyclesPage.cancel')}</Button>}
           primary={
-            <Button type="submit" form="cycle-form-page" disabled={isSubmitting}>
+            <Button {...tourAnchor('cycles.form.submit')} type="submit" form="cycle-form-page" disabled={isSubmitting}>
               {isSubmitting ? t('KpiCyclesPage.saving') : t('KpiCyclesPage.confirm')}
             </Button>
           }
@@ -572,7 +577,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
     >
       <div className="space-y-5">
       {/* Hai đường dựng kỳ. Đổi qua lại không mất dữ liệu đã nhập. */}
-      <div className="space-y-2">
+      <div {...tourAnchor('cycles.form.mode')} className="space-y-2">
         <span className="text-label block">{t('KpiCyclesPage.howToBuildTheCycle')}</span>
         <div className="grid grid-cols-2 gap-2 p-1.5 rounded-card bg-[var(--color-muted)]">
           {([
@@ -594,13 +599,13 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
 
       <form id="cycle-form-page" onSubmit={handleSubmit} className="space-y-5">
         <DraftNotice draft={draft} />
-        <div className="space-y-2">
+        <div {...tourAnchor('cycles.form.name')} className="space-y-2">
           <label className="text-label">{t('KpiCyclesPage.cycleName')} <span className="text-[var(--color-error)]">*</span></label>
           <input value={formData.name} onChange={e => handleFieldChange('name', e.target.value)} required placeholder={t('KpiCyclesPage.eGFirstHalfOf2026')}
             className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-primary)]/15 focus:border-[var(--color-primary)]/50 outline-none text-sm font-medium transition-all placeholder:text-[var(--color-subtle-foreground)]"/>
         </div>
 
-        <div className="space-y-2">
+        <div {...tourAnchor('cycles.form.type')} className="space-y-2">
           <label className="text-label">{t('KpiCyclesPage.cycleType')} <span className="text-[var(--color-error)]">*</span></label>
           <Select value={formData.cycleType} onValueChange={val => handleFieldChange('cycleType', val)}>
             <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-primary)]/15">
@@ -614,7 +619,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
           </Select>
         </div>
 
-        <div className="space-y-2">
+        <div {...tourAnchor('cycles.form.eval-mode')} className="space-y-2">
           <label className="text-label">{t('KpiCyclesPage.endOfCycleEvaluationMode')}</label>
           <Select
             value={formData.evaluationMode}
@@ -641,7 +646,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
         <div className={cn('flex flex-col gap-6', isPeriodFirst && 'flex-col-reverse')}>
 
         <div className="space-y-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div {...tourAnchor('cycles.form.dates')} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-label">{t('KpiCyclesPage.start')} <span className="text-[var(--color-error)]">*</span></label>
               {isPeriodFirst ? (
@@ -669,7 +674,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
         </div>
 
         {/* Gom đợt vào kỳ ngay khi tạo — khỏi phải sang tab Đợt chỉnh từng đợt. */}
-        <div className="space-y-2">
+        <div {...tourAnchor('cycles.form.periods')} className="space-y-2">
           <div className="flex items-center justify-between gap-3 ml-1">
             <label className="text-label">
               {t('KpiCyclesPage.periodsInTheCycle')}
@@ -753,7 +758,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
 
         </div>
 
-        <div className="space-y-2">
+        <div {...tourAnchor('cycles.form.description')} className="space-y-2">
           <label className="text-label">{t('KpiCyclesPage.description')}</label>
           <textarea value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} rows={2} placeholder={t('KpiCyclesPage.overallGoalOfTheCycle')}
             className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-primary)]/15 focus:border-[var(--color-primary)]/50 outline-none text-sm font-medium transition-all placeholder:text-[var(--color-subtle-foreground)] resize-none"/>

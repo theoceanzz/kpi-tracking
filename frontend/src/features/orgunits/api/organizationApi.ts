@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse } from '@/types/api'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
@@ -208,10 +209,7 @@ export const organizationApi = {
   uploadBranding: (id: string, kind: 'logo' | 'cover', file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    return axiosInstance
-      .post<ApiResponse<OrganizationResponse>>(`/organizations/${id}/branding/${kind}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+    return sendMultipart<ApiResponse<OrganizationResponse>>(`/organizations/${id}/branding/${kind}`, formData)
       .then(r => r.data.data)
   },
 }

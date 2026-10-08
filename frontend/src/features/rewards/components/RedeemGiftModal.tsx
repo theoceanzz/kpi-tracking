@@ -21,6 +21,8 @@ import type { GiftItem, Redemption } from '../types'
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 interface RedeemGiftModalProps {
   /** null = đóng. Truyền cả object để modal hiện được ảnh/giá mà không phải fetch lại. */
@@ -147,6 +149,7 @@ export default function RedeemGiftModal({
   const busy = isRedeeming || isConverting
 
   const onSubmit = async (data: RedeemGiftFormData) => {
+    if (blockedByTour()) return
     const result = await redeem({
       giftItemId: gift.id,
       quantity: data.quantity,
@@ -161,6 +164,7 @@ export default function RedeemGiftModal({
    * dùng vừa xác nhận cả hai việc trên cùng một nút.
    */
   const buyPointsAndRedeem = async () => {
+    if (blockedByTour()) return
     try {
       await convert({ points: shortPoints, requestId: convertRequestId })
     } catch {
@@ -185,7 +189,7 @@ export default function RedeemGiftModal({
 
   return (
     <>
-      <Dialog
+      <Dialog {...tourAnchor('redeem.dialog')}
         open
         onClose={onClose}
         size="md"
@@ -202,7 +206,7 @@ export default function RedeemGiftModal({
                   : t('RedeemGiftModal.topUpRedeem', { topupAmount: formatCurrency(topupAmount) })}
               </Button>
             ) : (
-              <Button onClick={handleSubmit(onSubmit)} disabled={notEnough || busy}>
+              <Button {...tourAnchor('redeem.submit')} onClick={handleSubmit(onSubmit)} disabled={notEnough || busy}>
                 {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
                 {gift.requiresDelivery ? t('RedeemGiftModal.sendRedemptionRequest') : isVoucher ? t('RedeemGiftModal.redeemGetCode') : t('RedeemGiftModal.redeemNow')}
               </Button>
@@ -212,7 +216,7 @@ export default function RedeemGiftModal({
       >
         <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-5">
-          <div className="flex gap-3">
+          <div {...tourAnchor('redeem.gift')} className="flex gap-3">
             {gift.imageUrl && (
               <img
                 src={gift.imageUrl}
@@ -257,7 +261,7 @@ export default function RedeemGiftModal({
             </details>
           )}
 
-          <div>
+          <div {...tourAnchor('redeem.quantity')}>
             <label className="text-label mb-1.5 block font-medium">{t('RedeemGiftModal.quantity')}</label>
             <div className="flex items-center gap-3">
               <button
@@ -288,7 +292,7 @@ export default function RedeemGiftModal({
             )}
           </div>
 
-          <div className="space-y-1 rounded-card bg-[var(--color-muted)] px-4 py-3 text-sm">
+          <div {...tourAnchor('redeem.balance')} className="space-y-1 rounded-card bg-[var(--color-muted)] px-4 py-3 text-sm">
             <div className="flex justify-between">
               <span className="text-[var(--color-muted-foreground)]">{t('RedeemGiftModal.currentBalance')}</span>
               <span className="tabular-nums">{balance.toLocaleString(intlLocale())}</span>
@@ -314,7 +318,7 @@ export default function RedeemGiftModal({
             </div>
           </div>
 
-          <div>
+          <div {...tourAnchor('redeem.notes')}>
             <label className="text-label mb-1.5 block font-medium">
               {t('RedeemGiftModal.notes')} <span className="font-normal text-[var(--color-muted-foreground)]">{t('RedeemGiftModal.optional')}</span>
             </label>

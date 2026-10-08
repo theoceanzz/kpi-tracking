@@ -13,4 +13,6 @@ public class ConductCriteriaResponse {
     /** Trọng số %, tổng cả bộ = 100. */
     private Double weight;
     private Integer position;
+    /** Nhóm chứa tiêu chí; null = bộ không chia nhóm (khi đó weight là % trên tổng). */
+    private UUID groupId;
 }

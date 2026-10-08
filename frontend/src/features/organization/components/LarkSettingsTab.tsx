@@ -37,6 +37,7 @@ import { LARK_CONNECT_RESULT_KEY } from '@/features/auth/pages/LarkCallbackPage'
 import { LARK_PURPOSE_KEY, LARK_STATE_KEY } from '@/features/auth/hooks/useLarkLogin'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const LARK_CONSOLE_URL = 'https://open.larksuite.com/app'
 
@@ -48,9 +49,11 @@ function StepCard({
   done,
   disabled,
   children,
+  'data-tour': dataTour,
 }: {
   /** Neo cho hướng dẫn — mỗi bước cấu hình là một bước riêng trong bài. */
   id?: string
+  'data-tour'?: string
   step: number
   title: string
   description?: string
@@ -61,6 +64,7 @@ function StepCard({
   return (
     <div
       id={id}
+      data-tour={dataTour}
       className={cn(
         'rounded-card border p-5 transition-all',
         disabled
@@ -234,7 +238,7 @@ export default function LarkSettingsTab() {
     <div className="space-y-4">
       {/* Trạng thái tổng quan */}
       <div
-        id="tour-lark-status"
+        id="tour-lark-status" {...tourAnchor('lark.status')}
         className={cn(
           'flex flex-wrap items-center gap-3 rounded-card border p-4',
           settings.larkEnabled
@@ -324,7 +328,7 @@ export default function LarkSettingsTab() {
 
       {isCustomApp && (
         <>
-          <StepCard
+          <StepCard {...tourAnchor('lark.create-app')}
             step={1}
             title={t('LarkSettingsTab.createAnAppOnLark')}
             description={t('LarkSettingsTab.aLarkAdminAccountIsRequired')}
@@ -346,7 +350,7 @@ export default function LarkSettingsTab() {
             </a>
           </StepCard>
 
-          <StepCard
+          <StepCard {...tourAnchor('lark.configure')}
             step={2}
             title={t('LarkSettingsTab.configureInTheLarkApp')}
             description={t('LarkSettingsTab.copyTheValuesBelowAndPaste')}
@@ -389,7 +393,7 @@ export default function LarkSettingsTab() {
             </div>
           </StepCard>
 
-          <StepCard
+          <StepCard {...tourAnchor('lark.credentials')}
             id="tour-lark-credentials"
             step={3}
             title={t('LarkSettingsTab.enterTheAppIdAndApp')}
@@ -432,7 +436,7 @@ export default function LarkSettingsTab() {
                 {t('LarkSettingsTab.save')}
               </Button>
 
-              <Button variant="outline" type="button" onClick={() => testConnection.mutate()} disabled={testConnection.isPending || !hasCredentials}>
+              <Button {...tourAnchor('lark.test')} variant="outline" type="button" onClick={() => testConnection.mutate()} disabled={testConnection.isPending || !hasCredentials}>
                 {testConnection.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
                 {t('LarkSettingsTab.checkConnection')}
               </Button>
@@ -459,7 +463,7 @@ export default function LarkSettingsTab() {
         </>
       )}
 
-      <StepCard
+      <StepCard {...tourAnchor('lark.connect')}
         id="tour-lark-connect"
         step={isCustomApp ? 4 : 1}
         title={t('LarkSettingsTab.linkYourCompanyOnLark')}
@@ -485,7 +489,7 @@ export default function LarkSettingsTab() {
         )}
       </StepCard>
 
-      <StepCard
+      <StepCard {...tourAnchor('lark.defaults')}
         id="tour-lark-defaults"
         step={isCustomApp ? 5 : 2}
         title={t('LarkSettingsTab.unitAndRoleForNewPeople')}
@@ -541,7 +545,7 @@ export default function LarkSettingsTab() {
         </div>
       </StepCard>
 
-      <StepCard
+      <StepCard {...tourAnchor('lark.enable')}
         step={isCustomApp ? 6 : 3}
         title={t('LarkSettingsTab.turnOnLarkSignIn')}
         description={t('LarkSettingsTab.whenOnYourCompanyAppearsOn')}

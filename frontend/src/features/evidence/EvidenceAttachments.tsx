@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Paperclip, Upload, X, ExternalLink, Eye, FileText, ImageIcon, Sheet, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { toastUploadError } from '@/lib/upload'
 import { ATTACHMENT_EXTENSIONS, ATTACHMENT_HINT, MAX_ATTACHMENT_FILES, formatBytes, screenEvidence } from '@/lib/attachmentPolicy'
 import { canPreview } from '@/lib/filePreview'
 import MediaPreviewModal from '@/components/common/MediaPreviewModal'
@@ -51,7 +52,7 @@ export default function EvidenceAttachments({ target, readOnly = false, title = 
       qc.setQueryData<Attachment[]>(key, prev => [...(prev ?? []), ...added])
       toast.success(added.length === 1 ? t('EvidenceAttachments.n1FileAttached') : t('EvidenceAttachments.filesAttached', { count: added.length }))
     },
-    onError: err => toast.error(getApiErrorMessage(err, t('EvidenceAttachments.couldNotUploadTheFile'))),
+    onError: (err, picked) => toastUploadError(err, () => upload.mutate(picked), t('EvidenceAttachments.couldNotUploadTheFile')),
   })
   const remove = useMutation({
     mutationFn: (id: string) => evidenceApi.remove(id),

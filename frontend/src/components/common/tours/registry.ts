@@ -3,14 +3,71 @@ import { navItems, type NavItem } from '@/config/navigation'
 import { splitTourKey, type TourKey } from '@/store/tourStore'
 import i18n from 'i18next'
 
+/**
+ * Điều kiện để một bước có mặt: mã quyền (có MỘT trong các mã là đủ) hoặc một hàm tuỳ ý (vd. màn
+ * hình đủ rộng). Xét MỘT LẦN lúc bắt đầu bài, để "Bước x / y" đúng theo vai trò ngay từ bước 1.
+ */
+export type TourRequirement = string | string[] | (() => boolean)
+
+/**
+ * Một bước hướng dẫn. Là `Step` của Joyride cộng vài trường của riêng app; các trường thêm này
+ * bị gỡ ra trước khi đưa cho Joyride (xem `toJoyrideStep`).
+ *
+ * `prepare` chứ không phải `before`: `before` là hook của Joyride, có chữ ký riêng và chạy theo
+ * nhịp của Joyride. Ở đây `TourHost` tự chạy `prepare` rồi CHỜ neo xuất hiện trước khi chuyển
+ * bước, nhờ vậy bước neo vào phần tử chỉ có sau khi mở panel không bị coi là thiếu.
+ */
+export type TourStep = Step & {
+  /** Khoá ổn định của bước, dùng để lưu "đang học dở tới đâu". Thiếu thì dùng vị trí trong bài. */
+  id?: string
+  requires?: TourRequirement
+  /**
+   * Đưa màn hình về đúng trạng thái bước cần (mở thư viện, đóng thư viện, chuyển tab…), thường là
+   * `() => runTourAction('…')`. Phải LUỸ ĐẲNG: chạy lại khi Quay lại hoặc học tiếp từ giữa bài.
+   */
+  prepare?: () => void | Promise<void>
+  /**
+   * Cho bấm/gõ vào phần tử đang tô sáng. Mặc định KHÔNG: bước chỉ để nhìn, bấm nhầm vào thẻ
+   * widget hay nút "Áp dụng" trong lúc học không được làm đổi gì.
+   */
+  interactive?: boolean
+  /** Người dùng tự bấm đúng phần tử đang tô sáng thì sang bước kế (ngầm bật `interactive`). */
+  advanceOnClick?: boolean
+  /** Chờ neo xuất hiện tối đa bao lâu sau `prepare` (ms). Mặc định 2500. */
+  waitTimeout?: number
+}
+
+/** Trần số bước của một bài. Dài hơn thì tách bài: người học bỏ ngang từ khoảng bước 15. */
+export const MAX_TOUR_STEPS = 15
+
 export interface TourDef {
   /**
    * Nhãn hiện trên menu "Xem lại hướng dẫn". Bỏ trống thì lấy nhãn của mục tương ứng
    * trong cây nav — chỉ tab cấp 3 mới cần khai, vì cây nav không mô tả tới tầng đó.
    */
   title?: string
-  steps: Step[]
+  /**
+   * Phiên bản bài, mặc định 1. Tăng khi VIẾT LẠI bài: người đã xem bản cũ không bị tự chạy bản
+   * mới, chỉ thấy chấm "Có hướng dẫn mới" trên nút Hướng dẫn; người chưa xem bản nào vẫn tự chạy.
+   */
+  version?: number
+  steps: TourStep[]
+  /**
+   * Chạy khi bài kết thúc vì BẤT KỲ lý do gì — xong, Bỏ qua, Esc, đóng, chuyển trang. Trả màn
+   * hình về như trước bài (đóng panel mà bài đã mở…). Dữ liệu thì không cần lo ở đây: lưới widget
+   * và nháp form tự đứng ngoài khi có bài chạy (`useTourSandbox`, `useFormDraft`).
+   */
+  cleanup?: () => void | Promise<void>
+  /**
+   * Bài kế tiếp của cùng một luồng. Luồng dài hơn `MAX_TOUR_STEPS` thì TÁCH thành nhiều bài nối
+   * nhau — không gộp hay bỏ bước cho vừa. Bước cuối của bài này hiện nút "Tiếp: <tên bài sau>",
+   * bấm là chạy luôn bài kế. Khoá bài nối dùng hậu tố `+`: `performance/kpi-criteria+create-1`
+   * (không bao giờ tự chạy theo màn hình; chỉ chạy qua nút "Tiếp" hoặc menu Hướng dẫn).
+   */
+  next?: TourKey
 }
+
+export const tourVersionOf = (def: TourDef | undefined) => def?.version ?? 1
 
 /**
  * Toàn bộ bài hướng dẫn của app, keyed theo `TourKey` ba tầng.
@@ -128,5 +185,12 @@ export function warnMissingTours() {
     console.warn(
       i18n.t('shared:registry.toursNavigationItemsHaveNoGuide', { count: missing.length }) + missing.join('\n  ')
     )
+  }
+
+  const long = Object.entries(tourRegistry())
+    .filter(([, def]) => def.steps.length > MAX_TOUR_STEPS)
+    .map(([key, def]) => `${key} (${def.steps.length})`)
+  if (long.length) {
+    console.warn(`[tours] Bài dài quá ${MAX_TOUR_STEPS} bước — nên tách bài:\n  ${long.join('\n  ')}`)
   }
 }

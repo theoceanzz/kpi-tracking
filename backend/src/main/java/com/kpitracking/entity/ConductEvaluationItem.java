@@ -35,8 +35,23 @@ public class ConductEvaluationItem {
     @Column(name = "criteria_description", columnDefinition = "TEXT")
     private String criteriaDescription;
 
+    /** % TRÊN TỔNG (đã nhân trọng số nhóm nếu có) — mọi phép cộng điểm dùng con số này. */
     @Column(name = "weight", nullable = false)
     private Double weight;
+
+    /** Chụp nhóm lúc mở phiếu (chỉ để hiển thị theo nhóm); null = bộ không chia nhóm. */
+    @Column(name = "group_name", columnDefinition = "TEXT")
+    private String groupName;
+
+    @Column(name = "group_weight")
+    private Double groupWeight;
+
+    @Column(name = "group_position")
+    private Integer groupPosition;
+
+    /** % trong nhóm như cấu hình (cột "Tỷ trọng" của phiếu theo nhóm). */
+    @Column(name = "weight_in_group")
+    private Double weightInGroup;
 
     @Column(name = "position_index", nullable = false)
     private Integer position;

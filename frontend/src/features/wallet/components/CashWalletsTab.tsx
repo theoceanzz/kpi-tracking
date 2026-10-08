@@ -18,6 +18,7 @@ import { useCashWalletSummary, useCashWallets } from '../hooks/useWallet'
 import UserLedgerModal from './UserLedgerModal'
 import type { CashWallet } from '../types'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 function StatCard({
   icon,
@@ -116,7 +117,7 @@ export default function CashWalletsTab() {
     <div>
       {/* Tổng số dư là con số duy nhất chỉ màn hình này tính được: sổ đối soát chỉ
           thấy tiền vào, không biết đã đổi ra điểm bao nhiêu. */}
-      <div id="tour-cashwallets-stats" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div {...tourAnchor('cashwallets.stats')} id="tour-cashwallets-stats" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon={<Wallet size={13} />}
           label={t('CashWalletsTab.holding')}
@@ -157,7 +158,7 @@ export default function CashWalletsTab() {
         </button>
       )}
 
-      <div id="tour-cashwallets-filters" className="mb-4 flex flex-wrap items-center gap-3">
+      <div {...tourAnchor('cashwallets.filters')} id="tour-cashwallets-filters" className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-[220px] flex-1">
           <Search
             size={16}
@@ -215,7 +216,7 @@ export default function CashWalletsTab() {
       {isLoading ? (
         <LoadingSkeleton type="table" rows={4} />
       ) : wallets.length === 0 ? (
-        <div className="rounded-card border border-dashed border-[var(--color-border)]">
+        <div {...tourAnchor('cashwallets.table')} className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
             title={
               onlyInconsistent
@@ -236,7 +237,7 @@ export default function CashWalletsTab() {
       ) : (
         <>
           <div className="overflow-x-auto rounded-card border border-[var(--color-border)]">
-            <table className="w-full min-w-[760px] text-sm">
+            <table {...tourAnchor('cashwallets.table')} className="w-full min-w-[760px] text-sm">
               <thead className="bg-[var(--color-muted)]/50 text-left">
                 <tr className="text-eyebrow">
                   <th className="px-4 py-3">{t('CashWalletsTab.employee')}</th>

@@ -11,6 +11,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { useDebounce } from '@/hooks/useDebounce'
 import { formatDateTime } from '@/i18n/format'
 import { documentFileUrl } from '../api/documentApi'
+import { markLibrarySource } from '../librarySource'
 import { useDocuments } from '../hooks/useDocuments'
 import type { KbDocument } from '../types'
 import { formatBytes } from '../utils'
@@ -27,7 +28,7 @@ async function toFile(d: KbDocument): Promise<File> {
   const r = await fetch(documentFileUrl(d.id), { credentials: 'include' })
   if (!r.ok) throw new Error(String(r.status))
   const blob = await r.blob()
-  return new File([blob], d.fileName ?? d.title, { type: d.contentType ?? blob.type })
+  return markLibrarySource(new File([blob], d.fileName ?? d.title, { type: d.contentType ?? blob.type }), d.id)
 }
 
 interface PickerProps {

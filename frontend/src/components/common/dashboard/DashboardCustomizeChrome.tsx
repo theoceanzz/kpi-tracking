@@ -17,6 +17,8 @@ import type { AutosaveStatus } from './useAutosave'
 import { CHART_CATEGORY_ORDER } from './chartCategories'
 import { WidgetErrorBoundary } from './StableGridLayout'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourAction } from '@/components/common/tours/actions'
 
 /** Bề rộng bảng cấu hình và khe giữa nó với lưới (`gap-4` ở JSX). */
 const PANEL_W = 320
@@ -153,6 +155,7 @@ export function DashboardEditToolbar({ api }: { api: CustomizationApi }) {
       {/* Hai bộ chọn cấp trang đã vào bảng cấu hình từng ô, đây là nút duy nhất còn lại trên đầu
           trang — vẽ như hành động chính (nền đậm) cho người dùng nhận ra ngay. */}
       <button
+        {...tourAnchor('widgets.add')}
         onClick={() => setIsAddModalOpen(true)}
         className="h-10 px-4 rounded-lg bg-[var(--color-primary)] text-white text-sm font-semibold flex items-center gap-2 shadow-sm hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 transition-colors cursor-pointer"
       >
@@ -223,6 +226,28 @@ export default function DashboardCustomizeChrome({
   const { copy } = useCopyImage()
 
   const configWidget = widgets.find(w => w.i === configFor) ?? null
+
+  // Cho bài hướng dẫn mở/đóng thư viện (xem `tours/dashboard.tsx`). Người học được gõ thử vào ô
+  // tìm kiếm, mà từ khoá lạ thì lọc sạch thẻ — các bước sau neo vào thẻ/nhóm sẽ mất neo. Nên bước
+  // sau đó mở thư viện ở trạng thái sạch (`clean`), và đóng thì cũng dọn luôn.
+  const clearLibraryFilters = () => {
+    setSearch('')
+    setOnlyRecommended(false)
+  }
+  useTourAction('widgets.library.open', (opts) => {
+    setIsAddModalOpen(true)
+    if ((opts as { clean?: boolean } | undefined)?.clean) clearLibraryFilters()
+  })
+  // Bài Thống kê mở bảng cấu hình của ô đầu tiên để chỉ chỗ chọn đơn vị / khoảng thời gian.
+  useTourAction('widgets.config.open', () => {
+    const first = widgets.find(w => w.visible)
+    if (first && renderConfig) setConfigFor(first.i)
+  })
+  useTourAction('widgets.config.close', () => setConfigFor(null))
+  useTourAction('widgets.library.close', () => {
+    setIsAddModalOpen(false)
+    clearLibraryFilters()
+  })
 
   /*
     TỰ ĐO vật chứa NGOÀI thay vì dùng `WidthProvider` của react-grid-layout.
@@ -374,7 +399,7 @@ export default function DashboardCustomizeChrome({
   }
 
   const configPanel = configWidget && renderConfig && (
-    <div className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-8rem)]" style={{ width: pushing ? undefined : PANEL_W }}>
+    <div {...tourAnchor('widgets.config')} className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-8rem)]" style={{ width: pushing ? undefined : PANEL_W }}>
       <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--color-border)] shrink-0">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{t('DashboardCustomizeChrome.chartSettings')}</p>
@@ -396,7 +421,7 @@ export default function DashboardCustomizeChrome({
           không còn gì để bám trong khung nhìn. */}
       <div ref={outerRef} className="flex items-start gap-4">
         {sidebar && !pushing && (
-          <aside className="shrink-0 self-start sticky top-4" style={{ width: SIDEBAR_W }}>
+          <aside {...tourAnchor('widgets.sidebar')} className="shrink-0 self-start sticky top-4" style={{ width: SIDEBAR_W }}>
             {sidebar}
           </aside>
         )}
@@ -480,7 +505,7 @@ export default function DashboardCustomizeChrome({
       {/* ── Thư viện biểu đồ ──────────────────────────────────────────────── */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/40" onClick={() => setIsAddModalOpen(false)}>
-          <div role="dialog" aria-modal="true" aria-label={t('DashboardCustomizeChrome.chartLibrary')} className="w-full max-w-4xl max-h-[90vh] flex flex-col bg-[var(--color-card)] rounded-2xl shadow-lg p-5 sm:p-7" onClick={e => e.stopPropagation()}>
+          <div {...tourAnchor('widgets.library')} role="dialog" aria-modal="true" aria-label={t('DashboardCustomizeChrome.chartLibrary')} className="w-full max-w-4xl max-h-[90vh] flex flex-col bg-[var(--color-card)] rounded-2xl shadow-lg p-5 sm:p-7" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="min-w-0">
                 <h3 className="font-semibold text-xl">{t('DashboardCustomizeChrome.addChart')}</h3>
@@ -489,7 +514,7 @@ export default function DashboardCustomizeChrome({
               <button onClick={() => setIsAddModalOpen(false)} aria-label={t('DashboardCustomizeChrome.close')} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer shrink-0"><X size={24} aria-hidden="true" /></button>
             </div>
 
-            <div className={cn('relative', recommendedIds && recommendedLabel ? 'mb-3' : 'mb-5')}>
+            <div {...tourAnchor('widgets.library.search')} className={cn('relative', recommendedIds && recommendedLabel ? 'mb-3' : 'mb-5')}>
               <Search size={16} aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
                 type="search"
@@ -503,7 +528,7 @@ export default function DashboardCustomizeChrome({
 
             {/* Lọc theo vị trí: mặc định vẫn là "Tất cả" để không giấu ô nào, chỉ là có lối tắt. */}
             {recommendedIds && recommendedLabel && (
-              <div className="flex flex-wrap items-center gap-2 mb-5" role="group" aria-label={t('DashboardCustomizeChrome.filterByPosition')}>
+              <div {...tourAnchor('widgets.library.filter')} className="flex flex-wrap items-center gap-2 mb-5" role="group" aria-label={t('DashboardCustomizeChrome.filterByPosition')}>
                 <ChoiceChip selected={!onlyRecommended} onClick={() => setOnlyRecommended(false)}>{t('DashboardCustomizeChrome.all')}</ChoiceChip>
                 <ChoiceChip selected={onlyRecommended} onClick={() => setOnlyRecommended(true)}>
                   <Sparkles aria-hidden="true" /> {recommendedLabel}
@@ -514,7 +539,7 @@ export default function DashboardCustomizeChrome({
 
             {/* Bố cục gợi ý — lối tắt cho người không muốn tự dựng từng ô */}
             {presets?.length ? (
-              <div className="mb-6">
+              <div {...tourAnchor('widgets.library.presets')} className="mb-6">
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">{t('DashboardCustomizeChrome.suggestedLayouts')}</p>
                 <div className="flex flex-wrap gap-2">
                   {presets.map(p => (
@@ -534,7 +559,7 @@ export default function DashboardCustomizeChrome({
             <div className="flex-1 min-h-0 flex gap-5">
               {/* Rãnh nhảy nhanh: 40 mục chia 8 nhóm thì cuộn mù, không biết còn gì phía dưới. */}
               {groupedCatalog.length > 2 && (
-                <nav className="hidden md:block w-44 shrink-0 overflow-y-auto custom-scrollbar pr-1" aria-label={t('DashboardCustomizeChrome.chartGroups')}>
+                <nav {...tourAnchor('widgets.library.groups')} className="hidden md:block w-44 shrink-0 overflow-y-auto custom-scrollbar pr-1" aria-label={t('DashboardCustomizeChrome.chartGroups')}>
                   <ul className="space-y-0.5 sticky top-0">
                     {groupedCatalog.map(([label, entries]) => (
                       <li key={label}>
@@ -575,6 +600,7 @@ export default function DashboardCustomizeChrome({
                         return (
                           <button
                             key={template.i}
+                            {...tourAnchor('widgets.library.card')}
                             type="button"
                             // Thẻ là một công tắc: bấm để thêm, bấm lại để gỡ.
                             onClick={() => (isAdded ? deleteWidget(template.i) : addWidget(template))}
@@ -628,12 +654,14 @@ export default function DashboardCustomizeChrome({
 
             <div className="mt-6 flex items-center justify-between gap-4">
               <button
+                {...tourAnchor('widgets.library.reset')}
                 onClick={() => setConfirmReset(true)}
                 className="flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
               >
                 <RotateCcw size={14} aria-hidden="true" /> {t('DashboardCustomizeChrome.resetToTheDefaultLayout')}
               </button>
               <button
+                {...tourAnchor('widgets.library.done')}
                 onClick={() => setIsAddModalOpen(false)}
                 className="min-h-[44px] px-8 rounded-lg bg-[var(--color-primary)] text-white font-semibold text-sm hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 transition-colors cursor-pointer"
               >
@@ -732,6 +760,7 @@ const GridCell = React.forwardRef<HTMLDivElement, GridCellProps>(function GridCe
       // Móc cho công cụ chụp ảnh tài liệu (scripts/capture_charts.py) tìm ô theo id thay vì theo
       // tiêu đề hiển thị — tiêu đề đổi theo bộ lọc ("Xu hướng KPI đơn vị: …") nên bám vào nó dễ gãy.
       data-widget-id={block.i}
+      {...tourAnchor('widgets.cell')}
       className={cn(
         className,
         // overflow-hidden là hàng rào bắt buộc: widget nào render cao hơn ô lưới (vd danh sách
@@ -747,9 +776,11 @@ const GridCell = React.forwardRef<HTMLDivElement, GridCellProps>(function GridCe
       */}
       <div
         data-copy-exclude
+        data-tour-reveal
         className="absolute top-3 right-3 z-[60] flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
       >
         <span
+          {...tourAnchor('widgets.cell.drag')}
           className="drag-handle hidden md:flex cursor-move items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-400 hover:text-[var(--color-primary)]"
           title={t('DashboardCustomizeChrome.dragToMove')}
           aria-hidden="true"
@@ -760,6 +791,7 @@ const GridCell = React.forwardRef<HTMLDivElement, GridCellProps>(function GridCe
         <Popover open={menuOpen} onOpenChange={o => actions.menu(block.i, o)}>
           <PopoverTrigger asChild>
             <button
+              {...tourAnchor('widgets.cell.menu')}
               aria-label={t('DashboardCustomizeChrome.actionsFor', { title: block.title })}
               title={t('DashboardCustomizeChrome.actions')}
               className="w-8 h-8 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-500 hover:text-[var(--color-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] cursor-pointer"

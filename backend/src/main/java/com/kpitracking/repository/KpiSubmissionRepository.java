@@ -65,6 +65,11 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     java.util.List<KpiSubmission> findByKpiCriteriaIdAndSubmittedByIdAndDeletedAtIsNull(UUID kpiCriteriaId, UUID submittedById);
     
     long countByKpiCriteriaIdAndSubmittedByIdAndDeletedAtIsNull(UUID kpiCriteriaId, UUID userId);
+
+    /** Số bài nộp còn hiệu lực theo (KPI, người nộp) cho cả loạt KPI: hàng = [kpiId, userId, count]. */
+    @Query("SELECT s.kpiCriteria.id, s.submittedBy.id, COUNT(s) FROM KpiSubmission s "
+            + "WHERE s.kpiCriteria.id IN :kpiIds AND s.deletedAt IS NULL GROUP BY s.kpiCriteria.id, s.submittedBy.id")
+    java.util.List<Object[]> countActiveByKpiAndSubmitter(@Param("kpiIds") java.util.Collection<UUID> kpiIds);
     
     long countByKpiCriteriaIdAndSubmittedByIdAndStatusAndDeletedAtIsNull(UUID kpiCriteriaId, UUID userId, SubmissionStatus status);
     

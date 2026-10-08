@@ -1,3 +1,4 @@
+import { useTourScope } from '@/hooks/useTourScope'
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -30,6 +31,8 @@ import StorageView from './views/StorageView'
 import { documentFileUrl } from './api/documentApi'
 import { creatableScopes, editorPath, formatBytes, listableUnits, onlineFormat } from './utils'
 import type { DocumentFolder, DocumentScope, KbDocument } from './types'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 type TabKey = 'home' | 'mine' | 'unit' | 'company' | 'trash' | 'requests' | 'storage'
 const SCOPE_OF: Partial<Record<TabKey, DocumentScope>> = { mine: 'PERSONAL', unit: 'UNIT', company: 'COMPANY' }
@@ -57,6 +60,7 @@ type FolderDialogState =
  * (mở thẳng tài liệu — chip nguồn K.AI dùng link này).
  */
 export default function DocumentsPage() {
+  useTourScope('documents')
   const { t } = useTranslation('documents')
   const { data: caps, isLoading: capsLoading } = useDocumentCapabilities()
   const { data: usage } = useDocumentUsage()
@@ -101,6 +105,12 @@ export default function DocumentsPage() {
   const [opened, setOpened] = useState<{ doc: KbDocument; tab?: DrawerTab } | null>(null)
   const [previewDoc, setPreviewDoc] = useState<KbDocument | null>(null)
   const [newMenu, setNewMenu] = useState(false)
+  const closeCreateDialogs = () => { setNewMenu(false); setNewDoc(null); setUpload(null); setFolderDialog(null) }
+  const pickAt = (): DriveContext | 'pick' => (scope && scope !== 'UNIT' ? { scope, unitId: null, folder: null } : 'pick')
+  useTourModal('docs.newMenu', () => { closeCreateDialogs(); if (canUpload) setNewMenu(true) }, () => setNewMenu(false))
+  useTourModal('docs.online', () => { closeCreateDialogs(); if (canUpload) setNewDoc({ at: pickAt(), kind: 'doc' }) }, closeCreateDialogs)
+  useTourModal('docs.upload', () => { closeCreateDialogs(); if (canUpload) setUpload('pick') }, closeCreateDialogs)
+  useTourModal('docs.folder', () => { closeCreateDialogs(); if (canUpload) setFolderDialog({ kind: 'create', parent: null }) }, closeCreateDialogs)
   const removeDoc = useDeleteDocument()
   const removeFolder = useDeleteFolder()
 
@@ -178,9 +188,9 @@ export default function DocumentsPage() {
           actions={canUpload ? (
             <Popover open={newMenu} onOpenChange={setNewMenu}>
               <PopoverTrigger asChild>
-                <Button aria-haspopup="menu"><Plus aria-hidden="true" /> {t('actions.new')}</Button>
+                <Button {...tourAnchor('docs.new')} aria-haspopup="menu"><Plus aria-hidden="true" /> {t('actions.new')}</Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-56 p-1.5" role="menu">
+              <PopoverContent {...tourAnchor('docs.new.menu')} align="end" className="w-56 p-1.5" role="menu">
                 <NewMenuItem icon={<FilePlus2 />} label={t('actions.newDoc')}
                              onClick={() => { setNewMenu(false); setNewDoc({ at: scope && scope !== 'UNIT' ? { scope, unitId: null, folder: null } : 'pick', kind: 'doc' }) }} />
                 <NewMenuItem icon={<FileSpreadsheet />} label={t('actions.newSheet')}
@@ -205,11 +215,11 @@ export default function DocumentsPage() {
         )}
 
         <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-          <aside className="lg:sticky lg:top-4 lg:self-start">
+          <aside {...tourAnchor('docs.nav')} className="lg:sticky lg:top-4 lg:self-start">
             <DocumentsNav items={navItems} active={tab} onSelect={k => go(k)} pinned={pinned.data ?? []} />
           </aside>
 
-          <main className="min-w-0 space-y-4">
+          <main {...tourAnchor('docs.main')} className="min-w-0 space-y-4">
             {tab === 'home' && (
               <HomeView
                 layout={layout}

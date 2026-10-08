@@ -25,6 +25,8 @@ import { approveButtonLabel } from '../utils/approvalChainLabels'
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { blockedByTour } from '@/components/common/tours/guard'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 interface KpiReviewModalProps {
   open: boolean
@@ -126,7 +128,7 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
           note={t('KpiReviewModal.theKpiGoesBackToIts')}
           secondary={<Button variant="outline" onClick={() => setMode('view')} disabled={isPending}>{t('KpiReviewModal.back')}</Button>}
           primary={
-            <Button variant="destructive" onClick={handleSubmit(d => rejectMutation.mutate(d))} disabled={isPending}>
+            <Button variant="destructive" onClick={handleSubmit(d => { if (!blockedByTour()) rejectMutation.mutate(d) })} disabled={isPending}>
               {rejectMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <XCircle aria-hidden="true" />}
               {t('KpiReviewModal.return')}
             </Button>
@@ -135,13 +137,13 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
       ) : (
         <DialogFooter
           destructive={
-            <Button variant="outline" onClick={() => setMode('reject')} disabled={isPending} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]">
+            <Button {...tourAnchor('review.reject')} variant="outline" onClick={() => setMode('reject')} disabled={isPending} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]">
               <XCircle aria-hidden="true" /> {t('KpiReviewModal.return')}
             </Button>
           }
           secondary={<Button variant="outline" onClick={close} disabled={isPending}>{t('KpiReviewModal.close')}</Button>}
           primary={
-            <Button onClick={() => approveMutation.mutate()} disabled={isPending}>
+            <Button {...tourAnchor('review.approve')} onClick={() => { if (!blockedByTour()) approveMutation.mutate() }} disabled={isPending}>
               {approveMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <CheckCircle aria-hidden="true" />}
               {approveButtonLabel(summary)}
             </Button>
@@ -152,7 +154,7 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
       <DialogFooter
         destructive={
           kpi.status === 'APPROVED' && canRevertApproval ? (
-            <Button variant="outline" onClick={() => revertApprovalMutation.mutate()} disabled={isPending}>
+            <Button variant="outline" onClick={() => { if (!blockedByTour()) revertApprovalMutation.mutate() }} disabled={isPending}>
               {revertApprovalMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Undo2 aria-hidden="true" />}
               {t('KpiReviewModal.revertApproval')}
             </Button>
@@ -163,7 +165,7 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
     )
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('review.dialog')}
       open={open}
       onClose={close}
       size="lg"
@@ -204,7 +206,7 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
         )}
 
         {/* Số liệu chính */}
-        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-border)] sm:grid-cols-3">
+        <dl {...tourAnchor('review.facts')} className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-border)] sm:grid-cols-3">
           {kpi.kpiType !== 'QUALITATIVE' && (
             <Metric label={t('KpiReviewModal.target')} value={kpi.targetValue != null ? formatNumber(kpi.targetValue) : '—'} unit={kpi.unit} />
           )}
@@ -222,7 +224,7 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
         </dl>
 
         {/* Người thực hiện */}
-        <section>
+        <section {...tourAnchor('review.assignees')}>
           <h3 className="text-eyebrow mb-2">{t('KpiReviewModal.performedBy')}</h3>
           {kpi.assigneeNames?.length ? (
             <div className="flex flex-wrap gap-1.5">
@@ -294,7 +296,7 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
           </section>
         )}
 
-        {chainMode && <ApprovalChainPanel chain={chain} loading={chainLoading} />}
+        {chainMode && <div {...tourAnchor('review.chain')}><ApprovalChainPanel chain={chain} loading={chainLoading} /></div>}
 
         <p className="text-caption tabular-nums">
           {t('KpiReviewModal.createdAt')} {formatDateTime(kpi.createdAt)}{kpi.createdByName ? ` · ${kpi.createdByName}` : ''}

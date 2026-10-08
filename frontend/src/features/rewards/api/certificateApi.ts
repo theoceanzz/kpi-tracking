@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse, PageResponse } from '@/types/api'
 import type {
   CertificateCatalog,
@@ -33,10 +34,7 @@ export const certificateApi = {
   uploadImage: (file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return axiosInstance
-      .post<ApiResponse<{ url: string }>>(`${BASE}/images`, form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+    return sendMultipart<ApiResponse<{ url: string }>>(`${BASE}/images`, form)
       .then((r) => r.data.data.url)
   },
 

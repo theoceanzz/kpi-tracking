@@ -2,7 +2,7 @@ import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useMemo, useRef, useState } from 'react'
 import {
   Plus, Trash2, Save, RotateCcw, Star, ChevronRight, ChevronDown,
-  Search, X, CalendarRange, Loader2, Copy, HelpCircle, Scale, AlertTriangle,
+  Search, X, CalendarRange, Loader2, Copy, HelpCircle, Scale, AlertTriangle, Layers, Ungroup,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -15,9 +15,11 @@ import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
 import { useConductConfig, useConductSets } from '../hooks/useConduct'
 import { CONDUCT_MIN_SCORE } from '../hooks/useConductDraft'
 import type { ConductSet } from '../api/conductApi'
+import { groupLetter } from '../utils/conductGroups'
 import type { OrganizationResponse } from '@/features/orgunits/api/organizationApi'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /**
  * Các BỘ tiêu chí hạnh kiểm của tổ chức — cùng khuôn với hồ sơ luật của "xếp loại đơn vị":
@@ -43,14 +45,30 @@ interface DraftCriteria {
   weight: string
 }
 
+/** Nhóm tiêu chí (bộ → nhóm → tiêu chí): trọng số nhóm trên tổng, tiêu chí mang % TRONG nhóm. */
+interface DraftGroup {
+  name: string
+  weight: string
+  criteria: DraftCriteria[]
+}
+
 interface DraftSet {
   id: string
   name: string
   isDefault: boolean
   maxScore: string
   kpiCycleIds: string[]
+  /** Chỉ dùng khi bộ KHÔNG chia nhóm. */
   criteria: DraftCriteria[]
+  /** Rỗng = bộ không chia nhóm. */
+  groups: DraftGroup[]
 }
+
+const toDraftCriteria = (c: { name: string; description?: string | null; weight: number }): DraftCriteria => ({
+  name: c.name,
+  description: c.description ?? '',
+  weight: String(c.weight),
+})
 
 const toDraft = (s: ConductSet): DraftSet => ({
   id: s.id,
@@ -58,15 +76,52 @@ const toDraft = (s: ConductSet): DraftSet => ({
   isDefault: s.isDefault,
   maxScore: String(s.maxScore ?? 5),
   kpiCycleIds: [...(s.kpiCycleIds ?? [])],
-  criteria: (s.criteria ?? []).map(c => ({
-    name: c.name,
-    description: c.description ?? '',
-    weight: String(c.weight),
+  criteria: s.groups?.length ? [] : (s.criteria ?? []).map(toDraftCriteria),
+  groups: (s.groups ?? []).map(g => ({
+    name: g.name,
+    weight: String(g.weight),
+    criteria: g.criteria.map(toDraftCriteria),
   })),
 })
 
 const round2 = (n: number) => Math.round(n * 100) / 100
-const totalWeight = (rows: DraftCriteria[]) => round2(rows.reduce((s, c) => s + (Number(c.weight) || 0), 0))
+const totalWeight = (rows: { weight: string }[]) => round2(rows.reduce((s, c) => s + (Number(c.weight) || 0), 0))
+const isOff = (total: number) => Math.abs(total - 100) > 0.01
+/** Tổng hiển thị ở đầu bộ: bộ chia nhóm thì là tổng % các NHÓM. */
+const setTotal = (d: DraftSet) => totalWeight(d.groups.length ? d.groups : d.criteria)
+const criteriaCount = (d: DraftSet) => (d.groups.length ? d.groups.reduce((n, g) => n + g.criteria.length, 0) : d.criteria.length)
+
+/**
+ * Mẫu "Phù hợp văn hoá doanh nghiệp" theo phiếu giấy: 5 giá trị cốt lõi 30% · 10 đặc điểm nhân sự
+ * phù hợp 40% · 6 chữ vàng 30%, tiêu chí trong mỗi nhóm chia đều. Chữ lấy từ file dịch (bản tiếng
+ * Việt là bản gốc) để tên tiêu chí theo đúng ngôn ngữ người cấu hình.
+ */
+const CULTURE_TEMPLATE = [
+  { key: 'core', weight: 30, size: 5 },
+  { key: 'traits', weight: 40, size: 10 },
+  { key: 'gold', weight: 30, size: 6 },
+] as const
+
+function cultureTemplate(t: (key: string) => string): DraftGroup[] {
+  return CULTURE_TEMPLATE.map(g => ({
+    name: t(`ConductConfigSection.cultureTemplate.${g.key}.name`),
+    weight: String(g.weight),
+    criteria: splitEvenly(Array.from({ length: g.size }, (_, i) => ({
+      name: t(`ConductConfigSection.cultureTemplate.${g.key}.c${i + 1}`),
+      description: '',
+      weight: '0',
+    }))),
+  }))
+}
+
+/** Chia đều 100% cho các dòng; phần lẻ dồn vào dòng cuối để tổng chạm đúng 100, không phải 99.99. */
+function splitEvenly<T extends { weight: string }>(rows: T[]): T[] {
+  const n = rows.length
+  if (!n) return rows
+  const each = Math.floor((100 / n) * 100) / 100
+  const rest = round2(100 - each * (n - 1))
+  return rows.map((r, i) => ({ ...r, weight: String(i === n - 1 ? rest : each) }))
+}
 
 /** Nút biểu tượng dùng lại ở nhiều chỗ — luôn có tên đọc được cho trình đọc màn hình. */
 function IconButton({
@@ -178,16 +233,37 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
     addSet(t('ConductConfigSection.criteriaSet', { value: drafts.length + 1 }), base?.id ?? null)
   }
 
+  /** Kiểm một danh sách tiêu chí (cả bộ phẳng lẫn trong một nhóm); trả false khi đã báo lỗi. */
+  const validCriteria = (rows: DraftCriteria[]) => {
+    if (rows.some(c => !c.name.trim())) { toast.error(t('ConductConfigSection.theCriterionNameCannotBeEmpty')); return false }
+    if (rows.some(c => !(Number(c.weight) > 0))) { toast.error(t('ConductConfigSection.eachCriterionsWeightMustBeGreater')); return false }
+    return true
+  }
+  const toPayloadCriteria = (rows: DraftCriteria[]) => rows.map(c => ({
+    name: c.name.trim(),
+    description: c.description.trim() || null,
+    weight: Number(c.weight),
+  }))
+
   const handleSave = (draft: DraftSet) => {
     if (!draft.name.trim()) { toast.error(t('ConductConfigSection.theCriteriaSetNameCannotBe')); return }
-    if (!draft.criteria.length) { toast.error(t('ConductConfigSection.setNeedsAtLeast1Criterion', { name: draft.name })); return }
-    if (draft.criteria.some(c => !c.name.trim())) { toast.error(t('ConductConfigSection.theCriterionNameCannotBeEmpty')); return }
-    if (draft.criteria.some(c => !(Number(c.weight) > 0))) {
-      toast.error(t('ConductConfigSection.eachCriterionsWeightMustBeGreater')); return
-    }
-    const total = totalWeight(draft.criteria)
-    if (Math.abs(total - 100) > 0.01) {
-      toast.error(t('ConductConfigSection.theTotalWeightMustEqual100', { total })); return
+    const grouped = draft.groups.length > 0
+    if (grouped) {
+      for (const g of draft.groups) {
+        if (!g.name.trim()) { toast.error(t('ConductConfigSection.theGroupNameCannotBeEmpty')); return }
+        if (!(Number(g.weight) > 0)) { toast.error(t('ConductConfigSection.eachGroupWeightMustBeGreater')); return }
+        if (!g.criteria.length) { toast.error(t('ConductConfigSection.groupNeedsAtLeast1Criterion', { name: g.name })); return }
+        if (!validCriteria(g.criteria)) return
+        const inGroup = totalWeight(g.criteria)
+        if (isOff(inGroup)) { toast.error(t('ConductConfigSection.groupWeightMustEqual100', { name: g.name, total: inGroup })); return }
+      }
+      const total = totalWeight(draft.groups)
+      if (isOff(total)) { toast.error(t('ConductConfigSection.theTotalGroupWeightMustEqual100', { total })); return }
+    } else {
+      if (!draft.criteria.length) { toast.error(t('ConductConfigSection.setNeedsAtLeast1Criterion', { name: draft.name })); return }
+      if (!validCriteria(draft.criteria)) return
+      const total = totalWeight(draft.criteria)
+      if (isOff(total)) { toast.error(t('ConductConfigSection.theTotalWeightMustEqual100', { total })); return }
     }
     const max = Number(draft.maxScore)
     if (!(max > CONDUCT_MIN_SCORE)) { toast.error(t('ConductConfigSection.theScaleMustBeGreaterThan', { CONDUCT_MIN_SCORE })); return }
@@ -200,11 +276,13 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
         maxScore: max,
         // Bộ mặc định áp cho mọi kỳ chưa gán nên không mang danh sách kỳ nào.
         kpiCycleIds: draft.isDefault ? [] : draft.kpiCycleIds,
-        criteria: draft.criteria.map(c => ({
-          name: c.name.trim(),
-          description: c.description.trim() || null,
-          weight: Number(c.weight),
-        })),
+        // Bộ chia nhóm gửi `groups`; bộ phẳng gửi `criteria` kèm `groups: []` để gỡ nhóm cũ (nếu có).
+        ...(grouped
+          ? {
+              criteria: null,
+              groups: draft.groups.map(g => ({ name: g.name.trim(), weight: Number(g.weight), criteria: toPayloadCriteria(g.criteria) })),
+            }
+          : { criteria: toPayloadCriteria(draft.criteria), groups: [] }),
       },
     }, { onSettled: () => setSavingId(null) })
   }
@@ -223,7 +301,7 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
         actions={
           <>
             <HelpPopover />
-            <Button variant="outline" type="button" onClick={() => resetSet(undefined)} title={t('ConductConfigSection.resetTheDefaultSetTo4')}>
+            <Button {...tourAnchor('conduct.reset')} variant="outline" type="button" onClick={() => resetSet(undefined)} title={t('ConductConfigSection.resetTheDefaultSetTo4')}>
               <RotateCcw aria-hidden="true" /> {t('ConductConfigSection.resetTheDefaultSet')}
             </Button>
           </>
@@ -239,7 +317,7 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
 
       {/* Không bọc thêm một card ngoài: mỗi bộ đã là một card có viền, lồng card trong
           card chỉ thêm một tầng khung mà không nhóm thêm được thông tin gì. */}
-      <div id="tour-conduct-sets" className="space-y-2.5">
+      <div {...tourAnchor('conduct.sets')} id="tour-conduct-sets" className="space-y-2.5">
         {drafts.map(d => (
           <SetCard
             key={d.id}
@@ -262,7 +340,7 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
         ))}
       </div>
 
-      <Button variant="outline" className="w-full" id="tour-conduct-add-set" type="button" onClick={handleAdd} disabled={isCreating}>
+      <Button {...tourAnchor('conduct.add-set')} variant="outline" className="w-full" id="tour-conduct-add-set" type="button" onClick={handleAdd} disabled={isCreating}>
         {isCreating ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Plus aria-hidden="true" />}
         {t('ConductConfigSection.addCriteriaSet')}
       </Button>
@@ -276,7 +354,7 @@ function HelpPopover() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="icon" type="button" aria-label={t('ConductConfigSection.howConductCriteriaSetsWork')}>
+        <Button {...tourAnchor('conduct.help')} variant="outline" size="icon" type="button" aria-label={t('ConductConfigSection.howConductCriteriaSetsWork')}>
           <HelpCircle aria-hidden="true" />
         </Button>
       </PopoverTrigger>
@@ -313,31 +391,37 @@ function SetCard({
   onRemove: () => void
 }) {
   const { t } = useTranslation('conduct')
-  // Ô "biểu hiện cụ thể" gập theo từng tiêu chí: mở sẵn cả bốn thì thẻ dài gấp bốn lần và
-  // nút Lưu bị đẩy khỏi màn hình.
-  const [openDesc, setOpenDesc] = useState<Set<number>>(new Set())
-  const toggleDesc = (i: number) =>
-    setOpenDesc(s => {
-      const next = new Set(s)
-      if (next.has(i)) next.delete(i)
-      else next.add(i)
-      return next
-    })
+  const grouped = d.groups.length > 0
+  const total = setTotal(d)
+  const totalOff = isOff(total)
 
-  const total = totalWeight(d.criteria)
-  const totalOff = Math.abs(total - 100) > 0.01
+  /** Chia đều 100% — cho các NHÓM nếu bộ chia nhóm, không thì cho các tiêu chí. */
+  const splitTop = () => onPatch(grouped ? { groups: splitEvenly(d.groups) } : { criteria: splitEvenly(d.criteria) })
 
-  const setCriteria = (idx: number, p: Partial<DraftCriteria>) =>
-    onPatch({ criteria: d.criteria.map((c, i) => (i === idx ? { ...c, ...p } : c)) })
+  const setGroup = (idx: number, p: Partial<DraftGroup>) =>
+    onPatch({ groups: d.groups.map((g, i) => (i === idx ? { ...g, ...p } : g)) })
 
-  /** Chia đều 100% cho các tiêu chí — cách thoát nhanh nhất khi tổng bị lệch. */
-  const splitEvenly = () => {
-    const n = d.criteria.length
-    if (!n) return
-    const each = Math.floor((100 / n) * 100) / 100
-    // Dồn phần lẻ vào tiêu chí cuối để tổng chạm đúng 100, không phải 99.99.
-    const rest = round2(100 - each * (n - 1))
-    onPatch({ criteria: d.criteria.map((c, i) => ({ ...c, weight: String(i === n - 1 ? rest : each) })) })
+  /** Bộ phẳng → một nhóm 100% chứa đúng các tiêu chí đang có (trọng số giữ nguyên vì nhóm = 100%). */
+  const toGroups = () => onPatch({
+    groups: [{ name: t('ConductConfigSection.newGroup', { value: 1 }), weight: '100', criteria: d.criteria }],
+    criteria: [],
+  })
+  /**
+   * Gỡ nhóm, gộp mọi tiêu chí thành bộ phẳng mà KHÔNG đổi điểm: trọng số mới = % trong nhóm × % nhóm
+   * (đúng % trên tổng mà phiếu vẫn dùng để cộng). Làm tròn 2 số lẻ, phần lệch dồn vào tiêu chí cuối
+   * để tổng chạm đúng 100.
+   */
+  const fromGroups = () => {
+    const flat = d.groups.flatMap(g => g.criteria.map(c => ({
+      ...c,
+      weight: round2(((Number(c.weight) || 0) * (Number(g.weight) || 0)) / 100),
+    })))
+    const total = flat.reduce((sum, c) => sum + c.weight, 0)
+    if (flat.length && Math.abs(total - 100) <= 0.1) {
+      const last = flat[flat.length - 1]!
+      last.weight = round2(last.weight + 100 - total)
+    }
+    onPatch({ criteria: flat.map(c => ({ ...c, weight: String(c.weight) })), groups: [] })
   }
 
   const fieldCls = 'h-9 px-3 rounded-control bg-[var(--color-muted)] text-sm font-medium border border-transparent outline-none focus:border-[var(--color-info-border)] focus:ring-2 focus:ring-[var(--color-info-solid)]'
@@ -372,7 +456,13 @@ function SetCard({
           <button className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)] flex-1 min-w-0" type="button" onClick={onToggle}>
             <span className="font-semibold text-sm truncate">{d.name || t('ConductConfigSection.criteriaSet2')}</span>
             <span className="ml-auto flex items-center gap-2 shrink-0 text-caption max-sm:hidden">
-              <span>{d.criteria.length} {t('ConductConfigSection.criteria')}</span>
+              {grouped && (
+                <>
+                  <span>{t('ConductConfigSection.groupsCount', { count: d.groups.length })}</span>
+                  <span className="text-[var(--color-subtle-foreground)]">·</span>
+                </>
+              )}
+              <span>{criteriaCount(d)} {t('ConductConfigSection.criteria')}</span>
               <span className="text-[var(--color-subtle-foreground)]">·</span>
               <span>{t('ConductConfigSection.scaleRange', { min: CONDUCT_MIN_SCORE, max: d.maxScore })}</span>
               <span className="text-[var(--color-subtle-foreground)]">·</span>
@@ -458,7 +548,7 @@ function SetCard({
                 value={d.maxScore}
                 onChange={e => onPatch({ maxScore: e.target.value })}
                 onWheel={e => e.currentTarget.blur()}
-                className={cn(fieldCls, 'w-16 text-center')}
+                className={cn(fieldCls, 'no-edit-hint w-[72px] text-center')}
               />
               {Number(d.maxScore) !== 5 && (
                 <span className="text-xs font-medium text-[var(--color-warning)]" title={t('ConductConfigSection.theRatingMatrixRuns15')}>
@@ -473,91 +563,244 @@ function SetCard({
                 {total}%
               </span>
               {totalOff && (
-                <Button variant="ghost" size="sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={splitEvenly} title={t('ConductConfigSection.split100EvenlyAcrossCriteria')}>
+                <Button variant="ghost" size="sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={splitTop} title={grouped ? t('ConductConfigSection.split100EvenlyAcrossGroups') : t('ConductConfigSection.split100EvenlyAcrossCriteria')}>
                   {t('ConductConfigSection.splitEvenly')}
                 </Button>
               )}
             </div>
           </div>
 
-          {/* ── Danh sách tiêu chí ── */}
-          <div className="p-3 space-y-1.5">
-            {d.criteria.map((row, idx) => {
-              const lines = row.description.split('\n').map(l => l.trim()).filter(Boolean)
-              const descOpen = openDesc.has(idx)
-              return (
-                <div key={idx} className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
-                  <div className="flex items-center gap-2 p-2 max-sm:flex-wrap">
-                    <span className="w-6 h-6 shrink-0 rounded-control bg-[var(--color-card)] border border-[var(--color-border)] flex items-center justify-center text-caption tabular-nums">
-                      {idx + 1}
-                    </span>
-                    <input
-                      value={row.name}
-                      onChange={e => setCriteria(idx, { name: e.target.value })}
-                      placeholder={t('ConductConfigSection.criterionName')}
-                      aria-label={t('ConductConfigSection.criterionName2', { value: idx + 1 })}
-                      className={cn(fieldCls, 'flex-1 min-w-[120px] bg-[var(--color-card)]')}
-                    />
-                    <div className="flex items-center gap-1 shrink-0">
-                      <LocaleNumberInput
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={row.weight}
-                        onChange={e => setCriteria(idx, { weight: e.target.value })}
-                        onWheel={e => e.currentTarget.blur()}
-                        aria-label={t('ConductConfigSection.criterionWeight', { value: idx + 1 })}
-                        className={cn(fieldCls, 'w-16 text-center bg-[var(--color-card)] tabular-nums')}
-                      />
-                      <span className="text-xs font-semibold text-[var(--color-subtle-foreground)]">%</span>
-                    </div>
-                    {/* Gập "biểu hiện" nhưng vẫn nói rõ đang có bao nhiêu dòng, để không ai
-                        tưởng tiêu chí này chưa được mô tả. */}
-                    <button
-                      type="button"
-                      onClick={() => toggleDesc(idx)}
-                      aria-expanded={descOpen}
-                      className={cn(
-                        'shrink-0 inline-flex items-center gap-1 px-2 h-9 rounded-control text-xs font-medium cursor-pointer transition-colors',
-                        lines.length
-                          ? 'bg-[var(--color-card)] text-[var(--color-muted-foreground)] hover:text-[var(--color-info)] border border-[var(--color-border)]'
-                          : 'text-[var(--color-subtle-foreground)] hover:text-[var(--color-info)]',
-                      )}
-                    >
-                      {descOpen ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}
-                      {lines.length ? t('ConductConfigSection.indicators', { count: lines.length }) : t('ConductConfigSection.addIndicator')}
-                    </button>
-                    <IconButton
-                      label={t('ConductConfigSection.deleteCriterion', { value: row.name || idx + 1 })}
-                      onClick={() => onPatch({ criteria: d.criteria.filter((_, i) => i !== idx) })}
-                      danger
-                    >
-                      <Trash2 size={15} />
-                    </IconButton>
-                  </div>
-
-                  {descOpen && (
-                    <div className="px-2 pb-2 pl-10 max-sm:pl-2">
-                      <textarea
-                        value={row.description}
-                        onChange={e => setCriteria(idx, { description: e.target.value })}
-                        placeholder={t('ConductConfigSection.specificIndicatorsOnePerLine')}
-                        aria-label={t('ConductConfigSection.specificIndicatorsOfCriterion', { value: idx + 1 })}
-                        rows={4}
-                        className="w-full px-3 py-2 rounded-control bg-[var(--color-card)] border border-[var(--color-border)] text-xs font-medium leading-relaxed outline-none focus:border-[var(--color-info-border)] focus:ring-2 focus:ring-[var(--color-info-solid)] resize-y"
-                      />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-
-            <Button variant="outline" className="w-full" type="button" onClick={() => onPatch({ criteria: [...d.criteria, { name: '', description: '', weight: '0' }] })}>
-              <Plus aria-hidden="true" /> {t('ConductConfigSection.addCriterion')}
-            </Button>
-          </div>
+          {/* ── Danh sách tiêu chí: phẳng, hoặc theo nhóm (bộ → nhóm → tiêu chí) ── */}
+          {grouped ? (
+            <div className="p-3 space-y-3">
+              {d.groups.map((g, gi) => (
+                <GroupBlock
+                  key={gi}
+                  group={g}
+                  index={gi}
+                  fieldCls={fieldCls}
+                  onChange={p => setGroup(gi, p)}
+                  onRemove={() => onPatch({ groups: d.groups.filter((_, i) => i !== gi) })}
+                />
+              ))}
+              <div className="flex gap-2 max-sm:flex-col">
+                <Button variant="outline" className="flex-1" type="button" onClick={() => onPatch({
+                  groups: [...d.groups, { name: t('ConductConfigSection.newGroup', { value: d.groups.length + 1 }), weight: '0', criteria: [{ name: '', description: '', weight: '100' }] }],
+                })}>
+                  <Plus aria-hidden="true" /> {t('ConductConfigSection.addGroup')}
+                </Button>
+                {d.groups.length > 0 && (
+                  <Button variant="outline" type="button" onClick={fromGroups} title={t('ConductConfigSection.removeGroupsHint')}>
+                    <Ungroup aria-hidden="true" /> {t('ConductConfigSection.removeGroups')}
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 space-y-1.5">
+              <CriteriaRows rows={d.criteria} fieldCls={fieldCls} onChange={rows => onPatch({ criteria: rows })} />
+              <div className="flex gap-2 max-sm:flex-col">
+                <Button variant="outline" className="flex-1" type="button" onClick={() => onPatch({ criteria: [...d.criteria, { name: '', description: '', weight: '0' }] })}>
+                  <Plus aria-hidden="true" /> {t('ConductConfigSection.addCriterion')}
+                </Button>
+                <SplitIntoGroupsMenu
+                  onFromCurrent={toGroups}
+                  onCultureTemplate={() => onPatch({ groups: cultureTemplate(t), criteria: [] })}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Danh sách tiêu chí — dùng chung cho bộ phẳng và cho từng nhóm. Ô "biểu hiện cụ thể" gập theo
+ * từng tiêu chí: mở sẵn hết thì thẻ dài gấp mấy lần và nút Lưu bị đẩy khỏi màn hình.
+ */
+function CriteriaRows({
+  rows, fieldCls, onChange,
+}: {
+  rows: DraftCriteria[]
+  fieldCls: string
+  onChange: (rows: DraftCriteria[]) => void
+}) {
+  const { t } = useTranslation('conduct')
+  const [openDesc, setOpenDesc] = useState<Set<number>>(new Set())
+  const toggleDesc = (i: number) =>
+    setOpenDesc(s => {
+      const next = new Set(s)
+      if (next.has(i)) next.delete(i)
+      else next.add(i)
+      return next
+    })
+  const setRow = (idx: number, p: Partial<DraftCriteria>) =>
+    onChange(rows.map((c, i) => (i === idx ? { ...c, ...p } : c)))
+
+  return (
+    <>
+      {rows.map((row, idx) => {
+        const lines = row.description.split('\n').map(l => l.trim()).filter(Boolean)
+        const descOpen = openDesc.has(idx)
+        return (
+          <div key={idx} className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
+            <div className="flex items-center gap-2 p-2 max-sm:flex-wrap">
+              <span className="w-6 h-6 shrink-0 rounded-control bg-[var(--color-card)] border border-[var(--color-border)] flex items-center justify-center text-caption tabular-nums">
+                {idx + 1}
+              </span>
+              <input
+                value={row.name}
+                onChange={e => setRow(idx, { name: e.target.value })}
+                placeholder={t('ConductConfigSection.criterionName')}
+                aria-label={t('ConductConfigSection.criterionName2', { value: idx + 1 })}
+                className={cn(fieldCls, 'flex-1 min-w-[120px] bg-[var(--color-card)]')}
+              />
+              <div className="flex items-center gap-1 shrink-0">
+                <LocaleNumberInput
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={row.weight}
+                  onChange={e => setRow(idx, { weight: e.target.value })}
+                  onWheel={e => e.currentTarget.blur()}
+                  aria-label={t('ConductConfigSection.criterionWeight', { value: idx + 1 })}
+                  className={cn(fieldCls, 'no-edit-hint w-[72px] text-center bg-[var(--color-card)] tabular-nums')}
+                />
+                <span className="text-xs font-semibold text-[var(--color-subtle-foreground)]">%</span>
+              </div>
+              {/* Gập "biểu hiện" nhưng vẫn nói rõ đang có bao nhiêu dòng, để không ai
+                  tưởng tiêu chí này chưa được mô tả. */}
+              <button
+                type="button"
+                onClick={() => toggleDesc(idx)}
+                aria-expanded={descOpen}
+                className={cn(
+                  'shrink-0 inline-flex items-center gap-1 px-2 h-9 rounded-control text-xs font-medium cursor-pointer transition-colors',
+                  lines.length
+                    ? 'bg-[var(--color-card)] text-[var(--color-muted-foreground)] hover:text-[var(--color-info)] border border-[var(--color-border)]'
+                    : 'text-[var(--color-subtle-foreground)] hover:text-[var(--color-info)]',
+                )}
+              >
+                {descOpen ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}
+                {lines.length ? t('ConductConfigSection.indicators', { count: lines.length }) : t('ConductConfigSection.addIndicator')}
+              </button>
+              <IconButton
+                label={t('ConductConfigSection.deleteCriterion', { value: row.name || idx + 1 })}
+                onClick={() => onChange(rows.filter((_, i) => i !== idx))}
+                danger
+              >
+                <Trash2 size={15} />
+              </IconButton>
+            </div>
+
+            {descOpen && (
+              <div className="px-2 pb-2 pl-10 max-sm:pl-2">
+                <textarea
+                  value={row.description}
+                  onChange={e => setRow(idx, { description: e.target.value })}
+                  placeholder={t('ConductConfigSection.specificIndicatorsOnePerLine')}
+                  aria-label={t('ConductConfigSection.specificIndicatorsOfCriterion', { value: idx + 1 })}
+                  rows={4}
+                  className="w-full px-3 py-2 rounded-control bg-[var(--color-card)] border border-[var(--color-border)] text-xs font-medium leading-relaxed outline-none focus:border-[var(--color-info-border)] focus:ring-2 focus:ring-[var(--color-info-solid)] resize-y"
+                />
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+/** Nút "Chia theo nhóm": nhóm từ tiêu chí đang có, hoặc lấy ngay mẫu văn hoá doanh nghiệp. */
+function SplitIntoGroupsMenu({ onFromCurrent, onCultureTemplate }: { onFromCurrent: () => void; onCultureTemplate: () => void }) {
+  const { t } = useTranslation('conduct')
+  const [open, setOpen] = useState(false)
+  const item = 'flex w-full flex-col items-start gap-0.5 rounded-control px-2.5 py-2 text-left hover:bg-[var(--color-muted)] cursor-pointer'
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button {...tourAnchor('conduct.groups')} variant="outline" type="button">
+          <Layers aria-hidden="true" /> {t('ConductConfigSection.splitIntoGroups')} <ChevronDown aria-hidden="true" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[320px] p-1.5">
+        <button type="button" className={item} onClick={() => { setOpen(false); onFromCurrent() }}>
+          <span className="text-sm font-medium text-[var(--color-foreground)]">{t('ConductConfigSection.groupCurrentCriteria')}</span>
+          <span className="text-caption">{t('ConductConfigSection.groupCurrentCriteriaHint')}</span>
+        </button>
+        <button type="button" className={item} onClick={() => { setOpen(false); onCultureTemplate() }}>
+          <span className="text-sm font-medium text-[var(--color-foreground)]">{t('ConductConfigSection.cultureTemplate.title')}</span>
+          <span className="text-caption">{t('ConductConfigSection.cultureTemplate.hint')}</span>
+        </button>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** Một nhóm tiêu chí: tên + % nhóm trên tổng, rồi các tiêu chí mang % TRONG nhóm (cộng 100). */
+function GroupBlock({
+  group: g, index, fieldCls, onChange, onRemove,
+}: {
+  group: DraftGroup
+  index: number
+  fieldCls: string
+  onChange: (p: Partial<DraftGroup>) => void
+  onRemove: () => void
+}) {
+  const { t } = useTranslation('conduct')
+  const inGroup = totalWeight(g.criteria)
+  const off = isOff(inGroup)
+  return (
+    <div className="rounded-card border border-[var(--color-info-border)] bg-[var(--color-card)]">
+      <div className="flex items-center gap-2 p-2 bg-[var(--color-info-bg)] rounded-t-card border-b border-[var(--color-border)] max-sm:flex-wrap">
+        <span className="w-7 h-7 shrink-0 rounded-control bg-[var(--color-card)] border border-[var(--color-info-border)] flex items-center justify-center text-sm font-semibold text-[var(--color-info)]">
+          {groupLetter(index)}
+        </span>
+        <input
+          value={g.name}
+          onChange={e => onChange({ name: e.target.value })}
+          placeholder={t('ConductConfigSection.groupName')}
+          aria-label={t('ConductConfigSection.groupNameN', { value: groupLetter(index) })}
+          className={cn(fieldCls, 'flex-1 min-w-[140px] bg-[var(--color-card)] font-semibold')}
+        />
+        <div className="flex items-center gap-1 shrink-0" title={t('ConductConfigSection.groupWeightHint')}>
+          <LocaleNumberInput
+            type="number"
+            min={0}
+            step={1}
+            value={g.weight}
+            onChange={e => onChange({ weight: e.target.value })}
+            onWheel={e => e.currentTarget.blur()}
+            aria-label={t('ConductConfigSection.groupWeight', { value: groupLetter(index) })}
+            className={cn(fieldCls, 'no-edit-hint w-[72px] text-center bg-[var(--color-card)] tabular-nums')}
+          />
+          <span className="text-xs font-semibold text-[var(--color-subtle-foreground)]">%</span>
+        </div>
+        <IconButton label={t('ConductConfigSection.deleteGroup', { value: g.name || groupLetter(index) })} onClick={onRemove} danger>
+          <Trash2 size={15} />
+        </IconButton>
+      </div>
+
+      <div className="p-2 space-y-1.5">
+        <CriteriaRows rows={g.criteria} fieldCls={fieldCls} onChange={rows => onChange({ criteria: rows })} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" className="flex-1" type="button" onClick={() => onChange({ criteria: [...g.criteria, { name: '', description: '', weight: '0' }] })}>
+            <Plus aria-hidden="true" /> {t('ConductConfigSection.addCriterion')}
+          </Button>
+          <span className="text-eyebrow">{t('ConductConfigSection.withinGroup')}</span>
+          <span className={cn('text-sm font-semibold tabular-nums', off ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]')}>
+            {inGroup}%
+          </span>
+          {off && g.criteria.length > 0 && (
+            <Button variant="ghost" size="sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={() => onChange({ criteria: splitEvenly(g.criteria) })} title={t('ConductConfigSection.split100EvenlyWithinGroup')}>
+              {t('ConductConfigSection.splitEvenly')}
+            </Button>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

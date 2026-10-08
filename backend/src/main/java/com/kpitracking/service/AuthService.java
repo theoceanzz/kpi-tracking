@@ -230,9 +230,26 @@ public class AuthService {
      */
     @Transactional
     public AuthResponse refreshToken(java.util.List<String> candidateTokens) {
-        RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(candidateTokens);
+        RefreshTokenService.Verified verified = refreshTokenService.verifyForRefresh(candidateTokens);
+        RefreshToken refreshToken = refreshTokenService.lockForRotation(verified.token());
+        // Trong lúc chờ khoá, phiên vừa bị đăng xuất / hết hạn ⇒ từ chối như token không hợp lệ.
+        if (Boolean.TRUE.equals(refreshToken.getRevoked()) || !refreshToken.getExpiresAt().isAfter(java.time.Instant.now())) {
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID_REVOKED);
+        }
         User user = refreshToken.getUser();
+        // Trong lúc chờ khoá, tab khác đã xoay token này ⇒ coi như khớp qua ân hạn.
+        boolean rotatedMeanwhile = !verified.viaGrace() && !refreshToken.getToken().equals(verified.matchedToken());
 
+        if (verified.viaGrace() || rotatedMeanwhile) {
+            // Tab khác vừa làm mới xong (token này vừa bị xoay): trả lại phiên HIỆN TẠI, không xoay thêm — xoay
+            // nữa thì tab kia lại cầm token cũ và hai tab đá nhau mãi.
+            List<String> authorities = getUserAuthorities(user.getId());
+            String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), authorities);
+            return AuthResponse.builder().accessToken(accessToken).refreshToken(refreshToken.getToken()).tokenType("Bearer")
+                    .user(enrichUserInfo(userMapper.toUserInfoResponse(user)))
+                    .requirePasswordChange(user.getRequirePasswordChange())
+                    .hasSeenOnboarding(Boolean.TRUE.equals(user.getHasSeenOnboarding())).build();
+        }
         return issueAuthResponse(user, refreshToken.getDeviceInfo());
     }
 
@@ -370,16 +387,16 @@ public class AuthService {
         emailService.sendVerifyEmail(user.getEmail(), verifyToken, ErrorMessages.currentLocale());
     }
 
-    @Transactional
+    /**
+     * Không {@code @Transactional} và không đi qua {@code verifyRefreshToken}: hàm đó ném lỗi khi token
+     * đã thu hồi/hết hạn, lỗi đi qua proxy đánh dấu transaction rollback-only, nên dù có bắt lại thì
+     * lúc commit vẫn nổ "Transaction silently rolled back". Thu hồi giờ là thao tác không ném lỗi
+     * trong transaction riêng của {@code RefreshTokenService}.
+     */
     public void logout(String refreshTokenStr) {
-        try {
-            RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(refreshTokenStr);
-            refreshTokenService.revokeToken(refreshToken);
-            securityAudit.recordForEmail(SecurityAuditEvent.LOGOUT, SecurityAuditService.OK,
-                    refreshToken.getUser().getEmail(), null);
-        } catch (Exception e) {
-            log.warn("Logout called with invalid token: {}", e.getMessage());
-        }
+        refreshTokenService.revokeIfActive(refreshTokenStr).ifPresentOrElse(
+                email -> securityAudit.recordForEmail(SecurityAuditEvent.LOGOUT, SecurityAuditService.OK, email, null),
+                () -> log.debug("Logout with a refresh token that is already revoked, expired or unknown"));
     }
 
     public UserInfoResponse getCurrentUser() {
@@ -423,6 +440,7 @@ public class AuthService {
         });
         
         response.setMemberships(memberships);
+        response.setNeedsOrganization(memberships.isEmpty() && !Boolean.TRUE.equals(response.getIsPlatformAdmin()));
         List<String> authorities = getUserAuthorities(response.getId());
         response.setRoles(authorities.stream()
                 .filter(a -> a.startsWith("ROLE_"))
@@ -439,20 +457,16 @@ public class AuthService {
         return response;
     }
 
-    @Transactional
-    public UserInfoResponse uploadAvatar(org.springframework.web.multipart.MultipartFile file) {
+    /** Ảnh đi lên NGOÀI transaction — khuôn chung {@link CloudinaryStorageService#uploadThenSave}. */
+    public UserInfoResponse uploadAvatar(org.springframework.web.multipart.MultipartFile file) throws java.io.IOException {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
-
-        try {
-            String avatarUrl = cloudinaryStorageService.uploadFile(file, "avatars").get("url");
-            user.setAvatarUrl(avatarUrl);
-            user = userRepository.save(user);
-            return enrichUserInfo(userMapper.toUserInfoResponse(user));
-        } catch (java.io.IOException e) {
-            throw new BusinessException(ErrorCode.AVATAR_UPLOAD_FAILED, e.getMessage());
-        }
+        return cloudinaryStorageService.uploadThenSave(new org.springframework.web.multipart.MultipartFile[]{file}, "avatars",
+                () -> userRepository.findByEmail(email)
+                        .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email)),
+                (user, stored) -> {
+                    user.setAvatarUrl(stored.get(0).url());
+                    return enrichUserInfo(userMapper.toUserInfoResponse(userRepository.save(user)));
+                });
     }
 
     @Transactional

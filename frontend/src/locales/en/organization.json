@@ -591,7 +591,17 @@
     "actions": "Actions",
     "addChild": "Add child",
     "delete": "Delete",
-    "edit": "Edit"
+    "edit": "Edit",
+    "legendTitle": "Legend",
+    "relation": {
+      "DIRECT": "Line (direct reporting)",
+      "ADVISORY": "Advisory / staff",
+      "SUPERVISORY": "Independent oversight"
+    },
+    "nodeLabel": {
+      "ADVISORY": "Advisory",
+      "SUPERVISORY": "Oversight"
+    }
   },
   "OrgUnitDetailPage": {
     "active": "Active",
@@ -625,12 +635,14 @@
     "belongsTo": "Belongs to",
     "cancel": "Cancel",
     "changeLogo": "Change logo",
-    "chooseDistrict": "Choose District",
+    "chooseDistrict": "Choose ward/commune",
+    "noResultsFound": "No results found",
+    "searchPlaceholder": "Search…",
     "chooseProvinceCity": "Choose Province/City",
     "contactInformation": "Contact information",
     "custom": "Custom",
     "detailedAddress": "Detailed address",
-    "district": "District",
+    "district": "Ward/Commune",
     "editUnit": "Edit unit",
     "eGCompanyDepartment": "E.g. Company, Department...",
     "eGEngineeringDepartmentHanoiBranch": "E.g. Engineering Department, Hanoi Branch...",
@@ -659,7 +671,19 @@
     "trialNew": "TRIAL (NEW)",
     "unitCode": "Unit code",
     "unitName": "Unit name",
-    "unitType": "Unit type"
+    "unitType": "Unit type",
+    "parentRelation": "Relation to parent unit",
+    "parentRelationOption": {
+      "DIRECT": "Line (direct reporting)",
+      "ADVISORY": "Advisory / staff",
+      "SUPERVISORY": "Independent oversight"
+    },
+    "parentRelationHelp": {
+      "DIRECT": "The parent unit directs it. Drawn as a solid line.",
+      "ADVISORY": "Advises the parent unit without taking direct orders. Drawn as a dashed line.",
+      "SUPERVISORY": "Oversees independently without taking direct orders. Drawn as a dashed line in a different color."
+    },
+    "parentRelationNote": "Only changes how the chart is drawn. KPI approval chains and visibility still follow the parent unit."
   },
   "RoleManagementPage": {
     "addRole": "Add role",
@@ -881,7 +905,16 @@
     "whenSomeoneSharesADocumentWithYou": "When someone shares a document with you or with your unit",
     "whenSomeoneProposesADocumentForYourScope": "When someone proposes moving a document to a unit or the company whose documents you manage",
     "whenYourDocumentProposalIsDecided": "When your proposal to move a document up is approved or declined",
-    "whenADocumentIsDueForReview": "When a document you manage reaches its review date or is about to expire"
+    "whenADocumentIsDueForReview": "When a document you manage reaches its review date or is about to expire",
+    "whenSomeoneCommentsOnYourKpi": "When someone comments on your KPI or task (consecutive comments are grouped, in-app only)",
+    "whenSomeoneRepliesToYourComment": "When someone replies to your comment",
+    "whenSomeoneMentionsYou": "When you are mentioned (@) in a discussion",
+    "whenATaskIsDueTomorrow": "When one of your tasks is due tomorrow",
+    "whenATaskIsOverdue": "When one of your tasks is overdue",
+    "whenTheKpiOfYourTasksIsReplaced": "When a KPI with your tasks is replaced by another KPI (in-app only)",
+    "whenYouAreAssignedATask": "When you are assigned a task or your task is reassigned to someone else",
+    "whenYouAreAddedAsTaskFollower": "When you are added as a follower of a task (in-app only)",
+    "whenATaskYouFollowChanges": "When a task you are assigned to, created or follow changes due date, status or is completed (grouped, in-app only)"
   },
   "useAiQuota": {
     "couldNotUpdate": "Could not update",

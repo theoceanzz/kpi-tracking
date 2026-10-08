@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse } from '@/types/api'
 import type { 
   OrgUnitTreeResponse, 
@@ -35,9 +36,7 @@ export const orgUnitApi = {
   uploadLogo: (orgId: string, unitId: string, file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    return axiosInstance.post<ApiResponse<OrgUnitResponse>>(`/organizations/${orgId}/units/${unitId}/logo`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }).then((r) => r.data.data)
+    return sendMultipart<ApiResponse<OrgUnitResponse>>(`/organizations/${orgId}/units/${unitId}/logo`, formData).then((r) => r.data.data)
   },
 
   getProvinces: () =>
@@ -55,8 +54,6 @@ export const orgUnitApi = {
   importUnits: (orgId: string, file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    return axiosInstance.post<ApiResponse<any>>(`/organizations/${orgId}/units/import`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }).then((r) => r.data.data)
+    return sendMultipart<ApiResponse<any>>(`/organizations/${orgId}/units/import`, formData).then((r) => r.data.data)
   },
 }

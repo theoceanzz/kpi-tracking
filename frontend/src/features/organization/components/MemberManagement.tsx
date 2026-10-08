@@ -544,7 +544,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                       />
                   </div>
                   
-                  <div className="max-h-52 overflow-y-auto border border-[var(--color-border)] rounded-card bg-[var(--color-card)] divide-y scrollbar-hide">
+                  <div className="max-h-52 overflow-y-auto border border-[var(--color-border)] rounded-card bg-[var(--color-card)] divide-y divide-[var(--color-border)] scrollbar-hide">
                       {eligibleUsers.length === 0 ? (
                           <p className="p-8 text-sm text-[var(--color-subtle-foreground)] text-center font-medium italic">{t('MemberManagement.noMatchingUsersFound')}</p>
                       ) : (
@@ -558,21 +558,21 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                                               isSelected ? prev.filter(id => id !== user.id) : [...prev, user.id]
                                           )
                                       }}
-                                      className={`p-4 cursor-pointer flex items-center justify-between transition-all ${isSelected ? 'bg-[var(--color-info-solid)] text-white scale-[0.98]' : 'hover:bg-[var(--color-info-bg)] text-[var(--color-foreground)]'}`}
+                                      className={`relative px-4 py-3 cursor-pointer flex items-center justify-between gap-3 transition-colors ${isSelected ? 'bg-[var(--color-info-bg)] before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-[var(--color-info-solid)]' : 'hover:bg-[var(--color-muted)]'}`}
                                   >
-                                      <div className="flex items-center space-x-3">
+                                      <div className="flex items-center gap-3 min-w-0">
                                           <UserAvatar
                                               fullName={user.fullName}
                                               avatarUrl={user.avatarUrl}
-                                              className="w-8 h-8 rounded-full"
-                                              fallbackClassName={`text-xs font-semibold ${isSelected ? 'bg-white/20' : 'bg-[var(--color-muted)]'}`}
+                                              className="w-8 h-8 rounded-full shrink-0"
+                                              fallbackClassName="text-xs font-semibold bg-[var(--color-muted)]"
                                           />
-                                          <div>
-                                              <p className={`text-sm font-semibold ${isSelected ? 'text-white' : 'text-[var(--color-foreground)]'}`}>{user.fullName}</p>
-                                              <p className={`text-xs font-semibold ${isSelected ? 'text-[var(--color-info)]' : 'text-[var(--color-subtle-foreground)]'}`}>{user.email}</p>
+                                          <div className="min-w-0">
+                                              <p className={`text-sm font-semibold truncate ${isSelected ? 'text-[var(--color-info)]' : 'text-[var(--color-foreground)]'}`}>{user.fullName}</p>
+                                              <p className="text-xs font-medium truncate text-[var(--color-muted-foreground)]">{user.email}</p>
                                           </div>
                                       </div>
-                                      {isSelected && <CheckCircle2 className="w-4 h-4 text-white animate-pulse" />}
+                                      {isSelected && <CheckCircle2 className="w-5 h-5 shrink-0 text-[var(--color-info)]" />}
                                   </div>
                               )
                           })

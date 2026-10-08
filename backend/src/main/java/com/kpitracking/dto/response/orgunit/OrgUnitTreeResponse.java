@@ -13,6 +13,7 @@ public class OrgUnitTreeResponse {
     private String name;
     private String code;
     private UUID parentId;
+    private com.kpitracking.enums.OrgUnitRelationType parentRelation;
     private String type;
     private String path;
     private Integer level;

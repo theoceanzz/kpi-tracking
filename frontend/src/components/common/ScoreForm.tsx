@@ -10,9 +10,9 @@ import { useTranslation } from 'react-i18next'
  */
 
 /** Một nhóm trong form chấm: tiêu đề nhỏ + gạch ngăn, để phần xem và phần nhập không lẫn nhau. */
-export function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+export function Section({ title, hint, children, ...rest }: { title: string; hint?: string; children: ReactNode; 'data-tour'?: string }) {
   return (
-    <section className="space-y-3">
+    <section className="space-y-3" {...rest}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-[var(--color-border)] pb-1.5">
         <h3 className="text-eyebrow text-[var(--color-foreground)]">{title}</h3>
         {hint && <span className="text-caption">{hint}</span>}

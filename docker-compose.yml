@@ -59,8 +59,13 @@ services:
       - APP_RETENTION_NOTIF_READ_DAYS=${APP_RETENTION_NOTIF_READ_DAYS:-90}
       - APP_RETENTION_NOTIF_UNREAD_DAYS=${APP_RETENTION_NOTIF_UNREAD_DAYS:-180}
       - APP_RETENTION_AUDIT_DAYS=${APP_RETENTION_AUDIT_DAYS:-180}
+      # Nhac viec gan KPI: cron Spring 6 truong (giay phut gio ngay thang thu), mui gio Asia/Ho_Chi_Minh.
+      - APP_TASKS_REMINDER_CRON=${APP_TASKS_REMINDER_CRON:-0 */5 * * * *}
       # Cache quyen theo user (giay); 0 = tat. DATABASE_SCALING.md C2.
       - AUTHORITY_CACHE_TTL_SECONDS=${AUTHORITY_CACHE_TTL_SECONDS:-30}
+      # Email cảnh báo khi một người dính 403 dồn dập (ForbiddenBurstAlerter). Trống = gửi quản trị nền tảng.
+      - FORBIDDEN_BURST_ALERT_EMAILS=${FORBIDDEN_BURST_ALERT_EMAILS:-}
+      - FORBIDDEN_BURST_THRESHOLD=${FORBIDDEN_BURST_THRESHOLD:-10}
       # Chong chong lan ky cung loai khi tao/sua ky. MAC DINH TAT — bat sau khi chay
       # backend/db/ops/020_cycle_overlap_report.sql va xu ly ky dang chong lan.
       - KPI_CYCLE_OVERLAP_CHECK=${KPI_CYCLE_OVERLAP_CHECK:-false}

@@ -38,10 +38,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     /** Khoá đặt token vào attributes của handshake để tầng STOMP đọc lại ở frame CONNECT. */
     private static final String TOKEN_ATTRIBUTE = "kg.accessToken";
+    /** IP / Origin / User-Agent lúc handshake — chỉ để log khi từ chối CONNECT (frame STOMP không còn request HTTP). */
+    static final String CLIENT_ATTRIBUTE = "kg.wsClient";
 
     private final JwtTokenProvider jwtTokenProvider;
     private final UserDetailsService userDetailsService;
     private final AuthCookieService authCookieService;
+    /** Lazy: guard đi qua tầng service/JPA, không kéo cả cây bean vào lúc dựng cấu hình WebSocket. */
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.kpitracking.service.discussion.DiscussionSubscriptionGuard discussionGuard;
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
@@ -76,6 +82,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
                                            WebSocketHandler wsHandler, Map<String, Object> attributes) {
                 if (request instanceof ServletServerHttpRequest servletRequest) {
+                    attributes.put(CLIENT_ATTRIBUTE, describeClient(servletRequest.getServletRequest()));
                     String token = authCookieService.readAccessToken(servletRequest.getServletRequest());
                     if (StringUtils.hasText(token)) {
                         attributes.put(TOKEN_ATTRIBUTE, token);
@@ -129,21 +136,51 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                             org.slf4j.MDC.put(com.kpitracking.logging.MdcKeys.USER, email);
                             log.debug("WebSocket authenticated: {}", email);
                         } else {
-                            log.warn("SECURITY ws_connect_rejected reason=invalid_token");
+                            log.warn("SECURITY ws_connect_rejected reason=invalid_token {}", clientOf(accessor));
                             throw new org.springframework.messaging.MessageDeliveryException(
                                     message, "Phiên đăng nhập không hợp lệ");
                         }
                     } else {
                         // Không có token thì không có kết nối: kênh /queue mang thông báo
                         // riêng của từng người, không phục vụ khách ẩn danh.
-                        log.warn("SECURITY ws_connect_rejected reason=no_credentials");
+                        log.warn("SECURITY ws_connect_rejected reason=no_credentials {}", clientOf(accessor));
                         throw new org.springframework.messaging.MessageDeliveryException(
                                 message, "Chưa đăng nhập");
+                    }
+                }
+                if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())
+                        && com.kpitracking.service.discussion.DiscussionSubscriptionGuard.applies(accessor.getDestination())) {
+                    String email = accessor.getUser() != null ? accessor.getUser().getName() : null;
+                    if (email == null || !discussionGuard.canSubscribe(email, accessor.getDestination())) {
+                        log.warn("SECURITY ws_subscribe_rejected destination={}", accessor.getDestination());
+                        throw new org.springframework.messaging.MessageDeliveryException(message, "Forbidden");
                     }
                 }
                 return message;
             }
         });
+    }
+
+    /**
+     * "ip=… origin=… ua=…" cho log từ chối: phân biệt tab bị bỏ quên (cùng IP/UA, CONNECT đều đặn) với kẻ dò từ ngoài
+     * (Origin lạ, UA script). Giá trị từ header bị cắt ngắn và bỏ ký tự điều khiển để không chèn được dòng log giả.
+     */
+    static String describeClient(jakarta.servlet.http.HttpServletRequest req) {
+        return "ip=" + com.kpitracking.security.audit.SecurityAuditService.clientIp(req)
+                + " origin=" + logSafe(req.getHeader("Origin"), 100)
+                + " ua=\"" + logSafe(req.getHeader("User-Agent"), 200) + "\"";
+    }
+
+    static String logSafe(String value, int max) {
+        if (value == null || value.isBlank()) return "-";
+        String clean = value.replaceAll("\\p{Cntrl}", "_").replace('"', '\'');
+        return clean.length() <= max ? clean : clean.substring(0, max) + "…";
+    }
+
+    static String clientOf(StompHeaderAccessor accessor) {
+        Map<String, Object> attributes = accessor.getSessionAttributes();
+        Object client = attributes != null ? attributes.get(CLIENT_ATTRIBUTE) : null;
+        return client instanceof String s ? s : "ip=? origin=? ua=?";
     }
 
     /** Cookie (qua handshake attributes) là nguồn chính; native header giữ cho client không phải trình duyệt. */

@@ -31,6 +31,8 @@ import { useAiReviewBatch } from '../hooks/useAiReview'
 import { useWorkflowNavigator } from '@/features/kpi/workflow/hooks/useWorkflowNavigator'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -308,6 +310,8 @@ export default function OrgUnitSubmissionsPage() {
 
   const [staffEvalUser, setStaffEvalUser] = useState<any>(null)
   const [detailEval, setDetailEval] = useState<any>(null)
+  // Bài hướng dẫn mở phiếu chấm của người đầu danh sách (cần chọn một đợt cụ thể).
+  useTourModal('subs.staffEval', () => { const first = employees[0]; if (first && isManager) setStaffEvalUser(first) }, () => setStaffEvalUser(null))
 
   const handleRowClick = (emp: any) => {
     if (!selectedPeriodId || selectedPeriodId === 'ALL') return;
@@ -370,14 +374,14 @@ export default function OrgUnitSubmissionsPage() {
     if (!periodChosen) return null
     if (evaluation) {
       return (
-        <Button variant="ghost" size="icon-sm" aria-label={t('OrgUnitSubmissionsPage.viewEvaluation')} title={t('OrgUnitSubmissionsPage.viewEvaluation')} onClick={e => { e.stopPropagation(); setDetailEval(evaluation) }}>
+        <Button {...tourAnchor('subs.view-eval')} variant="ghost" size="icon-sm" aria-label={t('OrgUnitSubmissionsPage.viewEvaluation')} title={t('OrgUnitSubmissionsPage.viewEvaluation')} onClick={e => { e.stopPropagation(); setDetailEval(evaluation) }}>
           <Eye aria-hidden="true" />
         </Button>
       )
     }
     if (isManager) {
       return (
-        <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setStaffEvalUser(emp) }}>
+        <Button {...tourAnchor('subs.score')} variant="outline" size="sm" onClick={e => { e.stopPropagation(); setStaffEvalUser(emp) }}>
           <PenLine aria-hidden="true" /> {t('OrgUnitSubmissionsPage.score')}
         </Button>
       )
@@ -400,7 +404,7 @@ export default function OrgUnitSubmissionsPage() {
           // Gom các nút vào một nhóm để chúng xuống dòng cùng nhau, không tách 1 trên 1 dưới.
           <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
             {canAiBatch && (
-              <Button
+              <Button {...tourAnchor('subs.ai-batch')}
                 variant="outline"
                 disabled={!selectedPeriodId || !aiBatchUnitId || aiBatch.isPending}
                 title="AI đọc trước bài nộp của mọi người bạn chấm được trong đơn vị đang chọn (chạy nền, chỉ để tham khảo)"
@@ -411,7 +415,7 @@ export default function OrgUnitSubmissionsPage() {
               </Button>
             )}
             {hasPermission('SUBMISSION:REVIEW') && (
-              <AiShortcutButton
+              <AiShortcutButton {...tourAnchor('subs.ai-approve')}
                 label={t('OrgUnitSubmissionsPage.approveWithKAi')}
                 prompt={aiShortcuts.reviewSubmissions(aiUnitName, aiPeriodName)}
                 focusUnitId={aiUnitId}
@@ -419,7 +423,7 @@ export default function OrgUnitSubmissionsPage() {
               />
             )}
             {hasPermission('REMINDER:SEND') && (
-              <AiShortcutButton
+              <AiShortcutButton {...tourAnchor('subs.ai-remind')}
                 label={t('OrgUnitSubmissionsPage.remindWithKAi')}
                 prompt={aiShortcuts.remindNonSubmitters(aiUnitName, aiPeriodName)}
                 focusUnitId={aiUnitId}
@@ -436,14 +440,14 @@ export default function OrgUnitSubmissionsPage() {
       >
               {canManageOrg && (
                   <Select value={selectedOrgUnitId} onValueChange={val => { setSelectedOrgUnitId(val); setPage(0) }}>
-            <SelectTrigger className="w-full sm:w-auto sm:min-w-64" aria-label={t('OrgUnitSubmissionsPage.unit')}><SelectValue placeholder={t('OrgUnitSubmissionsPage.chooseUnit')} /></SelectTrigger>
+            <SelectTrigger {...tourAnchor('subs.unit')} className="w-full sm:w-auto sm:min-w-64" aria-label={t('OrgUnitSubmissionsPage.unit')}><SelectValue placeholder={t('OrgUnitSubmissionsPage.chooseUnit')} /></SelectTrigger>
             <SelectContent>
               {flatOrgUnits.map(unit => <SelectItem key={unit.id} value={unit.id}>{unit.levelLabel}</SelectItem>)}
                     </SelectContent>
                   </Select>
         )}
         <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-64" aria-label={t('OrgUnitSubmissionsPage.evaluationPeriods')}><SelectValue placeholder={t('OrgUnitSubmissionsPage.evaluationPeriods')} /></SelectTrigger>
+          <SelectTrigger {...tourAnchor('subs.period')} className="w-full sm:w-auto sm:min-w-64" aria-label={t('OrgUnitSubmissionsPage.evaluationPeriods')}><SelectValue placeholder={t('OrgUnitSubmissionsPage.evaluationPeriods')} /></SelectTrigger>
           <SelectContent>
             <ScopeSelectItems items={periodsData?.content} selectedId={selectedPeriodId} />
           </SelectContent>
@@ -466,7 +470,7 @@ export default function OrgUnitSubmissionsPage() {
           </div>
         ) : (
         <>
-          <div id="tour-approve-table" className="hidden overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] md:block">
+          <div {...tourAnchor('subs.table')} id="tour-approve-table" className="hidden overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] md:block">
             <table className="w-full">
                 <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
@@ -562,7 +566,7 @@ export default function OrgUnitSubmissionsPage() {
       {/* Lối đi tiếp. Đích lấy từ cấu hình luồng nên tổ chức tắt bước nào thì nút tự bỏ qua bước đó. */}
         {nextAfterReview && (
           <div className="flex justify-end pt-2">
-          <Button onClick={() => goToNext('SUBMISSION_REVIEW', { periodId: selectedPeriodId }, { openCreate: false })}>
+          <Button {...tourAnchor('subs.next')} onClick={() => goToNext('SUBMISSION_REVIEW', { periodId: selectedPeriodId }, { openCreate: false })}>
             {t('OrgUnitSubmissionsPage.next')} {nextAfterReview.label} <ArrowRight aria-hidden="true" />
           </Button>
           </div>

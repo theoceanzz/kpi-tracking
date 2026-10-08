@@ -23,6 +23,8 @@ import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 /** Xem ghi chú z-index của `SelectContent` ở EmployeePicker — modal này cũng là z-[1000]. */
 const SELECT_CONTENT_Z = 'z-[1100]'
@@ -160,6 +162,7 @@ export default function AwardPointsModal({
   if (!open) return null
 
   const onSubmit = async (data: AwardPointsFormData) => {
+    if (blockedByTour()) return
     const grant = await createGrant({
       recipients: data.picked.map((p) => ({ userId: p.id, points: data.points })),
       reason: data.reason.trim(),
@@ -178,7 +181,7 @@ export default function AwardPointsModal({
   }
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('award.form')}
       open
       onClose={onClose}
       size="lg"
@@ -188,7 +191,7 @@ export default function AwardPointsModal({
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={isCreating}>{tr('AwardPointsModal.cancel')}</Button>}
           primary={
-            <Button onClick={handleSubmit(onSubmit)} disabled={isCreating}>
+            <Button {...tourAnchor('award.form.submit')} onClick={handleSubmit(onSubmit)} disabled={isCreating}>
               {isCreating && <Loader2 className="animate-spin" aria-hidden="true" />}
               {needsApproval ? tr('AwardPointsModal.sendForApproval') : tr('AwardPointsModal.rewardNow')}
             </Button>
@@ -199,7 +202,7 @@ export default function AwardPointsModal({
       <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-5">
         {budget ? (
-          <div className="rounded-card bg-[var(--color-muted)] px-4 py-3 text-sm">
+          <div {...tourAnchor('award.form.budget')} className="rounded-card bg-[var(--color-muted)] px-4 py-3 text-sm">
             {tr('AwardPointsModal.yourBudget')}{' '}
             <span className="font-semibold">
               {tr('AwardPointsModal.remaining')} {budget.remainingPoints}/{budget.allocatedPoints} {tr('AwardPointsModal.points')}
@@ -220,7 +223,7 @@ export default function AwardPointsModal({
           </div>
         ) : null}
 
-        <div>
+        <div {...tourAnchor('award.form.people')}>
           <label className="text-label mb-1.5 block font-medium">{tr('AwardPointsModal.chooseEmployees')}</label>
 
           {picked.length > 0 && (
@@ -251,7 +254,7 @@ export default function AwardPointsModal({
           {errors.picked && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.picked.message}</p>}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div {...tourAnchor('award.form.points')} className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="text-label mb-1.5 block font-medium">{tr('AwardPointsModal.pointsPerPerson')}</label>
             <LocaleNumberInput
@@ -272,7 +275,7 @@ export default function AwardPointsModal({
           </div>
         </div>
 
-        <div>
+        <div {...tourAnchor('award.form.reason')}>
           <label className="text-label mb-1.5 block font-medium">{tr('AwardPointsModal.rewardReason')}</label>
           <textarea
             {...register('reason')}
@@ -291,7 +294,7 @@ export default function AwardPointsModal({
           10 điểm vì đi họp đúng giờ mà cũng phát ra tờ "Cống hiến xuất sắc" thì giấy
           khen mất hết giá trị. Mặc định tắt, người trao phải chủ động bật.
         */}
-        <div className="rounded-card border border-[var(--color-border)] p-4">
+        <div {...tourAnchor('award.form.certificate')} className="rounded-card border border-[var(--color-border)] p-4">
           <label className="flex cursor-pointer items-start gap-2.5">
             <input
               type="checkbox"

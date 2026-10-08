@@ -1,5 +1,6 @@
 package com.kpitracking.entity;
 
+import com.kpitracking.enums.OrgUnitRelationType;
 import com.kpitracking.enums.OrgUnitStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -69,6 +70,12 @@ public class OrgUnit {
     @Column(name = "status", nullable = false)
     @Builder.Default
     private OrgUnitStatus status = OrgUnitStatus.ACTIVE;
+
+    /** Quan hệ với đơn vị cha — chỉ để hiển thị sơ đồ, không luật nào đọc ({@link OrgUnitRelationType}). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "parent_relation", nullable = false, length = 20)
+    @Builder.Default
+    private OrgUnitRelationType parentRelation = OrgUnitRelationType.DIRECT;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)

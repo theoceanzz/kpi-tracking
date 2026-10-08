@@ -11,6 +11,7 @@ import F360ReportPage from '@/features/feedback360/pages/F360ReportPage'
 
 // Auth pages
 import LoginPage from '@/features/auth/pages/LoginPage'
+import NoOrganizationPage from '@/features/auth/pages/NoOrganizationPage'
 import RegisterPage from '@/features/auth/pages/RegisterPage'
 import VerifyEmailPage from '@/features/auth/pages/VerifyEmailPage'
 import LarkCallbackPage from '@/features/auth/pages/LarkCallbackPage'
@@ -25,6 +26,9 @@ import OrgUnitDetailPage from '@/features/organization/pages/OrgUnitDetailPage'
 import CompanySettingsPage from '@/features/orgunits/pages/CompanySettingsPage'
 import PerformancePage from '@/features/kpi/pages/PerformancePage'
 import MySpacePage from '@/features/profile/pages/MySpacePage'
+import KpiLinkPage from '@/features/kpi/pages/KpiLinkPage'
+import DiscussionLinkPage from '@/features/discussion/pages/DiscussionLinkPage'
+import TasksPage from '@/features/tasks/pages/TasksPage'
 import NewSubmissionPage from '@/features/submissions/pages/NewSubmissionPage'
 import SubmissionDetailPage from '@/features/submissions/pages/SubmissionDetailPage'
 import ProfilePage from '@/features/profile/pages/ProfilePage'
@@ -84,6 +88,7 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       { path: '/force-password-change', element: <ForceChangePasswordPage /> },
+      { path: '/no-organization', element: <NoOrganizationPage /> },
 
       // Trình thiết lập KPI: trang toàn màn hình, cố ý đặt NGOÀI AppLayout để không có sidebar,
       // header, thanh tiến trình hay bong bóng chat — giống một trang thanh toán.
@@ -226,6 +231,8 @@ export const router = createBrowserRouter([
           // Route cũ giữ làm redirect; RedirectToSection bê nguyên query nên link
           // /evaluations?action=self-eval&periodId=… vẫn chạy đúng.
           { path: '/my-kpi', element: <RedirectToSection to="/me" params={{ section: 'my-kpi' }} /> },
+          // Trang Công việc cũ (trong "Của tôi") ⇒ trang riêng mới, giữ nguyên ?task=… của link thông báo cũ.
+          { path: '/my-tasks', element: <RedirectToSection to="/tasks" params={{}} /> },
           { path: '/submissions', element: <RedirectToSection to="/me" params={{ section: 'my-submissions' }} /> },
           { path: '/evaluations', element: <RedirectToSection to="/me" params={{ section: 'evaluations' }} /> },
           { path: '/my-adjustments', element: <RedirectToSection to="/me" params={{ section: 'my-adjustments' }} /> },
@@ -236,6 +243,11 @@ export const router = createBrowserRouter([
           { path: '/submissions/edit/:id', element: <NewSubmissionPage /> },
           { path: '/submissions/:id', element: <SubmissionDetailPage /> },
           { path: '/notifications', element: <NotificationsPage /> },
+          // Link sâu từ thông báo / dòng hệ thống. Quyền xem KPI, bình luận do backend kiểm.
+          { path: '/kpi/:id', element: <KpiLinkPage /> },
+          // Quyền theo từng việc do backend quyết (KpiTaskAccess) — không gác ở route.
+          { path: '/tasks', element: <TasksPage /> },
+          { path: '/discussions/c/:commentId', element: <DiscussionLinkPage /> },
         ],
       },
     ],

@@ -44,6 +44,7 @@ public class KpiApprovalController {
     private final KpiApprovalViewService viewService;
     private final KpiApprovalChainService chainService;
     private final KpiCriteriaService kpiCriteriaService;
+    private final com.kpitracking.service.kpi.KpiCollabEnricher collabEnricher;
 
     @GetMapping("/inbox")
     @PreAuthorize("isAuthenticated()")
@@ -52,7 +53,10 @@ public class KpiApprovalController {
             @RequestParam(required = false) UUID kpiPeriodId,
             @RequestParam(required = false) UUID orgUnitId) {
         User me = viewService.currentUser();
-        return ResponseEntity.ok(ApiResponse.success(viewService.criteriaInbox(me.getId(), kpiPeriodId, orgUnitId)));
+        List<KpiCriteriaResponse> inbox = viewService.criteriaInbox(me.getId(), kpiPeriodId, orgUnitId);
+        // Bình luận chưa đọc + tiến độ việc, như danh sách KPI thường.
+        collabEnricher.enrich(inbox, me.getId());
+        return ResponseEntity.ok(ApiResponse.success(inbox));
     }
 
     @GetMapping("/inbox/count")

@@ -568,6 +568,14 @@ textarea:not(:disabled, [readonly], :focus, .no-edit-hint) {
   opacity: 1;
 }
 
+/* Bài hướng dẫn đang chạy (`TourHost` gắn `data-tour-active` lên body): hiện sẵn tay nắm và cụm
+   nút của Ô ĐẦU TIÊN — thứ bình thường chỉ hiện khi rê chuột — để bước trỏ vào có cái mà nhìn.
+   Ô đầu tiên trong DOM cũng là ô mà `tourTarget('widgets.cell…')` bắt được. */
+body[data-tour-active] .react-grid-item:first-child > .react-resizable-handle,
+body[data-tour-active] .react-grid-item:first-child [data-tour-reveal] {
+  opacity: 1;
+}
+
 .react-grid-item > .react-resizable-handle-se { bottom: 0; right: 0; cursor: se-resize; }
 .react-grid-item > .react-resizable-handle-sw { bottom: 0; left: 0;  cursor: sw-resize; }
 .react-grid-item > .react-resizable-handle-ne { top: 0;    right: 0; cursor: ne-resize; }

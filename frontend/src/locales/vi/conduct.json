@@ -71,7 +71,63 @@
     "totalWeight": "Tổng trọng số",
     "unassignCycle": "Bỏ gán kỳ {{value}}",
     "unassignedCyclesUseTheSet": "Kỳ không được gán dùng bộ",
-    "scaleRange": "thang {{min}}–{{max}}"
+    "scaleRange": "thang {{min}}–{{max}}",
+    "newGroup": "Nhóm {{value}}",
+    "addGroup": "Thêm nhóm",
+    "splitIntoGroups": "Chia theo nhóm",
+    "splitIntoGroupsHint": "Thêm tầng nhóm giữa bộ và tiêu chí, VD: 5 giá trị cốt lõi 30%, 10 đặc điểm nhân sự 40%…",
+    "removeGroups": "Bỏ chia nhóm",
+    "removeGroupsHint": "Gộp mọi tiêu chí thành một danh sách; trọng số đổi thành % trên tổng (% trong nhóm × % nhóm) nên điểm không đổi",
+    "groupName": "Tên nhóm",
+    "groupNameN": "Tên nhóm {{value}}",
+    "groupWeight": "Trọng số nhóm {{value}}",
+    "groupWeightHint": "Phần trăm của nhóm trong tổng điểm hạnh kiểm",
+    "deleteGroup": "Xoá nhóm {{value}}",
+    "withinGroup": "Trong nhóm",
+    "groupsCount": "{{count}} nhóm",
+    "theGroupNameCannotBeEmpty": "Tên nhóm không được để trống",
+    "eachGroupWeightMustBeGreater": "Trọng số mỗi nhóm phải lớn hơn 0",
+    "groupNeedsAtLeast1Criterion": "Nhóm \"{{name}}\" cần ít nhất 1 tiêu chí",
+    "groupWeightMustEqual100": "Tổng trọng số các tiêu chí trong nhóm \"{{name}}\" phải bằng 100% (hiện {{total}}%)",
+    "theTotalGroupWeightMustEqual100": "Tổng trọng số các nhóm phải bằng 100% (hiện {{total}}%)",
+    "split100EvenlyAcrossGroups": "Chia đều 100% cho các nhóm",
+    "split100EvenlyWithinGroup": "Chia đều 100% cho các tiêu chí trong nhóm",
+    "groupCurrentCriteria": "Nhóm từ các tiêu chí đang có",
+    "groupCurrentCriteriaHint": "Gom các tiêu chí hiện tại vào một nhóm 100%, rồi thêm nhóm khác",
+    "cultureTemplate": {
+      "title": "Mẫu: Phù hợp văn hoá doanh nghiệp",
+      "hint": "5 giá trị cốt lõi 30% · 10 đặc điểm nhân sự 40% · 6 chữ vàng 30%. Thay các tiêu chí đang soạn; chưa lưu thì chưa áp dụng.",
+      "core": {
+        "name": "5 giá trị cốt lõi",
+        "c1": "Trí tuệ",
+        "c2": "Quốc tế",
+        "c3": "Chính trực",
+        "c4": "Tận hiến",
+        "c5": "Tinh thần làm chủ"
+      },
+      "traits": {
+        "name": "10 đặc điểm nhân sự phù hợp",
+        "c1": "Kỷ luật cao",
+        "c2": "Nhiệt huyết, tận tụy, trách nhiệm",
+        "c3": "Trung thành với công ty",
+        "c4": "Đặt hiệu quả công việc là ưu tiên hàng đầu",
+        "c5": "Chủ động trong công việc",
+        "c6": "Tiết kiệm chi phí",
+        "c7": "Làm việc nhóm tốt",
+        "c8": "Không ngừng học hỏi",
+        "c9": "Gắn bó lâu dài với công ty",
+        "c10": "Tuân thủ, xây dựng văn hoá doanh nghiệp"
+      },
+      "gold": {
+        "name": "6 chữ vàng",
+        "c1": "Chung",
+        "c2": "Chuyên",
+        "c3": "Trách",
+        "c4": "Nhiệt",
+        "c5": "Tôn",
+        "c6": "Gương"
+      }
+    }
   },
   "ConductInlineSheet": {
     "chooseLevel": "Chọn mức",
@@ -109,7 +165,8 @@
     "yourScore": "Điểm bạn chấm",
     "yourSelfAssessment": "Bạn tự đánh giá",
     "yourSelfScore": "Điểm bạn tự chấm",
-    "scaleRange": "thang {{min}}–{{max}}"
+    "scaleRange": "thang {{min}}–{{max}}",
+    "groupScore": "Điểm nhóm:"
   },
   "conductSheetExport": {
     "assessedByTheDirectManager": "Do CBQLTT đánh giá",
@@ -138,7 +195,8 @@
     "weight": "Trọng số",
     "weightedConductScore": "Điểm hành vi đã tính đến trọng số:",
     "weightedRatingScore": "Điểm xếp loại đã tính đến trọng số",
-    "rowNo": "STT"
+    "rowNo": "STT",
+    "groupTotal": "Tổng nhóm: {{name}} ({{letter}})"
   },
   "ConductSheetTable": {
     "assessedByTheDirectManager": "Do CBQLTT đánh giá",
@@ -166,7 +224,8 @@
     "weightedConductScoreScale": "Điểm hành vi đã tính đến trọng số (thang",
     "weightedRatingScore": "Điểm xếp loại đã tính đến trọng số",
     "youOnlyHavePermissionToView": "Bạn chỉ có quyền xem phiếu này.",
-    "rowNo": "STT"
+    "rowNo": "STT",
+    "groupTotal": "Tổng nhóm: {{name}} ({{letter}})"
   },
   "ConductTargetPicker": {
     "chooseCyclePeriod": "Chọn kỳ / đợt chấm",

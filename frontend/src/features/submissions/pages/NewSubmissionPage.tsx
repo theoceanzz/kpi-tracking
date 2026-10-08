@@ -40,6 +40,9 @@ import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
 import AiSelfCheckPanel from '../components/AiSelfCheckPanel'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
+import { useTourScope } from '@/hooks/useTourScope'
 
 export default function NewSubmissionPage() {
   const { t } = useTranslation('submissions')
@@ -86,6 +89,8 @@ export default function NewSubmissionPage() {
   const { register, handleSubmit, watch, setValue, setError, setFocus, reset, control, getValues, formState: { errors } } = formApi
   // Trang dài, lỡ bấm sang trang khác là mất cả ghi chú — giữ nháp như modal (file đính kèm thì không giữ được).
   const draft = useFormDraft(formApi, { key: `submission:${id ?? 'new'}:${preselectedKpiId}`, enabled: true })
+  // Trang không nằm trên sidebar nhưng là form người dùng gặp nhiều nhất — có bài riêng, tự chạy lần đầu.
+  useTourScope('submission-new')
 
   // Giới thiệu form này với trợ lý AI. Đây là TRANG chứ không phải modal nên vòng đời gắn với
   // mount/unmount: rời trang là huỷ đăng ký, nếu không trợ lý tưởng form vẫn đang mở.
@@ -318,7 +323,7 @@ export default function NewSubmissionPage() {
           <DraftNotice draft={draft} />
           <section className="space-y-5 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
             {/* Chỉ tiêu */}
-            <div>
+            <div {...tourAnchor('newsub.kpi')}>
               <label className="text-label block" htmlFor="sub-kpi">{t('NewSubmissionPage.kpis')} <span className="text-[var(--color-error)]" aria-hidden="true">*</span></label>
                 <Controller
                   name="kpiCriteriaId"
@@ -381,7 +386,7 @@ export default function NewSubmissionPage() {
                 )}
               </fieldset>
             ) : (
-              <div>
+              <div {...tourAnchor('newsub.actual')}>
                 <label className="text-label block" htmlFor="sub-actual">{t('NewSubmissionPage.actualResult')} <span className="text-[var(--color-error)]" aria-hidden="true">*</span></label>
                 <div className="relative mt-1.5 w-full sm:w-72">
                 <LocaleNumberInput
@@ -409,7 +414,7 @@ export default function NewSubmissionPage() {
             )}
 
             {/* Giải trình */}
-            <div>
+            <div {...tourAnchor('newsub.note')}>
                   <div className="flex items-center justify-between gap-2">
                 <label className="text-label" htmlFor="sub-note">{t('NewSubmissionPage.explanation')}</label>
                 {/* Ghi qua setValue chứ KHÔNG sửa DOM: sửa DOM thì React Hook Form không thấy. */}
@@ -420,7 +425,7 @@ export default function NewSubmissionPage() {
                </div>
 
             {/* Minh chứng */}
-            <div>
+            <div {...tourAnchor('newsub.files')}>
               <p className="text-label">{t('NewSubmissionPage.evidence')}</p>
               <p className="mt-0.5 text-caption">{t('NewSubmissionPage.imagesPdfWordExcelIncreasesCredibility')}</p>
               <div className="mt-1.5">
@@ -465,10 +470,10 @@ export default function NewSubmissionPage() {
             <div className="flex flex-col-reverse gap-2 border-t border-[var(--color-border)] pt-4 sm:flex-row sm:items-center">
               <Button type="button" variant="ghost" onClick={() => navigate(-1)} disabled={mutation.isPending}>{t('NewSubmissionPage.cancel')}</Button>
               <div className="flex gap-2 sm:ml-auto">
-                <Button type="button" variant="outline" disabled={mutation.isPending} onClick={handleSubmit(withRequiredValue(data => mutation.mutate({ data, isDraft: true })))}>
+                <Button {...tourAnchor('newsub.draft')} type="button" variant="outline" disabled={mutation.isPending} onClick={handleSubmit(withRequiredValue(data => { if (!blockedByTour()) mutation.mutate({ data, isDraft: true }) }))}>
                   <Save aria-hidden="true" /> {t('NewSubmissionPage.saveDraft')}
                 </Button>
-                <Button type="button" disabled={mutation.isPending} onClick={handleSubmit(withRequiredValue(data => { setPendingData(data); setShowConfirm(true) }))}>
+                <Button {...tourAnchor('newsub.submit')} type="button" disabled={mutation.isPending} onClick={handleSubmit(withRequiredValue(data => { if (blockedByTour()) return; setPendingData(data); setShowConfirm(true) }))}>
                   {mutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
                   {isEdit && existingSubmission?.status === 'DRAFT' ? t('NewSubmissionPage.submitForApproval') : t('NewSubmissionPage.submitReport2')}
                 </Button>
@@ -478,7 +483,7 @@ export default function NewSubmissionPage() {
         </form>
 
         {/* Tham chiếu chỉ tiêu */}
-        <aside className="space-y-4 lg:col-span-4">
+        <aside {...tourAnchor('newsub.side')} className="space-y-4 lg:col-span-4">
           {selectedKpi ? (
             <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
               <h2 className="text-eyebrow">{t('NewSubmissionPage.kpiBeingReported')}</h2>

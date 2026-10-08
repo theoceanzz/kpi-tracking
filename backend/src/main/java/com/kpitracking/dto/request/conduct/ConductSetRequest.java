@@ -33,6 +33,13 @@ public class ConductSetRequest {
     /** Danh sách tiêu chí thay THẾ toàn bộ bộ hiện có; tổng trọng số phải bằng 100%. */
     @Valid
     private List<ConductCriteriaRequest> criteria;
+    /**
+     * Bộ chia NHÓM: có phần tử thì thay thế toàn bộ bằng các nhóm này và bỏ qua {@code criteria}.
+     * Gửi rỗng cùng {@code criteria} = chuyển về bộ không nhóm. Trọng số nhóm cộng 100%, trọng số
+     * tiêu chí trong mỗi nhóm cộng 100%.
+     */
+    @Valid
+    private List<ConductGroupRequest> groups;
 
     /**
      * Chỉ dùng khi TẠO: chép tiêu chí và thang điểm từ bộ này sang bộ mới. Bỏ trống thì chép

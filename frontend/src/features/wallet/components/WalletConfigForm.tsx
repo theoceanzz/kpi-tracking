@@ -28,6 +28,7 @@ import type { WalletConfig, WalletConfigRequest } from '../types'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const EMPTY: WalletConfigFormData = {
   pointExchangeRate: 1000,
@@ -80,16 +81,18 @@ function Card({
   title,
   subtitle,
   children,
+  'data-tour': dataTour,
 }: {
   /** Neo cho hướng dẫn — mỗi thẻ cấu hình là một bước riêng trong bài. */
   id?: string
+  'data-tour'?: string
   icon: React.ReactNode
   title: string
   subtitle?: string
   children: React.ReactNode
 }) {
   return (
-    <section id={id} className="rounded-widget border border-[var(--color-border)] bg-[var(--color-card)]">
+    <section id={id} data-tour={dataTour} className="rounded-widget border border-[var(--color-border)] bg-[var(--color-card)]">
       <header className="flex items-center gap-3 border-b border-[var(--color-border)] px-6 py-4">
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-card bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
           {icon}
@@ -241,7 +244,7 @@ export default function WalletConfigForm() {
         <div className="min-w-0 space-y-6">
           <Card
             icon={<Coins size={18} />}
-            id="tour-wallet-rate"
+            id="tour-wallet-rate" {...tourAnchor('wallet.rate')}
             title={t('WalletConfigForm.exchangeRate')}
             subtitle={t('WalletConfigForm.theAmountEmployeesPayForEach')}
           >
@@ -290,7 +293,7 @@ export default function WalletConfigForm() {
 
           <Card
             icon={<Timer size={18} />}
-            id="tour-wallet-limits"
+            id="tour-wallet-limits" {...tourAnchor('wallet.limits')}
             title={t('WalletConfigForm.topUpLimits')}
             subtitle={t('WalletConfigForm.limitPerTopUpAndThe')}
           >
@@ -340,7 +343,7 @@ export default function WalletConfigForm() {
 
           <Card
             icon={<Building2 size={18} />}
-            id="tour-wallet-bank"
+            id="tour-wallet-bank" {...tourAnchor('wallet.bank')}
             title={t('WalletConfigForm.receivingAccount')}
             subtitle={t('WalletConfigForm.usedToBuildTheVietqrCode')}
           >
@@ -377,7 +380,7 @@ export default function WalletConfigForm() {
 
           <Card
             icon={<Receipt size={18} />}
-            id="tour-wallet-receipt"
+            id="tour-wallet-receipt" {...tourAnchor('wallet.receipt')}
             title={t('WalletConfigForm.paymentReceipt')}
             subtitle={t('WalletConfigForm.documentsSentToEmployeesAfterEach')}
           >
@@ -500,7 +503,7 @@ export default function WalletConfigForm() {
         </div>
 
         <aside className="min-w-0 space-y-6 xl:sticky xl:top-6 xl:self-start">
-          <section className="rounded-widget border border-[var(--color-border)] bg-[var(--color-card)] p-6">
+          <section {...tourAnchor('wallet.status')} className="rounded-widget border border-[var(--color-border)] bg-[var(--color-card)] p-6">
             <h3 className="mb-4 text-eyebrow">
               {t('WalletConfigForm.setupStatus')}
             </h3>
@@ -547,7 +550,7 @@ export default function WalletConfigForm() {
 
           {/* Cho người cấu hình thấy đúng thứ nhân viên sẽ nhìn, thay vì phải tự
               tạo một đơn nạp thật để kiểm tra mình gõ có đúng không. */}
-          <section className="rounded-widget border border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/20 p-6">
+          <section {...tourAnchor('wallet.preview')} className="rounded-widget border border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/20 p-6">
             <h3 className="mb-4 text-eyebrow">
               {t('WalletConfigForm.employeesWillSee')}
             </h3>
@@ -580,7 +583,7 @@ export default function WalletConfigForm() {
             </p>
           </section>
 
-          <section className="rounded-widget border border-[var(--color-border)] bg-[var(--color-card)] p-6">
+          <section {...tourAnchor('wallet.sepay')} className="rounded-widget border border-[var(--color-border)] bg-[var(--color-card)] p-6">
             <div className="mb-4 flex items-center gap-2">
               <Webhook size={16} className="text-[var(--color-muted-foreground)]" />
               <h3 className="text-eyebrow">
@@ -634,7 +637,7 @@ export default function WalletConfigForm() {
                 <RotateCcw aria-hidden="true" />
                 {t('WalletConfigForm.undo')}
               </Button>
-              <Button type="button" onClick={handleSubmit(d => updateConfig(d as WalletConfigRequest))} disabled={isUpdating}>
+              <Button {...tourAnchor('wallet.save')} type="button" onClick={handleSubmit(d => updateConfig(d as WalletConfigRequest))} disabled={isUpdating}>
                 {isUpdating ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
                 {t('WalletConfigForm.saveSettings')}
               </Button>

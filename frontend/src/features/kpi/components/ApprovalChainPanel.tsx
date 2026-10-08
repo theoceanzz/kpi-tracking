@@ -21,12 +21,14 @@ import DraftNotice from '@/components/common/DraftNotice'
  * lịch sử mọi lần gửi / điều chỉnh. Admin tổ chức thấy thêm nút "Gán lại" ở bước đang chờ — đó là
  * việc duy nhất admin làm được trên chuỗi của người khác.
  */
-export default function ApprovalChainPanel({ chain, loading, adjustmentId, canReassignAdjustment }: {
+export default function ApprovalChainPanel({ chain, loading, adjustmentId, canReassignAdjustment, title }: {
   chain: KpiApprovalChain | undefined
   loading?: boolean
   /** Hiện chuỗi của MỘT yêu cầu điều chỉnh thay cho chuỗi duyệt chỉ tiêu. */
   adjustmentId?: string
   canReassignAdjustment?: boolean
+  /** Thay tiêu đề "Chuỗi duyệt" — khi một hộp hiện hai chuỗi (chỉ tiêu + điều chỉnh). */
+  title?: string
 }) {
   const { t } = useTranslation('kpi')
   const [showHistory, setShowHistory] = useState(false)
@@ -51,7 +53,7 @@ export default function ApprovalChainPanel({ chain, loading, adjustmentId, canRe
   return (
     <section className="rounded-card border border-[var(--color-border)] p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-eyebrow">{t('ApprovalChainPanel.approvalChain')}{latestCriteria.round > 1 ? t('ApprovalChainPanel.submission', { round: latestCriteria.round }) : ''}</h3>
+        <h3 className="text-eyebrow">{title ?? t('ApprovalChainPanel.approvalChain')}{latestCriteria.round > 1 ? t('ApprovalChainPanel.submission', { round: latestCriteria.round }) : ''}</h3>
         <FlowStatusBadge flow={latestCriteria} />
       </div>
 

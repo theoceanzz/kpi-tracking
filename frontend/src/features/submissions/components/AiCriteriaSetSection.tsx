@@ -24,6 +24,7 @@ import {
 } from '../hooks/useAiReview'
 import type { AiCriteriaChangeRequest, AiCriteriaSet } from '../api/aiReviewApi'
 import { PickFromLibraryButton } from '@/features/documents/components/DocumentPickerDialog'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const ACCEPT = '.docx,.doc,.pdf,.xlsx,.xls,.png,.jpg,.jpeg,.txt'
 
@@ -155,7 +156,7 @@ export default function AiCriteriaSetSection() {
   const uploadUnitLabel = unitId === null ? 'Cả tổ chức' : unitLabel || 'Đơn vị này'
 
   return (
-    <div className="space-y-4 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
+    <div {...tourAnchor('aicriteria.section')} className="space-y-4 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
       <div className="flex items-start gap-3">
         <FileText size={20} className="mt-0.5 text-[var(--color-ai)]" aria-hidden="true" />
         <div>
@@ -172,7 +173,7 @@ export default function AiCriteriaSetSection() {
 
       {requests.length > 0 && <PendingRequests requests={requests} onView={setOpenId} />}
 
-      <div className="space-y-2">
+      <div {...tourAnchor('aicriteria.upload')} className="space-y-2">
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
           <div className="space-y-1">
             <span className="text-label">Tài liệu</span>

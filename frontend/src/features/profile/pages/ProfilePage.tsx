@@ -12,11 +12,13 @@ import {
   type SecurityPasswordFormData,
 } from '../schemas/profileSchema'
 import { cn } from '@/lib/utils'
+import type { LucideIcon } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { authApi } from '@/features/auth/api/authApi'
 import { userApi } from '@/features/users/api/userApi'
 import { toast } from 'sonner'
 import { getApiErrorCode, getApiErrorMessage } from '@/lib/apiError'
+import { toastUploadError } from '@/lib/upload'
 import {
   Building2, Shield,
   CheckCircle2, UserCircle2, Loader2, Pencil, X, Save,
@@ -24,7 +26,6 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useTranslation } from 'react-i18next'
 
 
@@ -52,7 +53,8 @@ export default function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['organization-users'] })
       queryClient.invalidateQueries({ queryKey: ['org-unit-members'] })
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, t('ProfilePage.imageUploadFailed'))),
+    onError: (error, file) =>
+      toastUploadError(error, () => uploadAvatarMutation.mutate(file), t('ProfilePage.imageUploadFailed')),
   })
 
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,17 +145,35 @@ export default function ProfilePage() {
 }
 
 /* ========== Nav Tab ========== */
+// Mục điều hướng hai dòng (tiêu đề + mô tả) — không dùng ChoiceChip: chip cao cố định 32px, căn
+// giữa, nên hai dòng chữ bị ép tràn khỏi khung.
 function NavTab({ active, onClick, icon: Icon, label, description }: {
-  active: boolean; onClick: () => void; icon: any; label: string; description: string
+  active: boolean; onClick: () => void; icon: LucideIcon; label: string; description: string
 }) {
   return (
-    <ChoiceChip selected={active} className="w-full py-2.5 text-left" onClick={onClick} aria-current={active ? 'page' : undefined}>
-      <Icon className={cn('shrink-0', active ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted-foreground)]')} aria-hidden="true" />
-      <span className="min-w-0">
-        <span className={cn('block text-sm font-medium', active ? 'text-[var(--color-primary)]' : 'text-[var(--color-foreground)]')}>{label}</span>
-        <span className="block text-caption">{description}</span>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'flex w-full items-center gap-3 rounded-card border px-4 py-3 text-left transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2',
+        active
+          ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'
+          : 'border-[var(--color-border)] bg-[var(--color-card)] hover:bg-[var(--color-muted)]',
+      )}
+    >
+      <span className={cn(
+        'flex h-9 w-9 shrink-0 items-center justify-center rounded-control',
+        active ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
+      )}>
+        <Icon size={18} aria-hidden="true" />
       </span>
-    </ChoiceChip>
+      <span className="min-w-0">
+        <span className={cn('block truncate text-sm font-medium', active ? 'text-[var(--color-primary)]' : 'text-[var(--color-foreground)]')}>{label}</span>
+        <span className="block truncate text-caption">{description}</span>
+      </span>
+    </button>
   )
 }
 

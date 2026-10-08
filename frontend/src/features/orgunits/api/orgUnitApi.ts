@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse } from '@/types/api'
 import type {
   OrgUnitResponse,
@@ -65,10 +66,7 @@ export const orgUnitApi = {
   uploadLogo: (organizationId: string, unitId: string, file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    return axiosInstance
-      .post<ApiResponse<OrgUnitResponse>>(`/organizations/${organizationId}/units/${unitId}/logo`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+    return sendMultipart<ApiResponse<OrgUnitResponse>>(`/organizations/${organizationId}/units/${unitId}/logo`, formData)
       .then((r) => r.data.data)
   },
 }

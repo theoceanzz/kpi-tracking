@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse } from '@/types/api'
 import type { Attachment } from '@/types/submission'
 
@@ -26,8 +27,7 @@ export const evidenceApi = {
     const form = new FormData()
     files.forEach(f => form.append('files', f))
     if (note) form.append('note', note)
-    return axiosInstance
-      .post<ApiResponse<Attachment[]>>('/evidence', form, { params: t, headers: { 'Content-Type': 'multipart/form-data' } })
+    return sendMultipart<ApiResponse<Attachment[]>>('/evidence', form, { params: t })
       .then(r => r.data.data)
   },
 

@@ -16,6 +16,8 @@ import {
 } from '../types'
 import { DOCUMENT_ACCEPT, creatableScopes, formatBytes } from '../utils'
 import DocumentDateFields from './DocumentDateFields'
+import { blockedByTour } from '@/components/common/tours/guard'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const ACCEPT = DOCUMENT_ACCEPT
 
@@ -76,6 +78,7 @@ export default function UploadDocumentDialog({ open, onClose, caps, maxFileBytes
   const canSubmit = !!file && !needsUnit && !upload.isPending
 
   const submit = () => {
+    if (blockedByTour()) return
     if (!file) return
     upload.mutate({
       file,
@@ -103,7 +106,7 @@ export default function UploadDocumentDialog({ open, onClose, caps, maxFileBytes
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={upload.isPending}>{t('common.cancel')}</Button>}
           primary={
-            <Button onClick={submit} disabled={!canSubmit}>
+            <Button {...tourAnchor('upload.form.submit')} onClick={submit} disabled={!canSubmit}>
               {upload.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
               {t('upload.submit')}
             </Button>
@@ -113,7 +116,7 @@ export default function UploadDocumentDialog({ open, onClose, caps, maxFileBytes
     >
       <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-4">
-        <FileDropzone
+        <FileDropzone {...tourAnchor('upload.form.drop')}
           files={file ? [file] : []}
           onFilesSelected={files => {
             const f = files[0] ?? null
@@ -128,7 +131,7 @@ export default function UploadDocumentDialog({ open, onClose, caps, maxFileBytes
           label={t('upload.dropTitle')}
         />
 
-        <div className="space-y-1.5">
+        <div {...tourAnchor('upload.form.title')} className="space-y-1.5">
           <label className="text-label" htmlFor="doc-title">{t('fields.title')}</label>
           <Input id="doc-title" value={form.title} maxLength={255} onChange={e => set('title', e.target.value)}
                  placeholder={t('fields.titlePlaceholder')} />
@@ -141,7 +144,7 @@ export default function UploadDocumentDialog({ open, onClose, caps, maxFileBytes
           </p>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div {...tourAnchor('upload.form.meta')} className="grid gap-4 sm:grid-cols-2">
           {!folder && <div className="space-y-1.5">
             <label className="text-label">{t('fields.scope')}</label>
             <Select value={form.scope} onValueChange={v => set('scope', v as DocumentScope)}>
@@ -181,13 +184,13 @@ export default function UploadDocumentDialog({ open, onClose, caps, maxFileBytes
           onExpiryDate={v => set('expiryDate', v)}
         />
 
-        <div className="space-y-1.5">
+        <div {...tourAnchor('upload.form.description')} className="space-y-1.5">
           <label className="text-label" htmlFor="doc-desc">{t('fields.description')}</label>
           <Textarea id="doc-desc" rows={2} value={form.description} maxLength={4000}
                     onChange={e => set('description', e.target.value)} placeholder={t('fields.descriptionPlaceholder')} />
         </div>
 
-        <div className="flex items-start gap-3 rounded-card border border-[var(--color-border)] p-3">
+        <div {...tourAnchor('upload.form.ai')} className="flex items-start gap-3 rounded-card border border-[var(--color-border)] p-3">
           <Switch checked={form.aiEnabled} onCheckedChange={v => set('aiEnabled', v)} aria-label={t('fields.aiEnabled')} />
           <div className="min-w-0">
             <p className="text-sm font-medium text-[var(--color-foreground)]">{t('fields.aiEnabled')}</p>

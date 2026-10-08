@@ -28,4 +28,6 @@ public class CreateOrgUnitRequest {
     private UUID provinceId;
     private UUID districtId;
     private java.util.List<UUID> roleIds;
+    /** Quan hệ với đơn vị cha (chỉ hiển thị). Không gửi = DIRECT khi tạo, giữ nguyên khi sửa. */
+    private com.kpitracking.enums.OrgUnitRelationType parentRelation;
 }

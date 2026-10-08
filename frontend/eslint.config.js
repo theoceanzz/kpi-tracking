@@ -27,6 +27,8 @@ export default defineConfig([
     ignores: [
       // Tên riêng của ngân hàng theo VietQR — dữ liệu, không dịch.
       'src/features/wallet/constants/banks.ts',
+      // Test không hiển thị gì cho người dùng; tên test viết tiếng Việt như phần còn lại của dự án.
+      'src/**/*.test.{ts,tsx}',
     ],
     plugins: { local: { rules: { 'no-vietnamese-literal': noVietnameseLiteral } } },
     rules: { 'local/no-vietnamese-literal': 'error' },

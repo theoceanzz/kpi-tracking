@@ -1,14 +1,17 @@
 import { LocaleNumberInput } from '@/components/ui/number-input'
+import { Fragment } from 'react'
 import { Save, Loader2, Info, Lock, FileSpreadsheet } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { conductLockMessage, type ConductScoreInput, type ConductSheet } from '../api/conductApi'
+import { conductLockMessage, type ConductItem, type ConductScoreInput, type ConductSheet } from '../api/conductApi'
+import { groupConductItems, groupLetter, groupScore } from '../utils/conductGroups'
 import { exportConductSheetToExcel } from '../utils/conductSheetExport'
 import EvidenceAttachments from '@/features/evidence/EvidenceAttachments'
 import { evidenceKey } from '@/features/evidence/evidenceApi'
 import { CONDUCT_MIN_SCORE, EMPTY_DRAFT, fmt, num, useConductDraft, weighted } from '../hooks/useConductDraft'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /**
  * Phiếu "Đánh giá xếp loại hành vi theo triết lý giáo dục", dựng đúng theo bảng giấy:
@@ -68,8 +71,109 @@ export default function ConductSheetTable({
 
   const th = 'text-eyebrow px-3 py-2 text-white/90 border border-white/15 text-center align-middle'
 
+  /** Một dòng tiêu chí. Phiếu chia nhóm: số thứ tự dạng 1.2 và cột tỷ trọng là % TRONG nhóm. */
+  const renderRow = (item: ConductItem, label: string, shownWeight: number) => {
+    const d = draft[item.position] ?? EMPTY_DRAFT
+    const selfW = weighted(num(d.selfScore), item.weight)
+    const mgrW = weighted(num(d.managerScore), item.weight)
+    return (
+      <tr key={item.position} className="border-b border-[var(--color-border)] align-top">
+        <td className="px-3 py-4 text-center text-sm font-semibold text-[var(--color-muted-foreground)]">{label}</td>
+        <td className="px-3 py-4">
+          <p className="text-sm font-semibold text-[var(--color-foreground)]">{item.name}</p>
+          {item.description && (
+            // Mô tả lưu nhiều dòng, mỗi dòng là một biểu hiện — giữ nguyên xuống dòng
+            // thay vì gộp thành một đoạn văn khó đọc.
+            <ul className="mt-1.5 space-y-1">
+              {item.description.split('\n').filter(Boolean).map((line, i) => (
+                <li key={i} className="text-caption leading-relaxed pl-3 relative">
+                  <span className="absolute left-0">-</span>
+                  {line.trim()}
+                </li>
+              ))}
+            </ul>
+          )}
+        </td>
+        <td className="px-3 py-4 text-center text-sm font-semibold text-[var(--color-foreground)]">
+          {fmt(shownWeight)}%
+        </td>
+
+        <td className="px-3 py-4 text-center">
+          <LocaleNumberInput
+            type="number"
+            min={min}
+            max={max}
+            step={0.5}
+            value={d.selfScore}
+            onChange={e => set(item.position, { selfScore: e.target.value })}
+            onWheel={e => e.currentTarget.blur()}
+            disabled={!sheet.canScoreSelf}
+            placeholder="—"
+            className={scoreInputCls(sheet.canScoreSelf, 'self')}
+          />
+        </td>
+        <td className="px-3 py-4">
+          <textarea
+            value={d.selfEvidence}
+            onChange={e => set(item.position, { selfEvidence: e.target.value })}
+            disabled={!sheet.canScoreSelf}
+            placeholder={sheet.canScoreSelf ? t('ConductSheetTable.giveSpecificEvidence') : ''}
+            className={textAreaCls(sheet.canScoreSelf)}
+          />
+        </td>
+
+        <td className="px-3 py-4 text-center">
+          <LocaleNumberInput
+            type="number"
+            min={min}
+            max={max}
+            step={0.5}
+            value={d.managerScore}
+            onChange={e => set(item.position, { managerScore: e.target.value })}
+            onWheel={e => e.currentTarget.blur()}
+            disabled={!sheet.canScoreManager}
+            placeholder="—"
+            className={scoreInputCls(sheet.canScoreManager, 'manager')}
+          />
+        </td>
+        <td className="px-3 py-4">
+          <textarea
+            value={d.managerComment}
+            onChange={e => set(item.position, { managerComment: e.target.value })}
+            disabled={!sheet.canScoreManager}
+            placeholder={sheet.canScoreManager ? t('ConductSheetTable.managersComments2') : ''}
+            className={textAreaCls(sheet.canScoreManager)}
+          />
+        </td>
+
+        <td className="px-3 py-4 text-center text-sm font-semibold text-[var(--color-info)]">
+          {fmt(selfW)}
+        </td>
+        <td className="px-3 py-4 text-center text-sm font-semibold text-[var(--color-primary)]">
+          {fmt(mgrW)}
+        </td>
+      </tr>
+    )
+  }
+
+  const groups = groupConductItems(sheet.items)
+  const scoreOf = (side: 'self' | 'manager') => (i: ConductItem) => {
+    const d = draft[i.position] ?? EMPTY_DRAFT
+    return num(side === 'self' ? d.selfScore : d.managerScore)
+  }
+  const contribution = (items: ConductItem[], side: 'self' | 'manager') => {
+    let sum = 0
+    let any = false
+    for (const i of items) {
+      const w = weighted(scoreOf(side)(i), i.weight)
+      if (w != null) { sum += w; any = true }
+    }
+    return any ? Math.round(sum * 100) / 100 : null
+  }
+
+
   return (
-    <div className="space-y-4">
+    <div {...tourAnchor('myconduct.sheet')} className="space-y-4">
       {sheet.locked && (
         <div className="flex items-start gap-3 p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)]">
           <Lock size={16} className="text-[var(--color-muted-foreground)] shrink-0 mt-0.5" />
@@ -116,94 +220,43 @@ export default function ConductSheetTable({
             </thead>
 
             <tbody className="bg-[var(--color-card)]">
-              {sheet.items.map((item, idx) => {
-                const d = draft[item.position] ?? EMPTY_DRAFT
-                const selfW = weighted(num(d.selfScore), item.weight)
-                const mgrW = weighted(num(d.managerScore), item.weight)
-                return (
-                  <tr key={item.position} className="border-b border-[var(--color-border)] align-top">
-                    <td className="px-3 py-4 text-center text-sm font-semibold text-[var(--color-muted-foreground)]">{idx + 1}</td>
-                    <td className="px-3 py-4">
-                      <p className="text-sm font-semibold text-[var(--color-foreground)]">{item.name}</p>
-                      {item.description && (
-                        // Mô tả lưu nhiều dòng, mỗi dòng là một biểu hiện — giữ nguyên xuống dòng
-                        // thay vì gộp thành một đoạn văn khó đọc.
-                        <ul className="mt-1.5 space-y-1">
-                          {item.description.split('\n').filter(Boolean).map((line, i) => (
-                            <li key={i} className="text-caption leading-relaxed pl-3 relative">
-                              <span className="absolute left-0">-</span>
-                              {line.trim()}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </td>
-                    <td className="px-3 py-4 text-center text-sm font-semibold text-[var(--color-foreground)]">
-                      {fmt(item.weight)}%
-                    </td>
-
-                    <td className="px-3 py-4 text-center">
-                      <LocaleNumberInput
-                        type="number"
-                        min={min}
-                        max={max}
-                        step={0.5}
-                        value={d.selfScore}
-                        onChange={e => set(item.position, { selfScore: e.target.value })}
-                        onWheel={e => e.currentTarget.blur()}
-                        disabled={!sheet.canScoreSelf}
-                        placeholder="—"
-                        className={scoreInputCls(sheet.canScoreSelf, 'self')}
-                      />
-                    </td>
-                    <td className="px-3 py-4">
-                      <textarea
-                        value={d.selfEvidence}
-                        onChange={e => set(item.position, { selfEvidence: e.target.value })}
-                        disabled={!sheet.canScoreSelf}
-                        placeholder={sheet.canScoreSelf ? t('ConductSheetTable.giveSpecificEvidence') : ''}
-                        className={textAreaCls(sheet.canScoreSelf)}
-                      />
-                    </td>
-
-                    <td className="px-3 py-4 text-center">
-                      <LocaleNumberInput
-                        type="number"
-                        min={min}
-                        max={max}
-                        step={0.5}
-                        value={d.managerScore}
-                        onChange={e => set(item.position, { managerScore: e.target.value })}
-                        onWheel={e => e.currentTarget.blur()}
-                        disabled={!sheet.canScoreManager}
-                        placeholder="—"
-                        className={scoreInputCls(sheet.canScoreManager, 'manager')}
-                      />
-                    </td>
-                    <td className="px-3 py-4">
-                      <textarea
-                        value={d.managerComment}
-                        onChange={e => set(item.position, { managerComment: e.target.value })}
-                        disabled={!sheet.canScoreManager}
-                        placeholder={sheet.canScoreManager ? t('ConductSheetTable.managersComments2') : ''}
-                        className={textAreaCls(sheet.canScoreManager)}
-                      />
-                    </td>
-
-                    <td className="px-3 py-4 text-center text-sm font-semibold text-[var(--color-info)]">
-                      {fmt(selfW)}
-                    </td>
-                    <td className="px-3 py-4 text-center text-sm font-semibold text-[var(--color-primary)]">
-                      {fmt(mgrW)}
-                    </td>
-                  </tr>
-                )
-              })}
+              {groups
+                ? groups.map((g, gi) => (
+                    <Fragment key={g.key}>
+                      <tr className="bg-[var(--color-info-bg)] border-b border-[var(--color-border)]">
+                        <td className="px-3 py-2.5 text-center text-sm font-semibold text-[var(--color-info)]">{gi + 1}</td>
+                        <td colSpan={8} className="px-3 py-2.5 text-sm font-semibold text-[var(--color-foreground)]">
+                          {g.name} <span className="text-[var(--color-info)]">— {fmt(g.weight)}%</span>
+                        </td>
+                      </tr>
+                      {g.items.map((item, ii) => renderRow(item, `${gi + 1}.${ii + 1}`, item.weightInGroup ?? item.weight))}
+                      {/* Dòng "Total" của nhóm: điểm nhóm trên thang chấm ở hai cột điểm, phần đóng góp vào
+                          tổng (điểm nhóm × % nhóm) ở hai cột đã tính trọng số. */}
+                      <tr className="bg-[var(--color-muted)] border-b border-[var(--color-border-strong)]">
+                        <td colSpan={2} className="px-3 py-2.5 text-right text-sm font-semibold text-[var(--color-foreground)]">
+                          {t('ConductSheetTable.groupTotal', { name: g.name, letter: groupLetter(gi) })}
+                        </td>
+                        <td className="px-3 py-2.5 text-center text-sm font-semibold">100%</td>
+                        <td className="px-3 py-2.5 text-center text-sm font-semibold text-[var(--color-info)]">{fmt(groupScore(g.items, scoreOf('self')))}</td>
+                        <td />
+                        <td className="px-3 py-2.5 text-center text-sm font-semibold text-[var(--color-primary)]">{fmt(groupScore(g.items, scoreOf('manager')))}</td>
+                        <td />
+                        <td className="px-3 py-2.5 text-center text-sm font-semibold text-[var(--color-info)]">{fmt(contribution(g.items, 'self'))}</td>
+                        <td className="px-3 py-2.5 text-center text-sm font-semibold text-[var(--color-primary)]">{fmt(contribution(g.items, 'manager'))}</td>
+                      </tr>
+                    </Fragment>
+                  ))
+                : sheet.items.map((item, idx) => renderRow(item, String(idx + 1), item.weight))}
             </tbody>
 
             <tfoot>
               <tr className="bg-[#1e3a6d] text-white">
                 <td colSpan={7} className="px-4 py-3 text-right text-sm font-medium">
+                  {groups && (
+                    <span className="mr-2 text-white/70">
+                      {groups.map((g, gi) => `${groupLetter(gi)}×${fmt(g.weight)}%`).join(' + ')} =
+                    </span>
+                  )}
                   {t('ConductSheetTable.weightedConductScoreScale')} {fmt(max)}):
                 </td>
                 <td className="px-3 py-3 text-center text-base font-semibold">{fmt(totals.self)}</td>
@@ -237,11 +290,11 @@ export default function ConductSheetTable({
       )}
 
       <div id="tour-conduct-sheet-actions" className="flex flex-wrap items-center justify-end gap-3">
-        <Button variant="outline" className="mr-auto" onClick={handleExport}>
+        <Button {...tourAnchor('myconduct.export')} variant="outline" className="mr-auto" onClick={handleExport}>
           <FileSpreadsheet aria-hidden="true" /> {t('ConductSheetTable.exportExcel')}
         </Button>
         {sheet.canScoreSelf && (
-          <Button onClick={() => onSaveSelf(collect('self'))} disabled={isSavingSelf}>
+          <Button {...tourAnchor('myconduct.save-self')} onClick={() => onSaveSelf(collect('self'))} disabled={isSavingSelf}>
             {isSavingSelf ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
             {t('ConductSheetTable.saveSelfAssessment')}
           </Button>
