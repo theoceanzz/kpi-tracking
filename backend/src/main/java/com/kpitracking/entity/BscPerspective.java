@@ -74,6 +74,14 @@ public class BscPerspective {
     @Builder.Default
     private BscPerspectiveStatus status = BscPerspectiveStatus.ACTIVE;
 
+    /**
+     * Khác null ⇒ đây là HẠNG MỤC HỆ THỐNG của phân rã cả bộ: dòng nào dùng nó thì điểm = kết quả
+     * tổng của thẻ này trong cùng đợt, không cộng KPI. Bị giấu khỏi danh mục để KPI không gắn vào.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_scorecard_id")
+    private BscScorecard sourceScorecard;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

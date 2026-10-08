@@ -2,6 +2,7 @@ import { intlDateLocale } from '@/i18n/format'
 import { useState, useMemo } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
+import { pickCurrentOrNearest } from '@/components/common/dateScope'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
 import { aiShortcuts } from '@/features/analytics/aiShortcuts'
@@ -52,9 +53,10 @@ export default function MyKpiPage() {
   const user = useAuthStore(s => s.user)
 
   const [search, setSearch] = useState('')
-  // Quay về đây sau khi nộp một báo cáo thì giữ nguyên đợt đang làm dở, không nhảy về 'ALL'.
+  // Quay về đây sau khi nộp một báo cáo thì giữ nguyên đợt đang làm dở, không nhảy về đợt mặc định.
   const [searchParams] = useSearchParams()
-  const [selectedPeriodId, setSelectedPeriodId] = useState(searchParams.get(WORKFLOW_PARAMS.period) ?? 'ALL')
+  // null = người dùng chưa tự chọn → theo đợt hiện tại (xem `defaultPeriodId` bên dưới).
+  const [pickedPeriodId, setSelectedPeriodId] = useState<string | null>(searchParams.get(WORKFLOW_PARAMS.period))
   const [viewMode, setViewMode] = useState<'TABLE' | 'CARD'>(() => window.matchMedia('(max-width: 767px)').matches ? 'CARD' : 'TABLE')
   const [page, setPage] = useState(0)
   const [pageSize] = useState(10)
@@ -72,13 +74,23 @@ export default function MyKpiPage() {
   const [selfEvalPeriodId, setSelfEvalPeriodId] = useState<string | null>(null)
 
   const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
+  // Luôn xem theo MỘT đợt, mở sẵn đợt hiện tại — cùng quy tắc với trang "Đánh giá đợt" và với số
+  // đỏ ở sidebar (chỉ đếm đợt hiện tại). Đã bỏ lựa chọn "Tất cả các đợt": gộp mọi đợt thì nhân viên
+  // thấy việc/quá hạn của đợt cũ lẫn vào. 'ALL' chỉ còn là đường lui khi tổ chức chưa có đợt nào.
+  const defaultPeriodId = useMemo(
+    () => (periodsData ? pickCurrentOrNearest(periodsData.content)?.id ?? 'ALL' : undefined),
+    [periodsData]
+  )
+  const selectedPeriodId = pickedPeriodId ?? defaultPeriodId ?? 'ALL'
+  const periodReady = pickedPeriodId != null || defaultPeriodId !== undefined
   const organizationId = user?.memberships?.[0]?.organizationId
   const pageTitle = usePageTitle('my-kpi', t('MyKpiPage.myKpis'))
   const { data: org } = useOrganization(organizationId)
   const enableWaterfall = org?.enableWaterfall
   const enableOkr = org?.enableOkr
   
-  const { data, isLoading } = useMyKpi({
+  const { data, isLoading: kpisLoading } = useMyKpi({
+    enabled: periodReady,
     page,
     size: pageSize,
     kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
@@ -87,6 +99,7 @@ export default function MyKpiPage() {
     objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
     keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId
   })
+  const isLoading = kpisLoading || !periodReady
 
   const { data: objectivesData } = useObjectives(user?.memberships?.[0]?.organizationId)
   
@@ -366,7 +379,6 @@ export default function MyKpiPage() {
                 <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
           <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label={t('MyKpiPage.evaluationPeriods')}><SelectValue placeholder={t('MyKpiPage.evaluationPeriods')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">{t('MyKpiPage.allPeriods')}</SelectItem>
             {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>

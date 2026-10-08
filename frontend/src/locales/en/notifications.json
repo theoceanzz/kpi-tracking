@@ -12,7 +12,10 @@
     "notificationsAboutKpisSubmissionsAndEvaluations": "Notifications about KPIs, submissions and evaluations will appear here.",
     "today": "Today",
     "unread": "Unread",
-    "viewAllNotifications": "View all notifications"
+    "viewAllNotifications": "View all notifications",
+    "enableDesktopNotifications": "Enable desktop notifications (when in another tab)",
+    "muteSound": "Mute notification sound",
+    "unmuteSound": "Unmute notification sound"
   },
   "NotificationsPage": {
     "all": "All",
@@ -44,9 +47,15 @@
     "wallet": "Wallet",
     "walletReconciliation": "Wallet reconciliation",
     "youHaveReadAllNotifications": "You have read all notifications.",
-    "aiScoringRules": "AI scoring rules"
+    "aiScoringRules": "AI scoring rules",
+    "sharedDocuments": "Shared documents",
+    "documentProposals": "Document proposals",
+    "documentReview": "Document reviews"
   },
   "useNotifications": {
     "markedAllNotificationsAsRead": "Marked all notifications as read"
+  },
+  "NotificationPopup": {
+    "view": "View"
   }
 }

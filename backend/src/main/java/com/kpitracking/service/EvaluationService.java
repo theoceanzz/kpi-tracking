@@ -54,6 +54,7 @@ public class EvaluationService {
     private final BscScoringService bscScoringService;
     private final com.kpitracking.workflow.KpiWorkflowConfigService workflowConfigService;
     private final BscCascadeService bscCascadeService;
+    private final BscAccessGuard bscAccessGuard;
     private final ConductService conductService;
     private final com.kpitracking.service.kpi.CycleLockChecker cycleLockChecker;
     private final com.kpitracking.service.kpi.CycleStatusGuard cycleStatusGuard;
@@ -242,6 +243,23 @@ public class EvaluationService {
             if (isOfficial && bscResult.getUnassignedKpiCount() > 0) {
                 throw new BusinessException(ErrorCode.CANNOT_FINALIZE_EVALUATION, String.valueOf(bscResult.getUnassignedKpiCount()), String.join(", ", bscResult.getUnassignedKpiNames()));
             }
+
+            // Dòng "Kết quả cấp trên" (phân rã cả bộ) đang lấy số TẠM TÍNH vì thẻ nguồn chưa chốt kết
+            // quả đợt. Thứ tự chốt phải đi từ trên xuống: chốt ở đây trước là đóng băng điểm nhân
+            // viên theo một con số còn đổi mà không ai biết. Chỉ chặn ở CHÍNH THỨC (cùng lý do với
+            // các ràng buộc khác) — ở SHADOW vẫn chốt được, chỉ đánh dấu lại. Quản trị BSC toàn tổ
+            // chức được chủ động vượt qua; khi đó đánh giá mang cờ "chốt theo số tạm tính".
+            List<String> provisionalSources = bscResult != null ? bscResult.getProvisionalSourceNames() : List.of();
+            if (isOfficial && !provisionalSources.isEmpty()) {
+                if (!Boolean.TRUE.equals(request.getAllowProvisionalBsc())) {
+                    throw new BusinessException(ErrorCode.EVALUATION_WAITING_BSC_SOURCE,
+                            String.join(", ", provisionalSources));
+                }
+                if (!bscAccessGuard.canManageAll()) {
+                    throw new BusinessException(ErrorCode.PROVISIONAL_FINALIZE_ADMIN_ONLY);
+                }
+            }
+            evaluation.setBscProvisional(!provisionalSources.isEmpty());
 
             // Ràng buộc trọng số KPI liên kết BSC (QĐ-8). Chính sách để BLOCK thì chặn THẬT ở đây,
             // không chỉ hiện cảnh báo ở màn diễn giải — trước đây cờ này được tính rồi bỏ không,

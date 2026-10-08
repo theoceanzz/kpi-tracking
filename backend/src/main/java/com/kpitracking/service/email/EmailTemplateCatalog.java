@@ -254,8 +254,6 @@ public final class EmailTemplateCatalog {
                 "Khi cấp trên trả bộ tiêu chí BSC về cho đơn vị sửa, kèm lý do.");
         registerNotification("bsc_scorecard_activated", "Bộ tiêu chí BSC được áp dụng",
                 "Khi bộ tiêu chí BSC bắt đầu được dùng để chấm.");
-        registerNotification("bsc_scorecard_locked", "Bộ tiêu chí BSC khoá/mở khoá",
-                "Khi bộ tiêu chí BSC bị khoá hoặc được mở khoá để sửa lại.");
         registerNotification("bsc_cascaded", "Được giao chỉ tiêu BSC",
                 "Khi cấp trên phân rã một chỉ tiêu BSC xuống đơn vị.");
         registerNotification("bsc_unit_result_finalized", "Kết quả BSC của đợt đã chốt",
@@ -268,6 +266,16 @@ public final class EmailTemplateCatalog {
                 "Khi đơn vị cấp dưới đề nghị đổi quy chế chấm AI bạn đã áp (dành cho người đã áp / cấp trên).");
         registerNotification("ai_criteria_change_decided", "Kết quả đề nghị quy chế chấm AI",
                 "Khi đề nghị đổi quy chế chấm AI của bạn được đồng ý hoặc bị từ chối.");
+
+        // ───────────────────────── Thư viện tài liệu ─────────────────────────
+        registerNotification("document_shared", "Được chia sẻ tài liệu",
+                "Khi có người chia sẻ tài liệu cho bạn hoặc cho đơn vị của bạn.");
+        registerNotification("document_promotion_requested", "Đề xuất đưa tài liệu lên cần duyệt",
+                "Khi có người đề xuất đưa tài liệu lên đơn vị / công ty mà bạn quản lý tài liệu.");
+        registerNotification("document_promotion_decided", "Kết quả đề xuất tài liệu",
+                "Khi đề xuất đưa tài liệu lên của bạn được duyệt hoặc bị từ chối.");
+        registerNotification("document_review_due", "Nhắc rà soát / hết hiệu lực tài liệu",
+                "Khi tài liệu bạn quản lý tới ngày rà soát hoặc sắp hết hiệu lực.");
 
         // ───────────────────────── Thông báo điểm thưởng ─────────────────────────
         registerNotification("reward_grant_submitted", "Đề nghị thưởng cần duyệt",

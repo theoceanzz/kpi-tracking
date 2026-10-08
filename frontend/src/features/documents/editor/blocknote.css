@@ -1,0 +1,8 @@
+/* Trình soạn tài liệu (BlockNote, DocumentEditorPage): dùng phông và màu của ứng dụng thay cho Inter / nền trắng mặc
+   định — nền trong suốt để thẻ bao (bg-card) quyết, chữ theo token để đúng cả chế độ tối. Ba lớp để thắng
+   `.bn-root[data-color-scheme=dark]` của gói. */
+.bn-root.bn-shadcn.kg-doc-editor {
+  --bn-font-family: inherit;
+  --bn-colors-editor-background: transparent;
+  --bn-colors-editor-text: var(--color-foreground);
+}

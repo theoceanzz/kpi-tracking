@@ -142,6 +142,7 @@ public class RewardCertificateService {
         t.setInkColor(upperOrNull(r.getInkColor()));
         t.setSurfaceColor(upperOrNull(r.getSurfaceColor()));
         if (r.getShowLogo() != null) t.setShowLogo(r.getShowLogo());
+        if (r.getShowOrgName() != null) t.setShowOrgName(r.getShowOrgName());
         if (r.getShowPoints() != null) t.setShowPoints(r.getShowPoints());
         if (r.getShowReason() != null) t.setShowReason(r.getShowReason());
     }
@@ -202,6 +203,7 @@ public class RewardCertificateService {
                 .inkColor(t.getInkColor())
                 .surfaceColor(t.getSurfaceColor())
                 .showLogo(t.getShowLogo())
+                .showOrgName(t.getShowOrgName())
                 .showPoints(t.getShowPoints())
                 .showReason(t.getShowReason())
                 .isDefault(t.getIsDefault())

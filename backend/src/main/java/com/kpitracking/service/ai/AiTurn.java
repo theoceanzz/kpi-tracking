@@ -140,6 +140,8 @@ public class AiTurn {
      * đơn vị để kiểm {@code focusUnitId} — không tốn thêm truy vấn nào.
      */
     private String focusUnitName;
+    /** Tài liệu của tổ chức mà lượt này đã đọc — chip nguồn. Chép từ {@code AgentState} như {@link #formPatch}. */
+    private List<com.kpitracking.dto.response.ai.DocumentSourceResponse> sources;
     /**
      * Cây đơn vị trong phạm vi người hỏi, mỗi dòng "Tên — cấp (thuộc Cha)". Nạp một lần ở bước
      * ngữ cảnh để trợ lý biết đơn vị nào CÓ THẬT: hỏi về đơn vị không tồn tại thì nói thẳng là không

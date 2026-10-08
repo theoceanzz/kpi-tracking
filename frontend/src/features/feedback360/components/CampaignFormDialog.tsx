@@ -25,6 +25,7 @@ import { allowedRange, suggestNominationDeadline, suggestWindow, windowProblem }
 import { questionCount, questionSetBlocker, toDraft, toTemplateInput, type QuestionSetDraft } from '../utils/questionSet'
 import QuestionSetEditor from './QuestionSetEditor'
 import CopyQuestionsPanel from './CopyQuestionsPanel'
+import { useCreatePeriodCycleOption } from '@/components/common/CreatePeriodCycleOption'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { useStateDraft } from '@/hooks/useFormDraft'
@@ -75,6 +76,7 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
   const { data: ownTemplate, isSuccess: ownLoaded } = useF360Template(!locked ? campaign?.templateId : null)
   const { data: cyclesPage } = useKpiCycles({ size: 100, sortBy: 'startDate', direction: 'desc' })
   const cycles = cyclesPage?.content ?? []
+  const createCycle = useCreatePeriodCycleOption('cycle')
 
   const [form, setForm] = useState(() => ({
     name: campaign?.name ?? '',
@@ -279,7 +281,7 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
                   </Select>
                 </Field>
                 <Field label={tr('CampaignFormDialog.kpiCycle')} hint={scoring ? tr('CampaignFormDialog.requiredWhenCountingTowardRating') : tr('CampaignFormDialog.optional')}>
-                  <Select value={form.kpiCycleId} onValueChange={v => applyWindow(form.scoringMode, v)}>
+                  <Select value={form.kpiCycleId} onValueChange={createCycle.wrap(v => applyWindow(form.scoringMode, v))}>
                     <SelectTrigger><SelectValue placeholder={tr('CampaignFormDialog.chooseCycle')} /></SelectTrigger>
                     <SelectContent>
                       {!scoring && <SelectItem value={NO_CYCLE}>{tr('CampaignFormDialog.noCycle')}</SelectItem>}
@@ -289,6 +291,7 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
                           {c.name} ({fmtDate(c.startDate)} - {fmtDate(c.endDate)}){c.status === 'LOCKED' ? tr('CampaignFormDialog.locked') : ''}
                         </SelectItem>
                       ))}
+                      {createCycle.item}
                     </SelectContent>
                   </Select>
                 </Field>

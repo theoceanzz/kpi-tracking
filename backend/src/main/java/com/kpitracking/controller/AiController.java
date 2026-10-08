@@ -164,6 +164,7 @@ public class AiController {
         FollowupResponse followups;
         com.kpitracking.service.ai.action.PendingAction pendingAction;
         String consumedActionId;
+        List<com.kpitracking.dto.response.ai.DocumentSourceResponse> sources;
         List<com.kpitracking.dto.response.ai.ChartSpec> charts;
         List<AiTurn.Choice> askOptions;
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.CHAT);
@@ -185,6 +186,7 @@ public class AiController {
             followups = turn.getFollowups();
             pendingAction = turn.getPendingAction();
             consumedActionId = turn.getConsumedActionId();
+            sources = turn.getSources();
             charts = turn.getCharts();
             askOptions = turn.getClarificationOptions();
         } finally {
@@ -215,6 +217,7 @@ public class AiController {
                 .followups(followups)
                 .pendingAction(com.kpitracking.dto.response.ai.PendingActionResponse.from(pendingAction))
                 .consumedActionId(consumedActionId)
+                .sources(sources)
                 .charts(charts)
                 .build();
     }

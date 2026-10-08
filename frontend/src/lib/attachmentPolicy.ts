@@ -34,7 +34,9 @@ export const ATTACHMENT_TYPES_HINT = perLanguage(() => (i18n.t('common:attachmen
 /** Dòng gợi ý dưới vùng kéo thả. Dựng từ chính các hằng ở trên để câu chữ không trôi khỏi con số. */
 export const ATTACHMENT_HINT = perLanguage(() => (i18n.t('common:attachmentPolicy.imagesPdfWordExcelUpTo', { MAX_ATTACHMENT_FILES, value: MAX_ATTACHMENT_BYTES / 1024 / 1024 })))
 
-const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx']
+/** Đuôi tệp đính kèm nhận được — cũng là bộ lọc của hộp "Chọn từ Tài liệu" ở các chỗ đính kèm. */
+export const ATTACHMENT_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx']
+const ALLOWED_EXTENSIONS = ATTACHMENT_EXTENSIONS
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`

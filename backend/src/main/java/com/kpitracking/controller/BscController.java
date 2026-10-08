@@ -53,16 +53,18 @@ public class BscController {
         return ResponseEntity.ok(ApiResponse.success(bscService.getPerspectives(organizationId)));
     }
 
+    // Trưởng đơn vị (BSC:MANAGE_UNIT) cũng tạo được hạng mục cho bộ tiêu chí của đơn vị mình.
     @PostMapping("/organization/{organizationId}/perspectives")
-    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    @PreAuthorize("hasAnyAuthority('BSC:MANAGE', 'BSC:MANAGE_UNIT')")
     public ResponseEntity<ApiResponse<PerspectiveResponse>> createPerspective(
             @PathVariable UUID organizationId,
             @Valid @RequestBody PerspectiveRequest request) {
         return ResponseEntity.ok(ApiResponse.success(bscService.createPerspective(organizationId, request)));
     }
 
+    // Sửa/xoá: trưởng đơn vị chỉ khi mọi bộ tiêu chí đang dùng hạng mục là bộ họ sửa được (service gác).
     @PutMapping("/perspectives/{perspectiveId}")
-    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    @PreAuthorize("hasAnyAuthority('BSC:MANAGE', 'BSC:MANAGE_UNIT')")
     public ResponseEntity<ApiResponse<PerspectiveResponse>> updatePerspective(
             @PathVariable UUID perspectiveId,
             @Valid @RequestBody PerspectiveRequest request) {
@@ -70,7 +72,7 @@ public class BscController {
     }
 
     @DeleteMapping("/perspectives/{perspectiveId}")
-    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    @PreAuthorize("hasAnyAuthority('BSC:MANAGE', 'BSC:MANAGE_UNIT')")
     public ResponseEntity<ApiResponse<Void>> deletePerspective(@PathVariable UUID perspectiveId) {
         bscService.deletePerspective(perspectiveId);
         return ResponseEntity.ok(ApiResponse.success(null));

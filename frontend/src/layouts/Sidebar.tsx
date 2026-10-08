@@ -175,6 +175,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
     if (path === '/bsc' && counts.pendingScorecards > 0) return counts.pendingScorecards
     if (path === '/rewards' && counts.pendingRewards > 0) return counts.pendingRewards
     if (path === '/wallet' && counts.pendingWallet > 0) return counts.pendingWallet
+    if (path === '/documents' && counts.pendingDocumentPromotions > 0) return counts.pendingDocumentPromotions
     return null
   }
 

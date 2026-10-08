@@ -42,10 +42,12 @@ public class OrgNotificationConfigService {
             // cho người có KPI bị chuyển kỳ/bị chốt và trưởng đơn vị của họ.
             "cycle_locked", "cycle_kpi_affected",
             "bsc_scorecard_submitted", "bsc_scorecard_approved", "bsc_scorecard_rejected",
-            "bsc_scorecard_activated", "bsc_scorecard_locked", "bsc_cascaded",
+            "bsc_scorecard_activated", "bsc_cascaded",
             "bsc_unit_result_finalized", "bsc_score_overridden",
             // Quy chế chấm AI theo đơn vị: cấp dưới đề nghị đổi tài liệu cấp trên đã áp.
             "ai_criteria_change_requested", "ai_criteria_change_decided",
+            // Thư viện tài liệu: có người chia sẻ tài liệu cho bạn (hoặc cho đơn vị của bạn).
+            "document_shared", "document_promotion_requested", "document_promotion_decided", "document_review_due",
             // Điểm thưởng
             "reward_grant_submitted", "reward_grant_approved", "reward_grant_rejected",
             "reward_grant_cancelled", "reward_points_received", "reward_grant_revoked",

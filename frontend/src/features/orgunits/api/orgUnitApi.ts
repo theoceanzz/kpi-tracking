@@ -26,6 +26,12 @@ export const orgUnitApi = {
       .get<ApiResponse<OrgUnitResponse>>(`/organizations/${organizationId}/units/${unitId}`)
       .then((r) => r.data.data),
 
+  /** Chuỗi từ một đơn vị mình thuộc về lên tới gốc — xem được dù không có quyền xem cả cây. */
+  getChain: (organizationId: string, unitId: string) =>
+    axiosInstance
+      .get<ApiResponse<{ id: string; name: string; parentId: string | null }[]>>(`/organizations/${organizationId}/units/${unitId}/chain`)
+      .then((r) => r.data.data),
+
   getSubtree: (organizationId: string, unitId: string) =>
     axiosInstance
       .get<ApiResponse<OrgUnitTreeResponse[]>>(`/organizations/${organizationId}/units/${unitId}/subtree`)

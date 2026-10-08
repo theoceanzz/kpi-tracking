@@ -78,6 +78,8 @@ public class RewardNotificationEventListener {
     private static final String TYPE_GRANT = "REWARD_GRANT";
     private static final String TYPE_POINT = "REWARD_POINT";
     private static final String TYPE_GIFT = "REWARD_GIFT";
+    /** Đơn đổi quà chờ người có GIFT:FULFILL xử lý — tách khỏi TYPE_GIFT để link mở hàng đợi chứ không phải quà của tôi. */
+    private static final String TYPE_GIFT_REQUEST = "REWARD_GIFT_REQUEST";
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
@@ -399,7 +401,7 @@ public class RewardNotificationEventListener {
         for (User handler : routing.nearestWithPermission(unit, "GIFT:FULFILL", notified)) {
             if (notified.add(handler.getId())) {
                 dispatcher.dispatch(r.getOrganization().getId(), eventCode, handler, unit,
-                        title, message, TYPE_GIFT, r.getId());
+                        title, message, TYPE_GIFT_REQUEST, r.getId());
             }
         }
     }

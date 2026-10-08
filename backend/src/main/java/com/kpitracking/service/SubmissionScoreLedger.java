@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Sổ điểm từng chỉ tiêu theo TỪNG người chấm (V32). {@link KpiSubmissionService} vẫn ghi điểm của người chấm cuối vào
+ * Sổ điểm từng chỉ tiêu theo TỪNG người chấm (V37). {@link KpiSubmissionService} vẫn ghi điểm của người chấm cuối vào
  * {@code kpi_submissions} như cũ; sổ này giữ lại điểm của mọi cấp để màn chấm hiện "Quản lý chấm" và "Sếp chấm" cạnh
  * nhau thay vì cấp sau đè mất cấp trước.
  */

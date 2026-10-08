@@ -1,19 +1,20 @@
-import { useEffect, useMemo } from 'react'
-import { CalendarRange, CalendarDays } from 'lucide-react'
-import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { History, ChevronUp } from 'lucide-react'
+import {
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
-import ScopeSelectItems from '@/components/common/ScopeSelectItems'
-import { pickCurrentOrNearest } from '@/components/common/dateScope'
-import type { ConductScope, ConductTarget } from '../api/conductApi'
-import { ChoiceChip } from '@/components/ui/choice-chip'
+import { isPastScope, pickCurrentOrNearest } from '@/components/common/dateScope'
+import type { ConductTarget } from '../api/conductApi'
 import { useTranslation } from 'react-i18next'
 
 /**
- * Chọn chấm hạnh kiểm theo ĐỢT hay theo KỲ, rồi chọn đúng đợt/kỳ đó.
+ * Chọn đợt hoặc kỳ để chấm hạnh kiểm — MỘT ô duy nhất, cùng kiểu với bộ lọc kỳ / đợt ở BSC và OKR:
+ * mỗi kỳ là một nhóm gồm "Cả kỳ …" (chấm theo kỳ) và các đợt con (chấm theo đợt).
  *
- * Hai phạm vi dùng chung một chỗ chọn thay vì hai bộ lọc rời: người dùng chỉ chấm một
- * trong hai tại một thời điểm, tách ra chỉ tạo ra tổ hợp vô nghĩa (chọn cả đợt lẫn kỳ).
+ * Trước đây là hai nút "Theo đợt / Theo kỳ" rồi mới tới ô chọn — hai bước cho một lựa chọn, và
+ * người dùng phải biết trước mình chấm theo đợt hay theo kỳ mới tìm được đúng mục.
  */
 export default function ConductTargetPicker({
   organizationId,
@@ -29,72 +30,82 @@ export default function ConductTargetPicker({
     organizationId, size: 100, sortBy: 'startDate', direction: 'desc',
   })
   const { data: periodsData } = useKpiPeriods({
-    organizationId, size: 100, sortBy: 'startDate', direction: 'desc',
+    organizationId, size: 200, sortBy: 'startDate', direction: 'desc',
   })
   // Memo hoá vì effect chọn sẵn mục mới nhất phụ thuộc vào hai mảng này — không memo thì
   // mảng đổi tham chiếu mỗi lần render và effect chạy lại vô ích sau mỗi phím gõ ở trang cha.
   const cycles = useMemo(() => cyclesData?.content ?? [], [cyclesData])
   const periods = useMemo(() => periodsData?.content ?? [], [periodsData])
 
-  // Đợt/kỳ chọn sẵn là cái đang chạy, ở kẽ giữa hai đợt thì là cái vừa kết thúc — cái mới
-  // nhất theo ngày bắt đầu có thể là một đợt tương lai còn xa, chấm hạnh kiểm ở đó là vô nghĩa.
+  // Mặc định chấm theo ĐỢT đang chạy (ở kẽ giữa hai đợt thì đợt vừa kết thúc) — việc thường gặp nhất.
   const defaultPeriod = useMemo(() => pickCurrentOrNearest(periods), [periods])
-  const defaultCycle = useMemo(() => pickCurrentOrNearest(cycles), [cycles])
-
-  // Vào trang là có sẵn đợt/kỳ, khỏi bắt người dùng chọn thêm một bước mới thấy bảng.
   useEffect(() => {
-    if (value.scope === 'PERIOD' && !value.periodId && defaultPeriod) {
+    if (!value.periodId && !value.cycleId && defaultPeriod) {
       onChange({ scope: 'PERIOD', periodId: defaultPeriod.id, cycleId: null })
     }
-    if (value.scope === 'CYCLE' && !value.cycleId && defaultCycle) {
-      onChange({ scope: 'CYCLE', cycleId: defaultCycle.id, periodId: null })
-    }
-  }, [value, defaultPeriod, defaultCycle, onChange])
+  }, [value, defaultPeriod, onChange])
 
-  const setScope = (scope: ConductScope) => {
-    // Đổi phạm vi thì chọn sẵn mục hiện tại — người dùng gần như luôn chấm đợt/kỳ đang chạy.
-    if (scope === value.scope) return
-    onChange(scope === 'PERIOD'
-      ? { scope, periodId: defaultPeriod?.id ?? null, cycleId: null }
-      : { scope, cycleId: defaultCycle?.id ?? null, periodId: null })
+  // Kỳ đã qua thu gọn sau một nút — tồn thêm mỗi năm mà gần như không ai chấm lại.
+  const [showPast, setShowPast] = useState(false)
+  const selectedCycleId = value.scope === 'CYCLE'
+    ? value.cycleId
+    : periods.find(p => p.id === value.periodId)?.cycleId ?? null
+  const groups = useMemo(() => cycles.map(c => ({
+    cycle: c,
+    periods: periods.filter(p => p.cycleId === c.id),
+    past: isPastScope(c),
+  })), [cycles, periods])
+  const visibleGroups = groups.filter(g => showPast || !g.past || g.cycle.id === selectedCycleId)
+  const hiddenPast = groups.length - visibleGroups.length
+  const orphanPeriods = periods.filter(p => !p.cycleId)
+
+  const selectValue = value.scope === 'CYCLE'
+    ? (value.cycleId ? `cycle:${value.cycleId}` : undefined)
+    : (value.periodId ? `period:${value.periodId}` : undefined)
+
+  const select = (v: string) => {
+    const [kind, id] = v.split(':') as ['cycle' | 'period', string]
+    onChange(kind === 'cycle'
+      ? { scope: 'CYCLE', cycleId: id, periodId: null }
+      : { scope: 'PERIOD', periodId: id, cycleId: null })
   }
 
-  const tab = (scope: ConductScope, label: string, Icon: typeof CalendarDays) => (
-    <ChoiceChip selected={value.scope === scope} variant="solid" onClick={() => setScope(scope)}>
-      <Icon /> {label}
-    </ChoiceChip>
-  )
+  const toggle = (e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); setShowPast(v => !v) }
+  const toggleClass =
+    'text-eyebrow mt-1 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-control px-2 py-1.5 hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]'
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div className="flex items-center gap-2">
-        {tab('PERIOD', tr('ConductTargetPicker.byPeriod'), CalendarDays)}
-        {tab('CYCLE', tr('ConductTargetPicker.byCycle'), CalendarRange)}
-      </div>
-
-      {value.scope === 'PERIOD' ? (
-        <Select value={value.periodId ?? ''} onValueChange={v => onChange({ scope: 'PERIOD', periodId: v, cycleId: null })}>
-          <SelectTrigger className="w-auto min-w-[280px] h-10">
-            <SelectValue placeholder={tr('ConductTargetPicker.chooseEvaluationPeriod')} />
-          </SelectTrigger>
-          <SelectContent className="z-[1100]">
-            <ScopeSelectItems
-              items={periods}
-              selectedId={value.periodId ?? undefined}
-              renderLabel={p => `${p.name}${p.cycleName ? ` — ${p.cycleName}` : ''}`}
-            />
-          </SelectContent>
-        </Select>
-      ) : (
-        <Select value={value.cycleId ?? ''} onValueChange={v => onChange({ scope: 'CYCLE', cycleId: v, periodId: null })}>
-          <SelectTrigger className="w-auto min-w-[280px] h-10">
-            <SelectValue placeholder={tr('ConductTargetPicker.chooseEvaluationCycle')} />
-          </SelectTrigger>
-          <SelectContent className="z-[1100]">
-            <ScopeSelectItems items={cycles} selectedId={value.cycleId ?? undefined} noun={tr('ConductTargetPicker.cycle')} />
-          </SelectContent>
-        </Select>
-      )}
-    </div>
+    <Select value={selectValue} onValueChange={select}>
+      <SelectTrigger className="w-full sm:w-auto sm:min-w-72" aria-label={tr('ConductTargetPicker.chooseCyclePeriod')}>
+        <SelectValue placeholder={tr('ConductTargetPicker.chooseCyclePeriod')} />
+      </SelectTrigger>
+      <SelectContent>
+        {visibleGroups.map(({ cycle, periods: ps }) => (
+          <SelectGroup key={cycle.id}>
+            <SelectLabel>{cycle.name}</SelectLabel>
+            <SelectItem value={`cycle:${cycle.id}`}>{tr('ConductTargetPicker.wholeCycle', { name: cycle.name })}</SelectItem>
+            {ps.map(p => (
+              <SelectItem key={p.id} value={`period:${p.id}`}><span className="pl-3">{p.name}</span></SelectItem>
+            ))}
+          </SelectGroup>
+        ))}
+        {orphanPeriods.length > 0 && (
+          <SelectGroup>
+            <SelectLabel>{tr('ConductTargetPicker.periodsWithoutCycle')}</SelectLabel>
+            {orphanPeriods.map(p => <SelectItem key={p.id} value={`period:${p.id}`}>{p.name}</SelectItem>)}
+          </SelectGroup>
+        )}
+        {hiddenPast > 0 && (
+          <button type="button" onClick={toggle} className={toggleClass}>
+            <History size={13} /> {tr('ConductTargetPicker.showPastCycles', { count: hiddenPast })}
+          </button>
+        )}
+        {showPast && groups.some(g => g.past) && (
+          <button type="button" onClick={toggle} className={toggleClass}>
+            <ChevronUp size={13} /> {tr('ConductTargetPicker.hidePastCycles')}
+          </button>
+        )}
+      </SelectContent>
+    </Select>
   )
 }

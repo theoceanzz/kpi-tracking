@@ -4,7 +4,8 @@ import { createPortal } from 'react-dom'
 import { Bot, Send, X, Loader2, Minimize2, Maximize2, Expand, SquarePen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMyAiQuota } from '@/features/organization/hooks/useAiQuota'
-import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type PendingAction, type AiChatResponse, type ChatChart, type AskUserEvent } from '../api/aiApi'
+import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type PendingAction, type AiChatResponse, type ChatChart, type AskUserEvent, type DocumentSource } from '../api/aiApi'
+import SourceChips from '@/features/documents/components/SourceChips'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import { useAiAssistantStore } from '@/store/aiAssistantStore'
 import { useAiAvailable } from '../hooks/useAiAvailable'
@@ -55,6 +56,8 @@ interface Message {
    * gắn với form nào, nên đóng form không làm lời mời mất nghĩa.
    */
   pendingAction?: PendingAction
+  /** Tài liệu của tổ chức K.AI đã đọc để trả lời — chip nguồn. Vắng ở tin nhắn tải từ lịch sử. */
+  sources?: DocumentSource[]
   /** Biểu đồ minh hoạ cho câu trả lời này (trợ lý chọn loại, client dựng). */
   charts?: ChatChart[]
   /** Trợ lý hỏi lại giữa lượt và đang chờ: thẻ chọn, trả lời xong lượt chạy tiếp. */
@@ -304,6 +307,7 @@ export default function AiAssistantWidget() {
           followups: response.followups,
           evidenceRequest: response.evidenceRequest,
           pendingAction: response.pendingAction,
+          sources: response.sources,
           charts: response.charts?.length ? response.charts : undefined,
 
         },
@@ -570,6 +574,11 @@ export default function AiAssistantWidget() {
                 {msg.role === 'assistant' && msg.charts?.map(c => (
                   <ChatChartCard key={c.id} chart={c} compact />
                 ))}
+
+                {/* Tài liệu đã đọc để trả lời. Bấm mở tài liệu thì thu nhỏ widget để không che drawer. */}
+                {msg.role === 'assistant' && msg.sources && !msg.typing && (
+                  <SourceChips sources={msg.sources} onNavigate={() => setIsMinimized(true)} />
+                )}
 
                 {/* Đề xuất điền form đang mở — người dùng xem trước rồi mới chấp nhận */}
                 {msg.role === 'assistant' && msg.formPatch && (

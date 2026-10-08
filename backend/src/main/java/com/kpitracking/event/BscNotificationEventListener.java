@@ -142,21 +142,6 @@ public class BscNotificationEventListener {
         notifyUnitOwners(s, event.actorId(), "bsc_scorecard_activated", title, message);
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Async
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void handleLockChanged(BscEvents.ScorecardLockChanged event) {
-        BscScorecard s = find(event.scorecardId());
-        if (s == null) return;
-
-        String state = event.locked() ? "locked" : "unlocked";
-        LocalizedText title = LocalizedText.of("notif.bsc." + state + ".title");
-        LocalizedText message = LocalizedText.of("notif.bsc." + state + ".message",
-                s.getName(), scopeOf(s), nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.superior")));
-
-        notifyUnitOwners(s, event.actorId(), "bsc_scorecard_locked", title, message);
-    }
-
     // ============================================================
     // Phân rã chỉ tiêu
     // ============================================================

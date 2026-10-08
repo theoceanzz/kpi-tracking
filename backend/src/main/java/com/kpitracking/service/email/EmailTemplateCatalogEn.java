@@ -144,7 +144,6 @@ final class EmailTemplateCatalogEn {
         notification("bsc_scorecard_approved", "BSC scorecard approved", "When the level above approves the unit's BSC scorecard.");
         notification("bsc_scorecard_rejected", "BSC scorecard returned", "When the level above returns the BSC scorecard to the unit for changes, with a reason.");
         notification("bsc_scorecard_activated", "BSC scorecard applied", "When a BSC scorecard starts being used for scoring.");
-        notification("bsc_scorecard_locked", "BSC scorecard locked/unlocked", "When a BSC scorecard is locked or unlocked for editing.");
         notification("bsc_cascaded", "BSC KPI assigned", "When the level above cascades a BSC KPI down to a unit.");
         notification("bsc_unit_result_finalized", "Period BSC results finalized", "When a unit's BSC results for a period are finalized.");
         notification("bsc_score_overridden", "BSC score overridden", "When an individual's BSC score is adjusted manually or the override is removed.");
@@ -153,6 +152,15 @@ final class EmailTemplateCatalogEn {
                 "When a lower unit requests changing the AI scoring rules you applied (for the applier / superior).");
         notification("ai_criteria_change_decided", "AI scoring rules request decided",
                 "When your request to change the AI scoring rules is approved or rejected.");
+
+        notification("document_shared", "Document shared with you",
+                "When someone shares a document with you or with your unit.");
+        notification("document_promotion_requested", "Document proposal needs review",
+                "When someone proposes moving a document to a unit or the company whose documents you manage.");
+        notification("document_promotion_decided", "Document proposal decided",
+                "When your proposal to move a document up is approved or declined.");
+        notification("document_review_due", "Document review / expiry reminder",
+                "When a document you manage reaches its review date or is about to expire.");
 
         notification("reward_grant_submitted", "Reward proposal needs approval", "When a reward proposal above the quota is submitted (for the nearest approver).");
         notification("reward_grant_approved", "Reward proposal approved", "When the level above approves the grantor's reward proposal.");

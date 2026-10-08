@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import StatusBadge from '@/components/common/StatusBadge'
 import UserAvatar from '@/components/common/UserAvatar'
 import type { User } from '@/types/user'
-import { Pencil, Trash2, MoreVertical, Shield, User as UserIcon, Mail, Phone, Building2 } from 'lucide-react'
+import { Pencil, Trash2, MoreVertical, Shield, User as UserIcon, Mail, Phone, Building2, FileX2 } from 'lucide-react'
 import { getHighestRole, cn, formatPhoneNumber } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 
@@ -14,6 +14,8 @@ interface UserTableProps {
   rootUnitId?: string
   onRowClick?: (user: User) => void
   onDelete?: (user: User) => void
+  /** Xoá sớm kho tài liệu cá nhân — chỉ truyền khi người xem có quyền; chỉ hiện với người đang bị vô hiệu hoá. */
+  onPurgeDocuments?: (user: User) => void
   canUpdate?: boolean
   canDelete?: boolean
 }
@@ -29,6 +31,11 @@ const roleColorPalette = [
   'bg-[var(--color-muted)] text-[var(--color-foreground)] border-[var(--color-border)]',
 ]
 
+/** Tài khoản tạm dừng / tạm khoá — mới được xoá sớm tài liệu cá nhân (backend kiểm lại). */
+function isDeactivated(u: User) {
+  return u.status === 'INACTIVE' || u.status === 'SUSPENDED'
+}
+
 function getRoleStyle(roleName: string) {
   // Simple hash to consistently assign color
   let hash = 0
@@ -43,7 +50,7 @@ function getRoleStyle(roleName: string) {
 }
 
 
-export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, onDelete, canUpdate, canDelete }: UserTableProps) {
+export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, onDelete, onPurgeDocuments, canUpdate, canDelete }: UserTableProps) {
   const { t } = useTranslation('users')
   const [openActionId, setOpenActionId] = useState<string | null>(null)
   
@@ -209,6 +216,14 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                                 </button>
                               )}
 
+                              {onPurgeDocuments && isDeactivated(u) && (
+                                <button type="button" className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)] whitespace-nowrap group" onClick={() => { onPurgeDocuments(u); setOpenActionId(null) }}>
+                                  <div className="w-8 h-8 rounded-control bg-[var(--color-warning-bg)] flex items-center justify-center shrink-0 transition-transform">
+                                    <FileX2 aria-hidden="true" className="text-[var(--color-warning)]" />
+                                  </div>
+                                  {t('UserTable.deletePersonalDocuments')}
+                                </button>
+                              )}
                               {canUpdate && canDelete && <div className="h-px bg-[var(--color-muted)] mx-2 my-1" />}
 
                               {canDelete && (
@@ -281,6 +296,14 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                               <Pencil aria-hidden="true" className="text-[var(--color-info)]" />
                             </div>
                             {t('UserTable.editProfile')}
+                          </button>
+                        )}
+                        {onPurgeDocuments && isDeactivated(u) && (
+                          <button type="button" className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)] whitespace-nowrap group" onClick={() => { onPurgeDocuments(u); setOpenActionId(null) }}>
+                            <div className="w-8 h-8 rounded-control bg-[var(--color-warning-bg)] flex items-center justify-center shrink-0 transition-transform">
+                              <FileX2 aria-hidden="true" className="text-[var(--color-warning)]" />
+                            </div>
+                            {t('UserTable.deletePersonalDocuments')}
                           </button>
                         )}
                         {canUpdate && canDelete && <div className="h-px bg-[var(--color-muted)] mx-2 my-1" />}

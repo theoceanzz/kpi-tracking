@@ -13,6 +13,7 @@ import { BscLinkedWeightEnforce, type CascadePolicyResponse } from '../types'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useCreatePeriodCycleOption } from '@/components/common/CreatePeriodCycleOption'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
@@ -67,6 +68,8 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
   const { createPolicy, updatePolicy, deletePolicy } = useCascadePolicyMutations()
 
   const cycles = useMemo(() => cyclesData?.content || [], [cyclesData])
+  const createCycle = useCreatePeriodCycleOption('cycle')
+  const createPeriod = useCreatePeriodCycleOption('period')
   const allPeriods = useMemo(() => periodsData?.content || [], [periodsData])
 
   /** Đợt gom theo kỳ mẹ — danh sách đợt phẳng thì không nhìn ra đợt nào thuộc kỳ nào. */
@@ -261,7 +264,7 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
             {scope === 'CYCLE' && (
               <Field label={t('CascadePolicyModal.applicableCycles')} hint={t('CascadePolicyModal.everyPeriodInThisCycleUses')}>
                 <Select value={form.kpiCycleId || undefined}
-                  onValueChange={v => patch({ kpiCycleId: v, periods: [] })}>
+                  onValueChange={createCycle.wrap(v => patch({ kpiCycleId: v, periods: [] }))}>
                   <SelectTrigger className="w-full"><SelectValue placeholder={t('CascadePolicyModal.chooseEvaluationCycle')} /></SelectTrigger>
                   <SelectContent className="z-[1100]">
                     {cycles.map(c => (
@@ -269,6 +272,7 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
                         {c.name}{takenCycleIds.has(c.id) ? t('CascadePolicyModal.alreadyHasAPolicy') : ''}
                       </SelectItem>
                     ))}
+                    {createCycle.item}
                   </SelectContent>
                 </Select>
               </Field>
@@ -320,6 +324,7 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
                         </div>
                       </div>
                     ))}
+                    {createPeriod.button}
                   </PopoverContent>
                 </Popover>
               </Field>

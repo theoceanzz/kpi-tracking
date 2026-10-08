@@ -31,6 +31,9 @@ public interface BscPerspectiveRepository extends JpaRepository<BscPerspective, 
 
     long countByOrganizationId(UUID organizationId);
 
+    /** Hạng mục hệ thống của phân rã cả bộ — mỗi thẻ nguồn đúng một. */
+    Optional<BscPerspective> findFirstBySourceScorecardId(UUID sourceScorecardId);
+
     /** Chỉ lấy cột mã — dùng để suy ra số thứ tự kế tiếp khi sinh mã tự động. */
     @org.springframework.data.jpa.repository.Query(
             "SELECT p.code FROM BscPerspective p WHERE p.organization.id = :orgId AND p.code IS NOT NULL")

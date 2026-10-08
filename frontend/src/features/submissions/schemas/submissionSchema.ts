@@ -6,7 +6,7 @@ export const submissionSchema = perLanguage(() => (z.object({
   kpiCriteriaId: z.string().min(1, i18n.t('submissions:submissionSchema.pleaseChooseAKpi')),
   // Optional so qualitative KPIs (no numeric value) can be submitted; the backend
   // still requires a value for quantitative KPIs.
-  actualValue: z.number().min(0, i18n.t('submissions:submissionSchema.theValueCannotBeNegative')).optional(),
+  actualValue: z.number({ message: i18n.t('submissions:submissionSchema.theValueMustBeANumber') }).min(0, i18n.t('submissions:submissionSchema.theValueCannotBeNegative')).optional(),
   qualitativeLevelId: z.string().optional(),
   note: z.string().optional(),
   // periodStart/periodEnd cố ý KHÔNG có ở đây: form chưa bao giờ vẽ ô nhập cho chúng, nên chúng

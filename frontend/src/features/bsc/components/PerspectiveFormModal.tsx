@@ -26,6 +26,7 @@ import CodeField from '@/components/common/CodeField'
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { toastFirstError } from '@/lib/formErrors'
 
 interface PerspectiveFormModalProps {
   isOpen: boolean
@@ -41,9 +42,12 @@ interface PerspectiveFormModalProps {
   defaultWeight?: number
   /** Tổng trọng số các hạng mục đang bật KHÔNG tính hạng mục này — để gợi ý phần còn thiếu. */
   otherWeightTotal?: number
-  /** Gọi sau khi lưu để bộ tiêu chí áp trọng số vừa nhập cho hạng mục. */
-  onWeightSubmit?: (perspectiveId: string, weight: number) => void
+  /** Gọi sau khi lưu để bộ tiêu chí áp trọng số (và mục tiêu vừa sửa) cho hạng mục. */
+  onWeightSubmit?: (perspectiveId: string, weight: number, saved?: PerspectiveTargetPatch) => void
 }
+
+/** Mục tiêu vừa lưu của hạng mục — bộ tiêu chí dùng để cập nhật dòng đang đi theo mặc định. */
+export type PerspectiveTargetPatch = { targetValue: number | null; minimumValue: number | null; unit: string | null }
 
 const PRESET_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#6366f1', '#0ea5e9', '#ec4899']
 
@@ -78,7 +82,6 @@ export default function PerspectiveFormModal({
       targetValue: undefined,
       minimumValue: undefined,
       unit: '',
-      displayOrder: 0,
       status: BscPerspectiveStatus.ACTIVE,
       fixedPerspective: undefined,
       weightPercentage: 0,
@@ -111,8 +114,8 @@ export default function PerspectiveFormModal({
   // đẩy lên z-[60] (nằm trên modal bộ tiêu chí) thì danh sách chọn rơi xuống DƯỚI lớp phủ —
   // nhìn như dropdown bấm không mở. Nâng theo cùng nhịp với lớp phủ.
 
-  // Thứ tự hiển thị phải không trùng TRONG CÙNG lĩnh vực, nên gợi ý sẵn số kế tiếp.
-  // Để mặc định 0 thì hạng mục thứ hai của mỗi lĩnh vực luôn báo lỗi trùng.
+  // Thứ tự không còn là ô nhập: người dùng kéo thả dòng trong bộ tiêu chí. Ở đây chỉ cần cấp
+  // số kế tiếp trong lĩnh vực để backend không báo trùng khi tạo / chuyển lĩnh vực.
   const nextOrderIn = (fixed?: BscFixedPerspective) => {
     const orders = (allPerspectives || []).filter(p => p.fixedPerspective === fixed).map(p => p.displayOrder ?? 0)
     return orders.length === 0 ? 0 : Math.max(...orders) + 1
@@ -123,13 +126,14 @@ export default function PerspectiveFormModal({
       reset({
         code: perspective.code,
         name: perspective.name,
-        description: perspective.description,
+        description: perspective.description ?? '',
         targetValue: perspective.targetValue ?? undefined,
         minimumValue: perspective.minimumValue ?? undefined,
         unit: perspective.unit ?? '',
         color: perspective.color || PRESET_COLORS[0],
-        icon: perspective.icon,
-        displayOrder: perspective.displayOrder,
+        // Server trả null cho icon chưa đặt; schema chỉ nhận string | undefined, để null là
+        // validate trượt ở một ô không hiển thị — bấm lưu không có phản hồi gì.
+        icon: perspective.icon ?? undefined,
         status: perspective.status,
         fixedPerspective: perspective.fixedPerspective,
         weightPercentage: defaultWeight,
@@ -143,23 +147,29 @@ export default function PerspectiveFormModal({
         minimumValue: undefined,
         unit: '',
         color: PRESET_COLORS[0],
-        displayOrder: nextOrderIn(defaultFixedPerspective),
         status: BscPerspectiveStatus.ACTIVE,
         fixedPerspective: defaultFixedPerspective,
         weightPercentage: defaultWeight,
       })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perspective, reset, isOpen, defaultFixedPerspective, defaultWeight])
 
   const onSubmit = ({ weightPercentage, ...data }: PerspectiveFormValues) => {
     const weight = Number.isFinite(Number(weightPercentage)) ? Number(weightPercentage) : 0
     // Ô mã bị khoá ⇒ không gửi mã lên: backend giữ mã cũ khi sửa, tự cấp mã khi tạo.
     if (codeRule.locked) data.code = undefined
+    // Giữ nguyên thứ tự khi sửa; chỉ cấp số mới khi tạo hoặc khi đổi sang lĩnh vực khác.
+    data.displayOrder = perspective && perspective.fixedPerspective === data.fixedPerspective
+      ? undefined
+      : nextOrderIn(data.fixedPerspective)
     if (perspective) {
       updatePerspective.mutate({ perspectiveId: perspective.id, data }, {
         onSuccess: () => {
-          if (showWeight) onWeightSubmit?.(perspective.id, weight)
+          if (showWeight) onWeightSubmit?.(perspective.id, weight, {
+            targetValue: numOrNull(data.targetValue),
+            minimumValue: numOrNull(data.minimumValue),
+            unit: data.unit?.trim() || null,
+          })
           onClose()
         },
       })
@@ -180,7 +190,8 @@ export default function PerspectiveFormModal({
     <Dialog
       open={isOpen}
       onClose={onClose}
-      size="md"
+      // lg: ba ô mục tiêu / tối thiểu / đơn vị mới đủ chỗ cho nhãn một dòng.
+      size="lg"
       dismissible={!isPending}
       title={perspective ? t('PerspectiveFormModal.editItem') : t('PerspectiveFormModal.createANewItem')}
       description={t('PerspectiveFormModal.bscItem')}
@@ -197,7 +208,7 @@ export default function PerspectiveFormModal({
       }
     >
       <DraftNotice draft={draft} className="mb-4" />
-      <form id="perspective-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form id="perspective-form" onSubmit={handleSubmit(onSubmit, toastFirstError)} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="sm:col-span-2 space-y-1.5">
             <label className="text-label">{t('PerspectiveFormModal.itemName')} <span className="text-[var(--color-error)]">*</span></label>
@@ -227,11 +238,7 @@ export default function PerspectiveFormModal({
               <Select
                 key={`${field.value ?? 'NONE'}-${(fixedPerspectives || []).length}`}
                 value={field.value ?? ''}
-                onValueChange={v => {
-                  field.onChange(v)
-                  // Đổi lĩnh vực là đổi luôn dãy thứ tự phải tránh trùng.
-                  if (!perspective) setValue('displayOrder', nextOrderIn(v as BscFixedPerspective), { shouldValidate: true })
-                }}
+                onValueChange={field.onChange}
               >
                 <SelectTrigger className="w-full h-10 rounded-card bg-[var(--color-muted)] border-[var(--color-border)] text-sm font-medium outline-none">
                   <SelectValue placeholder={t('PerspectiveFormModal.choose1OfThe4Fixed')} />
@@ -319,37 +326,8 @@ export default function PerspectiveFormModal({
           )}
         </div>
 
-        <div className={cn('grid gap-4', showWeight ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2')}>
-          <div className="space-y-1.5">
-            <label className="text-label">{t('PerspectiveFormModal.displayOrder')} <span className="text-[var(--color-error)]">*</span></label>
-            <LocaleNumberInput
-              type="number"
-              min={0}
-              step={1}
-              {...register('displayOrder', { valueAsNumber: true })}
-              className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
-            />
-            {errors.displayOrder && <p className="text-caption text-[var(--color-error)]">{errors.displayOrder.message}</p>}
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-label">{t('PerspectiveFormModal.status')}</label>
-            <Controller
-              name="status"
-              control={control}
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="w-full h-10 rounded-card bg-[var(--color-muted)] border-[var(--color-border)] text-sm font-medium outline-none">
-                    <SelectValue placeholder={t('PerspectiveFormModal.status')} />
-                  </SelectTrigger>
-                  <SelectContent className={'z-[1100]'}>
-                    <SelectItem value={BscPerspectiveStatus.ACTIVE} className="text-sm font-medium text-[var(--color-success)]">{t('PerspectiveFormModal.inUse')}</SelectItem>
-                    <SelectItem value={BscPerspectiveStatus.INACTIVE} className="text-sm font-medium text-[var(--color-muted-foreground)]">{t('PerspectiveFormModal.hidden')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
-          {showWeight && (
+        {/* Không còn ô trạng thái: tạo mới luôn "Đang dùng", sửa thì giữ nguyên trạng thái cũ. */}
+        {showWeight && (
             <div className="space-y-1.5">
               <label className="text-label ml-1 flex items-center gap-1">
                 <Scale size={11} /> {t('PerspectiveFormModal.weight')}
@@ -365,8 +343,7 @@ export default function PerspectiveFormModal({
               />
               {errors.weightPercentage && <p className="text-caption text-[var(--color-error)]">{errors.weightPercentage.message}</p>}
             </div>
-          )}
-        </div>
+        )}
 
         {showWeight && (
           <p className="text-caption ml-1">
@@ -386,13 +363,13 @@ export default function PerspectiveFormModal({
             type="hidden"
             {...register('color')}
           />
-          <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
             {PRESET_COLORS.map(color => (
               <button
                 key={color}
                 type="button"
                 onClick={() => setValue('color', color, { shouldValidate: true })}
-                className="w-8 h-8 rounded-control transition-all"
+                className="w-8 h-8 shrink-0 rounded-control transition-all"
                 style={{
                   backgroundColor: color,
                   outline: selectedColor === color ? `2px solid ${color}` : 'none',
@@ -402,7 +379,7 @@ export default function PerspectiveFormModal({
             ))}
             {/* Chọn màu tùy ý */}
             <label
-              className="w-8 h-8 rounded-control cursor-pointer relative overflow-hidden border border-dashed border-[var(--color-border-strong)] flex items-center justify-center"
+              className="w-8 h-8 shrink-0 rounded-control cursor-pointer relative overflow-hidden border border-dashed border-[var(--color-border-strong)] flex items-center justify-center"
               style={{
                 background: !PRESET_COLORS.includes(selectedColor || '') && /^#([0-9A-Fa-f]{6})$/.test(selectedColor || '')
                   ? selectedColor
@@ -425,7 +402,7 @@ export default function PerspectiveFormModal({
               value={selectedColor || ''}
               onChange={e => setValue('color', e.target.value, { shouldValidate: true })}
               placeholder="#RRGGBB"
-              className="w-28 px-3 py-1.5 rounded-control bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-mono outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
+              className="w-28 shrink-0 px-3 py-1.5 rounded-control bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-mono outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
             />
           </div>
           {errors.color && <p className="text-caption text-[var(--color-error)]">{errors.color.message}</p>}

@@ -3,6 +3,7 @@ import type { Attachment } from '@/types/submission'
 import { FileIcon, Download, Eye, ExternalLink, FileVideo, FileAudio } from 'lucide-react'
 import MediaPreviewModal from '@/components/common/MediaPreviewModal'
 import { downloadFile } from '@/lib/utils'
+import { canPreview as canPreviewFile } from '@/lib/filePreview'
 import { useTranslation } from 'react-i18next'
 
 interface AttachmentListProps { attachments: Attachment[] }
@@ -27,8 +28,7 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
           const isPdf = a.contentType === 'application/pdf' || a.fileName.toLowerCase().endsWith('.pdf')
           const isVideo = a.contentType?.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(a.fileName)
           const isAudio = a.contentType?.startsWith('audio/') || /\.(mp3|wav|m4a|aac)$/i.test(a.fileName)
-          const isOffice = /\.(docx?|xlsx?|pptx?)$/i.test(a.fileName)
-          const canPreview = isImage || isPdf || isOffice || isVideo || isAudio
+          const canPreview = canPreviewFile(a.fileName, a.contentType)
 
           return (
             <div 

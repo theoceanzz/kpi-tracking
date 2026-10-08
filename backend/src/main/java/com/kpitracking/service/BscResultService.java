@@ -46,6 +46,7 @@ public class BscResultService {
     private final BscScoringService bscScoringService;
     private final BscCascadeService bscCascadeService;
     private final ApplicationEventPublisher eventPublisher;
+    private final BscSourceScores sourceScores;
 
     // ============================================================
     // Waterfall
@@ -165,9 +166,17 @@ public class BscResultService {
     @Transactional(readOnly = true)
     public UnitResultResponse toResponse(BscUnitResult r) {
         List<UnitResultItemResponse> items = new ArrayList<>();
-        for (BscUnitResultItem item : unitResultItemRepository.findByUnitResultId(r.getId())) {
+        List<BscUnitResultItem> resultItems = unitResultItemRepository.findByUnitResultId(r.getId());
+        // Dòng "Kết quả cấp trên": nói được thẻ nguồn nào và nó đã chốt đợt này chưa (số tạm tính?).
+        var sources = sourceScores.load(resultItems.stream().map(BscUnitResultItem::getScorecardPerspective).toList(),
+                r.getKpiPeriod() != null ? r.getKpiPeriod().getId() : null);
+        for (BscUnitResultItem item : resultItems) {
             BscScorecardPerspective row = item.getScorecardPerspective();
+            var sourceCard = BscSourceScores.sourceOf(row);
+            var ss = sourceCard != null ? sources.get(sourceCard.getId()) : null;
             items.add(UnitResultItemResponse.builder()
+                    .sourceScorecardName(sourceCard != null ? sourceCard.getName() : null)
+                    .provisional(sourceCard != null ? (ss == null || !ss.finalized()) : null)
                     .id(item.getId())
                     .scorecardPerspectiveId(row.getId())
                     .name(row.getPerspective().getName())
@@ -201,6 +210,7 @@ public class BscResultService {
                 .status(r.getStatus())
                 .finalizedByName(r.getFinalizedBy() != null ? r.getFinalizedBy().getFullName() : null)
                 .finalizedAt(r.getFinalizedAt())
+                .provisionalSource(r.getProvisionalSource())
                 .items(items)
                 .build();
     }

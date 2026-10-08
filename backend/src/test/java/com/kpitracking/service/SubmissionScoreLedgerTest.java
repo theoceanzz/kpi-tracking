@@ -34,7 +34,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Sổ điểm theo người chấm (V32): mỗi cấp chấm giữ dòng riêng thay vì cấp sau đè cấp trước, và chỉ người được xem bài
+ * Sổ điểm theo người chấm (V37): mỗi cấp chấm giữ dòng riêng thay vì cấp sau đè cấp trước, và chỉ người được xem bài
  * mới đọc được điểm.
  */
 class SubmissionScoreLedgerTest {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { HeartHandshake } from 'lucide-react'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
+import FilterBar from '@/components/common/FilterBar'
 import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
 import { aiShortcuts } from '@/features/analytics/aiShortcuts'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
@@ -55,12 +56,17 @@ export default function MyConductPage() {
               ]
             : undefined
         }
-        actions={<AiShortcutButton prompt={aiShortcuts.myConduct()} title={t('MyConductPage.kAiReadsYourConductForm')} />}
       >
-        <div id="tour-my-conduct-target" className="flex flex-wrap items-center gap-3">
-          <ConductTargetPicker organizationId={orgId} value={target} onChange={setTarget} />
+        {/* Nút phụ ở hàng dưới, phải — cùng bố cục với BSC / OKR của tôi. */}
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <AiShortcutButton prompt={aiShortcuts.myConduct()} title={t('MyConductPage.kAiReadsYourConductForm')} />
         </div>
       </WorkspaceHeader>
+
+      {/* Chọn đợt / kỳ ở thanh lọc dưới tiêu đề như các trang "của tôi" khác — một ô duy nhất. */}
+      <FilterBar id="tour-my-conduct-target">
+        <ConductTargetPicker organizationId={orgId} value={target} onChange={setTarget} />
+      </FilterBar>
 
       {isLoading && <LoadingSkeleton rows={6} />}
 

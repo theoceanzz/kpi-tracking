@@ -93,6 +93,18 @@ public class OrgUnitController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    // Đè luật ORG:VIEW / ORG:VIEW_TREE của class: nhân viên thường không có hai quyền đó nhưng vẫn
+    // phải thấy cấp trên trực thuộc của mình (BSC / OKR của tôi). Service chỉ trả chuỗi của đơn vị
+    // mà chính người gọi đang thuộc về, nên không lộ đơn vị ngang hàng.
+    @GetMapping("/{unitId}/chain")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Chain from a unit the caller belongs to up to the root")
+    public ResponseEntity<ApiResponse<List<com.kpitracking.dto.response.orgunit.OrgUnitChainItem>>> getMyUnitChain(
+            @PathVariable UUID orgId,
+            @PathVariable UUID unitId) {
+        return ResponseEntity.ok(ApiResponse.success(orgUnitService.getMyUnitChain(orgId, unitId)));
+    }
+
     @GetMapping("/{unitId}/subtree")
     @Operation(summary = "Get subtree from a specific node")
     public ResponseEntity<ApiResponse<List<OrgUnitTreeResponse>>> getSubtree(

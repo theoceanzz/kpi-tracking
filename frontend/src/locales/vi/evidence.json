@@ -7,7 +7,9 @@
     "files2": "tệp",
     "openInANewTab": "Mở {{fileName}} ở tab mới",
     "openInANewTab2": "Mở ở tab mới",
-    "viewAndDownloadAttachments": "Xem và tải tệp đính kèm"
+    "viewAndDownloadAttachments": "Xem và tải tệp đính kèm",
+    "preview": "Xem trước {{fileName}}",
+    "preview2": "Xem"
   },
   "EvidenceAttachments": {
     "attachFiles": "Đính kèm tệp",
@@ -26,6 +28,7 @@
     "onlyMoreFilesCanBeAdded": "Chỉ thêm được {{room}} tệp nữa (tối đa {{MAX_ATTACHMENT_FILES}})",
     "open": "Mở {{fileName}}",
     "upToFilesPerScoring": "Tối đa {{MAX_ATTACHMENT_FILES}} tệp cho một lượt chấm",
-    "willBeRemovedFromThisScoring": "\"{{value}}\" sẽ bị xoá khỏi lượt chấm này. Không hoàn tác được."
+    "willBeRemovedFromThisScoring": "\"{{value}}\" sẽ bị xoá khỏi lượt chấm này. Không hoàn tác được.",
+    "preview": "Xem trước {{fileName}}"
   }
 }

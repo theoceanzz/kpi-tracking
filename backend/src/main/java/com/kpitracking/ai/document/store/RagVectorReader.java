@@ -63,6 +63,34 @@ public class RagVectorReader {
         });
     }
 
+    /**
+     * Vá metadata của MỌI đoạn một tài liệu tại chỗ — đổi tên, đổi hiệu lực mà không phải nạp lại (đọc tệp, tách
+     * đoạn, tính embedding). Giá trị {@code null} = gỡ khoá. KHÔNG dùng cho khoá quyền ({@code orgId, scope, unitId,
+     * ownerId}): đổi phạm vi vẫn phải xoá vector rồi nạp lại theo luồng có chốt.
+     *
+     * @return số đoạn đã vá
+     */
+    public int patchMetadata(UUID docId, Map<String, Object> patch) {
+        Map<String, Object> set = new java.util.LinkedHashMap<>();
+        StringBuilder expr = new StringBuilder("metadata");
+        for (Map.Entry<String, Object> e : patch.entrySet()) {
+            if (!SAFE_IDENTIFIER.matcher(e.getKey()).matches() || PROTECTED_KEYS.contains(e.getKey())) {
+                throw new IllegalArgumentException("Không vá được khoá metadata: " + e.getKey());
+            }
+            if (e.getValue() == null) expr.append(" - '").append(e.getKey()).append("'");
+            else set.put(e.getKey(), e.getValue());
+        }
+        try {
+            String sql = "UPDATE " + table + " SET metadata = (" + expr + ") || ?::jsonb WHERE metadata->>'docId' = ?";
+            return jdbc.update(sql, json.writeValueAsString(set), docId.toString());
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
+    /** Khoá quyền đọc — không bao giờ vá tại chỗ. */
+    private static final java.util.Set<String> PROTECTED_KEYS = java.util.Set.of("orgId", "scope", "unitId", "ownerId", "docId");
+
     private Map<String, Object> parse(String metadata) {
         if (metadata == null || metadata.isBlank()) return Map.of();
         try {

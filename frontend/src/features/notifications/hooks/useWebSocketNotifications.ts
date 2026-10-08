@@ -1,9 +1,15 @@
 import { useEffect, useRef } from 'react'
 import { Client } from '@stomp/stompjs'
 import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import type { Notification } from '@/types/notification'
 import type { CursorPageResponse } from '@/types/api'
+import { notificationApi } from '../api/notificationApi'
+import { notificationLink } from '../notificationLink'
+import { playNotificationSound, primeNotificationSound, showDesktopNotification } from '../notificationAlert'
 
 /**
  * Dữ liệu cần tải lại khi một thông báo loại tương ứng về tới.
@@ -43,6 +49,8 @@ const REFRESH_ON_NOTIFICATION: Record<string, string[]> = {
     'giftShop',
     'giftsManage',
   ],
+  // Đơn đổi quà mới chờ bộ phận xử lý quà.
+  REWARD_GIFT_REQUEST: ['redemptions', 'giftsManage'],
 
   // Ví tiền: nạp thành công, đơn hết hạn, quy đổi sang điểm. Quy đổi chạm CẢ ví điểm nên phải
   // có mặt ở đây — bỏ sót thì trang "Điểm của tôi" hiện số cũ ngay sau khi đổi xong.
@@ -58,8 +66,13 @@ const REFRESH_ON_NOTIFICATION: Record<string, string[]> = {
   WALLET_RECONCILE: ['sepayEvents', 'walletReconcile', 'cashWallet', 'cashTransactions'],
 }
 
+/** Popup giữ lâu hơn toast thường (4s): người dùng có thể đang đọc chỗ khác khi nó hiện lên. */
+const POPUP_DURATION_MS = 8000
+
 /**
- * Nhận thông báo thời gian thực và làm mới dữ liệu liên quan.
+ * Nhận thông báo thời gian thực: làm mới dữ liệu liên quan, hiện popup kèm tiếng "ting", và thông báo của hệ điều
+ * hành nếu đang ở tab khác. Bấm "Xem" ở popup (hoặc bấm thông báo hệ điều hành) mở đúng màn của thông báo
+ * (`notificationLink`) và đánh dấu đã đọc.
  *
  * <p>CHỈ được gọi ở MỘT chỗ trong cây component ({@code NotificationBell}, luôn có mặt trong
  * {@code AppLayout}). Gọi ở hai nơi sẽ mở hai kết nối STOMP, và mỗi thông báo về sẽ được thêm
@@ -69,6 +82,19 @@ export function useWebSocketNotifications() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const qc = useQueryClient()
   const clientRef = useRef<Client | null>(null)
+  const navigate = useNavigate()
+  const { t } = useTranslation('notifications')
+  // Kết nối chỉ mở lại khi đăng nhập/đăng xuất; navigate/t đổi theo trang và ngôn ngữ thì đọc qua ref.
+  const navigateRef = useRef(navigate)
+  const tRef = useRef(t)
+  useEffect(() => {
+    navigateRef.current = navigate
+    tRef.current = t
+  }, [navigate, t])
+
+  useEffect(() => {
+    primeNotificationSound()
+  }, [])
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -106,6 +132,22 @@ export function useWebSocketNotifications() {
           for (const key of REFRESH_ON_NOTIFICATION[notification.type] ?? []) {
             qc.invalidateQueries({ queryKey: [key] })
           }
+
+          const link = notificationLink(notification)
+          const open = () => {
+            notificationApi.markAsRead(notification.id)
+              .then(() => qc.invalidateQueries({ queryKey: ['notifications'] }))
+              .catch(() => {})
+            if (link) navigateRef.current(link)
+          }
+          toast(notification.title, {
+            id: `notification-${notification.id}`,
+            description: notification.message,
+            duration: POPUP_DURATION_MS,
+            action: link ? { label: tRef.current('NotificationPopup.view'), onClick: open } : undefined,
+          })
+          playNotificationSound()
+          showDesktopNotification({ id: notification.id, title: notification.title, body: notification.message, onClick: open })
         })
       },
       onStompError: (frame) => {

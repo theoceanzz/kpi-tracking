@@ -96,7 +96,7 @@ export interface ReviewSubmissionRequest {
 }
 
 /**
- * Điểm một chỉ tiêu do MỘT người chấm (sổ V32). Danh sách sắp theo lần chấm đầu: luật cấp bậc buộc cấp sau cao hơn
+ * Điểm một chỉ tiêu do MỘT người chấm (sổ V37). Danh sách sắp theo lần chấm đầu: luật cấp bậc buộc cấp sau cao hơn
  * cấp trước, nên người đầu là quản lý trực tiếp, người cuối là cấp trên cao nhất đã chấm.
  */
 export interface SubmissionEvaluatorScore {

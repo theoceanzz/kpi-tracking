@@ -87,6 +87,64 @@ public class DocumentIngestionPipeline {
         }
     }
 
+    /** Kết quả nạp một tài liệu của thư viện tài liệu. */
+    public record Indexed(int chunks, int images) {}
+
+    /**
+     * Nạp một tài liệu của THƯ VIỆN TÀI LIỆU (bảng {@code documents}, docs/DOCUMENTS_DESIGN.md §5.2) qua đúng các bước
+     * của đường nạp này: đọc theo định dạng → cắt mục theo loại → làm giàu → lập chỉ mục (thay vector cũ của tài liệu).
+     * Khác {@link #ingest}: không tạo/ghi {@code rag_documents} — bản ghi và trạng thái do {@code DocumentIndexer} giữ.
+     *
+     * @param base       metadata phạm vi chung cho mọi đoạn — PHẢI có {@code orgId}, {@code scope} (+ {@code unitId}/
+     *                   {@code ownerId}) hợp lệ, không thì {@link RagMetadata#requireScope} từ chối
+     * @param withImages tải ảnh lên kho ảnh (CÔNG KHAI) — chỉ bật cho tài liệu công ty
+     * @throws DocumentParser.Unparseable tệp không có chữ để nạp
+     */
+    public Indexed indexLibraryDocument(UUID docId, FileRef file, DocumentKind kind, String title,
+                                        Map<String, Object> base, boolean withImages) throws Exception {
+        RagMetadata.requireScope(base);
+        DocumentProfile profile = indexable(kind);
+        ParsedDocument parsed = reader.read(file);
+        if (parsed.isEmpty()) throw new DocumentParser.Unparseable("không có chữ");
+        List<DocumentSection> sections = profile.sectioning(parsed).sections(parsed);
+        // Ngữ cảnh của các enricher cần một RagDocument: dựng tạm, KHÔNG lưu.
+        RagDocument transientDoc = RagDocument.builder()
+                .id(docId)
+                .source(kind.storedAs())
+                .title(title)
+                .fileName(file.name())
+                .build();
+        SectionEnricher.Context ctx = new SectionEnricher.Context(transientDoc, profile);
+        List<Document> lcDocs = new ArrayList<>();
+        for (int i = 0; i < sections.size(); i++) {
+            DocumentSection s = sections.get(i);
+            if (s.isBlank()) continue;
+            Map<String, Object> m = new LinkedHashMap<>(base);
+            m.put(RagMetadata.DOC_ID, docId.toString());
+            m.put(RagMetadata.SOURCE, kind.storedAs().name());
+            m.put("docTitle", title);
+            m.put("title", s.title());
+            m.put("parent", s.parent());
+            m.put("order", i);
+            for (SectionEnricher e : enrichers) {
+                if (!withImages && e instanceof ImageUploadEnricher) continue;
+                if (e.appliesTo(profile)) e.enrich(ctx, s, m);
+            }
+            RagMetadata.requireScope(m);
+            lcDocs.add(Document.from(s.text(), Metadata.from(m)));
+        }
+        if (lcDocs.isEmpty()) throw new DocumentParser.Unparseable("không có chữ");
+        int chunks = indexer.replace(docId, lcDocs);
+        log.info("Nạp tài liệu thư viện «{}» ({}): {} mục → {} đoạn, {} ảnh", title, profile.kind(),
+                sections.size(), chunks, ctx.images());
+        return new Indexed(chunks, ctx.images());
+    }
+
+    /** Xoá mọi vector của một tài liệu (thư viện tài liệu, hoặc rag_documents). */
+    public void removeVectors(UUID docId) {
+        indexer.remove(docId);
+    }
+
     /** Xoá tài liệu: vector trước, bản ghi sau — ngược lại để lại vector mồ côi nếu hỏng giữa chừng. */
     public void delete(UUID docId) {
         indexer.remove(docId);
@@ -113,6 +171,8 @@ public class DocumentIngestionPipeline {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put(RagMetadata.DOC_ID, doc.getId().toString());
             m.put(RagMetadata.ORG_ID, orgKey);
+            // rag_documents là bộ hướng dẫn chung hoặc tài liệu CÔNG TY — bộ lọc truy hồi fail-closed cần scope.
+            m.put(RagMetadata.SCOPE, RagMetadata.scopeForOrgKey(orgKey));
             m.put(RagMetadata.SOURCE, doc.getSource().name());
             m.put("docTitle", doc.getTitle());
             m.put("title", s.title());
@@ -121,6 +181,7 @@ public class DocumentIngestionPipeline {
             for (SectionEnricher e : enrichers) {
                 if (e.appliesTo(profile)) e.enrich(ctx, s, m);
             }
+            RagMetadata.requireScope(m);
             lcDocs.add(Document.from(s.text(), Metadata.from(m)));
         }
         int chunks = indexer.replace(doc.getId(), lcDocs);

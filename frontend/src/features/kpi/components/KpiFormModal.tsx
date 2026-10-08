@@ -40,6 +40,7 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
 import { Section } from '@/components/common/ScoreForm'
 import { Field, Hint, SourceCard, Stat, ToggleCard } from './KpiFormParts'
 import type { BscKpiPlanResponse } from '@/features/bsc/types'
+import { useCreatePeriodCycleOption } from '@/components/common/CreatePeriodCycleOption'
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
@@ -173,6 +174,7 @@ export default function KpiFormModal({
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(organizationId)
   const { data: periodsData } = useKpiPeriods({ organizationId })
+  const createPeriod = useCreatePeriodCycleOption('period')
   const enableOkr = org?.enableOkr
   const { data: objectives } = useObjectives(enableOkr ? organizationId : undefined)
 
@@ -714,7 +716,14 @@ export default function KpiFormModal({
   const isBonus = !!watch('isBonusKpi')
   // Đợt thuộc kỳ đã có bộ tiêu chí BSC ⇒ KPI tính điểm phải gắn hạng mục (hoặc KR có Objective
   // gắn hạng mục) — chặn ngay lúc tạo/sửa, khớp requirePerspectiveWhenBscEnabled ở backend.
-  const needsBscLink = !!enableBsc && periodHasScorecard && !isBonus && !isPendingApproval
+  // Chỉ bắt gắn hạng mục khi CHÍNH đơn vị của KPI có bộ tiêu chí cho đợt — công ty có bộ mà đơn vị
+  // mình chưa có thì không chặn. Cùng luật với backend (KpiCriteriaService.scoredByBsc).
+  const ownUnitHasScorecard = useMemo(() => {
+    const unitId = formOrgUnitIds.find(id => id && id !== NONE)
+    if (!unitId || !formKpiPeriodId) return false
+    return scorecardsForPeriod(bscScorecards, formKpiPeriodId).some(s => (s.orgUnits || []).some(u => u.id === unitId))
+  }, [bscScorecards, formKpiPeriodId, formOrgUnitIds])
+  const needsBscLink = !!enableBsc && ownUnitHasScorecard && !isBonus && !isPendingApproval
     && Number(watchedWeight) > 0 && (isQualitative || Number(watchedTarget) > 0)
 
   // Chỉ tiêu mà lưu xong là CHỐT luôn, không qua chốt 100% lúc gửi duyệt ⇒ chặn vượt 100% ngay trên form:
@@ -885,7 +894,7 @@ export default function KpiFormModal({
               <Field label={tr('KpiFormModal.evaluationPeriods')} required error={errors.kpiPeriodId?.message}>
                 <Controller name="kpiPeriodId" control={control}
                   render={({ field }) => (
-                    <Select value={field.value || ''} onValueChange={field.onChange}>
+                    <Select value={field.value || ''} onValueChange={createPeriod.wrap(field.onChange)}>
                       <SelectTrigger aria-invalid={!!errors.kpiPeriodId}><SelectValue placeholder={tr('KpiFormModal.choosePeriod')} /></SelectTrigger>
                       <SelectContent>
                         {periodsData?.content.map(p => {
@@ -893,6 +902,7 @@ export default function KpiFormModal({
                           const locked = p.cycleStatus === 'LOCKED' || (!!p.status && p.status !== 'ACTIVE')
                           return <SelectItem key={p.id} value={p.id} disabled={locked}>{p.name}{locked && tr('KpiFormModal.locked')}</SelectItem>
                         })}
+                        {createPeriod.item}
                       </SelectContent>
                     </Select>
                   )}

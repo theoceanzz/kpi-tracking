@@ -1,6 +1,8 @@
 package com.kpitracking.ai.document.retrieve;
 
 import com.kpitracking.ai.document.ingest.RagMetadata;
+import com.kpitracking.service.document.DocumentAccess;
+import com.kpitracking.service.document.DocumentAccessResolver;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.embedding.request.EmbeddingInputType;
@@ -13,13 +15,23 @@ import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+
 /**
  * Dựng bộ truy hồi kho tri thức theo {@link RetrievalProfile} (Factory). Trước đây ba nơi (hỏi đáp, gợi ý KPI,
  * chấm bài nộp) mỗi nơi tự dựng một {@code EmbeddingStoreContentRetriever} với bộ lọc tổ chức chép tay — nay
- * CHỐT CHẶN ĐA TỔ CHỨC nằm ở đúng {@link #filterFor}.
+ * CHỐT CHẶN của MỌI lần đọc kho nằm ở đúng {@link #filterFor}.
  *
- * <p>Tổ chức của người hỏi đi qua {@code InvocationParameters} khoá {@link #ORG_PARAM}. Không biết tổ chức thì
- * chỉ thấy tài liệu chung (hồ sơ có {@code includeGlobal}) hoặc KHÔNG thấy gì — an toàn hơn thấy tất cả.
+ * <p>Bộ lọc là FAIL-CLOSED theo phạm vi tài liệu (docs/DOCUMENTS_DESIGN.md §6.2): chỉ những nhánh khớp DƯƠNG theo
+ * {@code scope} mới lọt, vector thiếu {@code scope} không ai đọc được.
+ * <ul>
+ *   <li><b>Biết người hỏi</b> ({@link #USER_PARAM}): đọc đúng những gì người đó được xem —
+ *       {@link DocumentAccess#toVectorFilter} (tài liệu cá nhân CỦA MÌNH, đơn vị mình được xem, công ty).</li>
+ *   <li><b>Không có người hỏi</b> (việc chạy theo hệ thống, vd AI chấm bài): CHỈ tài liệu {@code COMPANY} của tổ
+ *       chức — không bao giờ đọc tài liệu cá nhân hay tài liệu đơn vị.</li>
+ *   <li><b>Không biết tổ chức</b>: chỉ tài liệu chung (hồ sơ có {@code includeGlobal}) hoặc KHÔNG thấy gì.</li>
+ * </ul>
+ * Sau đó mới tới lọc loại tài liệu của hồ sơ và danh sách cho phép {@link #ONLY_DOCS_PARAM}.
  */
 @Component
 @RequiredArgsConstructor
@@ -27,6 +39,8 @@ public class DocumentRetrieverFactory {
 
     /** Khoá trong {@code InvocationParameters} mang tổ chức của người hỏi. */
     public static final String ORG_PARAM = "orgId";
+    /** Khoá mang người hỏi. Có thì đọc theo QUYỀN của người đó; không có thì chỉ tài liệu công ty. */
+    public static final String USER_PARAM = "userId";
     /**
      * Khoá tuỳ chọn: danh sách id tài liệu DUY NHẤT được đọc lần này (danh sách rỗng = không đọc gì). Dùng khi chấm
      * bài: chỉ quy chế áp cho đơn vị người đó + tài liệu nạp tay dùng chung.
@@ -41,6 +55,7 @@ public class DocumentRetrieverFactory {
 
     private final EmbeddingStore<TextSegment> store;
     private final EmbeddingModel embeddingModel;
+    private final DocumentAccessResolver accessResolver;
 
     /**
      * @param minScore với kho HYBRID điểm là RRF (≤ ~0,033), không phải cosine — thường để 0
@@ -52,47 +67,89 @@ public class DocumentRetrieverFactory {
                 .embeddingInputType(EmbeddingInputType.QUERY)
                 .maxResults(maxResults)
                 .minScore(minScore)
-                .dynamicFilter(query -> filterFor(profile, orgOf(query), onlyOf(query)))
+                .dynamicFilter(query -> filterFor(profile, param(query, ORG_PARAM), param(query, USER_PARAM),
+                        onlyOf(query)))
                 .build();
     }
 
-    static Object orgOf(Query query) {
+    static Object param(Query query, String key) {
         return query.metadata() == null || query.metadata().invocationParameters() == null
-                ? null : query.metadata().invocationParameters().get(ORG_PARAM);
+                ? null : query.metadata().invocationParameters().get(key);
     }
 
     /** Danh sách cho phép của lần đọc này, hoặc {@code null} khi không giới hạn theo tài liệu. */
     static java.util.Collection<?> onlyOf(Query query) {
-        if (query.metadata() == null || query.metadata().invocationParameters() == null) return null;
-        Object v = query.metadata().invocationParameters().get(ONLY_DOCS_PARAM);
+        Object v = param(query, ONLY_DOCS_PARAM);
         return v instanceof java.util.Collection<?> c ? c : null;
     }
 
     /**
-     * Như {@link #filterFor(RetrievalProfile, Object)} rồi CHỈ giữ các tài liệu {@code onlyDocIds}.
-     * {@code null} = không giới hạn; rỗng = không đọc gì.
+     * Bộ lọc của một lần đọc kho — MỌI lần đọc đi qua đây. Biết người hỏi thì theo quyền của người đó, không thì
+     * như {@link #filterFor(RetrievalProfile, Object, java.util.Collection)}.
      */
-    static Filter filterFor(RetrievalProfile profile, Object org, java.util.Collection<?> onlyDocIds) {
-        Filter base = filterFor(profile, org);
-        if (onlyDocIds == null) return base;
-        if (onlyDocIds.isEmpty()) return base.and(MetadataFilterBuilder.metadataKey(RagMetadata.DOC_ID).isEqualTo(NOBODY));
-        return base.and(MetadataFilterBuilder.metadataKey(RagMetadata.DOC_ID)
-                .isIn(onlyDocIds.stream().map(Object::toString).toList()));
+    Filter filterFor(RetrievalProfile profile, Object org, Object user, java.util.Collection<?> onlyDocIds) {
+        UUID orgId = uuid(org);
+        UUID userId = uuid(user);
+        if (orgId == null || userId == null) return filterFor(profile, org, onlyDocIds);
+        DocumentAccess access = accessResolver.resolve(userId, orgId);
+        return restrict(profile, access.toVectorFilter(profile.includeGlobal()), access.member(), onlyDocIds);
     }
 
-    /** Bộ lọc tổ chức + loại tài liệu cho một hồ sơ truy hồi — MỌI lần đọc kho đi qua đây. */
+    /**
+     * Không có người hỏi: tài liệu CÔNG TY của tổ chức (+ tài liệu chung nếu hồ sơ cho phép), rồi CHỈ giữ các tài
+     * liệu {@code onlyDocIds}. {@code null} = không giới hạn; rỗng = không đọc gì.
+     */
+    static Filter filterFor(RetrievalProfile profile, Object org, java.util.Collection<?> onlyDocIds) {
+        return restrict(profile, companyScope(profile, org), org != null, onlyDocIds);
+    }
+
+    /** Không có người hỏi, không giới hạn theo tài liệu. */
     static Filter filterFor(RetrievalProfile profile, Object org) {
-        String orgKey = org == null ? null : org.toString();
-        Filter byOrg;
-        if (profile.includeGlobal()) {
-            byOrg = orgKey == null
-                    ? MetadataFilterBuilder.metadataKey(RagMetadata.ORG_ID).isEqualTo(RagMetadata.GLOBAL_ORG)
-                    : MetadataFilterBuilder.metadataKey(RagMetadata.ORG_ID).isIn(RagMetadata.GLOBAL_ORG, orgKey);
-        } else {
-            byOrg = MetadataFilterBuilder.metadataKey(RagMetadata.ORG_ID).isEqualTo(orgKey == null ? NOBODY : orgKey);
+        return filterFor(profile, org, null);
+    }
+
+    /** Phần phạm vi khi không có người hỏi: CHỈ {@code COMPANY} của tổ chức, cộng tài liệu chung nếu hồ sơ cho phép. */
+    private static Filter companyScope(RetrievalProfile profile, Object org) {
+        Filter global = key(RagMetadata.ORG_ID).isEqualTo(RagMetadata.GLOBAL_ORG)
+                .and(key(RagMetadata.SCOPE).isEqualTo(RagMetadata.SCOPE_GLOBAL));
+        if (org == null) {
+            return profile.includeGlobal() ? global : nothing();
         }
-        if (profile.sources() == null || orgKey == null) return byOrg;
-        return byOrg.and(MetadataFilterBuilder.metadataKey(RagMetadata.SOURCE)
-                .isIn(profile.sources().stream().map(Enum::name).toList()));
+        Filter company = key(RagMetadata.ORG_ID).isEqualTo(org.toString())
+                .and(key(RagMetadata.SCOPE).isEqualTo(RagMetadata.SCOPE_COMPANY));
+        return profile.includeGlobal() ? global.or(company) : company;
+    }
+
+    /** Lọc loại tài liệu của hồ sơ (chỉ khi đọc được tài liệu tổ chức), rồi danh sách cho phép. */
+    private static Filter restrict(RetrievalProfile profile, Filter base, boolean orgKnown,
+                                   java.util.Collection<?> onlyDocIds) {
+        Filter f = orgKnown ? bySources(profile, base) : base;
+        if (onlyDocIds == null) return f;
+        if (onlyDocIds.isEmpty()) return f.and(key(RagMetadata.DOC_ID).isEqualTo(NOBODY));
+        return f.and(key(RagMetadata.DOC_ID).isIn(onlyDocIds.stream().map(Object::toString).toList()));
+    }
+
+    private static Filter bySources(RetrievalProfile profile, Filter base) {
+        if (profile.sources() == null || base.equals(nothing())) return base;
+        return base.and(key(RagMetadata.SOURCE).isIn(profile.sources().stream().map(Enum::name).toList()));
+    }
+
+    private static MetadataFilterBuilder key(String k) {
+        return MetadataFilterBuilder.metadataKey(k);
+    }
+
+    /** Không khớp đoạn nào: không tổ chức nào mang id này. */
+    static Filter nothing() {
+        return key(RagMetadata.ORG_ID).isEqualTo(NOBODY);
+    }
+
+    private static UUID uuid(Object v) {
+        if (v == null) return null;
+        if (v instanceof UUID u) return u;
+        try {
+            return UUID.fromString(v.toString());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

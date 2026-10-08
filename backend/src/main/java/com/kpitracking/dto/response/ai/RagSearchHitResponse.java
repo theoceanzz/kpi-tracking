@@ -19,7 +19,9 @@ public record RagSearchHitResponse(
         String parent,
         String route,
         String text,
-        List<String> images) {
+        List<String> images,
+        /** Ghi chú hiệu lực khi tài liệu đã hết hiệu lực; {@code null} nếu còn hiệu lực. */
+        String validity) {
 
     public static RagSearchHitResponse of(Content content) {
         var m = content.textSegment().metadata();
@@ -27,6 +29,7 @@ public record RagSearchHitResponse(
         return new RagSearchHitResponse(
                 score instanceof Number n ? n.doubleValue() : null,
                 m.getString("docId"), m.getString("docTitle"), m.getString("title"), m.getString("parent"),
-                m.getString("route"), content.textSegment().text(), RagChunkResponse.split(m.getString("images")));
+                m.getString("route"), content.textSegment().text(), RagChunkResponse.split(m.getString("images")),
+                m.getString("validity"));
     }
 }

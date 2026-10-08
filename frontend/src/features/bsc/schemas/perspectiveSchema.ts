@@ -19,7 +19,7 @@ export const numOrNull = (v: unknown) => (v === '' || v == null || Number.isNaN(
 export const numOrUndefined = (v: unknown) => (v === '' || v == null ? undefined : Number(v))
 
 interface PerspectiveSchemaContext {
-  /** Danh sách hạng mục hiện có — để chặn trùng mã và trùng thứ tự hiển thị. */
+  /** Danh sách hạng mục hiện có — để chặn trùng mã. */
   existing?: PerspectiveResponse[]
   /** Id hạng mục đang sửa, để loại chính nó khỏi phép kiểm trùng. */
   currentId?: string
@@ -28,8 +28,7 @@ interface PerspectiveSchemaContext {
 }
 
 /**
- * Vài ràng buộc phải đối chiếu với dữ liệu đang có trên server (trùng mã, trùng thứ tự
- * trong cùng lĩnh vực) nên schema được dựng theo ngữ cảnh thay vì khai báo tĩnh.
+ * Trùng mã phải đối chiếu với dữ liệu đang có trên server nên schema được dựng theo ngữ cảnh thay vì khai báo tĩnh.
  */
 export const createPerspectiveSchema = (
   { existing = [], currentId, requireCode = false }: PerspectiveSchemaContext = {},
@@ -61,9 +60,8 @@ export const createPerspectiveSchema = (
       .max(50, i18n.t('bsc:perspectiveSchema.unitOfMeasureCanBeAt')),
     color: z.string().min(1, i18n.t('bsc:perspectiveSchema.pleaseChooseAColor')).regex(HEX_COLOR, i18n.t('bsc:perspectiveSchema.invalidColor')),
     icon: z.string().optional(),
-    displayOrder: z.number({ message: i18n.t('bsc:perspectiveSchema.pleaseEnterTheDisplayOrder') })
-      .int(i18n.t('bsc:perspectiveSchema.orderMustBeAnInteger'))
-      .min(0, i18n.t('bsc:perspectiveSchema.orderCannotBeNegative')),
+    // Không còn là ô nhập — form cấp lúc gửi (thứ tự đổi bằng kéo thả trong bộ tiêu chí).
+    displayOrder: z.number().int().min(0).optional(),
     status: z.enum(BscPerspectiveStatus).optional(),
     fixedPerspective: z.enum(BscFixedPerspective, { message: i18n.t('bsc:perspectiveSchema.pleaseChooseAnAreaForThe') }),
     // Trọng số không thuộc hạng mục mà thuộc bộ tiêu chí — chỉ hiện khi mở từ modal bộ tiêu chí.
@@ -81,17 +79,6 @@ export const createPerspectiveSchema = (
         code: z.ZodIssueCode.custom,
         path: ['minimumValue'],
         message: i18n.t('bsc:perspectiveSchema.theMinimumResultCannotBeGreater'),
-      })
-    }
-    // Thứ tự hiển thị chỉ cần duy nhất TRONG CÙNG 1 lĩnh vực.
-    const clash = existing.some(
-      p => p.displayOrder === data.displayOrder && p.fixedPerspective === data.fixedPerspective && p.id !== currentId,
-    )
-    if (clash) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['displayOrder'],
-        message: i18n.t('bsc:perspectiveSchema.thisOrderIsAlreadyUsedBy'),
       })
     }
   })

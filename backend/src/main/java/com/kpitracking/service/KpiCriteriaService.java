@@ -1159,6 +1159,18 @@ public class KpiCriteriaService {
     }
 
     /**
+     * Có bắt KPI phải gắn hạng mục BSC không: chỉ khi CHÍNH đơn vị của KPI có bộ tiêu chí (còn dùng,
+     * chưa xoá) áp cho đợt này. Công ty có bộ mà đơn vị mình chưa dựng bộ riêng thì KHÔNG chặn — đơn
+     * vị chưa sẵn sàng thì không thể bắt nhân viên gắn vào hạng mục họ còn chưa được giao.
+     *
+     * <p>Dùng chung cách tra với chấm điểm ({@link BscScoringService#resolveScorecard}) — cũng chỉ
+     * xét đúng đơn vị — nên "bị bắt gắn hạng mục" và "được chấm theo BSC" luôn là một.
+     */
+    private boolean scoredByBsc(KpiCriteria kpi, Organization org) {
+        return bscScoringService.resolveScorecard(kpi.getOrgUnit(), org.getId(), kpi.getKpiPeriod().getId()) != null;
+    }
+
+    /**
      * Chặn ngay từ lúc TẠO/SỬA (không đợi tới lúc duyệt): kỳ chứa đợt đã có bộ tiêu chí BSC thì KPI
      * tính điểm phải gắn hạng mục, nếu không người tạo chỉ phát hiện khi cấp trên bấm duyệt.
      * {@code when} là cụm "trước khi …" ghép vào thông báo lỗi.
@@ -1167,7 +1179,7 @@ public class KpiCriteriaService {
         Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
         if (org == null || !Boolean.TRUE.equals(org.getEnableBsc())) return;
         if (kpi.getKpiPeriod() == null) return;
-        if (bscScorecardRepository.countAppliedToPeriod(org.getId(), kpi.getKpiPeriod().getId()) == 0) return;
+        if (!scoredByBsc(kpi, org)) return;
         if (!achievementCalculator.countsTowardBscScore(kpi)) return;
         // KPI có thể suy lĩnh vực từ Objective cha (OKR) ⇒ dùng lĩnh vực HIỆU LỰC, không đòi gán trực tiếp.
         if (com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi) == null) {
@@ -1184,7 +1196,7 @@ public class KpiCriteriaService {
         Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
         if (org == null || !Boolean.TRUE.equals(org.getEnableBsc())) return;
         if (kpi.getKpiPeriod() == null) return;
-        if (bscScorecardRepository.countAppliedToPeriod(org.getId(), kpi.getKpiPeriod().getId()) == 0) return;
+        if (!scoredByBsc(kpi, org)) return;
         if (!achievementCalculator.countsTowardBscScore(kpi)) return;
 
         com.kpitracking.entity.BscPerspective category =

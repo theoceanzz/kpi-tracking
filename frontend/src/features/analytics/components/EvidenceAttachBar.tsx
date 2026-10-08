@@ -2,7 +2,8 @@ import { useRef } from 'react'
 import { Paperclip, X, CheckCircle2, Pin, CornerDownRight, FileText, ImageIcon, Sheet } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { formatBytes, screenEvidence } from '@/lib/attachmentPolicy'
+import { ATTACHMENT_EXTENSIONS, MAX_ATTACHMENT_FILES, formatBytes, screenEvidence } from '@/lib/attachmentPolicy'
+import { PickFromLibraryButton } from '@/features/documents/components/DocumentPickerDialog'
 import { useFormAssistStore, type FormFileSink } from '@/store/formAssistStore'
 import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
 import { Button } from '@/components/ui/button'
@@ -37,7 +38,7 @@ export default function EvidenceAttachBar({ sink, disabled }: EvidenceAttachBarP
   const pin = usePinnedFilesStore(s => s.pin)
   const pinned = usePinnedFilesStore(s => s.files)
 
-  const handlePick = (picked: FileList | null) => {
+  const handlePick = (picked: FileList | File[] | null) => {
     if (!picked?.length) return
     // Lọc NGAY lúc ghim chứ không đợi tới lúc đính: biết sớm vẫn hơn, và người dùng không phải phát
     // hiện tệp hỏng sau khi đã gõ hẳn một câu nhờ đính.
@@ -70,6 +71,11 @@ export default function EvidenceAttachBar({ sink, disabled }: EvidenceAttachBarP
         )} type="button" onClick={() => inputRef.current?.click()} disabled={disabled} title={title} aria-label={t('EvidenceAttachBar.pinFiles')}>
         <Paperclip aria-hidden="true" />
       </Button>
+      {/* Ghim tài liệu có sẵn trong thư viện — cùng đường lọc như tệp chọn từ máy. */}
+      <PickFromLibraryButton iconOnly variant="ghost" size="icon-sm" disabled={disabled}
+                             className="hover:text-[var(--color-ai)] hover:bg-[var(--color-ai-soft)]"
+                             accept={ATTACHMENT_EXTENSIONS} max={Math.max(0, MAX_ATTACHMENT_FILES - pinned.length)}
+                             onPicked={files => handlePick(files)} />
     </>
   )
 }

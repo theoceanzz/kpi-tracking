@@ -837,7 +837,6 @@
     "whenABankTransferArrivesAnd": "Khi tiền chuyển khoản đã về và số dư ví được cộng",
     "whenABscScorecardIsApplied": "Khi bộ tiêu chí BSC được áp dụng để chấm",
     "whenABscScorecardIsApproved": "Khi bộ tiêu chí BSC được duyệt",
-    "whenABscScorecardIsLocked": "Khi bộ tiêu chí BSC bị khoá hoặc được mở khoá",
     "whenABscScorecardIsReturned": "Khi bộ tiêu chí BSC bị trả lại để sửa",
     "whenAGiftRedemptionRequestIs": "Khi yêu cầu đổi quà được duyệt",
     "whenAGiftRedemptionRequestIs2": "Khi yêu cầu đổi quà bị từ chối và điểm được hoàn",
@@ -873,7 +872,11 @@
     "whenTheUnitsBscResultsFor": "Khi kết quả BSC của đơn vị trong một đợt được chốt",
     "whenYourPeriodEvaluationResultsAre": "Khi có kết quả đánh giá đợt của mình (dành cho người được chấm)",
     "whenASubordinateRequestsChangingAiRules": "Khi cấp dưới đề nghị đổi quy chế chấm AI bạn đã áp (dành cho người đã áp / cấp trên)",
-    "whenYourAiRulesRequestIsDecided": "Khi đề nghị đổi quy chế chấm AI của bạn được đồng ý hoặc bị từ chối"
+    "whenYourAiRulesRequestIsDecided": "Khi đề nghị đổi quy chế chấm AI của bạn được đồng ý hoặc bị từ chối",
+    "whenSomeoneSharesADocumentWithYou": "Khi có người chia sẻ tài liệu cho bạn hoặc cho đơn vị của bạn",
+    "whenSomeoneProposesADocumentForYourScope": "Khi có người đề xuất đưa tài liệu lên đơn vị / công ty mà bạn quản lý tài liệu",
+    "whenYourDocumentProposalIsDecided": "Khi đề xuất đưa tài liệu lên của bạn được duyệt hoặc bị từ chối",
+    "whenADocumentIsDueForReview": "Khi tài liệu bạn quản lý tới ngày rà soát hoặc sắp hết hiệu lực"
   },
   "useAiQuota": {
     "couldNotUpdate": "Không cập nhật được",

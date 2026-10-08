@@ -30,6 +30,8 @@ const weightRowSchema = z.object({
   locked: z.boolean().optional(),
   parentItemName: z.string().nullable().optional(),
   parentScorecardName: z.string().nullable().optional(),
+  // Dòng "Kết quả cấp trên" (phân rã cả bộ): điểm = kết quả tổng của thẻ này, không gắn KPI.
+  sourceScorecardName: z.string().nullable().optional(),
   measurementSource: z.enum(BscMeasurementSource).optional(),
   // Hạng mục chặn: áp trần xếp loại, KHÔNG trừ điểm.
   isGate: z.boolean().optional(),

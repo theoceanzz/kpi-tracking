@@ -12,6 +12,8 @@ interface ConfirmDialogProps {
   description: string
   confirmLabel?: string
   loading?: boolean
+  /** Khoá nút xác nhận — VD đã biết trước là không thực hiện được và đang nói lý do trong description. */
+  confirmDisabled?: boolean
 }
 
 /**
@@ -19,7 +21,7 @@ interface ConfirmDialogProps {
  * Nút xác nhận dùng màu phá huỷ để tách khỏi nút hành động chính thường ngày; đang xử lý
  * thì khoá Esc/bấm nền để không mất trạng thái.
  */
-export default function ConfirmDialog({ open, onClose, onConfirm, title, description, confirmLabel = i18n.t('shared:ConfirmDialog.confirm'), loading }: ConfirmDialogProps) {
+export default function ConfirmDialog({ open, onClose, onConfirm, title, description, confirmLabel = i18n.t('shared:ConfirmDialog.confirm'), loading, confirmDisabled }: ConfirmDialogProps) {
   const { t } = useTranslation('shared')
   return (
     <Dialog
@@ -38,7 +40,7 @@ export default function ConfirmDialog({ open, onClose, onConfirm, title, descrip
       footer={
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={loading}>{t('ConfirmDialog.cancel')}</Button>}
-          primary={<Button variant="destructive" onClick={onConfirm} disabled={loading}>{loading ? t('ConfirmDialog.processing') : confirmLabel}</Button>}
+          primary={<Button variant="destructive" onClick={onConfirm} disabled={loading || confirmDisabled}>{loading ? t('ConfirmDialog.processing') : confirmLabel}</Button>}
         />
       }
     >

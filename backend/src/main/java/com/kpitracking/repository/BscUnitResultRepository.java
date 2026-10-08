@@ -15,6 +15,9 @@ public interface BscUnitResultRepository extends JpaRepository<BscUnitResult, UU
 
     Optional<BscUnitResult> findByScorecardIdAndKpiPeriodId(UUID scorecardId, UUID kpiPeriodId);
 
+    /** Kết quả đợt của nhiều thẻ một lượt — nạp điểm các thẻ nguồn của dòng "Kết quả cấp trên". */
+    List<BscUnitResult> findByScorecardIdInAndKpiPeriodId(java.util.Collection<UUID> scorecardIds, UUID kpiPeriodId);
+
     List<BscUnitResult> findByScorecardIdOrderByCreatedAtDesc(UUID scorecardId);
 
     /** Mọi kết quả BSC đơn vị của một đợt trong một tổ chức — dùng cho dashboard đối chiếu. */

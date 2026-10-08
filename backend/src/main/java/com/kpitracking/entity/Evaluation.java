@@ -132,6 +132,11 @@ public class Evaluation {
     @Column(name = "gate_failed_items", columnDefinition = "TEXT")
     private String gateFailedItems;
 
+    /** Điểm BSC chốt lúc thẻ nguồn của dòng "Kết quả cấp trên" chưa chốt ⇒ phần đó là số tạm tính. */
+    @Column(name = "bsc_provisional", nullable = false)
+    @Builder.Default
+    private Boolean bscProvisional = false;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

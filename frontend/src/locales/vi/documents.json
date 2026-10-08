@@ -1,0 +1,496 @@
+{
+  "title": "Tài liệu",
+  "tabs": {
+    "mine": "Của tôi",
+    "unit": "Đơn vị",
+    "company": "Công ty"
+  },
+  "tabIntro": {
+    "mine": "Tài liệu ở đây chỉ bạn xem được. K.AI dùng chúng khi trả lời riêng cho bạn — không ai khác, kể cả quản trị viên, đọc được.",
+    "unit": "Tài liệu của đơn vị bạn và các đơn vị cấp trên (kế thừa xuống). Trưởng đơn vị thấy và quản lý cả tài liệu của đơn vị con.",
+    "company": "Quy chế, quy trình, chiến lược chung của công ty. Mọi người trong công ty xem được và K.AI dùng khi trả lời bất kỳ ai."
+  },
+  "actions": {
+    "upload": "Tải tài liệu lên",
+    "download": "Tải về",
+    "preview": "Xem",
+    "replaceFile": "Thay tệp",
+    "uploadOriginal": "Tải tệp gốc lên",
+    "reindex": "Nạp lại cho AI",
+    "delete": "Xoá",
+    "save": "Lưu thay đổi",
+    "new": "Mới",
+    "newFolder": "Thư mục mới",
+    "rename": "Đổi tên",
+    "more": "Thao tác khác",
+    "open": "Mở",
+    "favorite": "Thêm vào yêu thích",
+    "unfavorite": "Bỏ yêu thích",
+    "pin": "Ghim lên thanh bên",
+    "unpin": "Bỏ ghim",
+    "share": "Chia sẻ",
+    "move": "Di chuyển",
+    "newDoc": "Tài liệu mới",
+    "editOnline": "Soạn trực tuyến",
+    "readOnline": "Đọc trực tuyến",
+    "convertOnline": "Chuyển thành tài liệu trực tuyến",
+    "details": "Chi tiết",
+    "newSheet": "Bảng tính mới"
+  },
+  "common": {
+    "cancel": "Huỷ",
+    "close": "Đóng"
+  },
+  "stats": {
+    "personalUsage": "Dung lượng của bạn",
+    "companyUsage": "Dung lượng công ty",
+    "aiChunks": "Đoạn trong kho AI",
+    "unitQuota": "Hạn mức mỗi đơn vị"
+  },
+  "notice": {
+    "chatHistory": "Xoá tài liệu hay đổi quyền xem không xoá các câu trả lời K.AI đã trích từ tài liệu đó trước đây — chúng vẫn nằm trong lịch sử chat của chính người đã hỏi."
+  },
+  "legacy": {
+    "heading": "Tài liệu tri thức cũ ({{count}})",
+    "sectionHint": "Nạp trước khi có thư viện tài liệu nên không có tệp gốc. Vẫn được K.AI dùng như tài liệu công ty; tải tệp gốc lên để quản lý đầy đủ.",
+    "explain": "Tài liệu này được nạp trước khi có thư viện tài liệu nên không có tệp gốc: K.AI vẫn dùng như tài liệu công ty, nhưng không tải về hay sửa được. Tải tệp gốc lên để thay thế — bản cũ tự gỡ khi bản mới nạp xong.",
+    "noFile": "Không có tệp gốc"
+  },
+  "filters": {
+    "search": "Tìm theo tên, tệp, mô tả…",
+    "unit": "Đơn vị",
+    "allUnits": "Mọi đơn vị tôi xem được",
+    "includeDescendants": "Gồm đơn vị con",
+    "category": "Danh mục",
+    "allCategories": "Mọi danh mục",
+    "aiStatus": "Trạng thái AI",
+    "allAiStatuses": "Mọi trạng thái AI"
+  },
+  "empty": {
+    "notMemberTitle": "Bạn chưa thuộc tổ chức nào",
+    "notMemberDescription": "Tài liệu gắn với tổ chức và đơn vị. Nhờ quản trị viên xếp bạn vào một đơn vị để dùng tính năng này.",
+    "filteredTitle": "Không có tài liệu khớp bộ lọc",
+    "filteredDescription": "Thử bỏ bớt bộ lọc hoặc đổi từ khoá tìm kiếm.",
+    "mineTitle": "Chưa có tài liệu cá nhân",
+    "mineDescription": "Tải ghi chú, tài liệu tham khảo của riêng bạn lên để K.AI trả lời sát với công việc của bạn.",
+    "unitTitle": "Đơn vị chưa có tài liệu",
+    "unitDescription": "Trưởng đơn vị có thể tải quy chế, mô tả công việc của đơn vị lên để K.AI và gợi ý KPI bám đúng việc thật.",
+    "companyTitle": "Công ty chưa có tài liệu",
+    "companyDescription": "Tải quy chế, quy trình, chiến lược của công ty lên để K.AI trích dẫn khi trả lời.",
+    "noUnitDescription": "Bạn chưa thuộc đơn vị nào có tài liệu.",
+    "folderTitle": "Thư mục trống",
+    "folderDescription": "Tải tài liệu lên hoặc tạo thư mục con ở đây."
+  },
+  "pagination": {
+    "item": "tài liệu"
+  },
+  "aiStatus": {
+    "NONE": "Không dùng cho AI",
+    "PENDING": "Chờ nạp",
+    "INDEXING": "Đang nạp",
+    "READY": "AI đã đọc",
+    "FAILED": "Nạp lỗi",
+    "UNSUPPORTED": "Không đọc được chữ"
+  },
+  "aiStatusHint": {
+    "NONE": "Đang tắt “Dùng cho AI” — K.AI không đọc tài liệu này.",
+    "PENDING": "Đang chờ tới lượt nạp.",
+    "INDEXING": "Đang đọc và nạp vào kho tri thức.",
+    "READY": "K.AI đã đọc tài liệu này.",
+    "FAILED": "Nạp lỗi. Thử nạp lại.",
+    "UNSUPPORTED": "Tệp không có chữ để AI đọc (có thể là bản scan)."
+  },
+  "scope": {
+    "PERSONAL": "Cá nhân",
+    "UNIT": "Đơn vị",
+    "COMPANY": "Công ty"
+  },
+  "category": {
+    "REGULATION": "Quy chế, quy định",
+    "PROCESS": "Quy trình",
+    "JOB_DESCRIPTION": "Mô tả công việc",
+    "STRATEGY": "Chiến lược, mục tiêu",
+    "TEMPLATE": "Biểu mẫu",
+    "REFERENCE": "Tài liệu tham khảo",
+    "OTHER": "Khác"
+  },
+  "fields": {
+    "title": "Tên tài liệu",
+    "titlePlaceholder": "Mặc định lấy tên tệp",
+    "scope": "Phạm vi",
+    "category": "Danh mục",
+    "unit": "Đơn vị",
+    "unitPlaceholder": "Chọn đơn vị",
+    "description": "Mô tả",
+    "descriptionPlaceholder": "Tài liệu này nói về gì, áp dụng cho ai (không bắt buộc)",
+    "aiEnabled": "Dùng cho AI",
+    "file": "Tệp",
+    "uploadedBy": "Người tải lên",
+    "updatedAt": "Cập nhật",
+    "ai": "Kho tri thức AI",
+    "folder": "Thư mục",
+    "reviewDate": "Ngày rà soát",
+    "expiryDate": "Hết hiệu lực từ",
+    "datesHint": "Không bắt buộc. Tới ngày rà soát, người quản lý tài liệu được nhắc đọc lại; hết hiệu lực thì K.AI vẫn đọc nhưng nói rõ đã hết hiệu lực khi trích.",
+    "datesOdd": "Ngày hết hiệu lực đang trước ngày rà soát — kiểm tra lại nếu nhập nhầm."
+  },
+  "audience": {
+    "PERSONAL": "Chỉ bạn xem được. K.AI dùng tài liệu này khi trả lời riêng cho bạn.",
+    "UNIT": "Thành viên {{unit}} và các đơn vị con xem được; K.AI dùng khi trả lời họ.",
+    "COMPANY": "Mọi người trong công ty xem được; K.AI dùng khi trả lời bất kỳ ai trong công ty.",
+    "off": "K.AI sẽ không đọc tài liệu này. Tài liệu vẫn được lưu để xem và tải về."
+  },
+  "upload": {
+    "title": "Tải tài liệu lên",
+    "description": "Nhận {{types}}, tối đa {{max}} mỗi tệp. Nạp vào kho tri thức chạy nền sau khi lưu.",
+    "submit": "Tải lên",
+    "dropHint": "Kéo thả tệp Word, PDF, Excel, .txt hoặc .md vào đây (tối đa {{max}})",
+    "intoFolder": "Tải vào thư mục “{{name}}”",
+    "dropTitle": "Chọn tệp tài liệu"
+  },
+  "ai": {
+    "readyDetail": "{{count}} đoạn · nạp lúc {{time}}"
+  },
+  "edit": {
+    "heading": "Thông tin và quyền xem",
+    "movingToPersonal": "Tài liệu sẽ chuyển vào kho cá nhân CỦA BẠN — chỉ bạn còn xem được.",
+    "scopeChangeReindex": "Đổi phạm vi đổi luôn người xem được; tài liệu sẽ được nạp lại cho AI theo phạm vi mới."
+  },
+  "chunks": {
+    "show": "Xem AI đọc được gì ({{count}} đoạn)",
+    "hide": "Ẩn các đoạn AI đọc"
+  },
+  "delete": {
+    "title": "Xoá tài liệu “{{title}}”?",
+    "description": "K.AI thôi dùng tài liệu này ngay. Tài liệu vào thùng rác và khôi phục được trong {{days}} ngày. Các câu trả lời K.AI đã trích từ tài liệu này trước đây vẫn còn trong lịch sử chat.",
+    "legacyDescription": "K.AI thôi dùng tài liệu này ngay. Tài liệu cũ không có tệp gốc nên không vào thùng rác — xoá là xoá hẳn."
+  },
+  "badge": {
+    "noOriginal": "Không có tệp gốc",
+    "inherited": "Kế thừa từ {{unit}}",
+    "orphan": "Đơn vị đã xoá",
+    "favorite": "Yêu thích",
+    "pinned": "Đã ghim",
+    "sharedWithMe": "Được chia sẻ",
+    "sharedCount": "Đã chia sẻ cho {{count}} người/đơn vị",
+    "reviewDue": "Tới hạn rà soát",
+    "expired": "Hết hiệu lực"
+  },
+  "table": {
+    "name": "Tài liệu",
+    "category": "Danh mục",
+    "unit": "Đơn vị",
+    "uploadedBy": "Người tải lên",
+    "updated": "Cập nhật",
+    "size": "Dung lượng",
+    "ai": "AI",
+    "actions": "Thao tác",
+    "location": "Vị trí",
+    "owner": "Người tạo",
+    "createdAt": "Tạo lúc",
+    "openedAt": "Mở gần nhất",
+    "updatedAt": "Cập nhật"
+  },
+  "toast": {
+    "uploaded": "Đã tải lên — AI đang đọc tài liệu",
+    "uploadFailed": "Chưa tải được tài liệu lên",
+    "saved": "Đã lưu thay đổi",
+    "saveFailed": "Chưa lưu được thay đổi",
+    "fileReplaced": "Đã thay tệp — AI đang đọc lại",
+    "deleted": "Đã chuyển vào thùng rác",
+    "deleteFailed": "Chưa xoá được tài liệu",
+    "reindexQueued": "Đã đưa vào hàng đợi nạp lại",
+    "legacyReplaced": "Đã tải tệp gốc lên — bản cũ sẽ gỡ khi bản mới nạp xong",
+    "folderCreated": "Đã tạo thư mục",
+    "folderDeleted": "Đã xoá thư mục",
+    "moved": "Đã di chuyển tài liệu",
+    "restored": "Đã khôi phục — AI đang đọc lại",
+    "deletedPermanently": "Đã xoá vĩnh viễn",
+    "versionRestored": "Đã khôi phục phiên bản — AI đang đọc lại",
+    "shared": "Đã chia sẻ",
+    "shareFailed": "Chưa cập nhật được chia sẻ",
+    "unshared": "Đã gỡ chia sẻ",
+    "trashEmptied_other": "Đã xoá vĩnh viễn {{count}} tài liệu",
+    "proposed": "Đã gửi đề xuất",
+    "promotionApproved": "Đã duyệt — tài liệu đã được đưa lên",
+    "promotionRejected": "Đã từ chối đề xuất",
+    "promotionCancelled": "Đã rút đề xuất",
+    "convertedOnline": "Đã chuyển thành tài liệu trực tuyến — tệp cũ nằm trong tab Phiên bản",
+    "convertFailed": "Chưa chuyển được tài liệu",
+    "sharePermissionUpdated": "Đã đổi quyền chia sẻ",
+    "autoConvertFailed": "Đã tải lên nhưng chưa chuyển được sang dạng soạn trực tuyến — tệp vẫn xem và tải về được."
+  },
+  "settingsCard": {
+    "title": "Tài liệu của trợ lý AI đã chuyển sang trang Tài liệu",
+    "description": "Quản lý tài liệu công ty, đơn vị và cá nhân ở một chỗ, có tệp gốc và phân quyền theo phạm vi. Ô thử tìm bên dưới chạy đúng bộ truy hồi của K.AI với quyền của chính bạn.",
+    "open": "Mở trang Tài liệu công ty",
+    "searchPlaceholder": "VD: nhân viên đạt KPI loại A được thưởng gì?"
+  },
+  "sources": {
+    "label": "Nguồn:",
+    "yours": "của bạn",
+    "notFound": "Không mở được tài liệu này — có thể nó đã bị xoá hoặc bạn không còn quyền xem."
+  },
+  "purge": {
+    "title": "Xoá tài liệu cá nhân của {{name}}",
+    "loading": "Đang đếm tài liệu…",
+    "summary": "Kho cá nhân của người này có {{count}} tài liệu ({{size}}). Bạn chỉ thấy số lượng — không xem được tên hay nội dung.",
+    "warning": "K.AI thôi dùng các tài liệu này ngay. Tệp gốc được giữ thêm 30 ngày rồi xoá hẳn. Nếu không xoá sớm, hệ thống tự xoá sau 90 ngày kể từ lúc tài khoản bị vô hiệu hoá.",
+    "empty": "Người này không có tài liệu cá nhân nào.",
+    "notDeactivated": "Chỉ xoá sớm được tài liệu cá nhân của người đang bị tạm dừng hoặc tạm khoá.",
+    "confirm": "Xoá {{count}} tài liệu",
+    "done": "Đã xoá {{count}} tài liệu cá nhân",
+    "failed": "Chưa xoá được tài liệu cá nhân"
+  },
+  "pageIntro": "Tài liệu cá nhân, của đơn vị và của công ty ở một chỗ — sắp xếp theo thư mục, chia sẻ cho người cần xem, và K.AI đọc đúng những gì mỗi người được xem.",
+  "nav": {
+    "label": "Điều hướng tài liệu",
+    "home": "Trang chủ",
+    "drive": "Drive",
+    "trash": "Thùng rác",
+    "pinned": "Đã ghim",
+    "pinnedEmpty": "Ghim tài liệu hay dùng để mở nhanh từ đây.",
+    "requests": "Đề xuất",
+    "storage": "Dung lượng"
+  },
+  "location": {
+    "mine": "Của tôi",
+    "personalOf": "Cá nhân của {{name}}"
+  },
+  "folder": {
+    "createTitle": "Thư mục mới",
+    "renameTitle": "Đổi tên thư mục",
+    "inside": "Trong thư mục “{{name}}”",
+    "create": "Tạo thư mục",
+    "name": "Tên thư mục",
+    "namePlaceholder": "VD: Quy chế 2026",
+    "deleteTitle": "Xoá thư mục “{{name}}”?",
+    "deleteDescription": "Thư mục con cũng bị xoá. Tài liệu bên trong vào thùng rác và khôi phục được trong {{days}} ngày (về gốc của phạm vi)."
+  },
+  "move": {
+    "title": "Di chuyển “{{title}}”",
+    "description": "Chọn thư mục cùng phạm vi. Muốn đổi người xem được thì đổi “Phạm vi” trong chi tiết tài liệu.",
+    "alreadyHere": "Tài liệu đang ở đây",
+    "here": "Chuyển vào đây",
+    "noSubfolders": "Không có thư mục con"
+  },
+  "drive": {
+    "breadcrumb": "Đường dẫn thư mục",
+    "searchScope": "Tìm trong {{name}}…"
+  },
+  "share": {
+    "intro": {
+      "PERSONAL": "Tài liệu cá nhân chỉ bạn xem được. Chia sẻ để người khác cùng xem, tải về — và K.AI đọc tài liệu này khi trả lời họ.",
+      "UNIT": "Thành viên đơn vị đã xem được. Chia sẻ thêm cho người hoặc đơn vị khác để họ cùng xem — K.AI đọc tài liệu này khi trả lời họ.",
+      "COMPANY": "Mọi người trong công ty đã xem được tài liệu công ty. Với tài liệu soạn trực tuyến, chia sẻ quyền chỉnh sửa cho người cần cùng soạn."
+    },
+    "searchPlaceholder": "Tìm người hoặc đơn vị…",
+    "noTargets": "Không tìm thấy người hay đơn vị nào",
+    "results": "Kết quả tìm",
+    "listHeading": "Đã chia sẻ cho",
+    "none": "Chưa chia sẻ cho ai.",
+    "unitIncludesChildren": "(gồm đơn vị con)",
+    "grantedBy": "{{name}} chia sẻ lúc {{time}}",
+    "canView": "Xem",
+    "remove": "Gỡ chia sẻ với {{name}}",
+    "youAreViewer": "{{name}} đã chia sẻ tài liệu này với bạn — bạn xem và tải về được, không sửa được.",
+    "noUnits": "Tổ chức chưa có đơn vị nào để chia sẻ.",
+    "unitTree": "Cây đơn vị",
+    "expand": "Mở {{name}}",
+    "collapse": "Thu gọn {{name}}",
+    "shareUnit": "Chia sẻ cho cả {{name}}",
+    "shareUser": "Chia sẻ cho {{name}}",
+    "viaUnit": "Đã xem được qua đơn vị {{name}}",
+    "unitMeta_other": "{{count}} người · {{children}} đơn vị con",
+    "wholeUnit": "Cả đơn vị",
+    "loadingMembers": "Đang tải danh sách người…",
+    "owner": "Chủ sở hữu",
+    "you": "Bạn",
+    "permission": {
+      "VIEW": "Có thể xem",
+      "EDIT": "Có thể chỉnh sửa"
+    },
+    "newPermission": "Quyền cho người được thêm",
+    "permissionHint": "Người có quyền chỉnh sửa sửa được nội dung như Google Docs — không xoá, không di chuyển, không chia sẻ tiếp.",
+    "permissionOf": "Quyền của {{name}}",
+    "youAreEditor": "{{name}} đã chia sẻ tài liệu này với bạn — bạn xem và chỉnh sửa nội dung được."
+  },
+  "versions": {
+    "intro": "Mỗi lần thay tệp, bản cũ được giữ lại (tối đa 10 bản). Khôi phục một bản cũ không làm mất bản hiện tại.",
+    "current": "Hiện tại",
+    "replacedBy": "thay bởi {{name}}",
+    "restore": "Khôi phục bản này",
+    "none": "Chưa có phiên bản cũ — “Thay tệp” để tạo phiên bản mới.",
+    "confirmTitle": "Khôi phục phiên bản v{{version}}?",
+    "confirmDescription": "Bản này trở thành bản hiện tại; bản đang dùng được giữ lại trong lịch sử. K.AI sẽ đọc lại nội dung."
+  },
+  "drawer": {
+    "tabs": "Phần của tài liệu",
+    "tab": {
+      "info": "Thông tin",
+      "share": "Chia sẻ",
+      "versions": "Phiên bản",
+      "ai": "AI đọc gì"
+    }
+  },
+  "trash": {
+    "title": "Thùng rác",
+    "intro": "Tài liệu đã xoá mà bạn có quyền quản lý. Khôi phục được trong {{days}} ngày, sau đó bị xoá hẳn cả tệp.",
+    "emptyTitle": "Thùng rác trống",
+    "emptyDescription": "Tài liệu bị xoá nằm ở đây {{days}} ngày trước khi bị xoá hẳn.",
+    "originalLocation": "Vị trí gốc",
+    "deletedBy": "Xoá bởi",
+    "deletedAt": "Xoá lúc",
+    "remaining": "Còn lại",
+    "system": "Hệ thống",
+    "daysLeft_other": "{{count}} ngày",
+    "restore": "Khôi phục",
+    "deleteForever": "Xoá vĩnh viễn",
+    "confirmTitle": "Xoá vĩnh viễn “{{title}}”?",
+    "confirmDescription": "Tệp và mọi phiên bản cũ bị xoá ngay, không khôi phục được nữa.",
+    "empty": "Dọn sạch thùng rác",
+    "emptyConfirmTitle": "Dọn sạch thùng rác?",
+    "emptyConfirmDescription_other": "Xoá vĩnh viễn {{count}} tài liệu cùng mọi phiên bản cũ. Không khôi phục được nữa."
+  },
+  "home": {
+    "tabs": "Danh sách tài liệu",
+    "tab": {
+      "recent": "Gần đây",
+      "owned": "Của tôi",
+      "shared": "Được chia sẻ",
+      "favorites": "Yêu thích"
+    },
+    "cardUpload": "Tải lên",
+    "cardUploadHint": "Word, Excel, PDF… mở ra sửa ngay",
+    "cardAsk": "Hỏi K.AI về tài liệu",
+    "cardAskHint": "Trả lời từ tài liệu bạn xem được",
+    "empty": {
+      "recentTitle": "Chưa mở tài liệu nào",
+      "recentDescription": "Tài liệu bạn mở hoặc tải lên gần đây sẽ hiện ở đây.",
+      "ownedTitle": "Bạn chưa tạo tài liệu nào",
+      "ownedDescription": "Tài liệu bạn tải lên (cá nhân, đơn vị hay công ty) sẽ hiện ở đây.",
+      "sharedTitle": "Chưa có ai chia sẻ tài liệu với bạn",
+      "sharedDescription": "Khi ai đó chia sẻ tài liệu cho bạn hoặc đơn vị của bạn, nó sẽ hiện ở đây.",
+      "favoritesTitle": "Chưa có tài liệu yêu thích",
+      "favoritesDescription": "Bấm ⋯ → “Thêm vào yêu thích” trên một tài liệu để gom về đây."
+    },
+    "cardCreate": "Tạo mới",
+    "cardCreateHint": "Tài liệu, bảng tính, thư mục"
+  },
+  "layout": {
+    "label": "Kiểu hiển thị",
+    "list": "Danh sách",
+    "grid": "Lưới"
+  },
+  "picker": {
+    "button": "Chọn từ Tài liệu",
+    "title": "Chọn từ thư viện Tài liệu",
+    "description": "Chọn tối đa {{max}} tài liệu bạn xem được. Tệp được sao chép vào đây — xoá tài liệu gốc sau này không ảnh hưởng.",
+    "descriptionTypes": "Chọn tối đa {{max}} tài liệu bạn xem được (nhận {{types}}). Tệp được sao chép vào đây — xoá tài liệu gốc sau này không ảnh hưởng.",
+    "selected_other": "Đã chọn {{count}} tài liệu",
+    "attach_other": "Đính kèm {{count}} tệp",
+    "tooMany": "Chỉ chọn được tối đa {{max}} tài liệu ở đây",
+    "loadFailed": "Chưa tải được tệp của tài liệu, thử lại sau",
+    "emptyTitle": "Chưa có tài liệu nào",
+    "emptyDescription": "Tài liệu bạn tải lên hoặc được xem ở trang Tài liệu sẽ hiện ở đây.",
+    "typeNotAccepted": "{{name}} — nơi này không nhận loại tệp này"
+  },
+  "promotion": {
+    "propose": "Đề xuất lên đơn vị / công ty",
+    "pendingTo": "Đang chờ duyệt đưa lên {{target}}",
+    "cancel": "Rút đề xuất",
+    "dialogTitle": "Đề xuất đưa “{{title}}” lên",
+    "dialogDescription": "Người quản lý tài liệu ở nơi đích sẽ duyệt. Duyệt xong, tài liệu được sao chép lên đó — bản của bạn giữ nguyên.",
+    "send": "Gửi đề xuất",
+    "target": "Đưa lên",
+    "targetPlaceholder": "Chọn đơn vị hoặc công ty",
+    "note": "Ghi chú cho người duyệt",
+    "notePlaceholder": "VD: quy trình này đã áp dụng ở tổ, đề xuất áp cho cả phòng",
+    "copyHint": "Mọi người ở nơi đích sẽ xem được bản sao, và K.AI dùng nó khi trả lời họ.",
+    "inbox": "Chờ tôi duyệt",
+    "inboxIntro": "Đề xuất đưa tài liệu lên đơn vị / công ty mà bạn quản lý tài liệu. Duyệt = sao chép tài liệu lên đó.",
+    "inboxEmptyTitle": "Không có đề xuất nào chờ bạn",
+    "inboxEmptyDescription": "Khi ai đó đề xuất đưa tài liệu lên nơi bạn quản lý, nó sẽ hiện ở đây.",
+    "requestLine": "{{name}} đề xuất lên {{target}} · {{time}}",
+    "approve": "Duyệt",
+    "reject": "Từ chối",
+    "mine": "Tôi đã gửi",
+    "mineIntro": "Các đề xuất đưa tài liệu lên của bạn và kết quả.",
+    "mineEmptyTitle": "Bạn chưa gửi đề xuất nào",
+    "mineEmptyDescription": "Mở một tài liệu của bạn → “Đề xuất lên đơn vị / công ty”.",
+    "status": {
+      "PENDING": "Chờ duyệt",
+      "APPROVED": "Đã duyệt",
+      "REJECTED": "Bị từ chối",
+      "CANCELLED": "Đã rút"
+    },
+    "mineLine": "Lên {{target}} · gửi {{time}}",
+    "decidedBy": "{{name}} xử lý {{time}}",
+    "reason": "Ghi chú: {{note}}",
+    "openCopy": "Mở bản đã đưa lên",
+    "approveTitle": "Duyệt đưa lên {{target}}",
+    "rejectTitle": "Từ chối đề xuất",
+    "approveDescription": "Tài liệu được sao chép thành tài liệu mới ở nơi đích (tính vào hạn mức ở đó). Bạn có thể sửa tên bản sao.",
+    "rejectDescription": "{{name}} sẽ nhận được thông báo kèm lý do.",
+    "copyTitle": "Tên tài liệu ở nơi đích",
+    "approveNote": "Ghi chú (không bắt buộc)",
+    "rejectReason": "Lý do"
+  },
+  "storage": {
+    "docsAndChunks_other": "{{count}} tài liệu · {{chunks}} đoạn AI",
+    "perUnitQuota": "Hạn mức mỗi đơn vị: {{quota}}",
+    "perPersonQuota": "Hạn mức mỗi người: {{quota}}",
+    "aiChunks": "Đoạn trong kho AI",
+    "trash": "Thùng rác",
+    "trashHint_other": "{{count}} tài liệu, tự xoá hẳn sau {{days}} ngày",
+    "versions": "Phiên bản cũ",
+    "versionsHint_other": "{{count}} tệp cũ giữ lại khi thay tệp (không tính vào hạn mức)",
+    "topUnits": "Đơn vị dùng nhiều nhất",
+    "topOwners": "Kho cá nhân dùng nhiều nhất",
+    "topOwnersHint": "Chỉ hiện số lượng và dung lượng — không tên hay nội dung tài liệu cá nhân.",
+    "none": "Chưa có dữ liệu.",
+    "docs": "Tài liệu",
+    "usedOfQuota": "Đã dùng / hạn mức",
+    "chunks": "Đoạn AI",
+    "person": "Người",
+    "deletedUser": "Tài khoản đã xoá",
+    "deactivated": "Đã vô hiệu hoá"
+  },
+  "online": {
+    "createTitle": "Tài liệu mới",
+    "createDescription": "Soạn ngay trên trình duyệt như Lark Docs — tự lưu, có lịch sử phiên bản, K.AI đọc được.",
+    "create": "Tạo và mở",
+    "createSheetTitle": "Bảng tính mới",
+    "createSheetDescription": "Bảng tính như Lark Sheets / Google Sheets — công thức, định dạng, lọc, sắp xếp, nhiều trang tính; tự lưu và K.AI đọc được."
+  },
+  "editor": {
+    "placeholder": "Bắt đầu soạn…",
+    "titlePlaceholder": "Tài liệu không tên",
+    "contentLabel": "Nội dung tài liệu",
+    "back": "Quay lại",
+    "backToLibrary": "Về thư viện tài liệu",
+    "details": "Chi tiết",
+    "notFoundTitle": "Không mở được tài liệu",
+    "readOnly": "Chỉ xem",
+    "retry": "Thử lại",
+    "conflict": "Tài liệu vừa được người khác lưu một bản mới.",
+    "reloadLatest": "Tải bản mới (bỏ thay đổi của tôi)",
+    "overwrite": "Ghi đè bằng bản của tôi",
+    "leaveBlocked": "Chưa lưu được thay đổi — hãy thử lưu lại trước khi rời trang.",
+    "aiNote": "Mọi thay đổi được tự lưu. Các lần lưu trong cùng một phiên soạn gộp thành một phiên bản; K.AI đọc lại nội dung vài phút sau khi bạn ngừng soạn.",
+    "status": {
+      "idle": "Tự lưu",
+      "dirty": "Chưa lưu",
+      "saving": "Đang lưu…",
+      "saved": "Đã lưu lúc {{time}}",
+      "error": "Chưa lưu được",
+      "conflict": "Có bản mới hơn"
+    },
+    "exportMarkdown": "Tải về Markdown (.md)",
+    "exportHtml": "Tải về HTML (mở được bằng Word)",
+    "markdownNotice": "Tệp .md chỉ giữ được định dạng Markdown — màu chữ, màu nền, căn lề sẽ mất khi lưu. Chuyển thành tài liệu trực tuyến để giữ đủ định dạng (tệp .md vẫn còn trong tab Phiên bản).",
+    "sheetTitlePlaceholder": "Bảng tính không tên",
+    "exportXlsx": "Tải về Excel (.xlsx)",
+    "exportCsv": "Tải về CSV (trang tính đầu)"
+  }
+}

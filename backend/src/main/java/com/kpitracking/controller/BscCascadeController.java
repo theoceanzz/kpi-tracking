@@ -5,6 +5,7 @@ import com.kpitracking.dto.request.bsc.BscOverrideRequest;
 import com.kpitracking.dto.request.bsc.CascadePolicyRequest;
 import com.kpitracking.dto.request.bsc.CascadeRequest;
 import com.kpitracking.dto.request.bsc.ScorecardStatusRequest;
+import com.kpitracking.dto.request.bsc.WholeCascadeRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.bsc.BscKpiPlanResponse;
 import com.kpitracking.dto.response.bsc.BscWaterfallResponse;
@@ -12,6 +13,7 @@ import com.kpitracking.dto.response.bsc.CascadePolicyResponse;
 import com.kpitracking.dto.response.bsc.ScorecardCoverageResponse;
 import com.kpitracking.dto.response.bsc.ScorecardTreeNodeResponse;
 import com.kpitracking.dto.response.bsc.UnitResultResponse;
+import com.kpitracking.dto.response.bsc.WholeCascadeResponse;
 import com.kpitracking.service.BscCascadeService;
 import com.kpitracking.service.BscKpiPlanService;
 import com.kpitracking.service.BscPolicyService;
@@ -88,6 +90,27 @@ public class BscCascadeController {
                 treeService.cascade(scorecardId, request)));
     }
 
+    /** Hiện trạng phân rã CẢ BỘ của một thẻ: đang giao cho đơn vị nào, trọng số bao nhiêu. */
+    @GetMapping("/scorecards/{scorecardId}/whole-cascade")
+    @PreAuthorize("hasAuthority('BSC:VIEW')")
+    public ResponseEntity<ApiResponse<WholeCascadeResponse>> wholeCascade(@PathVariable UUID scorecardId) {
+        return ResponseEntity.ok(ApiResponse.success(treeService.wholeCascade(scorecardId)));
+    }
+
+    /**
+     * Phân rã CẢ BỘ tiêu chí: mỗi đơn vị nhận một dòng "Kết quả cấp trên" chỉ có trọng số. Cùng
+     * mức quyền với phân rã từng chỉ tiêu. Thu hồi đi chung request qua {@code revokeOrgUnitIds}.
+     */
+    @PostMapping("/scorecards/{scorecardId}/whole-cascade")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    public ResponseEntity<ApiResponse<WholeCascadeResponse>> cascadeWhole(
+            @PathVariable UUID scorecardId,
+            @Valid @RequestBody WholeCascadeRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(
+                ErrorMessages.text("success.bsc.wholeCascaded", "Đã giao kết quả cả bộ tiêu chí xuống các đơn vị"),
+                treeService.cascadeWhole(scorecardId, request)));
+    }
+
     /**
      * Gắn bộ tiêu chí vào cấp trên (hoặc gỡ khỏi cây khi bỏ trống {@code parentScorecardId}).
      * Cùng mức quyền với phân rã: đây là thao tác định hình cây, không phải sửa nội dung một thẻ.
@@ -138,27 +161,19 @@ public class BscCascadeController {
                 bscService.getScorecardById(scorecardId)));
     }
 
+    /** Xoá được không, và nếu không thì vì sao — hộp xác nhận xoá hiện lý do ngay khi mở. */
+    @GetMapping("/scorecards/{scorecardId}/delete-check")
+    @PreAuthorize("hasAuthority('BSC:VIEW')")
+    public ResponseEntity<ApiResponse<com.kpitracking.dto.response.bsc.DeleteCheckResponse>> deleteCheck(
+            @PathVariable UUID scorecardId) {
+        return ResponseEntity.ok(ApiResponse.success(bscService.deleteCheck(scorecardId)));
+    }
+
     @PostMapping("/scorecards/{scorecardId}/activate")
     @PreAuthorize("hasAuthority('BSC:APPROVE')")
     public ResponseEntity<ApiResponse<Object>> activate(@PathVariable UUID scorecardId) {
         treeService.activate(scorecardId);
         return ResponseEntity.ok(ApiResponse.success("Bộ tiêu chí đã được áp dụng",
-                bscService.getScorecardById(scorecardId)));
-    }
-
-    @PostMapping("/scorecards/{scorecardId}/lock")
-    @PreAuthorize("hasAuthority('BSC:APPROVE')")
-    public ResponseEntity<ApiResponse<Object>> lock(@PathVariable UUID scorecardId) {
-        treeService.lock(scorecardId);
-        return ResponseEntity.ok(ApiResponse.success("Đã khoá bộ tiêu chí",
-                bscService.getScorecardById(scorecardId)));
-    }
-
-    @PostMapping("/scorecards/{scorecardId}/reopen")
-    @PreAuthorize("hasAuthority('BSC:APPROVE')")
-    public ResponseEntity<ApiResponse<Object>> reopen(@PathVariable UUID scorecardId) {
-        treeService.reopen(scorecardId);
-        return ResponseEntity.ok(ApiResponse.success("Đã mở khoá bộ tiêu chí",
                 bscService.getScorecardById(scorecardId)));
     }
 
@@ -197,8 +212,10 @@ public class BscCascadeController {
     @PreAuthorize("hasAuthority('BSC:PUBLISH_SCORE')")
     public ResponseEntity<ApiResponse<UnitResultResponse>> finalizeResult(
             @PathVariable UUID scorecardId,
-            @RequestParam UUID kpiPeriodId) {
-        var result = cascadeService.finalizeResult(scorecardId, kpiPeriodId);
+            @RequestParam UUID kpiPeriodId,
+            // Quản trị chủ động chốt dù thẻ nguồn của dòng "Kết quả cấp trên" chưa chốt (số tạm tính).
+            @RequestParam(value = "allowProvisional", defaultValue = "false") boolean allowProvisional) {
+        var result = cascadeService.finalizeResult(scorecardId, kpiPeriodId, allowProvisional);
         return ResponseEntity.ok(ApiResponse.success("Đã chốt kết quả BSC của đơn vị",
                 resultService.toResponse(result)));
     }

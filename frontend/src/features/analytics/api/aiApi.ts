@@ -86,6 +86,16 @@ export interface ConfirmActionResult {
   failures: string[]
 }
 
+/** Tài liệu của tổ chức mà K.AI đã đọc để trả lời — chip nguồn (khớp DocumentSourceResponse). */
+export interface DocumentSource {
+  docId: string
+  title: string
+  scope: 'PERSONAL' | 'UNIT' | 'COMPANY'
+  section: string | null
+  /** Tài liệu tri thức cũ, không có tệp gốc. */
+  legacy: boolean
+}
+
 /** Token màu do trợ lý chọn; client giải ra mã màu theo theme (xem colorTokens.ts). */
 export type ChartColorToken = string
 
@@ -140,6 +150,8 @@ export interface AiChatResponse {
    * thay vì bấm nút. Client dùng nó để tắt thẻ xác nhận cũ còn nằm trên màn hình.
    */
   consumedActionId?: string
+  /** Tài liệu của tổ chức đã đọc ở lượt này. Vắng khi không tra tài liệu nào. */
+  sources?: DocumentSource[]
   /**
    * Biểu đồ minh hoạ cho câu trả lời có số liệu. Vắng ở lượt không có gì đáng vẽ — trường hợp
    * thường gặp, không phải lỗi.

@@ -95,8 +95,6 @@
     "updateKr": "Update KR"
   },
   "MyOkrPage": {
-    "allPeriods": "All periods",
-    "aPeriod": "A period",
     "area": "Area {{perspectiveName}}",
     "averageProgressOfKeyResults": "Average progress of key results",
     "cancelled": "Cancelled",
@@ -113,20 +111,22 @@
     "okrLinkedKpis": "OKR-linked KPIs",
     "okrManagement": "OKR management",
     "running": "Running",
-    "scope": "Scope",
     "searchObjectivesKeyResults": "Search objectives, key results…",
     "target": "Target",
     "thisObjectiveHasNoKeyResults": "This objective has no key results yet.",
     "toSubmit": "To submit",
-    "tryChangingTheScopePeriodOr": "Try changing the scope, period or keyword.",
     "unit": "Unit",
     "viewAnalytics": "View analytics",
     "viewMyUnitsObjectives": "View my unit's objectives",
     "whenYourKpisAreLinkedTo": "When your KPIs are linked to a key result, that objective appears here. Switch to \"My unit\" to see the unit's objectives.",
-    "wholeCompany": "Whole company",
     "youContribute": "You contribute",
     "youHaveNoKpisLinkedTo": "You have no KPIs linked to OKRs yet",
-    "youHaveNoKpisLinkedTo2": "You have no KPIs linked to this result yet."
+    "youHaveNoKpisLinkedTo2": "You have no KPIs linked to this result yet.",
+    "level": "Level",
+    "levelMine": "{{name}} (your unit)",
+    "levelParent": "{{name}} (parent unit)",
+    "levelCompany": "{{name}} (whole company)",
+    "tryAnotherLevel": "No matching objectives at this level. Try another level or change the search."
   },
   "ObjectiveFormModal": {
     "bscItem": "BSC item",
@@ -221,7 +221,9 @@
     "noObjectivesYet": "No objectives yet",
     "okrManagement": "OKR management",
     "setStrategicObjectivesAndMeasureKey": "Set strategic objectives and measure key results.",
-    "target": "Target:"
+    "target": "Target:",
+    "searchObjectives": "Search objectives, key results…",
+    "noObjectiveMatches": "No objective matches the search or filters."
   },
   "okrSchema": {
     "pleaseChooseAnEndDate": "Please choose an end date",

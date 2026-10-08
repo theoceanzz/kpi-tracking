@@ -7,14 +7,13 @@ import { usePermission } from '@/hooks/usePermission'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
-import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
-import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
+import { useMyUnitChain, useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
 import { isMyActiveKpi, kpiWorkState } from '@/features/kpi/utils/myKpiStatus'
 import MyKpiMiniRow from '@/features/kpi/components/MyKpiMiniRow'
 import KpiDetailModal from '@/features/kpi/components/KpiDetailModal'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
-import FilterBar, { SegmentedControl } from '@/components/common/FilterBar'
+import FilterBar from '@/components/common/FilterBar'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { Badge } from '@/components/ui/badge'
@@ -32,12 +31,26 @@ const STATUS_LABEL = perLanguage((): Record<OkrStatus, { label: string; variant:
   [OkrStatus.CANCELLED]: { label: i18n.t('okr:MyOkrPage.cancelled'), variant: 'destructive' },
 }))
 
-type Scope = 'mine' | 'unit' | 'all'
+/** Lựa chọn "mục tiêu tôi đang góp KPI" — đứng đầu ô Cấp, không phải một đơn vị. */
+const MINE = '__mine__'
+
+/** Một cấp trong chuỗi đơn vị của tôi → công ty. */
+interface Level {
+  unitId: string
+  name: string
+  isMine: boolean
+  isRoot: boolean
+  /** Đơn vị mà mục tiêu phải gắn vào để thuộc cấp này. */
+  unitIds: Set<string>
+}
 
 /**
  * OKR của tôi: mục tiêu → kết quả then chốt → KPI của TÔI đang góp vào đó, kèm việc phải làm
  * (nộp bài). Trang "Mục tiêu của tôi" bên Phân tích là biểu đồ để xem; trang này là danh sách
  * để làm — cùng cách đọc trạng thái với KPI của tôi.
+ *
+ * <p>Lọc theo CẤP giống BSC của tôi: mục tiêu tôi đang góp, đơn vị của tôi, các đơn vị cấp trên
+ * trực thuộc, công ty. Không thấy mục tiêu của đơn vị ngang hàng.
  */
 export default function MyOkrPage() {
   const { t } = useTranslation('okr')
@@ -45,6 +58,7 @@ export default function MyOkrPage() {
   const { user } = useAuthStore()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: tree } = useOrgUnitTree()
+  const myUnitId = user?.memberships?.[0]?.orgUnitId
   // "Đơn vị tôi" = đơn vị mình thuộc về VÀ mọi đơn vị con — trưởng phòng thấy cả mục tiêu của
   // các nhóm bên dưới, không chỉ mục tiêu gắn đúng phòng.
   const myUnitIds = useMemo(() => {
@@ -56,29 +70,39 @@ export default function MyOkrPage() {
     return out
   }, [user, tree])
 
+  // Chuỗi đơn vị của tôi → cha → … → gốc (công ty). Lấy từ API riêng: cây đơn vị chỉ trả nhánh
+  // người dùng được xem, nên nhân viên thường không thấy đơn vị cha của mình qua đó.
+  const { data: chain } = useMyUnitChain(myUnitId)
+  const levels = useMemo<Level[]>(() => (chain ?? []).map(u => ({
+    unitId: u.id,
+    name: u.name,
+    isMine: u.id === myUnitId,
+    isRoot: u.parentId == null,
+    unitIds: u.id === myUnitId ? myUnitIds : new Set([u.id]),
+  })), [chain, myUnitId, myUnitIds])
+
   const { data: objectives, isLoading: loadingObjectives } = useObjectives(organizationId)
   const { hasPermission } = usePermission()
   const { data: kpiPage, isLoading: loadingKpis } = useMyKpi({ size: 500 })
-  const { data: periodsData } = useKpiPeriods({ organizationId })
 
-  // Chưa có KPI nào gắn OKR thì mở sẵn phạm vi đơn vị để trang không trống; có rồi thì việc của
+  // Chưa có KPI nào gắn OKR thì mở sẵn cấp đơn vị mình để trang không trống; có rồi thì việc của
   // mình đứng trước.
-  const [scope, setScope] = useState<Scope | null>(null)
+  const [scope, setScope] = useState<string | null>(null)
   useEffect(() => {
-    if (scope !== null || !kpiPage) return
+    if (scope !== null || !kpiPage || levels.length === 0) return
     const hasLinked = (kpiPage.content ?? []).some(k => isMyActiveKpi(k, user?.id) && (k.keyResultId || k.objectiveId))
-    setScope(hasLinked ? 'mine' : 'unit')
-  }, [kpiPage, scope, user?.id])
-  const effectiveScope: Scope = scope ?? 'mine'
-  const [periodId, setPeriodId] = useState<string>('ALL')
+    setScope(hasLinked ? MINE : (levels[0]?.unitId ?? MINE))
+  }, [kpiPage, scope, user?.id, levels])
+  const effectiveScope: string = scope ?? MINE
+  const level = levels.find(l => l.unitId === effectiveScope)
   const [search, setSearch] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [detailKpi, setDetailKpi] = useState<KpiCriteria | null>(null)
 
   const now = useMemo(() => new Date(), [])
   const myKpis = useMemo(
-    () => (kpiPage?.content ?? []).filter(k => isMyActiveKpi(k, user?.id) && (periodId === 'ALL' || k.kpiPeriodId === periodId)),
-    [kpiPage, user?.id, periodId],
+    () => (kpiPage?.content ?? []).filter(k => isMyActiveKpi(k, user?.id)),
+    [kpiPage, user?.id],
   )
   const kpisByKr = useMemo(() => {
     const m = new Map<string, KpiCriteria[]>()
@@ -95,14 +119,20 @@ export default function MyOkrPage() {
     const q = search.trim().toLowerCase()
     return (objectives ?? []).filter(o => {
       const mine = o.keyResults.some(kr => kpisByKr.has(kr.id)) || kpisByObjectiveOnly.has(o.id)
-      const unit = (o.orgUnitIds ?? []).some(id => myUnitIds.has(id))
-      if (effectiveScope === 'mine' && !mine) return false
-      if (effectiveScope === 'unit' && !mine && !unit) return false
+      if (effectiveScope === MINE) {
+        if (!mine) return false
+      } else {
+        if (!level) return false
+        const units = o.orgUnitIds ?? []
+        // Mục tiêu không gắn đơn vị nào là mục tiêu toàn tổ chức — thuộc cấp công ty.
+        const atLevel = units.some(id => level.unitIds.has(id)) || (level.isRoot && units.length === 0)
+        if (!atLevel) return false
+      }
       if (!q) return true
       return o.name.toLowerCase().includes(q) || (o.code ?? '').toLowerCase().includes(q)
         || o.keyResults.some(kr => kr.name.toLowerCase().includes(q))
     })
-  }, [objectives, effectiveScope, search, kpisByKr, kpisByObjectiveOnly, myUnitIds])
+  }, [objectives, effectiveScope, level, search, kpisByKr, kpisByObjectiveOnly])
 
   const stats = useMemo(() => {
     const linked = myKpis.filter(k => k.keyResultId || k.objectiveId)
@@ -113,8 +143,11 @@ export default function MyOkrPage() {
   }, [rows, myKpis, now])
 
   const toggle = (id: string) => setCollapsed(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
-  const periods = periodsData?.content ?? []
-  const loading = loadingObjectives || loadingKpis || scope === null
+  const loading = loadingObjectives || loadingKpis || (scope === null && levels.length > 0)
+  const levelLabel = (l: Level) =>
+    l.isMine ? t('MyOkrPage.levelMine', { name: l.name })
+      : l.isRoot ? t('MyOkrPage.levelCompany', { name: l.name })
+        : t('MyOkrPage.levelParent', { name: l.name })
 
   return (
     <div className="space-y-4">
@@ -141,22 +174,14 @@ export default function MyOkrPage() {
         </div>
       </WorkspaceHeader>
 
-      <FilterBar search={{ value: search, onChange: setSearch, placeholder: t('MyOkrPage.searchObjectivesKeyResults') }}>
-        <SegmentedControl<Scope>
-          ariaLabel={t('MyOkrPage.scope')}
-          value={effectiveScope}
-          onChange={setScope}
-          options={[
-            { value: 'mine', label: t('MyOkrPage.iParticipate') },
-            { value: 'unit', label: t('MyOkrPage.myUnit') },
-            { value: 'all', label: t('MyOkrPage.wholeCompany') },
-          ]}
-        />
-        <Select value={periodId} onValueChange={setPeriodId}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label={t('MyOkrPage.aPeriod')}><SelectValue placeholder={t('MyOkrPage.aPeriod')} /></SelectTrigger>
+      <FilterBar search={{ value: search, onChange: setSearch, placeholder: t('MyOkrPage.searchObjectivesKeyResults'), className: 'sm:w-96' }}>
+        <Select value={effectiveScope} onValueChange={setScope}>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-56" aria-label={t('MyOkrPage.level')}>
+            <SelectValue placeholder={t('MyOkrPage.level')} />
+          </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">{t('MyOkrPage.allPeriods')}</SelectItem>
-            {periods.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            <SelectItem value={MINE}>{t('MyOkrPage.iParticipate')}</SelectItem>
+            {levels.map(l => <SelectItem key={l.unitId} value={l.unitId}>{levelLabel(l)}</SelectItem>)}
           </SelectContent>
         </Select>
       </FilterBar>
@@ -167,11 +192,13 @@ export default function MyOkrPage() {
         <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
           <EmptyState
             icon={Target}
-            title={effectiveScope === 'mine' ? t('MyOkrPage.youHaveNoKpisLinkedTo') : t('MyOkrPage.noMatchingObjectives')}
-            description={effectiveScope === 'mine'
+            title={effectiveScope === MINE ? t('MyOkrPage.youHaveNoKpisLinkedTo') : t('MyOkrPage.noMatchingObjectives')}
+            description={effectiveScope === MINE
               ? t('MyOkrPage.whenYourKpisAreLinkedTo')
-              : t('MyOkrPage.tryChangingTheScopePeriodOr')}
-            action={effectiveScope === 'mine' ? <Button variant="outline" onClick={() => setScope('unit')}>{t('MyOkrPage.viewMyUnitsObjectives')}</Button> : undefined}
+              : t('MyOkrPage.tryAnotherLevel')}
+            action={effectiveScope === MINE && levels[0]
+              ? <Button variant="outline" onClick={() => setScope(levels[0]!.unitId)}>{t('MyOkrPage.viewMyUnitsObjectives')}</Button>
+              : undefined}
           />
         </div>
       ) : (

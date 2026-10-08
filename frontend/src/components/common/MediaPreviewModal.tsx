@@ -1,8 +1,10 @@
-import { X, Download, Maximize2, Minimize2, Share2, FileText } from 'lucide-react'
+import { X, Download, Maximize2, Minimize2, Share2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { cn, downloadFile } from '@/lib/utils'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
+import FilePreview from '@/components/common/FilePreview'
+import { previewKind } from '@/lib/filePreview'
 import { useTranslation } from 'react-i18next'
 
 interface MediaPreviewModalProps {
@@ -17,14 +19,18 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
   const { t } = useTranslation('shared')
   const [isZoomed, setIsZoomed] = useState(false)
   
-  // Close on ESC key
+  // Esc chỉ đóng khung xem, KHÔNG đóng hộp thoại / drawer đang mở bên dưới: bắt ở pha capture trên window (chạy trước
+  // listener của Dialog/Drawer gắn trên document) rồi chặn lan tiếp.
   useEffect(() => {
+    if (!isOpen) return
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      onClose()
     }
-    window.addEventListener('keydown', handleEsc)
-    return () => window.removeEventListener('keydown', handleEsc)
-  }, [onClose])
+    window.addEventListener('keydown', handleEsc, true)
+    return () => window.removeEventListener('keydown', handleEsc, true)
+  }, [isOpen, onClose])
 
   const handleShare = () => {
     navigator.clipboard.writeText(url)
@@ -33,15 +39,14 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
 
   if (!isOpen) return null
 
-  const isImage = contentType?.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(fileName || url)
-  const isPdf = contentType === 'application/pdf' || (fileName || '').toLowerCase().endsWith('.pdf') || url.toLowerCase().endsWith('.pdf')
-  const isVideo = contentType?.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(fileName || url)
-  const isAudio = contentType?.startsWith('audio/') || /\.(mp3|wav|m4a|aac)$/i.test(fileName || url)
-  const isOfficeDoc = /\.(docx?|xlsx?|pptx?)$/i.test(fileName || url)
-  const isLocalFile = url.startsWith('blob:')
+  const isImage = previewKind(fileName || url, contentType) === 'image'
+  // Link công khai mới chia sẻ được: tệp trên máy (blob:) và tệp riêng tư đi qua backend thì người khác không mở được.
+  const shareable = /^https?:\/\//i.test(url) && !url.includes('/api/')
 
-  return (
-    <div role="dialog" aria-modal="true" aria-label={t('MediaPreviewModal.preview', { fileName })} className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/90 animate-in fade-in duration-200 motion-reduce:animate-none">
+  // Portal ra <body> và z-[1100]: khung xem hay được mở TỪ TRONG Dialog/Drawer (z-[1000], cũng portal ra body) — nằm
+  // trong cây DOM của trang thì bị chúng đè lên dù cùng z-index.
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label={t('MediaPreviewModal.preview', { fileName })} className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/90 animate-in fade-in duration-200 motion-reduce:animate-none">
       {/* Header / Toolbar */}
       <div className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-6 bg-black/60 z-20">
         <div className="flex flex-col">
@@ -58,14 +63,14 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
           >
             <Download size={18} />
           </button>
-          <button 
+          {shareable && <button 
             type="button"
             onClick={handleShare}
             className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
             title={t('MediaPreviewModal.shareLink')} aria-label={t('MediaPreviewModal.shareLink')}
           >
             <Share2 size={18} />
-          </button>
+          </button>}
           {isImage && (
             <button 
               type="button"
@@ -108,68 +113,16 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
               }
             }}
           />
-        ) : isPdf ? (
-          <iframe
-            src={`${url}#toolbar=0`}
-            className="w-full max-w-5xl h-full bg-white rounded-control shadow-2xl"
-            title={fileName}
-          />
-        ) : isVideo ? (
-          <video
-            src={url}
-            controls
-            autoPlay
-            className="max-w-full max-h-full rounded-control shadow-2xl"
-          >
-            {t('MediaPreviewModal.yourBrowserDoesNotSupportVideo')}
-          </video>
-        ) : isAudio ? (
-          <div className="bg-white/5 p-12 rounded-widget border border-white/10 flex flex-col items-center text-center max-w-md w-full">
-            <div className="w-20 h-20 rounded-card bg-white/10 flex items-center justify-center text-white/80 mb-6">
-              <FileText size={40} />
-            </div>
-            <h4 className="text-white text-lg font-semibold mb-6 truncate max-w-full">{fileName}</h4>
-            <audio src={url} controls autoPlay className="w-full">
-              {t('MediaPreviewModal.yourBrowserDoesNotSupportAudio')}
-            </audio>
-          </div>
-        ) : isOfficeDoc ? (
-          isLocalFile ? (
-            <div className="bg-white/5 p-12 rounded-widget border border-white/10 flex flex-col items-center text-center max-w-sm">
-              <div className="w-20 h-20 rounded-card bg-[var(--color-warning-solid)] flex items-center justify-center text-white mb-6">
-                <FileText size={40} />
-              </div>
-              <h4 className="text-white text-lg font-semibold mb-2">{t('MediaPreviewModal.cannotPreviewTheContentYet')}</h4>
-              <p className="text-white/60 text-sm mb-8 leading-relaxed">
-                {t('MediaPreviewModal.documentFilesWordExcelCanOnly')}
-              </p>
-              <div className="bg-white/10 p-4 rounded-card text-xs text-white/80 font-medium italic border border-white/5 w-full">
-                {t('MediaPreviewModal.tipYouCanDownloadTheFile')}
-              </div>
-            </div>
-          ) : (
-            <iframe 
-              src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`} 
-              className="w-full max-w-5xl h-full bg-white rounded-control shadow-2xl"
-              title={fileName}
-            />
-          )
         ) : (
-          <div className="bg-white/5 p-12 rounded-widget border border-white/10 flex flex-col items-center text-center max-w-sm">
-            <div className="w-20 h-20 rounded-card bg-[var(--color-primary-soft)] flex items-center justify-center text-[var(--color-primary)] mb-6">
-              <Download size={40} />
-            </div>
-            <h4 className="text-white text-lg font-semibold mb-2">{t('MediaPreviewModal.previewNotSupportedForThisFormat')}</h4>
-            <p className="text-white/60 text-sm mb-8">{t('MediaPreviewModal.youCanDownloadThisFileTo')}</p>
-            <Button variant="ghost" className="w-full" type="button" onClick={() => downloadFile(url, fileName)}>
-              <Download aria-hidden="true" /> {t('MediaPreviewModal.downloadFile')}
-            </Button>
+          <div className="flex h-full w-full max-w-5xl items-center justify-center" onClick={e => e.stopPropagation()}>
+            <FilePreview url={url} fileName={fileName} contentType={contentType} tone="dark" />
           </div>
         )}
       </div>
 
       {/* Close backdrop on click if not zoomed */}
       {!isZoomed && <div className="absolute inset-0 -z-1" onClick={onClose} />}
-    </div>
+    </div>,
+    document.body,
   )
 }

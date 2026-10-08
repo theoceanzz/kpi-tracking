@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { Download, ExternalLink, FileText, Image as ImageIcon, Loader2, Paperclip, Sheet, FileType2 } from 'lucide-react'
+import { Download, ExternalLink, Eye, FileText, Image as ImageIcon, Loader2, Paperclip, Sheet, FileType2 } from 'lucide-react'
 import { cn, downloadFile } from '@/lib/utils'
 import { formatBytes } from '@/lib/attachmentPolicy'
 import type { Attachment } from '@/types/submission'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import MediaPreviewModal from '@/components/common/MediaPreviewModal'
+import { canPreview } from '@/lib/filePreview'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 
@@ -36,7 +38,16 @@ function extOf(a: Attachment): string {
 export default function AttachmentChips({ files, className }: { files?: Attachment[] | null; className?: string }) {
   const { t } = useTranslation('evidence')
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+  const [previewing, setPreviewing] = useState<Attachment | null>(null)
   if (!files?.length) return null
+
+  // Đóng popover trước khi mở khung xem: khung xem nằm NGOÀI popover (popover có transform, khung `fixed` đặt bên
+  // trong sẽ bị kẹp theo nó thay vì phủ cả màn hình).
+  const preview = (a: Attachment) => {
+    setOpen(false)
+    setPreviewing(a)
+  }
 
   const save = async (a: Attachment) => {
     setBusyId(a.id)
@@ -44,7 +55,8 @@ export default function AttachmentChips({ files, className }: { files?: Attachme
   }
 
   return (
-    <Popover>
+    <>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -65,6 +77,7 @@ export default function AttachmentChips({ files, className }: { files?: Attachme
           {files.map(a => {
             const Icon = iconFor(a)
             const isImage = (a.contentType || '').startsWith('image/')
+            const previewable = canPreview(a.fileName, a.contentType)
             return (
               <li key={a.id} className="flex items-center gap-2.5 px-3 py-2">
                 {/* Ảnh thì hiện thumbnail — nhìn là biết tệp gì, khỏi mở. */}
@@ -76,20 +89,41 @@ export default function AttachmentChips({ files, className }: { files?: Attachme
                   </span>
                 )}
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-[var(--color-foreground)]" title={a.fileName}>{a.fileName}</span>
+                  {previewable ? (
+                    <button type="button" onClick={() => preview(a)} title={a.fileName}
+                            className="block max-w-full truncate text-left text-sm font-medium text-[var(--color-foreground)] hover:text-[var(--color-primary)] hover:underline">
+                      {a.fileName}
+                    </button>
+                  ) : (
+                    <span className="block truncate text-sm font-medium text-[var(--color-foreground)]" title={a.fileName}>{a.fileName}</span>
+                  )}
                   <span className="text-caption block">{extOf(a)}{a.fileSize ? ` · ${formatBytes(a.fileSize)}` : ''}</span>
                 </span>
-                <Button variant="outline" size="sm" type="button" onClick={() => save(a)} disabled={busyId === a.id} aria-label={t('AttachmentChips.download', { fileName: a.fileName })}>
-                  {busyId === a.id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />} {t('AttachmentChips.download2')}
+                {previewable && (
+                  <Button variant="outline" size="sm" type="button" onClick={() => preview(a)} aria-label={t('AttachmentChips.preview', { fileName: a.fileName })}>
+                    <Eye aria-hidden="true" /> {t('AttachmentChips.preview2')}
+                  </Button>
+                )}
+                <Button variant="ghost" size="icon-sm" type="button" onClick={() => save(a)} disabled={busyId === a.id}
+                        aria-label={t('AttachmentChips.download', { fileName: a.fileName })} title={t('AttachmentChips.download2')}>
+                  {busyId === a.id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
                 </Button>
-                <Button asChild variant="ghost" size="icon-sm" aria-label={t('AttachmentChips.openInANewTab', { fileName: a.fileName })} title={t('AttachmentChips.openInANewTab2')}>
-                  <a href={a.fileUrl} target="_blank" rel="noopener noreferrer"><ExternalLink aria-hidden="true" /></a>
-                </Button>
+                {/* Loại không xem trước được (.doc, .ppt…) vẫn còn đường mở tab mới. */}
+                {!previewable && (
+                  <Button asChild variant="ghost" size="icon-sm" aria-label={t('AttachmentChips.openInANewTab', { fileName: a.fileName })} title={t('AttachmentChips.openInANewTab2')}>
+                    <a href={a.fileUrl} target="_blank" rel="noopener noreferrer"><ExternalLink aria-hidden="true" /></a>
+                  </Button>
+                )}
               </li>
             )
           })}
         </ul>
       </PopoverContent>
     </Popover>
+    {previewing && (
+      <MediaPreviewModal isOpen onClose={() => setPreviewing(null)} url={previewing.fileUrl}
+                         fileName={previewing.fileName} contentType={previewing.contentType} />
+    )}
+    </>
   )
 }

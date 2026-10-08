@@ -70,6 +70,11 @@ public class BscUnitResult {
     @Column(name = "gate_failed_items", columnDefinition = "TEXT")
     private String gateFailedItems;
 
+    /** Chốt khi thẻ nguồn của dòng "Kết quả cấp trên" CHƯA chốt (quản trị cho phép) ⇒ số tạm tính. */
+    @Column(name = "provisional_source", nullable = false)
+    @Builder.Default
+    private Boolean provisionalSource = false;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default

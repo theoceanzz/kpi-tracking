@@ -123,13 +123,17 @@ const CertificateCanvas = forwardRef<HTMLDivElement, CertificateCanvasProps>(
               alignItems: centered ? 'center' : 'flex-start',
             }}
           >
-            {/* ── Đầu trang: nhận diện công ty ── */}
+            {/* ── Đầu trang: nhận diện công ty ──
+                Tắt cả logo lẫn tên thì vẫn giữ một khoảng trống cùng chiều cao: phần thân
+                căn giữa theo khoảng còn lại, bỏ hẳn đầu trang sẽ làm cả tờ xô lệch lên. */}
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 14,
                 justifyContent: centered ? 'center' : 'flex-start',
+                // Cao bằng đúng dòng tên công ty, để mẫu cũ không xô lệch.
+                minHeight: t(21),
               }}
             >
               {design.showLogo && logo && (
@@ -140,17 +144,19 @@ const CertificateCanvas = forwardRef<HTMLDivElement, CertificateCanvasProps>(
                   style={{ height: t(46), width: 'auto', maxWidth: t(150), objectFit: 'contain' }}
                 />
               )}
-              <span
-                style={{
-                  fontSize: t(14),
-                  fontWeight: 600,
-                  letterSpacing: '0.24em',
-                  textTransform: '',
-                  color: soft(0.62),
-                }}
-              >
-                {data.organizationName}
-              </span>
+              {design.showOrgName && (
+                <span
+                  style={{
+                    fontSize: t(14),
+                    fontWeight: 600,
+                    letterSpacing: '0.24em',
+                    textTransform: '',
+                    color: soft(0.62),
+                  }}
+                >
+                  {data.organizationName}
+                </span>
+              )}
             </div>
 
             {/* ── Thân: đẩy giãn để chân trang luôn nằm sát đáy ── */}

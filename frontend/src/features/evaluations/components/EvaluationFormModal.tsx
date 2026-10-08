@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Section, ScoreRow, RefStat, Collapsible } from '@/components/common/ScoreForm'
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo, useEffect, useRef, useState } from 'react'
 import { BscScoringMode, type PerspectiveScoreResponse } from '@/features/bsc/types'
 import { useQuery } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
@@ -29,6 +29,9 @@ import ConductInlineSheet, { type ConductSheetHandle } from '@/features/conduct/
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
+import { usePermission } from '@/hooks/usePermission'
+import { getApiErrorCode } from '@/lib/apiError'
 
 interface EvaluationFormModalProps {
   open: boolean
@@ -109,9 +112,14 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
       if (initialPeriodId) {
         setValue('kpiPeriodId', initialPeriodId)
       } else if (filteredPeriods.length > 0 && !watch('kpiPeriodId')) {
-        const firstPeriod = filteredPeriods[0]
-        if (firstPeriod) {
-          setValue('kpiPeriodId', firstPeriod.id)
+        // Đợt do hệ thống tự chọn và người dùng không đổi được, nên phải là đợt đang diễn ra
+        // (hôm nay nằm trong khoảng ngày) chứ không phải đợt đầu danh sách.
+        const now = Date.now()
+        const current = filteredPeriods.find(p =>
+          p.startDate && p.endDate && now >= new Date(p.startDate).getTime() && now <= new Date(p.endDate).getTime())
+        const picked = current ?? filteredPeriods[0]
+        if (picked) {
+          setValue('kpiPeriodId', picked.id)
         }
       }
     }
@@ -156,7 +164,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   useEffect(() => {
     fillableRef.current = readOnly
       ? []
-      : ['kpiPeriodId', 'comment', ...(scoreLocked || noQuantScore ? [] : ['score'])]
+      : ['comment', ...(scoreLocked || noQuantScore ? [] : ['score'])]
   }, [readOnly, scoreLocked, noQuantScore])
 
   // Điểm gợi ý 0..100:
@@ -196,14 +204,28 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   // họ sửa rồi gửi lại thay vì gửi đánh giá kèm điểm hành vi cũ.
   const conductRef = useRef<ConductSheetHandle>(null)
 
-  const onSubmit = async (data: EvaluationFormData) => {
+  // Dòng "Kết quả cấp trên" còn tạm tính (thẻ nguồn chưa chốt) ⇒ backend chặn chốt ở chế độ chính
+  // thức. Quản trị BSC toàn tổ chức được chủ động chốt theo số tạm, nên hỏi lại thay vì chỉ báo lỗi.
+  const { hasPermission } = usePermission()
+  const canOverrideProvisional = hasPermission('BSC:MANAGE')
+  const [provisionalAsk, setProvisionalAsk] = useState<EvaluationFormData | null>(null)
+  const provisionalSources = (scorePreview?.bscPerspectives ?? [])
+    .filter(p => p.provisional).map(p => p.sourceScorecardName).filter(Boolean)
+
+  const onSubmit = async (data: EvaluationFormData, allowProvisionalBsc = false) => {
     if (readOnly) return
-    try {
-      await conductRef.current?.save()
-    } catch {
-      return // hook của phiếu đã hiện toast lỗi
+    if (!allowProvisionalBsc) {
+      try {
+        await conductRef.current?.save()
+      } catch {
+        return // hook của phiếu đã hiện toast lỗi
+      }
     }
-    createMutation.mutate(data, {
+    createMutation.mutate({ ...data, allowProvisionalBsc, askProvisional: canOverrideProvisional }, {
+      onError: e => {
+        if (canOverrideProvisional && getApiErrorCode(e) === 'EVALUATION_WAITING_BSC_SOURCE') setProvisionalAsk(data)
+      },
+      onSettled: () => { if (allowProvisionalBsc) setProvisionalAsk(null) },
       onSuccess: () => {
         reset()
 
@@ -240,7 +262,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
 
   const body = (
     <div className="p-5 md:p-6">
-      <form id="evaluation-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form id="evaluation-form" onSubmit={handleSubmit(d => onSubmit(d))} className="space-y-6">
         <input type="hidden" {...register('userId')} />
         <input type="hidden" {...register('kpiPeriodId')} />
 
@@ -254,11 +276,9 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
               label={<>{t('EvaluationFormModal.evaluationPeriods')} {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
               hint={t('EvaluationFormModal.periodsInWhichYouHaveKpis2')}
             >
-              <Select
-                value={selectedPeriodId || undefined}
-                onValueChange={(v) => setValue('kpiPeriodId', v, { shouldValidate: true, shouldDirty: true })}
-                disabled={readOnly}
-              >
+              {/* Đợt tự chọn sẵn (đợt được truyền vào hoặc đợt đang diễn ra) và khoá lại: tự
+                  chấm luôn gắn với đợt hiện hành, không cho đổi sang đợt khác. */}
+              <Select value={selectedPeriodId || undefined} disabled>
                 <SelectTrigger className="w-full sm:max-w-xs" aria-label={t('EvaluationFormModal.evaluationPeriods')}>
                   <SelectValue placeholder={t('EvaluationFormModal.chooseTheEvaluationCycle')} />
                 </SelectTrigger>
@@ -283,6 +303,8 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
               bscMode={bscMode}
               bscPerspectives={bscPerspectives}
               bscUnassigned={bscUnassigned}
+              // Tổ chức bật BSC mà đơn vị chưa có bộ riêng cho đợt ⇒ không có điểm BSC; nói rõ thay vì để trống.
+              bscNotApplied={!!org?.enableBsc && !!scorePreview && !bscMode}
               readOnly={readOnly}
             />
           )}
@@ -419,6 +441,15 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
           </div>
         )}
       </form>
+      <ConfirmDialog
+        open={!!provisionalAsk}
+        onClose={() => setProvisionalAsk(null)}
+        onConfirm={() => { if (provisionalAsk) onSubmit(provisionalAsk, true) }}
+        loading={createMutation.isPending}
+        title={t('EvaluationFormModal.provisionalConfirmTitle')}
+        description={t('EvaluationFormModal.provisionalConfirmDescription', { names: provisionalSources.join(', ') })}
+        confirmLabel={t('EvaluationFormModal.provisionalConfirm')}
+      />
     </div>
   )
 
@@ -472,7 +503,7 @@ const trim = (v: number) => Number(v.toFixed(1)).toString()
 function MeasurementPanel({
   maxScore, calculatedScore, noQuantScore, isBscOfficial, completionPct,
   matrixRating, behaviorScore, systemScore, bscScore, bscMode, bscPerspectives,
-  bscUnassigned, readOnly,
+  bscUnassigned, bscNotApplied, readOnly,
 }: {
   maxScore: number
   calculatedScore: number
@@ -486,6 +517,7 @@ function MeasurementPanel({
   bscMode: BscScoringMode | null
   bscPerspectives: PerspectiveScoreResponse[]
   bscUnassigned: string[]
+  bscNotApplied: boolean
   readOnly: boolean
 }) {
   const { t } = useTranslation('evaluations')
@@ -523,6 +555,11 @@ function MeasurementPanel({
           <RefStat label={t('EvaluationFormModal.conduct2')} value={behaviorScore != null ? <>{behaviorScore.toFixed(1)}<span className="text-sm text-[var(--color-subtle-foreground)]">/5</span></> : '—'} />
         )}
       </div>
+      {bscNotApplied && (
+        <p className="text-caption">
+          <b>BSC:</b> {t('EvaluationFormModal.bscNotApplied')}
+        </p>
+      )}
 
       <p className="text-caption flex items-start gap-1.5">
         {isBscOfficial
@@ -565,6 +602,12 @@ function MeasurementPanel({
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
                   <span className="text-caption min-w-0 flex-1 truncate">
                     {p.name}
+                    {p.provisional && (
+                      <span className="text-eyebrow ml-1.5 rounded px-1 py-px align-middle bg-[var(--color-warning-bg)] text-[var(--color-warning)]"
+                        title={t('EvaluationFormModal.provisionalHint', { name: p.sourceScorecardName })}>
+                        {t('EvaluationFormModal.provisional')}
+                      </span>
+                    )}
                     {p.isGate && (
                       <span className={cn(
                         'text-eyebrow ml-1.5 rounded px-1 py-px align-middle',

@@ -122,7 +122,7 @@ export default function StaffEvaluationModal({
     enabled: open
   })
 
-  // Điểm từng chỉ tiêu theo TỪNG người chấm (sổ V32): "Quản lý chấm" và "Sếp chấm" đứng cạnh nhau thay vì cấp sau
+  // Điểm từng chỉ tiêu theo TỪNG người chấm (sổ V37): "Quản lý chấm" và "Sếp chấm" đứng cạnh nhau thay vì cấp sau
   // đè mất điểm cấp trước như ô managerScore của bài nộp.
   const { data: evaluatorScores } = useQuery({
     queryKey: ['submissions', 'evaluator-scores', userId, periodId],
@@ -161,6 +161,8 @@ export default function StaffEvaluationModal({
   })
   const bscScore = scorePreview?.bscScore ?? null
   const isBscOfficial = scorePreview?.bscScoringMode === 'OFFICIAL' && bscScore != null
+  // Tổ chức bật BSC mà đơn vị chưa có bộ riêng cho đợt ⇒ không có điểm BSC; nói rõ thay vì để trống.
+  const bscNotApplied = !!org?.enableBsc && !!scorePreview && !scorePreview.bscScoringMode
   // KPI thưởng nằm ngoài pool 100% nên điểm của nó cộng THÊM lên trên thang điểm — trần thật
   // lấy từ backend để khớp đúng giới hạn mà createEvaluation kiểm tra khi lưu.
   const scoreCeiling = scorePreview?.maxAllowedScore ?? maxScore
@@ -410,7 +412,7 @@ export default function StaffEvaluationModal({
     ? t('ScorerColumns.you')
     : c.kind === 'saved' && c.evaluatorId ? scorers.names[c.evaluatorId] : undefined
 
-  /** Điểm đã lưu của một cột: dòng của người đó trong sổ; đợt chấm trước V32 không có sổ thì lấy điểm trên bài nộp. */
+  /** Điểm đã lưu của một cột: dòng của người đó trong sổ; đợt chấm trước V37 không có sổ thì lấy điểm trên bài nộp. */
   const savedScore = (s: Submission, c: ScorerColumn): Pick<SubmissionEvaluatorScore, 'managerScore' | 'qualitativeLevelId' | 'qualitativeLevelName'> | undefined => {
     if (c.kind !== 'saved') return undefined
     if (c.evaluatorId) return scorers.bySubmission[s.id]?.[c.evaluatorId]
@@ -819,9 +821,10 @@ export default function StaffEvaluationModal({
               <div className="divide-y divide-[var(--color-border)] rounded-card border border-[var(--color-border)]">
                 <ScoreRow
                   label={<>{t('StaffEvaluationModal.endOfPeriodScore')} {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
-                  hint={isBscOfficial ? t('StaffEvaluationModal.lockedToTheOfficialBscScore')
+                  hint={(isBscOfficial ? t('StaffEvaluationModal.lockedToTheOfficialBscScore')
                     : isFullQualitative ? t('StaffEvaluationModal.allQualitativeFixed', { SCORING_POOL })
-                    : t('StaffEvaluationModal.scoredByKpi', { totalManagerScore: formatNumber(totalManagerScore) })}
+                    : t('StaffEvaluationModal.scoredByKpi', { totalManagerScore: formatNumber(totalManagerScore) }))
+                    + (bscNotApplied ? ` · ${t('StaffEvaluationModal.bscNotApplied')}` : '')}
                   trailing={!readOnly && !isBscOfficial && !isFullQualitative && finalScore !== totalManagerScore && (
                     <Button variant="ghost" size="sm" type="button" onClick={handleResetFinalScore} title={t('StaffEvaluationModal.useTheTotalOfScoresGiven')}>
                       <Zap aria-hidden="true" /> {t('StaffEvaluationModal.use')} {formatNumber(totalManagerScore)}

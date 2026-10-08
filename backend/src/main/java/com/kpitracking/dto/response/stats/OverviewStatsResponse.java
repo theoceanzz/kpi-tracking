@@ -15,6 +15,8 @@ public class OverviewStatsResponse {
     private long draftKpi;
     private long totalSubmissions;
     private long pendingSubmissions;
+    /** Bài chờ duyệt chỉ trong (các) đợt hiện tại — số đỏ ở sidebar/tab, xem StatsService.currentPeriodIds. */
+    private long pendingSubmissionsCurrentPeriod;
     private long approvedSubmissions;
     private long rejectedSubmissions;
     private long totalEvaluations;

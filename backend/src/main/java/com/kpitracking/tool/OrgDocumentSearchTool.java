@@ -3,11 +3,13 @@ package com.kpitracking.tool;
 import com.kpitracking.ai.document.retrieve.DocumentRetrieverFactory;
 import com.kpitracking.ai.document.retrieve.DocumentSearchService;
 import com.kpitracking.ai.document.retrieve.RetrievalProfile;
-
+import com.kpitracking.dto.response.ai.DocumentSourceResponse;
 import com.kpitracking.dto.response.ai.RagSearchHitResponse;
+import com.kpitracking.service.ai.agent.AgentState;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.OrgDocumentSearchRequest;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.rag.content.Content;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -24,12 +26,16 @@ import java.util.UUID;
  * <p>Thay cho agent gợi ý KPI riêng (bỏ 22/09/2026): trước đây tài liệu này chỉ đi vào prompt của
  * {@code KpiSuggestionAgent} qua {@code RetrievalAugmentor}; nay gợi ý KPI đi qua đường điền form
  * của agent chính ({@code suggest_kpi_form}), nên tài liệu phải là một TOOL để agent chính tự tra.
- * Lọc bắt buộc theo {@code organizationId} của lượt và chỉ hai loại tài liệu — quy chế nói về cách
- * chấm, không nói về việc phải làm; bộ hướng dẫn KeyGo thì càng không.
+ *
+ * <p>Hồ sơ {@link RetrievalProfile#KPI_CONTEXT}: chỉ mô tả công việc + chiến lược — quy chế nói về cách chấm, không
+ * nói về việc phải làm; bộ hướng dẫn KeyGo thì càng không. Đọc theo QUYỀN của người hỏi (bộ lọc fail-closed ở
+ * {@link DocumentRetrieverFactory}, docs/DOCUMENTS_DESIGN.md §6.3): mô tả công việc của phòng mà người hỏi không
+ * thuộc về, hay tài liệu cá nhân của người khác, không lọt vào gợi ý KPI.
  */
 @Component
 public class OrgDocumentSearchTool {
 
+    private static final String PARAM_USER = "userId";
     private static final int MAX_TEXT = 700;
 
     private final ToolSupport support;
@@ -40,7 +46,6 @@ public class OrgDocumentSearchTool {
                                  @Value("${app.ai.rag.org-documents.max-results:4}") int maxResults) {
         this.support = support;
         this.search = search;
-        // Lọc bắt buộc theo tổ chức của lượt + chỉ mô tả công việc / chiến lược (hồ sơ KPI_CONTEXT).
         this.retriever = retrievers.retriever(RetrievalProfile.KPI_CONTEXT, maxResults, 0.0);
     }
 
@@ -57,7 +62,17 @@ public class OrgDocumentSearchTool {
                 throw new IllegalArgumentException("Cần query — vd 'nhiệm vụ và mục tiêu của Phòng IT'.");
             }
             UUID orgId = support.getOrgId(context);
-            List<Map<String, Object>> hits = search.search(retriever, q, orgId).stream()
+            UUID userId = asUuid(context == null ? null : context.get(PARAM_USER));
+            List<Content> found = search.retrieve(retriever, q, orgId, userId, null);
+            // Chip nguồn: tài liệu mà công cụ vừa đọc cho lượt này (đã qua bộ lọc quyền).
+            AgentState state = AgentState.from(context);
+            if (state != null) {
+                state.addSources(found.stream()
+                        .map(c -> c.textSegment() == null ? null : DocumentSourceResponse.fromMetadata(c.textSegment().metadata()))
+                        .toList());
+            }
+            List<Map<String, Object>> hits = found.stream()
+                    .map(RagSearchHitResponse::of)
                     .map(OrgDocumentSearchTool::compact)
                     .toList();
             Map<String, Object> out = new LinkedHashMap<>();
@@ -72,9 +87,20 @@ public class OrgDocumentSearchTool {
         }
     }
 
+    private static UUID asUuid(Object v) {
+        if (v == null) return null;
+        if (v instanceof UUID u) return u;
+        try {
+            return UUID.fromString(v.toString());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     private static Map<String, Object> compact(RagSearchHitResponse h) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("document", h.docTitle());
+        if (h.validity() != null) m.put("validity", h.validity());
         m.put("section", h.parent() != null && !h.parent().isBlank() ? h.parent() + " › " + h.title() : h.title());
         String text = h.text() == null ? "" : h.text().strip();
         m.put("text", text.length() > MAX_TEXT ? text.substring(0, MAX_TEXT) + "…" : text);

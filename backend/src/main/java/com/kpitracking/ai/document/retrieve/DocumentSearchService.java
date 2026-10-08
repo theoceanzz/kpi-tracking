@@ -4,6 +4,7 @@ import com.kpitracking.dto.response.ai.RagSearchHitResponse;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.invocation.InvocationContext;
 import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.rag.content.Content;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.rag.query.Metadata;
 import dev.langchain4j.rag.query.Query;
@@ -34,17 +35,34 @@ public class DocumentSearchService {
      */
     public List<RagSearchHitResponse> search(ContentRetriever retriever, String query, UUID organizationId,
                                              List<String> onlyDocIds) {
+        return search(retriever, query, organizationId, null, onlyDocIds);
+    }
+
+    /**
+     * Như trên, đọc theo QUYỀN của {@code userId} (tài liệu cá nhân của chính họ, đơn vị họ được xem…). Không có
+     * người hỏi thì chỉ tài liệu công ty — xem {@link DocumentRetrieverFactory}.
+     */
+    public List<RagSearchHitResponse> search(ContentRetriever retriever, String query, UUID organizationId,
+                                             UUID userId, List<String> onlyDocIds) {
+        return retrieve(retriever, query, organizationId, userId, onlyDocIds).stream()
+                .map(RagSearchHitResponse::of).toList();
+    }
+
+    /** Nguyên các {@link Content} truy hồi được — khi cần cả metadata (vd chip nguồn). */
+    public List<Content> retrieve(ContentRetriever retriever, String query, UUID organizationId, UUID userId,
+                                  List<String> onlyDocIds) {
         if (query == null || query.isBlank()) return List.of();
         if (onlyDocIds != null && onlyDocIds.isEmpty()) return List.of();   // không tài liệu nào được đọc
         String q = query.strip();
         Map<String, Object> values = new java.util.HashMap<>();
         if (organizationId != null) values.put(DocumentRetrieverFactory.ORG_PARAM, organizationId.toString());
+        if (userId != null) values.put(DocumentRetrieverFactory.USER_PARAM, userId.toString());
         if (onlyDocIds != null) values.put(DocumentRetrieverFactory.ONLY_DOCS_PARAM, List.copyOf(onlyDocIds));
         InvocationParameters params = values.isEmpty() ? new InvocationParameters() : InvocationParameters.from(values);
         Metadata metadata = Metadata.builder()
                 .chatMessage(UserMessage.from(q))
                 .invocationContext(InvocationContext.builder().invocationParameters(params).build())
                 .build();
-        return retriever.retrieve(Query.from(q, metadata)).stream().map(RagSearchHitResponse::of).toList();
+        return retriever.retrieve(Query.from(q, metadata));
     }
 }

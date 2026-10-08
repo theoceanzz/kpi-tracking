@@ -15,13 +15,11 @@
   },
   "HeroScene": {
     "assignMeasureEvaluateRewardOnOne": "Assign · measure · evaluate · reward on one screen. Ask K.AI instead of waiting for reports.",
-    "clearGoals": "Clear goals.",
     "keygosOverviewScreenUnitKpiMetrics": "KeyGo's Overview screen: unit KPI metrics, filters, list of people needing intervention",
     "okrKpiBscPlatformWithAn": "OKR · KPI · BSC platform with an AI assistant",
     "scrollToSeeTheStory": "Scroll to see the story",
     "seeKeygoInAction": "See KeyGo in action",
-    "tryItFree": "Try it free",
-    "visiblePerformance": "Visible performance."
+    "tryItFree": "Try it free"
   },
   "LandingFooter": {
     "aGoalPerformanceManagementPlatformOkr": "A goal & performance management platform: OKR, KPI, BSC, conduct, rewards and an AI assistant for Vietnamese businesses.",
