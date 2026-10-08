@@ -72,7 +72,10 @@
     "system": "Hệ thống",
     "theAssigneeWillBeNotifiedAdministrators": "Người được gán sẽ nhận thông báo. Quản trị viên không duyệt thay được.",
     "time": "Thời gian",
-    "viewApprovalHistorySubmissions": "Xem lịch sử duyệt ({{count}} lần gửi)"
+    "viewApprovalHistorySubmissions": "Xem lịch sử duyệt ({{count}} lần gửi)",
+    "byProcess": "Theo quy trình: {{title}}",
+    "viewProcessDiagram": "Xem sơ đồ quy trình",
+    "processDiagram": "Sơ đồ quy trình duyệt"
   },
   "CriteriaStep": {
     "actual": "% thật",
@@ -1847,7 +1850,8 @@
     "remindTheApproverWhenAStep": "Nhắc người duyệt khi một bước chờ quá",
     "requireEvidenceAttachments": "Bắt buộc đính kèm minh chứng",
     "requiresStep": "Cần bước",
-    "whoApproves": "Ai được duyệt"
+    "whoApproves": "Ai được duyệt",
+    "approvalProcessesOverrideChain": "Giao KPI hoặc Yêu cầu điều chỉnh khớp một quy trình ở mục \"Quy trình duyệt\" thì đi theo các bước của quy trình đó thay cho chuỗi trên."
   },
   "StageNode": {
     "coreStepOfTheFlowCannot": "Bước lõi của luồng, không thể tắt",

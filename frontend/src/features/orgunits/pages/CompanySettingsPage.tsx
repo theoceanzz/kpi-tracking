@@ -10,6 +10,7 @@ import EmailTemplateSettingsTab from '@/features/organization/components/EmailTe
 import LarkSettingsTab from '@/features/organization/components/LarkSettingsTab'
 import AiDocumentsSettingsTab from '@/features/organization/components/AiDocumentsSettingsTab'
 import WorkflowSettingsTab from '@/features/kpi/workflow/components/WorkflowSettingsTab'
+import ApprovalProcessListSection from '@/features/approvalProcess/components/ApprovalProcessListSection'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
@@ -52,6 +53,7 @@ export default function CompanySettingsPage() {
           { id: 'api', render: () => <LarkSettingsTab /> },
           { id: 'ai-docs', render: () => <AiDocumentsSettingsTab /> },
           { id: 'kpi-workflow', render: () => <WorkflowSettingsTab /> },
+          { id: 'approval-processes', render: () => <ApprovalProcessListSection /> },
         ]}
       />
     </>

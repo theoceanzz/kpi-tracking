@@ -23,6 +23,7 @@ import EmployeePerformancePage from '@/features/dashboard/pages/EmployeePerforma
 
 import OrgUnitDetailPage from '@/features/organization/pages/OrgUnitDetailPage'
 import CompanySettingsPage from '@/features/orgunits/pages/CompanySettingsPage'
+import ApprovalProcessEditorPage from '@/features/approvalProcess/pages/ApprovalProcessEditorPage'
 import PerformancePage from '@/features/kpi/pages/PerformancePage'
 import MySpacePage from '@/features/profile/pages/MySpacePage'
 import NewSubmissionPage from '@/features/submissions/pages/NewSubmissionPage'
@@ -172,6 +173,16 @@ export const router = createBrowserRouter([
               { path: '/bsc/strategy-map', element: <RedirectToSection to="/settings/tools" params={{ section: 'bsc' }} /> },
               { path: '/settings/modules', element: <RedirectToSection to="/settings/tools" params={{ section: 'modules' }} /> },
               { path: '/settings/scoring', element: <RedirectToSection to="/settings/tools" params={{ section: 'scoring' }} /> },
+            ],
+          },
+
+          // Quy trình duyệt: trang sửa riêng (khung vẽ cần cả màn hình). Cùng phép HOẶC với mục
+          // "Quy trình duyệt" trong Thiết lập công ty; thiếu WORKFLOW:MANAGE thì trang chỉ xem.
+          {
+            element: <PermissionRoute permission={['WORKFLOW:MANAGE', 'COMPANY:UPDATE']} />,
+            children: [
+              { path: '/company/approval-processes/new', element: <ApprovalProcessEditorPage /> },
+              { path: '/company/approval-processes/:id', element: <ApprovalProcessEditorPage /> },
             ],
           },
 

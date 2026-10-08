@@ -128,7 +128,9 @@
     "yourAssignedKpisAndCurrentProgress": "Chỉ tiêu được giao và tiến độ hiện tại của bạn",
     "yourUnitsScorecardByPeriodAnd": "Bộ tiêu chí của đơn vị bạn theo đợt và KPI của bạn trong từng hạng mục",
     "aiSubmissionReview": "AI đánh giá bài nộp",
-    "aiReadsSubmissionsAndAppliesRules": "Bật AI đọc trước bài nộp khi chấm, áp quy chế chấm cho từng đơn vị"
+    "aiReadsSubmissionsAndAppliesRules": "Bật AI đọc trước bài nộp khi chấm, áp quy chế chấm cho từng đơn vị",
+    "approvalProcesses": "Quy trình duyệt",
+    "approvalProcessesDescription": "Vẽ quy trình duyệt theo điều kiện cho Giao KPI và Yêu cầu điều chỉnh KPI"
   },
   "Sidebar": {
     "administrator": "Quản trị viên",

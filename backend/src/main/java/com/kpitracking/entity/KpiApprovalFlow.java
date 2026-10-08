@@ -5,10 +5,13 @@ import com.kpitracking.enums.ApprovalStepStatus;
 import com.kpitracking.enums.ApprovalSubjectType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -65,6 +68,18 @@ public class KpiApprovalFlow {
 
     @Column(name = "finished_at")
     private Instant finishedAt;
+
+    /** Quy trình duyệt đã lập ra các bước; {@code null} = chuỗi trưởng đơn vị mặc định. */
+    @Column(name = "process_id")
+    private UUID processId;
+
+    @Column(name = "process_title")
+    private String processTitle;
+
+    /** {@code {graph, pathNodeIds, showInObject}} — sơ đồ lúc gửi và đường đã đi qua nó. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "process_snapshot", columnDefinition = "jsonb")
+    private Map<String, Object> processSnapshot;
 
     @Version
     @Column(name = "version", nullable = false)

@@ -73,7 +73,10 @@
     "theAssigneeWillBeNotifiedAdministrators": "The assignee will be notified. Administrators cannot approve on their behalf.",
     "time": "Time",
     "viewApprovalHistorySubmissions_one": "View approval history ({{count}} submission)",
-    "viewApprovalHistorySubmissions_other": "View approval history ({{count}} submissions)"
+    "viewApprovalHistorySubmissions_other": "View approval history ({{count}} submissions)",
+    "byProcess": "Process: {{title}}",
+    "viewProcessDiagram": "View process diagram",
+    "processDiagram": "Approval process diagram"
   },
   "CriteriaStep": {
     "actual": "% actual",
@@ -1872,7 +1875,8 @@
     "remindTheApproverWhenAStep": "Remind the approver when a step has been waiting longer than",
     "requireEvidenceAttachments": "Require evidence attachments",
     "requiresStep": "Requires step",
-    "whoApproves": "Who approves"
+    "whoApproves": "Who approves",
+    "approvalProcessesOverrideChain": "KPI assignments or adjustment requests that match a process under \"Approval processes\" follow that process's steps instead of this chain."
   },
   "StageNode": {
     "coreStepOfTheFlowCannot": "Core step of the flow, cannot be turned off",

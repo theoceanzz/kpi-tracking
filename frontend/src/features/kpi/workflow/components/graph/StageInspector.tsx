@@ -96,6 +96,9 @@ function StageOptions({
             <p className="text-caption">
               {t('StageInspector.directUnitHeadParentHeadTop')}
             </p>
+            <p className="text-caption">
+              {t('StageInspector.approvalProcessesOverrideChain')}
+            </p>
             <label className="text-label flex flex-col gap-1 text-[var(--color-muted-foreground)]">
               {t('StageInspector.remindTheApproverWhenAStep')}
               <Input

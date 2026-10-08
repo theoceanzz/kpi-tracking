@@ -1,5 +1,6 @@
 import {
   Workflow,
+  GitBranch,
   LayoutDashboard,
   Hash,
   Building2,
@@ -165,6 +166,9 @@ export const navItems = perLanguage((): NavItem[] => ([
           // quản trị công ty (COMPANY:UPDATE) đều thấy; thiếu WORKFLOW:MANAGE thì mục tự chuyển
           // sang chỉ-xem.
           { id: 'kpi-workflow', label: i18n.t('layout:navigation.workflowSettings'), icon: <Workflow size={18} />, permission: ['WORKFLOW:MANAGE', 'COMPANY:UPDATE'], legacyKeys: ['/kpi-workflow'], group: i18n.t('layout:navigation.system') , description: i18n.t('layout:navigation.turnOnOffAndOrderThe') },
+          // Quy trình duyệt kiểu 1Office (sơ đồ điều kiện + bước duyệt). Cùng quyền với "Luồng KPI":
+          // thiếu WORKFLOW:MANAGE thì chỉ xem.
+          { id: 'approval-processes', label: i18n.t('layout:navigation.approvalProcesses'), icon: <GitBranch size={18} />, permission: ['WORKFLOW:MANAGE', 'COMPANY:UPDATE'], group: i18n.t('layout:navigation.system') , description: i18n.t('layout:navigation.approvalProcessesDescription') },
         ],
       },
       // Cùng cách gom như "Thiết lập công ty": cả bảng cấu hình lẫn các công cụ quản lý

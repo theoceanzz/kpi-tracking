@@ -128,7 +128,9 @@
     "yourAssignedKpisAndCurrentProgress": "Your assigned KPIs and current progress",
     "yourUnitsScorecardByPeriodAnd": "Your unit's scorecard by period and your KPIs in each item",
     "aiSubmissionReview": "AI submission review",
-    "aiReadsSubmissionsAndAppliesRules": "Let AI pre-read submissions when scoring, and apply scoring rules per unit"
+    "aiReadsSubmissionsAndAppliesRules": "Let AI pre-read submissions when scoring, and apply scoring rules per unit",
+    "approvalProcesses": "Approval processes",
+    "approvalProcessesDescription": "Draw condition-based approval processes for KPI assignment and KPI adjustment requests"
   },
   "Sidebar": {
     "administrator": "Administrator",

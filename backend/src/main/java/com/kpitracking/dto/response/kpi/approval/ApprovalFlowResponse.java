@@ -22,6 +22,8 @@ public class ApprovalFlowResponse {
     private Integer currentStepOrder;
     private Instant startedAt;
     private Instant finishedAt;
+    /** Có khi flow lập theo quy trình duyệt. */
+    private Process process;
     private List<Step> steps;
     private List<Event> events;
 
@@ -32,6 +34,10 @@ public class ApprovalFlowResponse {
         private ApprovalStepKind kind;
         private UUID orgUnitId;
         private String orgUnitName;
+        /** Bước của quy trình duyệt ({@code kind = PROCESS_STEP}): tên + mã "1", "1.1"… */
+        private String stepName;
+        private String stepCode;
+        private String processNodeId;
         private List<String> mergedUnitNames;
         private ApprovalStepStatus status;
         private String skipReason;
@@ -41,6 +47,20 @@ public class ApprovalFlowResponse {
         private Instant actedAt;
         private String reason;
         private Instant pendingSince;
+    }
+
+    /**
+     * Quy trình đã lập ra flow. {@code graph} chỉ có khi quy trình bật "hiển thị trong đối tượng" lúc
+     * gửi: sơ đồ chụp lại khi đó, {@code pathNodeIds} là đường đã đi qua nó.
+     */
+    @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class Process {
+        private UUID id;
+        private String title;
+        private boolean showDiagram;
+        private Object graph;
+        private List<String> pathNodeIds;
+        private String currentNodeId;
     }
 
     @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  CheckCircle2, Circle, CircleDashed, Clock, Loader2, SkipForward, UserCog, XCircle, History, ChevronDown,
+  CheckCircle2, Circle, CircleDashed, Clock, Loader2, SkipForward, UserCog, XCircle, History, ChevronDown, GitBranch,
 } from 'lucide-react'
 import { cn, formatDateTime } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +15,7 @@ import { useReassignApprovalStep } from '../hooks/useKpiApprovalChain'
 import { useTranslation } from 'react-i18next'
 import { useStateDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import ProcessDiagramDialog from '@/features/approvalProcess/components/ProcessDiagramDialog'
 
 /**
  * Chuỗi duyệt của một KPI: stepper của lần gửi mới nhất (bước, người giữ, trạng thái, lý do) và
@@ -31,6 +32,7 @@ export default function ApprovalChainPanel({ chain, loading, adjustmentId, canRe
   const { t } = useTranslation('kpi')
   const [showHistory, setShowHistory] = useState(false)
   const [reassignStep, setReassignStep] = useState<ApprovalStep | null>(null)
+  const [showDiagram, setShowDiagram] = useState(false)
 
   if (loading) {
     return (
@@ -54,6 +56,24 @@ export default function ApprovalChainPanel({ chain, loading, adjustmentId, canRe
         <h3 className="text-eyebrow">{t('ApprovalChainPanel.approvalChain')}{latestCriteria.round > 1 ? t('ApprovalChainPanel.submission', { round: latestCriteria.round }) : ''}</h3>
         <FlowStatusBadge flow={latestCriteria} />
       </div>
+
+      {latestCriteria.process?.title && (
+        <div className="-mt-1 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="flex min-w-0 items-center gap-1.5 text-caption">
+            <GitBranch className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span className="truncate">{t('ApprovalChainPanel.byProcess', { title: latestCriteria.process.title })}</span>
+          </span>
+          {latestCriteria.process.showDiagram && latestCriteria.process.graph && (
+            <button
+              type="button"
+              onClick={() => setShowDiagram(true)}
+              className="text-xs font-medium text-[var(--color-primary)] hover:underline"
+            >
+              {t('ApprovalChainPanel.viewProcessDiagram')}
+            </button>
+          )}
+        </div>
+      )}
 
       <FlowStepper
         flow={latestCriteria}
@@ -80,6 +100,16 @@ export default function ApprovalChainPanel({ chain, loading, adjustmentId, canRe
 
       {/* Chỉ gắn khi mở: hộp thoại tải danh sách nhân sự của tổ chức. */}
       {reassignStep && <ReassignDialog step={reassignStep} onClose={() => setReassignStep(null)} />}
+      {showDiagram && latestCriteria.process?.graph && (
+        <ProcessDiagramDialog
+          open
+          onClose={() => setShowDiagram(false)}
+          title={latestCriteria.process.title ?? t('ApprovalChainPanel.processDiagram')}
+          graph={latestCriteria.process.graph}
+          pathNodeIds={latestCriteria.process.pathNodeIds}
+          currentNodeId={latestCriteria.status === 'IN_PROGRESS' ? latestCriteria.process.currentNodeId : null}
+        />
+      )}
     </section>
   )
 }
@@ -131,7 +161,11 @@ function FlowStepper({ flow, canReassign, onReassign }: {
             <div className={cn('min-w-0 flex-1', muted && 'opacity-70')}>
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <span className="text-sm font-medium text-[var(--color-foreground)]">
-                  {step.kind === 'ADMIN_FALLBACK' ? t('ApprovalChainPanel.organizationAdministrator') : (units || t('ApprovalChainPanel.step', { order: step.order }))}
+                  {step.kind === 'ADMIN_FALLBACK'
+                    ? t('ApprovalChainPanel.organizationAdministrator')
+                    : step.kind === 'PROCESS_STEP' && step.stepName
+                      ? [step.stepCode, step.stepName].filter(Boolean).join(' · ')
+                      : (units || t('ApprovalChainPanel.step', { order: step.order }))}
                 </span>
                 <span className="text-caption">{STEP_STATUS_LABEL()[step.status]}</span>
               </div>

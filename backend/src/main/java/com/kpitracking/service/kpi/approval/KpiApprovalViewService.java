@@ -131,14 +131,14 @@ public class KpiApprovalViewService {
                 .stepId(step.getId())
                 .stepNumber(number)
                 .totalSteps(counted.size())
-                .currentUnitName(step.getOrgUnitName())
+                .currentUnitName(step.displayName())
                 .holderIds(step.getApprovers().stream().map(KpiApprovalStep.StepApprover::getUserId).toList())
                 .holderNames(step.getApprovers().stream().map(KpiApprovalStep.StepApprover::getUserName).toList())
                 .pendingSince(step.getPendingSince())
                 .canAct(canAct)
                 .actionKind(kind)
                 .nextHolderNames(kind == ApprovalOutcome.FORWARDED ? next.map(KpiApprovalStep::approverNames).orElse(null) : null)
-                .nextUnitName(kind == ApprovalOutcome.FORWARDED ? next.map(KpiApprovalStep::getOrgUnitName).orElse(null) : null)
+                .nextUnitName(kind == ApprovalOutcome.FORWARDED ? next.map(KpiApprovalStep::displayName).orElse(null) : null)
                 .canReassign(ctx.isAdmin(flow.getOrganizationId()))
                 .build();
     }
@@ -233,6 +233,7 @@ public class KpiApprovalViewService {
                 .currentStepOrder(f.getStatus() == ApprovalFlowStatus.IN_PROGRESS ? f.getCurrentStepOrder() : null)
                 .startedAt(f.getStartedAt())
                 .finishedAt(f.getFinishedAt())
+                .process(processOf(f))
                 .steps(f.getSteps().stream().map(this::toStep).toList())
                 .events(events.stream().map(e -> ApprovalFlowResponse.Event.builder()
                         .id(e.getId())
@@ -247,6 +248,21 @@ public class KpiApprovalViewService {
                 .build();
     }
 
+    private ApprovalFlowResponse.Process processOf(KpiApprovalFlow f) {
+        if (f.getProcessId() == null && f.getProcessTitle() == null) return null;
+        Map<String, Object> snap = f.getProcessSnapshot() == null ? Map.of() : f.getProcessSnapshot();
+        boolean show = Boolean.TRUE.equals(snap.get("showInObject")) && snap.get("graph") != null;
+        Object path = snap.get("pathNodeIds");
+        return ApprovalFlowResponse.Process.builder()
+                .id(f.getProcessId())
+                .title(f.getProcessTitle())
+                .showDiagram(show)
+                .graph(show ? snap.get("graph") : null)
+                .pathNodeIds(path instanceof List<?> l ? l.stream().map(String::valueOf).toList() : List.of())
+                .currentNodeId(f.currentStep().map(KpiApprovalStep::getProcessNodeId).orElse(null))
+                .build();
+    }
+
     private ApprovalFlowResponse.Step toStep(KpiApprovalStep s) {
         return ApprovalFlowResponse.Step.builder()
                 .id(s.getId())
@@ -254,6 +270,9 @@ public class KpiApprovalViewService {
                 .kind(s.getKind())
                 .orgUnitId(s.getOrgUnitId())
                 .orgUnitName(s.getOrgUnitName())
+                .stepName(s.getStepName())
+                .stepCode(s.getStepCode())
+                .processNodeId(s.getProcessNodeId())
                 .mergedUnitNames(s.getMergedUnits() == null ? List.of()
                         : s.getMergedUnits().stream().map(m -> String.valueOf(m.get("name"))).toList())
                 .status(s.getStatus())

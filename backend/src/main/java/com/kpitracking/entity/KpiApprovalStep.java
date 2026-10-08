@@ -44,6 +44,16 @@ public class KpiApprovalStep {
     @Column(name = "org_unit_name")
     private String orgUnitName;
 
+    /** Bước lập từ quy trình duyệt ({@code PROCESS_STEP}): tên bước admin đặt, mã "1", "1.1"…, id node trên sơ đồ. */
+    @Column(name = "step_name")
+    private String stepName;
+
+    @Column(name = "step_code", length = 20)
+    private String stepCode;
+
+    @Column(name = "process_node_id", length = 64)
+    private String processNodeId;
+
     /** Các cấp bị gộp vào bước này (một người kiêm trưởng nhiều cấp liên tiếp): [{id, name}]. */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "merged_units", columnDefinition = "jsonb")
@@ -83,6 +93,14 @@ public class KpiApprovalStep {
 
     public boolean isHeldBy(UUID userId) {
         return userId != null && approvers.stream().anyMatch(a -> userId.equals(a.getUserId()));
+    }
+
+    /** Tên hiển thị của bước: tên bước của quy trình, hoặc tên đơn vị ở chuỗi mặc định. */
+    public String displayName() {
+        if (kind == ApprovalStepKind.PROCESS_STEP && stepName != null) {
+            return stepCode == null ? stepName : stepCode + " · " + stepName;
+        }
+        return orgUnitName;
     }
 
     public String approverNames() {

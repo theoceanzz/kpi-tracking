@@ -1,0 +1,76 @@
+package com.kpitracking.service.approvalprocess;
+
+import com.kpitracking.entity.*;
+import com.kpitracking.enums.ApprovalObjectType;
+
+import java.util.*;
+
+/**
+ * Những gì điều kiện duyệt được phép nhìn vào, chụp từ KPI / yêu cầu điều chỉnh / người gửi ngay
+ * lúc gửi duyệt. Tách ra record để bộ đánh giá điều kiện là thuần logic.
+ *
+ * @param orgUnitAncestry đơn vị của KPI và mọi cấp cha (cho toán tử "kể cả đơn vị con")
+ * @param requesterRoleIds vai trò người gửi đang giữ (còn hạn) ở bất kỳ đơn vị nào
+ * @param targetChangePercent |chỉ tiêu xin − chỉ tiêu hiện tại| / |hiện tại| × 100; null khi không tính được
+ */
+public record ApprovalSubjectFacts(
+        ApprovalObjectType objectType,
+        String subObject,
+        UUID orgUnitId,
+        Set<UUID> orgUnitAncestry,
+        UUID orgLevelId,
+        UUID requesterId,
+        Set<UUID> requesterRoleIds,
+        String kpiType,
+        String frequency,
+        UUID periodId,
+        Double weight,
+        boolean bonus,
+        String requestKind,
+        Double targetChangePercent) {
+
+    public static final String KIND_CHANGE_TARGET = "CHANGE_TARGET";
+    public static final String KIND_DEACTIVATE = "DEACTIVATE";
+
+    /**
+     * @param requesterRoleIds đã lọc phân công hết hạn ở phía gọi
+     */
+    public static ApprovalSubjectFacts of(KpiCriteria kpi, KpiAdjustmentRequest adjustment, User requester,
+                                          Set<UUID> requesterRoleIds) {
+        OrgUnit unit = kpi.getOrgUnit();
+        Set<UUID> ancestry = new LinkedHashSet<>();
+        Set<UUID> guard = new HashSet<>();
+        for (OrgUnit u = unit; u != null && guard.add(u.getId()); u = u.getParent()) {
+            ancestry.add(u.getId());
+        }
+
+        String kpiType = kpi.getKpiType() == null ? null : kpi.getKpiType().name();
+        ApprovalObjectType objectType = adjustment == null ? ApprovalObjectType.KPI_CRITERIA : ApprovalObjectType.KPI_ADJUSTMENT;
+        String requestKind = null;
+        Double changePercent = null;
+        if (adjustment != null) {
+            requestKind = adjustment.isDeactivationRequest() ? KIND_DEACTIVATE : KIND_CHANGE_TARGET;
+            Double current = kpi.getTargetValue();
+            Double requested = adjustment.getRequestedTargetValue();
+            if (!adjustment.isDeactivationRequest() && current != null && requested != null && current != 0d) {
+                changePercent = Math.abs(requested - current) / Math.abs(current) * 100d;
+            }
+        }
+
+        return new ApprovalSubjectFacts(
+                objectType,
+                adjustment == null ? kpiType : requestKind,
+                unit == null ? null : unit.getId(),
+                ancestry,
+                unit == null || unit.getOrgHierarchyLevel() == null ? null : unit.getOrgHierarchyLevel().getId(),
+                requester == null ? null : requester.getId(),
+                requesterRoleIds == null ? Set.of() : requesterRoleIds,
+                kpiType,
+                kpi.getFrequency() == null ? null : kpi.getFrequency().name(),
+                kpi.getKpiPeriod() == null ? null : kpi.getKpiPeriod().getId(),
+                kpi.getWeight(),
+                Boolean.TRUE.equals(kpi.getIsBonusKpi()),
+                requestKind,
+                changePercent);
+    }
+}

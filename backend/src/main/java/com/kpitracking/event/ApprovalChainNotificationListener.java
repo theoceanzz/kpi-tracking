@@ -2,9 +2,11 @@ package com.kpitracking.event;
 
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.AdjustmentStatus;
+import com.kpitracking.enums.ApprovalFlowStatus;
 import com.kpitracking.enums.ApprovalStepStatus;
 import com.kpitracking.enums.ApprovalSubjectType;
 import com.kpitracking.i18n.LocalizedText;
+import com.kpitracking.repository.ApprovalProcessRepository;
 import com.kpitracking.repository.KpiApprovalFlowRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.UserRepository;
@@ -21,13 +23,19 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Thông báo của chuỗi duyệt: mỗi lần chuyển bước báo ĐÚNG người giữ bước kế tiếp (không rải lên
  * cả cây quản lý), nhắc khi bước chờ quá hạn, và báo người xin điều chỉnh khi có quyết định cuối.
  * Duyệt cuối / từ chối chỉ tiêu thì {@link NotificationEventListener} đã báo người tạo.
+ *
+ * <p>Transaction của các listener KHÔNG được để {@code readOnly}: thông báo được ghi trong chính
+ * transaction này, mà transaction chỉ-đọc đặt Hibernate ở FlushMode.MANUAL nên bản ghi thông báo
+ * không bao giờ được INSERT — không lỗi, không log, người duyệt cứ thế không nhận được gì.
  */
 @Component
 @RequiredArgsConstructor
@@ -39,10 +47,11 @@ public class ApprovalChainNotificationListener {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final OrgUnitRepository orgUnitRepository;
     private final NotificationDispatcher dispatcher;
+    private final ApprovalProcessRepository processRepository;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
-    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onStepAssigned(ApprovalChainEvents.StepAssigned event) {
         KpiApprovalFlow flow = flowRepository.findById(event.flowId()).orElse(null);
         if (flow == null) return;
@@ -102,7 +111,7 @@ public class ApprovalChainNotificationListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
-    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onAdjustmentDecided(ApprovalChainEvents.AdjustmentDecided event) {
         KpiApprovalFlow flow = flowRepository.findById(event.flowId()).orElse(null);
         if (flow == null || flow.getAdjustmentRequest() == null || flow.getRequester() == null) return;
@@ -122,7 +131,7 @@ public class ApprovalChainNotificationListener {
     /** Bước cuối không còn ai giữ — báo mọi admin tổ chức để gán lại. */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
-    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onReassignNeeded(ApprovalChainEvents.ReassignNeeded event) {
         KpiApprovalFlow flow = flowRepository.findById(event.flowId()).orElse(null);
         if (flow == null) return;
@@ -138,6 +147,58 @@ public class ApprovalChainNotificationListener {
         for (User admin : admins.values()) {
             dispatcher.dispatch(flow.getOrganizationId(), "kpi_approval_reminder", admin, kpi.getOrgUnit(),
                     title, message, "KPI_SUBMITTED", kpi.getId());
+        }
+    }
+
+    /** Yêu cầu vừa bắt đầu theo quy trình — báo người theo dõi (người giữ bước đầu đã có thông báo riêng). */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onProcessFlowStarted(ApprovalChainEvents.ProcessFlowStarted event) {
+        KpiApprovalFlow flow = flowRepository.findById(event.flowId()).orElse(null);
+        if (flow == null || flow.getProcessId() == null) return;
+        notifyFollowers(flow, "kpi_submitted",
+                LocalizedText.of("notif.approval.follower.started.title"),
+                "notif.approval.follower.started.message");
+    }
+
+    /** Flow theo quy trình có kết quả cuối — báo người theo dõi. */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onProcessFlowFinished(ApprovalChainEvents.ProcessFlowFinished event) {
+        KpiApprovalFlow flow = flowRepository.findById(event.flowId()).orElse(null);
+        if (flow == null || flow.getProcessId() == null) return;
+        boolean approved = flow.getStatus() == ApprovalFlowStatus.APPROVED;
+        String outcome = approved ? "approved" : "rejected";
+        notifyFollowers(flow, approved ? "kpi_approved" : "kpi_rejected",
+                LocalizedText.of("notif.approval.follower.finished.title." + outcome),
+                "notif.approval.follower.finished.message." + outcome);
+    }
+
+    /** Người theo dõi hiện tại của quy trình, trừ người gửi và người đang giữ bước (họ đã được báo). */
+    private void notifyFollowers(KpiApprovalFlow flow, String code, LocalizedText title, String messageKey) {
+        var process = processRepository.findById(flow.getProcessId()).orElse(null);
+        if (process == null || process.getFollowerIds().isEmpty()) return;
+
+        Set<java.util.UUID> skip = new HashSet<>();
+        if (flow.getRequester() != null) skip.add(flow.getRequester().getId());
+        flow.currentStep().ifPresent(s -> s.getApprovers().forEach(a -> skip.add(a.getUserId())));
+
+        KpiCriteria kpi = flow.getKpiCriteria();
+        boolean adjustment = flow.getSubjectType() == ApprovalSubjectType.ADJUSTMENT;
+        LocalizedText what = LocalizedText.of("notif.approval.what." + (adjustment ? "adjustment" : "kpi"), kpi.getName());
+        Object requester = flow.getRequester() == null ? ""
+                : LocalizedText.of("notif.approval.requester", flow.getRequester().getFullName());
+        LocalizedText message = LocalizedText.of(messageKey, what, requester, process.getTitle());
+        String type = adjustment ? "ADJUSTMENT_REQUEST" : "KPI_SUBMITTED";
+        java.util.UUID refId = adjustment ? flow.getAdjustmentRequest().getId() : kpi.getId();
+
+        for (java.util.UUID followerId : process.getFollowerIds()) {
+            if (skip.contains(followerId)) continue;
+            User u = userRepository.findById(followerId).orElse(null);
+            if (u == null || u.getDeletedAt() != null || u.isPausedAccount()) continue;
+            dispatcher.dispatch(flow.getOrganizationId(), code, u, kpi.getOrgUnit(), title, message, type, refId);
         }
     }
 }

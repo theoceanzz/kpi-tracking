@@ -2,6 +2,7 @@
   "$comment": "Trạng thái đọc lại bản dịch theo từng namespace. Chỉ namespace 'reviewed' mới được nạp cho người dùng; 'draft' chỉ hiện khi VITE_I18N_SHOW_UNREVIEWED=true (để người review xem trong ngữ cảnh). Tiếng Việt là bản gốc nên không có mục ở đây. Xem docs/I18N_DESIGN.md §3.1.",
   "en": {
     "analytics": "reviewed",
+    "approvalProcess": "draft",
     "auth": "reviewed",
     "bsc": "reviewed",
     "common": "reviewed",
