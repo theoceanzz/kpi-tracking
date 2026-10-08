@@ -36,6 +36,8 @@ public interface SubmissionMapper {
     @Mapping(source = "resubmission.id", target = "resubmissionId")
     @Mapping(target = "resubmission", ignore = true)
     @Mapping(target = "previousReturnReason", ignore = true)
+    @Mapping(source = "kpiCriteria.status", target = "kpiCriteriaStatus")
+    @Mapping(target = "kpiPausePending", ignore = true)
     @Mapping(target = "awaitingResubmission", expression = "java(submission.isAwaitingResubmission(java.time.Instant.now()))")
     SubmissionResponse toResponse(KpiSubmission submission);
 

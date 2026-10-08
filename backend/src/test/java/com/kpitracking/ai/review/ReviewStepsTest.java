@@ -121,6 +121,33 @@ class ReviewStepsTest {
     }
 
     @Test
+    @DisplayName("chấm lẻ một bài: chỉ gọi mô hình cho chỉ tiêu đó, không gọi agent tổng hợp; điểm tối đa vẫn chia trên cả phiếu")
+    void scopedRunReviewsOnlyItsCriteria() {
+        ReviewContext.Criterion a = criterion("A", "đã hoàn thành 10 task");
+        ReviewContext.Criterion b = criterion("B", "đã hoàn thành 8 task");
+        run = new ReviewRun(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), run.getOrganization(),
+                java.util.Set.of(b.kpiCriteriaId()));
+        when(scope.readState(ReviewSteps.RUN)).thenReturn(run);
+        withCriteria(a, b);
+        when(criterionAgent.review(anyString())).thenReturn(result(
+                "{\"tomTat\":\"x\",\"chatLuong\":{\"muc\":\"TỐT\",\"nhanXet\":\"ok\",\"trichDan\":[\"đã hoàn thành 8 task\"]}}"));
+
+        steps.measure(scope);
+        steps.criteria(scope);
+        steps.summary(scope);
+        steps.validate(scope);
+
+        assertThat(run.getResults()).singleElement().satisfies(r -> {
+            assertThat(r.kpiCriteriaId()).isEqualTo(b.kpiCriteriaId());
+            // Hai chỉ tiêu trọng số 20 -> mỗi chỉ tiêu 50 điểm, dù lượt chỉ chấm một.
+            assertThat(r.points().max()).isEqualByComparingTo("50.00");
+        });
+        verify(criterionAgent, org.mockito.Mockito.times(1)).review(anyString());   // chỉ tiêu A không tốn lời gọi
+        verify(summaryAgent, never()).summarize(any());
+        assertThat(run.getConfidence()).isEqualTo(run.getResults().get(0).confidence().level());
+    }
+
+    @Test
     @DisplayName("mô hình trả không phải JSON -> chỉ tiêu ghi lỗi định dạng")
     void badJsonBecomesAnItemError() {
         withCriteria(criterion("A", "đã làm"));

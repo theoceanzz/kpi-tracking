@@ -14,6 +14,9 @@ public interface AiSubmissionReviewRepository extends JpaRepository<AiSubmission
     /** Lượt mới nhất cho một nhân viên trong một đợt. */
     Optional<AiSubmissionReview> findFirstByKpiPeriodIdAndUserIdOrderByCreatedAtDesc(UUID kpiPeriodId, UUID userId);
 
+    /** Mọi lượt của một nhân viên trong một đợt, mới nhất trước — để gộp kết quả hiện hành từng chỉ tiêu. */
+    java.util.List<AiSubmissionReview> findByKpiPeriodIdAndUserIdOrderByCreatedAtDesc(UUID kpiPeriodId, UUID userId);
+
     /** Các lượt đã xong của một đợt trong tổ chức, mới nhất trước — cho báo cáo lệch AI – quản lý. */
     java.util.List<AiSubmissionReview> findByOrganizationIdAndKpiPeriodIdAndStatusOrderByCreatedAtDesc(
             UUID organizationId, UUID kpiPeriodId, com.kpitracking.enums.AiReviewStatus status);
@@ -27,13 +30,13 @@ public interface AiSubmissionReviewRepository extends JpaRepository<AiSubmission
     Optional<AiSubmissionReview> findByIdAndOrganizationId(UUID id, UUID organizationId);
 
     /**
-     * Số bài nộp của người đó trong đợt được tạo / sửa SAU mốc {@code since} — khác 0 thì kết quả AI cũ đã
-     * lỗi thời và phải chạy lại. (Bài bị xoá mềm không đếm được: {@code KpiSubmission} có
-     * {@code @SQLRestriction} lọc chúng khỏi mọi truy vấn — quản lý bấm "Chạy lại" nếu cần.)
+     * Số bài nộp của người đó cho MỘT chỉ tiêu được tạo / sửa SAU mốc {@code since} — khác 0 thì kết quả AI cũ của chỉ
+     * tiêu đã lỗi thời và phải chấm lại. (Bài bị xoá mềm không đếm được: {@code KpiSubmission} có
+     * {@code @SQLRestriction} lọc chúng khỏi mọi truy vấn — quản lý bấm "Chấm lại bài này" nếu cần.)
      */
     @Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.submittedBy.id = :userId "
-            + "AND s.kpiCriteria.kpiPeriod.id = :periodId "
+            + "AND s.kpiCriteria.id = :criteriaId "
             + "AND (s.createdAt > :since OR s.updatedAt > :since)")
-    long countSubmissionsChangedSince(@Param("userId") UUID userId, @Param("periodId") UUID periodId,
-                                      @Param("since") Instant since);
+    long countCriterionSubmissionsChangedSince(@Param("userId") UUID userId, @Param("criteriaId") UUID criteriaId,
+                                               @Param("since") Instant since);
 }

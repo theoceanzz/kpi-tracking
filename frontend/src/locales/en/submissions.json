@@ -456,7 +456,7 @@
   },
   "AiReviewSettings": {
     "title": "AI score suggestions when reviewing",
-    "titleHint": "When reviewing, a manager clicks “Ask AI to pre-read”: the AI reads the report and evidence, then suggests a score for each KPI. The AI never records scores itself.",
+    "titleHint": "When reviewing, a manager clicks “Suggest” on a KPI: the AI reads the report and evidence, then suggests a score for that KPI. The AI never records scores itself.",
     "subtitle": "AI scores are for reference only — the manager decides.",
     "on": "On",
     "off": "Off",
@@ -497,7 +497,7 @@
       "thisUnitWill": "This unit will",
       "useOwnWeights": "Use its own weights",
       "turnOff": "Turn off AI score suggestions",
-      "turnOffExplain": "Managers of this unit (and its sub-units) will not see “Ask AI to pre-read” when reviewing, and employees cannot use the AI pre-submission check.",
+      "turnOffExplain": "Managers of this unit (and its sub-units) will not see the AI “Suggest” button when reviewing, and employees cannot use the AI pre-submission check.",
       "cancel": "Cancel",
       "save": "Save"
     }
@@ -529,20 +529,9 @@
   "AiReviewPanel": {
     "title": "AI pre-read",
     "disclaimer": "AI suggestion — needs manager confirmation",
-    "rerun": "Run again",
-    "ask": "Ask AI to pre-read",
     "running": "The AI is reading the reports… You can close this screen; the result will be kept.",
-    "intro": "The AI reads the reports and evidence and suggests an evaluation score for each KPI with reasons. The official score is still the one you give.",
     "failed": "The AI could not analyse this run.",
-    "suggestedTotal": "AI suggested evaluation score",
-    "systemTotal": "system {{points}}",
-    "confidence": {
-      "CAO": "High confidence",
-      "TRUNG_BINH": "Medium confidence",
-      "THAP": "Low confidence"
-    },
     "missingData": "Missing for a more certain evaluation",
-    "filesRead": "AI read {{read}}/{{total}} evidence files",
     "criteriaSetVersion": "scored with criteria set version {{version}}",
     "unreadable": "The AI could not read {{count}} file(s) — please open them yourself:",
     "kpi": "KPI",
@@ -558,9 +547,53 @@
     "strengths": "Strengths",
     "gaps": "To add",
     "suggestions": "Suggested edits",
-    "behaviorTotal": "AI suggested behaviour score",
     "levelOf": "level {{level}}",
     "selfLevel": "Self-assessed: {{level}}",
-    "behaviorScale": "behaviour scale"
+    "behaviorScale": "behaviour scale",
+    "introPerKpi": "No AI results yet. Open the evaluation sheet and click Suggest on the KPI you want scored."
+  },
+  "ScorerColumns": {
+    "system": "System",
+    "manager": "Manager",
+    "ai": "AI",
+    "boss": "Senior manager",
+    "systemScored": "System score",
+    "managerScored": "Manager score",
+    "aiScored": "AI score",
+    "bossScored": "Senior manager score",
+    "you": "You",
+    "aiSuggest": "Suggest",
+    "aiDetail": "See how AI scored",
+    "aiRetry": "Retry",
+    "aiSuggestRow": "Ask AI to score this submission",
+    "aiRescoreRow": "Rescore this submission",
+    "aiRowRunning": "Scoring…",
+    "aiReused": "The submission has not changed since the last AI run; showing the earlier result.",
+    "paused": "Paused",
+    "pausePending": "Pause requested",
+    "pausedHint": "AI does not score a KPI that has been paused or has a pending pause request."
+  },
+  "AiReviewDetail": {
+    "title": "How AI scored",
+    "note": "AI scores are for reference only and are never filled into the evaluation sheet.",
+    "close": "Close"
+  },
+  "AiConfidence": {
+    "label": "Confidence",
+    "aria": "Confidence: {{level}} ({{rank}}/{{total}})",
+    "why": "Why",
+    "levels": {
+      "THAP": "Low",
+      "TRUNG_BINH": "Medium",
+      "CAO": "High"
+    },
+    "reasons": {
+      "ERROR": "AI hit an error on this KPI",
+      "NO_SUBMISSION": "No submission yet",
+      "NO_QUOTES": "AI could not score quality: no quote matches the submission word for word",
+      "QUALITY_LOW": "AI scored quality as {{level}} (below 50%)",
+      "QUALITY_MEDIUM": "AI scored quality as {{level}} (50–74%)",
+      "QUALITY_HIGH": "AI scored quality as {{level}} (75% and above)"
+    }
   }
 }

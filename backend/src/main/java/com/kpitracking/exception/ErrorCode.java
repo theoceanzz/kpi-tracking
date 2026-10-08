@@ -89,6 +89,9 @@ public enum ErrorCode {
     // AI đánh giá bài nộp / nhân viên tự soi bài (SubmissionSelfCheckService)
     AI_REVIEW_NOT_ENABLED(HttpStatus.FORBIDDEN),
     AI_REVIEW_UNIT_DISABLED(HttpStatus.FORBIDDEN),
+    AI_REVIEW_CRITERIA_NOT_ON_SHEET(HttpStatus.FORBIDDEN),
+    AI_REVIEW_CRITERIA_PAUSED(HttpStatus.FORBIDDEN),
+    AI_REVIEW_CRITERIA_REQUIRED(HttpStatus.BAD_REQUEST),
     AI_SELF_CHECK_NOTHING_TO_READ(HttpStatus.UNPROCESSABLE_ENTITY),
     AI_SELF_CHECK_TOO_MANY_FILES(HttpStatus.BAD_REQUEST),
 

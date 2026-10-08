@@ -46,7 +46,20 @@ export interface AiReviewItem {
   selfLevel?: string | null
   /** Định tính: mức gần nhất với điểm AI gợi ý trên thang hành vi. */
   suggestedLevel?: string | null
+  /** Mức tin cậy RIÊNG của chỉ tiêu — đi theo chất lượng AI chấm, máy chủ tính lại mỗi lần đọc. */
+  confidence?: AiReviewConfidence | null
+  /** Mã lý do của mức tin cậy — dịch qua `AiConfidence.reasons.*`. */
+  confidenceReasons?: AiConfidenceReason[]
+  filesRead?: number | null
+  filesTotal?: number | null
+  /** Lượt đã chấm chỉ tiêu này — kết quả hiện hành gộp item mới nhất của từng chỉ tiêu từ nhiều lượt. */
+  reviewId?: string | null
+  reviewedAt?: string | null
 }
+
+/** Lý do của mức tin cậy — mức đi theo chất lượng AI chấm (07/10). */
+export type AiConfidenceReason =
+  | 'ERROR' | 'NO_SUBMISSION' | 'NO_QUOTES' | 'QUALITY_LOW' | 'QUALITY_MEDIUM' | 'QUALITY_HIGH'
 
 /**
  * Một căn cứ của nhận xét AI: dòng bộ tiêu chí (`CRITERIA`) hoặc đoạn quy chế trong kho (`REGULATION`). `excerpt`
@@ -109,7 +122,12 @@ export interface AiReview {
   id: string
   kpiPeriodId: string
   userId: string
+  /** Lượt cả phiếu đang chạy thì là trạng thái của nó; lượt chấm lẻ từng bài không làm cả phiếu "đang chạy". */
   status: AiReviewStatus
+  /** Chỉ tiêu đang có lượt AI chạy dở — ô của chúng hiện "đang chấm". */
+  runningCriteriaIds?: string[]
+  /** Chỉ tiêu mà lượt chấm lẻ mới nhất bị lỗi — ô của chúng hiện "Thử lại". */
+  failedCriteriaIds?: string[]
   overallSummary?: string | null
   confidence?: AiReviewConfidence | null
   missingData: string[]
@@ -143,12 +161,6 @@ export interface AiReviewSettings {
   weightTarget: number
   weightQuality: number
   weightOnTime: number
-}
-
-export interface AiReviewBatchResult {
-  queued: number
-  reused: number
-  skipped: number
 }
 
 export interface AiReviewUnitSetting extends AiReviewSettings {
@@ -287,29 +299,23 @@ const BASE = '/ai/submission-reviews'
 const SETS = '/ai/criteria-sets'
 
 export const aiReviewApi = {
-  /** Nhờ AI đọc trước bài nộp (chạy nền). Đã có kết quả mới và bài nộp không đổi thì trả lượt cũ. */
-  request: (kpiPeriodId: string, userId: string) =>
-    axiosInstance.post<ApiResponse<AiReview>>(BASE, { kpiPeriodId, userId }).then(r => r.data.data),
+  /**
+   * Nhờ AI chấm các chỉ tiêu `kpiCriteriaIds` (nút "Gợi ý" ở từng ô — không còn chấm cả phiếu). Bài không đổi kể từ
+   * lần chấm trước thì trả lại kết quả cũ, không tốn token; `force` thì chấm lại.
+   */
+  request: (kpiPeriodId: string, userId: string, kpiCriteriaIds: string[], force = false) =>
+    axiosInstance.post<ApiResponse<AiReview>>(BASE, { kpiPeriodId, userId, kpiCriteriaIds, force }).then(r => r.data.data),
 
-  /** Lượt mới nhất, hoặc `null` khi chưa từng chạy. */
+  /** Kết quả AI hiện hành (item mới nhất của từng chỉ tiêu, gộp từ mọi lượt), hoặc `null` khi chưa từng chạy. */
   latest: (kpiPeriodId: string, userId: string) =>
     axiosInstance.get<ApiResponse<AiReview | null>>(`${BASE}/latest`, { params: { kpiPeriodId, userId } })
       .then(r => r.data.data),
-
-  /** Chạy lại bất kể đã có kết quả — tính vào hạn mức. */
-  rerun: (reviewId: string) =>
-    axiosInstance.post<ApiResponse<AiReview>>(`${BASE}/${reviewId}/rerun`).then(r => r.data.data),
 
   getSettings: () =>
     axiosInstance.get<ApiResponse<AiReviewSettings>>(`${BASE}/settings`).then(r => r.data.data),
 
   updateSettings: (body: AiReviewSettings) =>
     axiosInstance.put<ApiResponse<AiReviewSettings>>(`${BASE}/settings`, body).then(r => r.data.data),
-
-  /** Chạy nền cho mọi người trong nhánh đơn vị mà mình chấm được. */
-  batch: (kpiPeriodId: string, orgUnitId: string) =>
-    axiosInstance.post<ApiResponse<AiReviewBatchResult>>(`${BASE}/batch`, null, { params: { kpiPeriodId, orgUnitId } })
-      .then(r => r.data.data),
 
   report: (kpiPeriodId: string, orgUnitId?: string) =>
     axiosInstance.get<ApiResponse<AiReviewReport>>(`${BASE}/report`, { params: { kpiPeriodId, orgUnitId } })

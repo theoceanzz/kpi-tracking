@@ -57,6 +57,8 @@ public class AiReviewAdminService {
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final ReviewContextBuilder contextBuilder;
+    private final AiReviewLatestView latestView;
+    private final com.kpitracking.repository.QualitativeLevelRepository qualitativeLevelRepository;
 
     // ── cấu hình theo đơn vị ──────────────────────────────────────────────
 
@@ -107,25 +109,33 @@ public class AiReviewAdminService {
     // ── báo cáo lệch AI – quản lý ─────────────────────────────────────────
 
     /**
-     * Mỗi người lấy lượt AI {@code DONE} mới nhất trong đợt. Chỉ gồm người mà người xem chấm được (cùng
-     * luật phạm vi với lượt lẻ); lọc thêm theo nhánh đơn vị nếu có.
+     * Mỗi người lấy kết quả AI HIỆN HÀNH trong đợt: item mới nhất của từng chỉ tiêu, gộp từ các lượt {@code DONE}
+     * ({@link AiReviewLatestView}) — lượt mới nhất có thể chỉ chấm lẻ một bài, lấy riêng nó thì tổng tụt về một chỉ
+     * tiêu. Chỉ gồm người mà người xem chấm được (cùng luật phạm vi với lượt lẻ); lọc thêm theo nhánh đơn vị nếu có.
      */
     @Transactional(readOnly = true)
     public AiReviewReportResponse report(UUID kpiPeriodId, UUID orgUnitId) {
         User me = currentUser();
         Organization org = organizationOf(me);
+        // Thang chất lượng của tổ chức — mức tin cậy của dòng tính lại theo chất lượng AI chấm (luật 07/10).
+        List<ReviewContext.QualityLevel> scale = qualitativeLevelRepository.findByOrganizationIdOrderByPositionAsc(org.getId())
+                .stream().map(l -> new ReviewContext.QualityLevel(l.getName(), l.getScorePercent(),
+                        l.getPosition() == null ? 0 : l.getPosition()))
+                .toList();
         Map<UUID, OrgUnit> units = orgUnitRepository.findSubtree("/", org.getId()).stream()
                 .collect(Collectors.toMap(OrgUnit::getId, u -> u, (a, b) -> a));
         String branch = orgUnitId == null || units.get(orgUnitId) == null ? null : units.get(orgUnitId).getPath();
 
-        Map<UUID, AiSubmissionReview> latestDone = new LinkedHashMap<>();
+        Map<UUID, List<AiSubmissionReview>> doneByUser = new LinkedHashMap<>();
         for (AiSubmissionReview r : reviewRepository.findByOrganizationIdAndKpiPeriodIdAndStatusOrderByCreatedAtDesc(
                 org.getId(), kpiPeriodId, AiReviewStatus.DONE)) {
-            latestDone.putIfAbsent(r.getUserId(), r);
+            doneByUser.computeIfAbsent(r.getUserId(), k -> new ArrayList<>()).add(r);
         }
 
         List<AiReviewReportResponse.Row> rows = new ArrayList<>();
-        for (AiSubmissionReview r : latestDone.values()) {
+        for (List<AiSubmissionReview> done : doneByUser.values()) {
+            // Lượt "nền" của dòng: lượt cả phiếu mới nhất, không có thì lượt mới nhất.
+            AiSubmissionReview r = done.stream().filter(AiReviewLatestView::isFull).findFirst().orElse(done.get(0));
             try {
                 contextBuilder.requireCanReview(me.getId(), r.getUserId());
             } catch (ForbiddenException e) {
@@ -134,7 +144,9 @@ public class AiReviewAdminService {
             OrgUnit unit = primaryUnit(r.getUserId());
             if (branch != null && (unit == null || !unit.getPath().startsWith(branch))) continue;
 
-            List<AiSubmissionReviewItem> items = itemRepository.findAllByReviewId(r.getId());
+            // Chỉ chỉ tiêu còn trên phiếu AI — kết quả cũ của chỉ tiêu nay đã xin tạm dừng không cộng vào nữa.
+            List<AiSubmissionReviewItem> items = latestView.merge(done,
+                    contextBuilder.reviewableCriteria(kpiPeriodId, r.getUserId())).items();
             // Chỉ phần định lượng (thang điểm đánh giá 100) — định tính nằm trên thang hành vi riêng, cộng vào là sai thang.
             double ai = items.stream()
                     .filter(i -> !Boolean.TRUE.equals(i.getQualitative()))
@@ -150,7 +162,7 @@ public class AiReviewAdminService {
                     .unitName(unit == null ? null : unit.getName()).reviewId(r.getId())
                     .aiScore(round(ai)).managerScore(manager)
                     .difference(manager == null ? null : round(ai - manager))
-                    .confidence(r.getConfidence())
+                    .confidence(confidenceOf(items, scale, r))
                     .build());
         }
         rows.sort(Comparator.comparing((AiReviewReportResponse.Row x) -> x.getDifference() == null ? -1 : Math.abs(x.getDifference())).reversed());
@@ -210,5 +222,18 @@ public class AiReviewAdminService {
 
     private static double round(double v) {
         return Math.round(v * 100.0) / 100.0;
+    }
+
+    /**
+     * Mức tin cậy của một dòng báo cáo: thấp nhất trong các chỉ tiêu, mỗi chỉ tiêu tính lại theo chất lượng AI chấm
+     * ({@link ReviewResultValidator#qualityConfidence}) — cùng luật với màn chấm. Không có chỉ tiêu nào thì lấy mức của lượt.
+     */
+    private static String confidenceOf(List<AiSubmissionReviewItem> items, List<ReviewContext.QualityLevel> scale,
+                                       AiSubmissionReview base) {
+        String lowest = ReviewResultValidator.lowest(items.stream()
+                .map(i -> ReviewResultValidator.qualityConfidence(i.getQualityLevel(), scale,
+                        i.getErrorMessage() != null, i.getKpiSubmissionId() != null).level())
+                .toList());
+        return lowest != null ? lowest : base.getConfidence();
     }
 }

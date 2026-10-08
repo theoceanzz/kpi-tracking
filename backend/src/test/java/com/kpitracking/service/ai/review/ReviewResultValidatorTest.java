@@ -144,4 +144,81 @@ class ReviewResultValidatorTest {
         assertThat(validator.confidence("CAO", ctx, List.of(results.get(0)))).isEqualTo(ReviewResultValidator.CONFIDENCE_HIGH);
         assertThat(validator.confidence("lung tung", ctx, List.of(results.get(0)))).isEqualTo(ReviewResultValidator.CONFIDENCE_MEDIUM);
     }
+
+    // ── mức tin cậy riêng từng chỉ tiêu: đi theo CHẤT LƯỢNG AI chấm (07/10) ──
+    // Thang mẫu: KÉM 0 · YẾU 20 · TRUNG BÌNH 50 · KHÁ 75 · TỐT 100 -> dưới 50 Thấp, 50–74 Trung bình, từ 75 Cao.
+
+    private final List<String> grounded = List.of("đã hoàn thành 12 task");
+
+    private static String confidenceOf(String level) {
+        return ReviewResultValidator.qualityConfidence(level, ReviewFixtures.SCALE, false, true).level();
+    }
+
+    @Test
+    @DisplayName("tin cậy theo chất lượng: KÉM/YẾU -> Thấp, TRUNG BÌNH -> Trung bình, KHÁ/TỐT -> Cao")
+    void confidenceFollowsQuality() {
+        assertThat(confidenceOf("KÉM")).isEqualTo(ReviewResultValidator.CONFIDENCE_LOW);
+        assertThat(confidenceOf("YẾU")).isEqualTo(ReviewResultValidator.CONFIDENCE_LOW);
+        assertThat(confidenceOf("TRUNG BÌNH")).isEqualTo(ReviewResultValidator.CONFIDENCE_MEDIUM);
+        assertThat(confidenceOf("KHÁ")).isEqualTo(ReviewResultValidator.CONFIDENCE_HIGH);
+        assertThat(confidenceOf("tốt")).isEqualTo(ReviewResultValidator.CONFIDENCE_HIGH);   // không phân biệt hoa/thường
+        assertThat(ReviewResultValidator.qualityConfidence("KÉM", ReviewFixtures.SCALE, false, true).reasons())
+                .containsExactly(ReviewResultValidator.REASON_QUALITY_LOW);
+    }
+
+    @Test
+    @DisplayName("ca trong ảnh người dùng: đủ câu trích, đủ tệp, có bộ tiêu chí nhưng AI chấm KÉM -> Thấp, không phải Cao")
+    void poorQualityIsLowEvenWithFullEvidence() {
+        var conf = validator.validate(ctx, c, assessment("KÉM", grounded, null, null, null)).confidence();
+
+        assertThat(conf.level()).isEqualTo(ReviewResultValidator.CONFIDENCE_LOW);
+        assertThat(conf.reasons()).containsExactly(ReviewResultValidator.REASON_QUALITY_LOW);
+    }
+
+    @Test
+    @DisplayName("không câu trích nào khớp (AI không chấm được chất lượng) -> Thấp")
+    void noGroundedQuoteIsLow() {
+        var conf = validator.validate(ctx, c, assessment("TỐT", List.of("vượt 200% chỉ tiêu quý"), null, null, null)).confidence();
+
+        assertThat(conf.level()).isEqualTo(ReviewResultValidator.CONFIDENCE_LOW);
+        assertThat(conf.reasons()).containsExactly(ReviewResultValidator.REASON_NO_QUOTES);
+    }
+
+    @Test
+    @DisplayName("lỗi, chưa nộp, hoặc mức không có trong thang -> Thấp")
+    void errorNoSubmissionOrUnknownLevelIsLow() {
+        assertThat(validator.failed(ctx, c, "lỗi").confidence().reasons()).containsExactly(ReviewResultValidator.REASON_ERROR);
+        ReviewContext.Criterion empty = criterion(20, 0.0, deadline);
+        assertThat(validator.noSubmission(context(empty), empty).confidence().reasons())
+                .containsExactly(ReviewResultValidator.REASON_NO_SUBMISSION);
+        assertThat(confidenceOf("XUẤT SẮC")).isEqualTo(ReviewResultValidator.CONFIDENCE_LOW);
+    }
+
+    @Test
+    @DisplayName("vẫn đếm tệp đọc được của chỉ tiêu (để hiện 'AI đã đọc x/y tệp')")
+    void stillCountsReadableFiles() {
+        List<ReviewContext.Attachment> atts = List.of(new ReviewContext.Attachment("a.docx", "https://x/a"),
+                new ReviewContext.Attachment("b.docx", "https://x/b"));
+        List<com.kpitracking.service.ai.review.evidence.EvidenceText> ev = List.of(
+                com.kpitracking.service.ai.review.evidence.EvidenceText.read("a.docx", "nội dung",
+                        com.kpitracking.service.ai.review.evidence.EvidenceText.Source.TEXT, false),
+                com.kpitracking.service.ai.review.evidence.EvidenceText.unreadable("b.docx", "hỏng"));
+        ReviewContext.Submission sub = new ReviewContext.Submission(java.util.UUID.randomUUID(),
+                "Tháng này tôi đã hoàn thành 12 task.", 12.0, null, "PENDING", Instant.parse("2026-09-10T00:00:00Z"), atts, ev);
+        ReviewContext.Criterion cf = new ReviewContext.Criterion(java.util.UUID.randomUUID(), "Số task", null, false, "task",
+                10.0, null, false, 20, deadline, 0.5, List.of(sub));
+
+        var conf = validator.validate(context(cf), cf, assessment("KHÁ", grounded, null, null, null)).confidence();
+
+        assertThat(conf.level()).isEqualTo(ReviewResultValidator.CONFIDENCE_HIGH);
+        assertThat(conf.filesRead()).isEqualTo(1);
+        assertThat(conf.filesTotal()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("mức thấp nhất của nhiều chỉ tiêu (bỏ qua null) — mức của lượt chấm lẻ / dòng báo cáo")
+    void lowestConfidence() {
+        assertThat(ReviewResultValidator.lowest(java.util.Arrays.asList("CAO", null, "TRUNG_BINH"))).isEqualTo("TRUNG_BINH");
+        assertThat(ReviewResultValidator.lowest(java.util.Arrays.asList(null, null))).isNull();
+    }
 }

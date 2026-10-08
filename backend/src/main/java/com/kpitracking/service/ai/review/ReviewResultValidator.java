@@ -35,6 +35,22 @@ public class ReviewResultValidator {
     public static final String CONFIDENCE_MEDIUM = "TRUNG_BINH";
     public static final String CONFIDENCE_LOW = "THAP";
 
+    // Mã lý do của mức tin cậy từng chỉ tiêu — giao diện dịch (AiConfidence.reasons.*), không lưu câu dựng sẵn.
+    public static final String REASON_ERROR = "ERROR";
+    public static final String REASON_NO_SUBMISSION = "NO_SUBMISSION";
+    public static final String REASON_NO_QUOTES = "NO_QUOTES";
+    public static final String REASON_QUALITY_LOW = "QUALITY_LOW";
+    public static final String REASON_QUALITY_MEDIUM = "QUALITY_MEDIUM";
+    public static final String REASON_QUALITY_HIGH = "QUALITY_HIGH";
+
+    /**
+     * Ngưỡng quy chất lượng AI chấm ra mức tin cậy, theo % của mức trong thang chất lượng của tổ chức (người dùng chốt
+     * 07/10): dưới 50 = Thấp, 50–74 = Trung bình, từ 75 = Cao. Thang KÉM 0 · YẾU 20 · TRUNG BÌNH 50 · KHÁ 75 · TỐT 100
+     * thì KÉM/YẾU Thấp, TRUNG BÌNH Trung bình, KHÁ/TỐT Cao.
+     */
+    public static final double QUALITY_MEDIUM_FROM = 50;
+    public static final double QUALITY_HIGH_FROM = 75;
+
     private static final int MAX_ITEMS = 4;
 
     private final ReviewScoreCalculator calculator;
@@ -45,7 +61,8 @@ public class ReviewResultValidator {
         return new ReviewResults.CriterionResult(c.kpiCriteriaId(), null,
                 "Chưa có bài nộp cho chỉ tiêu này trong đợt.", null, null, List.of(),
                 calculator.achievementPercent(c), null, p.total(),
-                List.of(), List.of("Chưa có bài nộp"), List.of(), null, List.of(), p);
+                List.of(), List.of("Chưa có bài nộp"), List.of(), null, List.of(), p,
+                itemConfidence(ctx, c, null, List.of(), null));
     }
 
     /** Kết quả khi mô hình lỗi / trả sai định dạng cho một chỉ tiêu — vẫn có số, có ghi lỗi. */
@@ -53,7 +70,7 @@ public class ReviewResultValidator {
         ReviewScoreCalculator.Points p = calculator.points(ctx, c, null);
         return new ReviewResults.CriterionResult(c.kpiCriteriaId(), lastSubmissionId(c), null, null, null, List.of(),
                 calculator.achievementPercent(c), calculator.onTimePercent(c), p.total(),
-                List.of(), List.of(), List.of(), error, List.of(), p);
+                List.of(), List.of(), List.of(), error, List.of(), p, itemConfidence(ctx, c, null, List.of(), error));
     }
 
     /** Kiểm và chuẩn hoá phần mô hình trả cho một chỉ tiêu. */
@@ -87,7 +104,79 @@ public class ReviewResultValidator {
                 grounded ? prose(ctx, a.diemManh()) : List.of(),
                 prose(ctx, a.canBoSung()), prose(ctx, a.goiYChinhSua()), null,
                 // Giữ cả khi nhận xét bị bỏ: căn cứ là chữ gốc do mã tra, vẫn giải thích được "cần bổ sung".
-                ReviewBasis.resolve(ctx, a.canCu()), p);
+                ReviewBasis.resolve(ctx, a.canCu()), p, itemConfidence(ctx, c, level, quotes, null));
+    }
+
+    /**
+     * Mức tin cậy riêng của MỘT chỉ tiêu — đi theo CHẤT LƯỢNG bài AI chấm ({@link #qualityConfidence}); kèm số tệp đọc
+     * được (đếm trên mọi bài nộp của chỉ tiêu, "đọc được" = có chữ từ tệp).
+     *
+     * <p>Trước 07/10 luật đo "AI có đủ tư liệu không" (câu trích, tệp, bộ tiêu chí) nên một bài AI chấm KÉM vẫn ra "Cao" —
+     * người dùng thấy ngược đời và chốt cho mức tin cậy đi theo chất lượng.
+     */
+    public ReviewResults.ItemConfidence itemConfidence(ReviewContext ctx, ReviewContext.Criterion c, String level,
+                                                       List<String> quotes, String error) {
+        int total = 0, read = 0;
+        if (c.submissions() != null) {
+            for (ReviewContext.Submission s : c.submissions()) {
+                total += s.attachments() == null ? 0 : s.attachments().size();
+                read += (int) s.evidence().stream().filter(e -> e.readable()).count();
+            }
+        }
+        read = Math.min(read, total);
+        // Mức chỉ còn khi có câu trích thật (validate bỏ mức nếu không) — nên không có mức = không chấm được chất lượng.
+        Confidence conf = qualityConfidence(level, ReviewScoreCalculator.scaleOf(ctx), error != null, c.hasSubmission());
+        return new ReviewResults.ItemConfidence(conf.level(), conf.reasons(), read, total);
+    }
+
+    /** Mức tin cậy và mã lý do. */
+    public record Confidence(String level, List<String> reasons) {}
+
+    /**
+     * Quy chất lượng AI chấm ra mức tin cậy. Dùng cả lúc ghi kết quả lẫn lúc ĐỌC (kết quả cũ chấm theo luật trước vẫn ra
+     * đúng mức mới, không phải chấm lại).
+     *
+     * @param qualityLevel  mức chất lượng AI chọn; {@code null} = AI không chấm được chất lượng (không câu trích khớp)
+     * @param scale         thang chất lượng của tổ chức (tên + %)
+     * @param error         chỉ tiêu này AI lỗi
+     * @param hasSubmission chỉ tiêu có bài nộp
+     */
+    public static Confidence qualityConfidence(String qualityLevel, List<ReviewContext.QualityLevel> scale,
+                                               boolean error, boolean hasSubmission) {
+        if (error) return new Confidence(CONFIDENCE_LOW, List.of(REASON_ERROR));
+        if (!hasSubmission) return new Confidence(CONFIDENCE_LOW, List.of(REASON_NO_SUBMISSION));
+        Double percent = percentOf(qualityLevel, scale);
+        if (percent == null) return new Confidence(CONFIDENCE_LOW, List.of(REASON_NO_QUOTES));
+        if (percent >= QUALITY_HIGH_FROM) return new Confidence(CONFIDENCE_HIGH, List.of(REASON_QUALITY_HIGH));
+        if (percent >= QUALITY_MEDIUM_FROM) return new Confidence(CONFIDENCE_MEDIUM, List.of(REASON_QUALITY_MEDIUM));
+        return new Confidence(CONFIDENCE_LOW, List.of(REASON_QUALITY_LOW));
+    }
+
+    /** % của mức chất lượng theo tên trong thang (không phân biệt hoa/thường); không có trong thang thì {@code null}. */
+    private static Double percentOf(String levelName, List<ReviewContext.QualityLevel> scale) {
+        if (levelName == null || scale == null) return null;
+        for (ReviewContext.QualityLevel l : scale) {
+            if (l.name().equalsIgnoreCase(levelName.strip())) return l.scorePercent();
+        }
+        return null;
+    }
+
+    /** Mức thấp nhất trong các mức (null bị bỏ qua) — mức của lượt chỉ chấm vài chỉ tiêu, hoặc của báo cáo lệch. */
+    public static String lowest(java.util.Collection<String> levels) {
+        String out = null;
+        for (String l : levels) {
+            if (l == null) continue;
+            if (out == null || rank(l) < rank(out)) out = l;
+        }
+        return out;
+    }
+
+    private static int rank(String level) {
+        return switch (level) {
+            case CONFIDENCE_LOW -> 0;
+            case CONFIDENCE_MEDIUM -> 1;
+            default -> 2;
+        };
     }
 
     /**

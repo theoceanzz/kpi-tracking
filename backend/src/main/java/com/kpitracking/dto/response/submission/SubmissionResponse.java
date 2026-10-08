@@ -53,6 +53,10 @@ public class SubmissionResponse {
     private boolean resubmission;
     /** Lý do người chấm đã trả lại bài trước đó (khi {@code resubmission}). */
     private String previousReturnReason;
+    /** Trạng thái chỉ tiêu — {@code INACTIVE} = đã duyệt xin tạm dừng (AI không chấm). */
+    private com.kpitracking.enums.KpiStatus kpiCriteriaStatus;
+    /** Chỉ tiêu đang có yêu cầu xin tạm dừng chờ duyệt (AI không chấm). */
+    private boolean kpiPausePending;
 
     @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
     public static class KpiPeriodInfo {

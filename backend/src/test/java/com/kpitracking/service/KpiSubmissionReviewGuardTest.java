@@ -66,6 +66,7 @@ class KpiSubmissionReviewGuardTest {
     private UserRepository userRepository;
     private PermissionChecker permissionChecker;
     private SubmissionMapper submissionMapper;
+    private SubmissionScoreLedger scoreLedger;
     private KpiSubmissionService service;
 
     private final UUID unitId = UUID.randomUUID();
@@ -80,6 +81,7 @@ class KpiSubmissionReviewGuardTest {
         permissionChecker = mock(PermissionChecker.class);
 
         submissionMapper = mock(SubmissionMapper.class);
+        scoreLedger = mock(SubmissionScoreLedger.class);
         ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
 
         // Chỉ tiêm những phụ thuộc mà đường HÀNG LOẠT thật sự chạm tới; phần còn lại để null nên
@@ -98,7 +100,8 @@ class KpiSubmissionReviewGuardTest {
                 permissionChecker, null,
                 workflowConfig, new com.kpitracking.workflow.engine.WorkflowEngine(registry),
                 mock(com.kpitracking.service.kpi.CycleStatusGuard.class),
-                mock(com.kpitracking.repository.EvaluationRepository.class));
+                mock(com.kpitracking.repository.EvaluationRepository.class), scoreLedger,
+                mock(com.kpitracking.repository.KpiAdjustmentRequestRepository.class));
 
         // Đủ để một bản nộp HỢP LỆ chạy trọn vòng lặp, nhờ đó kiểm được rằng bản THỨ HAI cũng bị soi.
         when(submissionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -194,6 +197,7 @@ class KpiSubmissionReviewGuardTest {
                 .extracting("errorCode").isEqualTo(ErrorCode.NO_PERMISSION_APPROVE_UNIT_SUBMISSIONS);
 
         verify(submissionRepository, never()).save(any());
+        verify(scoreLedger, never()).record(any(), any());
     }
 
     @Test
@@ -266,6 +270,8 @@ class KpiSubmissionReviewGuardTest {
 
         assertThatCode(() -> service.bulkReview(bulkOf(s))).doesNotThrowAnyException();
         verify(submissionRepository).save(any());
+        // Điểm của người chấm này vào sổ riêng, để cấp sau chấm không đè mất (V32).
+        verify(scoreLedger).record(s, reviewer);
     }
 
     @Test

@@ -55,6 +55,7 @@ public class ReviewContextBuilder {
     private final com.kpitracking.repository.KpiSubmissionRepository submissionRepository;
     private final AiReviewSettingsResolver settingsResolver;
     private final ReviewConductSource conductSource;
+    private final com.kpitracking.repository.KpiAdjustmentRequestRepository adjustmentRepository;
 
     /** Số lần chấm đợt trước lấy làm lịch sử cho mỗi chỉ tiêu. */
     static final int HISTORY_SIZE = 3;
@@ -85,12 +86,51 @@ public class ReviewContextBuilder {
         throw new ForbiddenException("Bạn không có quyền xem phân tích bài nộp của người này.");
     }
 
-    /** Người này có chỉ tiêu nào trong đợt không — chạy theo lô bỏ qua người không có gì để chấm. */
+    /**
+     * Id các chỉ tiêu sẽ có mặt trong phiếu AI của người này — cùng bộ lọc với {@link #build} (được giao, tính vào
+     * điểm, không xin tạm dừng). Lượt chấm lẻ chỉ nhận id trong tập này.
+     */
     @Transactional(readOnly = true)
-    public boolean hasCriteria(UUID kpiPeriodId, UUID userId) {
-        return !kpiCriteriaRepository
-                .findByUserIdInAssigneesAndKpiPeriodId(userId, kpiPeriodId, ACTIVE, Pageable.ofSize(1))
-                .isEmpty();
+    public java.util.Set<UUID> reviewableCriteria(UUID kpiPeriodId, UUID userId) {
+        return sheetKpis(kpiPeriodId, userId).stream().map(KpiCriteria::getId)
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    /** Id các chỉ tiêu được giao cho người này mà đã / đang xin tạm dừng — để báo đúng lý do khi AI từ chối chấm. */
+    @Transactional(readOnly = true)
+    public java.util.Set<UUID> pausedCriteria(UUID kpiPeriodId, UUID userId) {
+        return pausedIds(assignedKpis(kpiPeriodId, userId));
+    }
+
+    private List<KpiCriteria> assignedKpis(UUID kpiPeriodId, UUID userId) {
+        return kpiCriteriaRepository
+                .findByUserIdInAssigneesAndKpiPeriodId(userId, kpiPeriodId, ACTIVE, Pageable.unpaged())
+                .getContent();
+    }
+
+    /**
+     * Chỉ tiêu của phiếu AI: được giao, tính vào điểm ({@code countsTowardBscScore}) và KHÔNG xin tạm dừng.
+     *
+     * <p>Core vẫn tính KPI đã duyệt tạm dừng (có % bù) vào điểm BSC, nhưng AI không có gì để chấm ở đó — và để nó trong
+     * mẫu số thì điểm tối đa của mọi chỉ tiêu khác co lại (trọng số 30 tạm dừng làm 25 thành 19,2), lệch với thang của
+     * bảng chấm (06/10).
+     */
+    private List<KpiCriteria> sheetKpis(UUID kpiPeriodId, UUID userId) {
+        List<KpiCriteria> kpis = assignedKpis(kpiPeriodId, userId);
+        java.util.Set<UUID> paused = pausedIds(kpis);
+        return kpis.stream()
+                .filter(achievementCalculator::countsTowardBscScore)
+                .filter(k -> !paused.contains(k.getId()))
+                .toList();
+    }
+
+    /** Đã duyệt tạm dừng ({@code INACTIVE}) hoặc đang có yêu cầu xin tạm dừng chờ duyệt. */
+    private java.util.Set<UUID> pausedIds(List<KpiCriteria> kpis) {
+        java.util.Set<UUID> paused = new java.util.HashSet<>();
+        kpis.stream().filter(k -> k.getStatus() == KpiStatus.INACTIVE).forEach(k -> paused.add(k.getId()));
+        List<UUID> editing = kpis.stream().filter(k -> k.getStatus() == KpiStatus.EDIT).map(KpiCriteria::getId).toList();
+        if (!editing.isEmpty()) paused.addAll(adjustmentRepository.findPendingDeactivationCriteriaIds(editing));
+        return paused;
     }
 
     /** Đọc và cắt gọn mọi dữ liệu cho một lượt. Gọi TRONG transaction (luồng nền mở REQUIRES_NEW). */
@@ -100,23 +140,22 @@ public class ReviewContextBuilder {
         User user = userRepository.findById(userId).orElse(null);
         boolean waterfall = Boolean.TRUE.equals(org.getEnableWaterfall());
 
-        List<KpiCriteria> kpis = kpiCriteriaRepository
-                .findByUserIdInAssigneesAndKpiPeriodId(userId, kpiPeriodId, ACTIVE, Pageable.unpaged())
-                .getContent();
+        /*
+          Pool trọng số phải khớp thang điểm thật của quản lý, nếu không `normFactor` (= 100/Σw) chia trên một mẫu số
+          lớn hơn. Vị từ của core loại KPI khoá kỳ, huỷ không bù, cha phân rã, thưởng, thiếu trọng số, định lượng thiếu
+          chỉ tiêu; sheetKpis loại thêm KPI xin tạm dừng (core vẫn tính chúng theo % bù).
+         */
+        List<KpiCriteria> kpis = sheetKpis(kpiPeriodId, userId);
 
         List<ReviewContext.Criterion> criteria = new ArrayList<>();
         for (KpiCriteria kpi : kpis) {
-            /*
-              Pool trọng số phải TRÙNG pool của core, nếu không `normFactor` (= 100/Σw) chia trên
-              một mẫu số lớn hơn thang điểm thật của quản lý. Một vị từ của core loại hết: KPI
-              khoá kỳ, KPI huỷ không bù, KPI cha phân rã, KPI thưởng, KPI thiếu trọng số và KPI
-              định lượng thiếu chỉ tiêu. Trước đây ở đây chỉ loại KPI thưởng.
-             */
-            if (!achievementCalculator.countsTowardBscScore(kpi)) continue;
             List<ReviewContext.Submission> subs = new ArrayList<>();
             kpi.getSubmissions().stream()
+                    // Bài đã TRẢ LẠI là lịch sử (quy ước ở SubmissionStatus.RETURNED: không tính ở chỗ chấm nào) —
+                    // AI không đọc, không trích, không tính đúng hạn trên nó; nhân viên nộp lại thì chấm bài mới.
                     .filter(s -> s.getDeletedAt() == null && s.getSubmittedBy() != null
-                            && userId.equals(s.getSubmittedBy().getId()))
+                            && userId.equals(s.getSubmittedBy().getId())
+                            && s.getStatus() != com.kpitracking.enums.SubmissionStatus.RETURNED)
                     .sorted(Comparator.comparing(KpiSubmission::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
                     .forEach(s -> {
                         // Chỉ ghi tên + URL ở đây; bước "evidence" của luồng tải và đọc nội dung (ngoài

@@ -82,7 +82,8 @@ class KpiSubmissionReturnTest {
 
         service = new KpiSubmissionService(submissionRepository, kpiCriteriaRepository, null, userRepository, null,
                 mapper, events, permissionChecker, null, workflowConfig, new WorkflowEngine(registry),
-                mock(CycleStatusGuard.class), evaluationRepository);
+                mock(CycleStatusGuard.class), evaluationRepository, mock(SubmissionScoreLedger.class),
+                mock(com.kpitracking.repository.KpiAdjustmentRequestRepository.class));
 
         when(submissionRepository.save(any())).thenAnswer(inv -> {
             KpiSubmission s = inv.getArgument(0);

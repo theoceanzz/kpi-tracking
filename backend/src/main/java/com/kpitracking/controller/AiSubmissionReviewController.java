@@ -38,14 +38,14 @@ public class AiSubmissionReviewController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('AI_REVIEW:USE')")
-    @Operation(summary = "Nhờ AI đọc trước bài nộp của một nhân viên trong một đợt (chạy nền)")
+    @Operation(summary = "Nhờ AI chấm các chỉ tiêu được chọn của một nhân viên trong một đợt (chạy nền)")
     public ResponseEntity<ApiResponse<AiSubmissionReviewResponse>> request(@Valid @RequestBody AiSubmissionReviewRequest request) {
         return ResponseEntity.ok(ApiResponse.success(reviewService.request(request)));
     }
 
     @GetMapping("/latest")
     @PreAuthorize("hasAuthority('AI_REVIEW:USE')")
-    @Operation(summary = "Lượt AI đánh giá mới nhất của một nhân viên trong một đợt (null nếu chưa có)")
+    @Operation(summary = "Kết quả AI hiện hành của một nhân viên trong một đợt — mỗi chỉ tiêu lấy lần chấm mới nhất (null nếu chưa có)")
     public ResponseEntity<ApiResponse<AiSubmissionReviewResponse>> latest(@RequestParam UUID kpiPeriodId,
                                                                            @RequestParam UUID userId) {
         return ResponseEntity.ok(ApiResponse.success(reviewService.latest(kpiPeriodId, userId)));
@@ -63,14 +63,6 @@ public class AiSubmissionReviewController {
     @Operation(summary = "Bật/tắt AI đánh giá bài nộp và đặt trọng số điểm đề xuất")
     public ResponseEntity<ApiResponse<AiReviewSettingsResponse>> updateSettings(@Valid @RequestBody AiReviewSettingsRequest request) {
         return ResponseEntity.ok(ApiResponse.success(reviewService.updateSettings(request)));
-    }
-
-    @PostMapping("/batch")
-    @PreAuthorize("hasAuthority('AI_REVIEW:USE')")
-    @Operation(summary = "Nhờ AI đọc trước bài nộp của cả một đơn vị (chạy nền theo lô, chỉ người mình chấm được)")
-    public ResponseEntity<ApiResponse<SubmissionReviewService.BatchResult>> batch(@RequestParam UUID kpiPeriodId,
-                                                                                 @RequestParam UUID orgUnitId) {
-        return ResponseEntity.ok(ApiResponse.success(reviewService.batch(kpiPeriodId, orgUnitId)));
     }
 
     @GetMapping("/report")
@@ -109,12 +101,5 @@ public class AiSubmissionReviewController {
     @Operation(summary = "Kết quả một lượt AI đánh giá")
     public ResponseEntity<ApiResponse<AiSubmissionReviewResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(reviewService.get(id)));
-    }
-
-    @PostMapping("/{id}/rerun")
-    @PreAuthorize("hasAuthority('AI_REVIEW:USE')")
-    @Operation(summary = "Chạy lại lượt AI đánh giá (tính vào hạn mức)")
-    public ResponseEntity<ApiResponse<AiSubmissionReviewResponse>> rerun(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(reviewService.rerun(id)));
     }
 }

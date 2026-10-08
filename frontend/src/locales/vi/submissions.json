@@ -454,7 +454,7 @@
   },
   "AiReviewSettings": {
     "title": "AI gợi ý điểm khi chấm",
-    "titleHint": "Khi chấm, quản lý bấm “Nhờ AI xem trước”: AI đọc bài nộp, tệp minh chứng rồi gợi ý điểm từng chỉ tiêu. AI không tự ghi điểm.",
+    "titleHint": "Khi chấm, quản lý bấm “Gợi ý” ở từng chỉ tiêu: AI đọc bài nộp, tệp minh chứng rồi gợi ý điểm chỉ tiêu đó. AI không tự ghi điểm.",
     "subtitle": "Điểm AI chỉ để tham khảo, quản lý vẫn là người quyết.",
     "on": "Đang bật",
     "off": "Đang tắt",
@@ -495,7 +495,7 @@
       "thisUnitWill": "Đơn vị này sẽ",
       "useOwnWeights": "Dùng trọng số riêng",
       "turnOff": "Tắt AI gợi ý điểm",
-      "turnOffExplain": "Quản lý của đơn vị này (và đơn vị con) sẽ không thấy nút “Nhờ AI xem trước” khi chấm, và nhân viên không tự soi bài bằng AI được.",
+      "turnOffExplain": "Quản lý của đơn vị này (và đơn vị con) sẽ không thấy nút “Gợi ý” của AI khi chấm, và nhân viên không tự soi bài bằng AI được.",
       "cancel": "Huỷ",
       "save": "Lưu"
     }
@@ -527,20 +527,9 @@
   "AiReviewPanel": {
     "title": "AI đọc trước bài nộp",
     "disclaimer": "Kết quả do AI gợi ý – cần quản lý xác nhận",
-    "rerun": "Chạy lại",
-    "ask": "Nhờ AI xem trước",
     "running": "AI đang đọc bài nộp… Bạn có thể đóng màn này, kết quả vẫn được giữ.",
-    "intro": "AI đọc bài nộp và tệp minh chứng, gợi ý điểm đánh giá từng chỉ tiêu kèm lý do. Điểm chính thức vẫn là điểm bạn chấm.",
     "failed": "AI chưa phân tích được lượt này.",
-    "suggestedTotal": "Điểm đánh giá AI gợi ý",
-    "systemTotal": "hệ thống {{points}}",
-    "confidence": {
-      "CAO": "Tin cậy cao",
-      "TRUNG_BINH": "Tin cậy trung bình",
-      "THAP": "Tin cậy thấp"
-    },
     "missingData": "Còn thiếu để đánh giá chắc hơn",
-    "filesRead": "AI đã đọc {{read}}/{{total}} tệp minh chứng",
     "criteriaSetVersion": "chấm theo bộ tiêu chí phiên bản {{version}}",
     "unreadable": "AI không đọc được {{count}} tệp — hãy tự mở xem:",
     "kpi": "Chỉ tiêu",
@@ -556,9 +545,53 @@
     "strengths": "Điểm mạnh",
     "gaps": "Cần bổ sung",
     "suggestions": "Gợi ý chỉnh sửa",
-    "behaviorTotal": "Điểm hành vi AI gợi ý",
     "levelOf": "mức {{level}}",
     "selfLevel": "Tự đánh giá: {{level}}",
-    "behaviorScale": "thang hành vi"
+    "behaviorScale": "thang hành vi",
+    "introPerKpi": "Chưa có kết quả AI. Mở phiếu chấm và bấm Gợi ý ở chỉ tiêu cần chấm."
+  },
+  "ScorerColumns": {
+    "system": "Hệ thống",
+    "manager": "Quản lý",
+    "ai": "AI",
+    "boss": "Sếp",
+    "systemScored": "Hệ thống chấm",
+    "managerScored": "Quản lý chấm",
+    "aiScored": "AI chấm",
+    "bossScored": "Sếp chấm",
+    "you": "Bạn",
+    "aiSuggest": "Gợi ý",
+    "aiDetail": "Xem cách AI chấm",
+    "aiRetry": "Thử lại",
+    "aiSuggestRow": "Nhờ AI chấm riêng bài này",
+    "aiRescoreRow": "Chấm lại bài này",
+    "aiRowRunning": "Đang chấm…",
+    "aiReused": "Bài nộp không đổi từ lần AI chấm trước, hiện lại kết quả cũ.",
+    "paused": "Tạm dừng",
+    "pausePending": "Đang xin tạm dừng",
+    "pausedHint": "AI không chấm chỉ tiêu đã hoặc đang xin tạm dừng."
+  },
+  "AiReviewDetail": {
+    "title": "Cách AI chấm",
+    "note": "Điểm AI chỉ để tham khảo, không tự điền vào phiếu chấm.",
+    "close": "Đóng"
+  },
+  "AiConfidence": {
+    "label": "Tin cậy",
+    "aria": "Tin cậy: {{level}} ({{rank}}/{{total}})",
+    "why": "Vì sao",
+    "levels": {
+      "THAP": "Thấp",
+      "TRUNG_BINH": "Trung bình",
+      "CAO": "Cao"
+    },
+    "reasons": {
+      "ERROR": "AI gặp lỗi khi đọc chỉ tiêu này",
+      "NO_SUBMISSION": "Chưa có bài nộp",
+      "NO_QUOTES": "AI không chấm được chất lượng: không có câu trích nào khớp nguyên văn trong bài",
+      "QUALITY_LOW": "AI chấm chất lượng ở mức {{level}} (dưới 50%)",
+      "QUALITY_MEDIUM": "AI chấm chất lượng ở mức {{level}} (50–74%)",
+      "QUALITY_HIGH": "AI chấm chất lượng ở mức {{level}} (từ 75%)"
+    }
   }
 }

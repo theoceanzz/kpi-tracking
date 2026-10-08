@@ -100,6 +100,10 @@ public class AiSubmissionReview {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    /** Phạm vi: id chỉ tiêu được chấm trong lượt, mỗi dòng một id. Null = cả phiếu. */
+    @Column(name = "scope_criteria_ids", columnDefinition = "TEXT")
+    private String scopeCriteriaIds;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false, nullable = false)
     private Instant createdAt;

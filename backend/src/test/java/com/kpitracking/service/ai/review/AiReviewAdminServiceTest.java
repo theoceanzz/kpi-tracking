@@ -20,6 +20,8 @@ import com.kpitracking.repository.EvaluationRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.any;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -66,8 +68,18 @@ class AiReviewAdminServiceTest {
         assignments = mock(UserRoleOrgUnitRepository.class);
         users = mock(UserRepository.class);
         OrgUnitRepository units = mock(OrgUnitRepository.class);
+        // Bảng item giả: báo cáo gộp item mới nhất của từng chỉ tiêu qua findAllByReviewIdIn (AiReviewLatestView).
+        when(items.findAllByReviewIdIn(anyCollection())).thenAnswer(inv -> {
+            java.util.Collection<UUID> ids = inv.getArgument(0);
+            return ids.stream().flatMap(id -> itemsByRun.getOrDefault(id, List.of()).stream()).toList();
+        });
+        // Phiếu AI của mỗi người = mọi chỉ tiêu có trong các lượt giả, trừ chỉ tiêu ghi vào `paused`.
+        when(contextBuilder.reviewableCriteria(any(), any())).thenAnswer(inv -> itemsByRun.values().stream()
+                .flatMap(List::stream).map(AiSubmissionReviewItem::getKpiCriteriaId)
+                .filter(id -> id != null && !paused.contains(id)).collect(java.util.stream.Collectors.toSet()));
+        levels = mock(com.kpitracking.repository.QualitativeLevelRepository.class);
         service = new AiReviewAdminService(mock(AiReviewUnitSettingRepository.class), reviews, items, evaluations,
-                units, users, assignments, contextBuilder);
+                units, users, assignments, contextBuilder, new AiReviewLatestView(items), levels);
 
         org.setId(UUID.randomUUID());
         OrgHierarchyLevel level = new OrgHierarchyLevel();
@@ -107,16 +119,18 @@ class AiReviewAdminServiceTest {
         when(contextBuilder.requireCanReview(me.getId(), userId)).thenReturn(org);
 
         AiSubmissionReview r = AiSubmissionReview.builder().id(UUID.randomUUID()).organizationId(org.getId())
-                .kpiPeriodId(periodId).userId(userId).status(AiReviewStatus.DONE).build();
+                .kpiPeriodId(periodId).userId(userId).status(AiReviewStatus.DONE).createdAt(Instant.now().minusSeconds(600)).build();
         rows.add(r);
         List<AiSubmissionReviewItem> its = new java.util.ArrayList<>();
-        for (double s : suggested) its.add(AiSubmissionReviewItem.builder()
+        for (double s : suggested) its.add(AiSubmissionReviewItem.builder().reviewId(r.getId()).kpiCriteriaId(UUID.randomUUID())
                 .kpiSubmissionId(UUID.randomUUID()).suggestedScore(BigDecimal.valueOf(s)).build());
-        its.add(AiSubmissionReviewItem.builder().suggestedScore(null).build());   // chỉ tiêu lỗi: không cộng
+        // chỉ tiêu lỗi: không cộng
+        its.add(AiSubmissionReviewItem.builder().reviewId(r.getId()).kpiCriteriaId(UUID.randomUUID()).suggestedScore(null).build());
         // Định tính nằm trên thang hành vi riêng — không cộng vào điểm đánh giá để so với quản lý.
-        if (suggested.length > 0) its.add(AiSubmissionReviewItem.builder().kpiSubmissionId(UUID.randomUUID())
-                .suggestedScore(BigDecimal.valueOf(92.5)).qualitative(true).build());
-        when(items.findAllByReviewId(r.getId())).thenReturn(its);
+        if (suggested.length > 0) its.add(AiSubmissionReviewItem.builder().reviewId(r.getId()).kpiCriteriaId(UUID.randomUUID())
+                .kpiSubmissionId(UUID.randomUUID()).suggestedScore(BigDecimal.valueOf(92.5)).qualitative(true).build());
+        itemsByRun.put(r.getId(), its);
+        lastRun.put(userId, r);
 
         List<Evaluation> evs = new java.util.ArrayList<>();
         Evaluation self = new Evaluation();
@@ -136,6 +150,81 @@ class AiReviewAdminServiceTest {
     }
 
     private final List<AiSubmissionReview> rows = new java.util.ArrayList<>();
+    private final java.util.Map<UUID, List<AiSubmissionReviewItem>> itemsByRun = new java.util.HashMap<>();
+    private final java.util.Map<UUID, AiSubmissionReview> lastRun = new java.util.HashMap<>();
+    private final java.util.Set<UUID> paused = new java.util.HashSet<>();
+    private com.kpitracking.repository.QualitativeLevelRepository levels;
+
+    /** Thang chất lượng của tổ chức trong DB: KÉM 0 · TRUNG BÌNH 50 · TỐT 100. */
+    private static List<com.kpitracking.entity.QualitativeLevel> dbScale() {
+        java.util.List<com.kpitracking.entity.QualitativeLevel> out = new java.util.ArrayList<>();
+        String[] names = {"KÉM", "TRUNG BÌNH", "TỐT"};
+        double[] pct = {0, 50, 100};
+        for (int i = 0; i < names.length; i++) {
+            com.kpitracking.entity.QualitativeLevel l = new com.kpitracking.entity.QualitativeLevel();
+            l.setName(names[i]);
+            l.setScorePercent(pct[i]);
+            l.setPosition(i + 1);
+            out.add(l);
+        }
+        return out;
+    }
+
+    @Test
+    @DisplayName("mức tin cậy của dòng báo cáo = thấp nhất trong các chỉ tiêu, mỗi chỉ tiêu theo chất lượng AI chấm")
+    void reportConfidenceFollowsQuality() {
+        when(levels.findByOrganizationIdOrderByPositionAsc(org.getId())).thenReturn(dbScale());
+        UUID userId = staff(80.0, 50, 32);
+        AiSubmissionReview full = lastRun.get(userId);
+        List<AiSubmissionReviewItem> its = itemsByRun.get(full.getId());
+        its.get(0).setQualityLevel("TỐT");
+        its.get(1).setQualityLevel("TRUNG BÌNH");
+        its.removeIf(i -> i.getKpiSubmissionId() == null || Boolean.TRUE.equals(i.getQualitative()));
+        its.get(0).setConfidence("THAP");   // giá trị lưu theo luật cũ — phải bị tính lại, không đọc thẳng
+        when(reviews.findByOrganizationIdAndKpiPeriodIdAndStatusOrderByCreatedAtDesc(org.getId(), periodId, AiReviewStatus.DONE))
+                .thenReturn(List.of(full));
+
+        assertThat(service.report(periodId, null).getRows()).singleElement()
+                .satisfies(x -> assertThat(x.getConfidence()).isEqualTo("TRUNG_BINH"));
+    }
+
+    @Test
+    @DisplayName("chỉ tiêu nay đã xin tạm dừng -> kết quả AI cũ của nó không cộng vào báo cáo")
+    void reportSkipsPausedCriteria() {
+        UUID userId = staff(80.0, 50, 32);
+        AiSubmissionReview full = lastRun.get(userId);
+        paused.add(itemsByRun.get(full.getId()).get(0).getKpiCriteriaId());   // chỉ tiêu 50 điểm
+        when(reviews.findByOrganizationIdAndKpiPeriodIdAndStatusOrderByCreatedAtDesc(org.getId(), periodId, AiReviewStatus.DONE))
+                .thenReturn(List.of(full));
+
+        assertThat(service.report(periodId, null).getRows()).singleElement()
+                .satisfies(x -> assertThat(x.getAiScore()).isEqualTo(32.0));
+    }
+
+    @Test
+    @DisplayName("lượt mới nhất chỉ chấm lẻ một bài -> báo cáo vẫn cộng đủ chỉ tiêu (item mới nhất của từng chỉ tiêu)")
+    void reportSumsMergedItemsAcrossRuns() {
+        UUID userId = staff(80.0, 50, 32);   // lượt cả phiếu: 50 + 32
+        AiSubmissionReview full = lastRun.get(userId);
+        AiSubmissionReviewItem first = itemsByRun.get(full.getId()).get(0);
+        // Chấm lại riêng chỉ tiêu đầu: 50 -> 45, mức tin cậy riêng THAP.
+        AiSubmissionReview redo = AiSubmissionReview.builder().id(UUID.randomUUID()).organizationId(org.getId())
+                .kpiPeriodId(periodId).userId(userId).status(AiReviewStatus.DONE).createdAt(Instant.now())
+                .scopeCriteriaIds(first.getKpiCriteriaId().toString()).confidence("THAP").build();
+        itemsByRun.put(redo.getId(), List.of(AiSubmissionReviewItem.builder().reviewId(redo.getId())
+                .kpiCriteriaId(first.getKpiCriteriaId()).kpiSubmissionId(first.getKpiSubmissionId())
+                .suggestedScore(BigDecimal.valueOf(45)).confidence("THAP").build()));
+        when(reviews.findByOrganizationIdAndKpiPeriodIdAndStatusOrderByCreatedAtDesc(org.getId(), periodId, AiReviewStatus.DONE))
+                .thenReturn(List.of(redo, full));
+
+        AiReviewReportResponse r = service.report(periodId, null);
+
+        assertThat(r.getRows()).singleElement().satisfies(x -> {
+            assertThat(x.getAiScore()).isEqualTo(77.0);          // 45 + 32, không phải chỉ 45
+            assertThat(x.getReviewId()).isEqualTo(full.getId());
+            assertThat(x.getConfidence()).isEqualTo("THAP");     // mức thấp nhất của các chỉ tiêu
+        });
+    }
 
     @Test
     @DisplayName("sai số trung bình, tỷ lệ trong ±5, độ lệch; người chưa có điểm quản lý không vào mẫu; ngoài phạm vi bị loại")

@@ -12,7 +12,7 @@ const key = (periodId?: string, userId?: string) => ['ai-review', periodId, user
 const POLL_MS = 3000
 
 function isRunning(r?: AiReview | null) {
-  return r?.status === 'QUEUED' || r?.status === 'RUNNING'
+  return r?.status === 'QUEUED' || r?.status === 'RUNNING' || !!r?.runningCriteriaIds?.length
 }
 
 /**
@@ -30,15 +30,17 @@ export function useAiReview(periodId?: string, userId?: string, enabled = true) 
   })
 }
 
-/** Bấm "Nhờ AI xem trước" hoặc "Chạy lại". */
+/** Bấm "Gợi ý" ở một ô (một chỉ tiêu) hoặc "Chấm lại bài này" (`force`). */
 export function useRequestAiReview(periodId?: string, userId?: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ rerunId }: { rerunId?: string }) =>
-      rerunId ? aiReviewApi.rerun(rerunId) : aiReviewApi.request(periodId!, userId!),
+    mutationFn: ({ kpiCriteriaIds, force }: { kpiCriteriaIds: string[]; force?: boolean }) =>
+      aiReviewApi.request(periodId!, userId!, kpiCriteriaIds, force),
     onSuccess: review => {
-      qc.setQueryData(key(periodId, userId), review)
-      if (review.status === 'DONE') toast.info('Bài nộp không đổi từ lần AI đọc trước — hiện lại kết quả cũ.')
+      if (review.status === 'DONE') toast.info(i18n.t('submissions:ScorerColumns.aiReused'))
+      // Đọc lại bản gộp: kết quả của một lượt chấm lẻ không được đè lên kết quả hiện hành của các chỉ tiêu khác. Trả
+      // promise để mutation còn "đang chạy" tới khi đọc xong — ô vừa bấm không chớp về "Gợi ý" giữa hai bước.
+      return qc.invalidateQueries({ queryKey: key(periodId, userId) })
     },
     onError: err => toast.error(getApiErrorMessage(err, 'Không nhờ AI đọc được lúc này.')),
   })
@@ -64,26 +66,6 @@ export function useUpdateAiReviewSettings() {
       toast.success(i18n.t('submissions:AiReviewSettings.saved'))
     },
     onError: err => toast.error(getApiErrorMessage(err, i18n.t('submissions:AiReviewSettings.saveFailed'))),
-  })
-}
-
-/** "Nhờ AI xem trước cả đơn vị": xếp hàng chạy nền, kết quả từng người hiện dần trong màn chấm. */
-export function useAiReviewBatch() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ periodId, orgUnitId }: { periodId: string; orgUnitId: string }) =>
-      aiReviewApi.batch(periodId, orgUnitId),
-    onSuccess: r => {
-      qc.invalidateQueries({ queryKey: ['ai-review'] })
-      if (r.queued === 0 && r.reused === 0) {
-        toast.info('Không có ai để AI đọc (chưa có chỉ tiêu, ngoài phạm vi hoặc đơn vị đã tắt tính năng).')
-      } else {
-        toast.success(`AI đang đọc bài của ${r.queued} người`
-          + (r.reused ? `, ${r.reused} người đã có kết quả mới` : '')
-          + (r.skipped ? `, bỏ qua ${r.skipped}` : '') + '. Mở màn chấm từng người để xem.')
-      }
-    },
-    onError: err => toast.error(getApiErrorMessage(err, 'Không chạy được theo lô lúc này.')),
   })
 }
 

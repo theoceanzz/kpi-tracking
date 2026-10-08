@@ -8,10 +8,12 @@ import com.kpitracking.dto.request.submission.ReturnSubmissionRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.submission.AttachmentResponse;
+import com.kpitracking.dto.response.submission.SubmissionEvaluatorScoreResponse;
 import com.kpitracking.dto.response.submission.SubmissionResponse;
 import com.kpitracking.enums.SubmissionStatus;
 import com.kpitracking.service.KpiSubmissionService;
 import com.kpitracking.service.SubmissionAttachmentService;
+import com.kpitracking.service.SubmissionScoreLedger;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -35,6 +37,7 @@ public class KpiSubmissionController {
 
     private final KpiSubmissionService submissionService;
     private final SubmissionAttachmentService attachmentService;
+    private final SubmissionScoreLedger scoreLedger;
 
     @PostMapping
     @Operation(summary = "Create a new submission")
@@ -69,6 +72,14 @@ public class KpiSubmissionController {
             @RequestParam(defaultValue = "desc") String sortDir) {
         PageResponse<SubmissionResponse> response = submissionService.getSubmissions(page, size, status, kpiPeriodId, kpiCriteriaId, submittedById, orgUnitId, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/evaluator-scores")
+    @Operation(summary = "Per-evaluator KPI scores of one employee in a period, ordered by first scoring")
+    public ResponseEntity<ApiResponse<List<SubmissionEvaluatorScoreResponse>>> getEvaluatorScores(
+            @RequestParam UUID userId,
+            @RequestParam UUID kpiPeriodId) {
+        return ResponseEntity.ok(ApiResponse.success(scoreLedger.forUserPeriod(userId, kpiPeriodId)));
     }
 
     @GetMapping("/{submissionId}")

@@ -35,6 +35,10 @@ public class AiSubmissionReviewResponse {
     /** Mỗi phần tử "tên tệp: lý do" — tệp AI chưa đọc được nội dung. */
     private List<String> unreadableFiles;
     private List<AiSubmissionReviewItemResponse> items;
+    /** Chỉ tiêu đang có lượt AI chạy dở (lượt cả phiếu đang chạy = mọi chỉ tiêu) — ô của chúng hiện "đang chấm". */
+    private List<UUID> runningCriteriaIds;
+    /** Chỉ tiêu mà lượt lẻ mới nhất bị lỗi (mới hơn kết quả đang có) — ô của chúng hiện "Thử lại". */
+    private List<UUID> failedCriteriaIds;
     /** Điểm đánh giá AI gợi ý cho cả đợt (thang 100, cộng các chỉ tiêu định lượng); {@code null} với lượt cũ. */
     private java.math.BigDecimal suggestedTotal;
     /** Điểm đánh giá hệ thống trên cùng thang (trần 100) — để so. */

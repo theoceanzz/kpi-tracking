@@ -88,7 +88,8 @@ public final class ReviewResults {
             List<String> suggestions,
             String error,
             List<Basis> basis,
-            ReviewScoreCalculator.Points points) {
+            ReviewScoreCalculator.Points points,
+            ItemConfidence confidence) {
 
         public CriterionResult(UUID kpiCriteriaId, UUID kpiSubmissionId, String summary, String qualityLevel,
                                String qualityComment, List<String> evidenceQuotes,
@@ -97,8 +98,19 @@ public final class ReviewResults {
                                List<String> suggestions, String error) {
             this(kpiCriteriaId, kpiSubmissionId, summary, qualityLevel, qualityComment, evidenceQuotes,
                     achievementPercent, onTimePercent, suggestedScore, strengths, gaps, suggestions, error, List.of(),
-                    ReviewScoreCalculator.Points.NONE);
+                    ReviewScoreCalculator.Points.NONE, ItemConfidence.NONE);
         }
+    }
+
+    /**
+     * Mức tin cậy RIÊNG của một chỉ tiêu — mã nguồn tính từ căn cứ, không hỏi mô hình (không tốn token, giải thích
+     * được). Mức chung của lượt vẫn do {@code ReviewResultValidator#confidence} quyết như trước.
+     *
+     * @param level   {@code CAO} / {@code TRUNG_BINH} / {@code THAP}
+     * @param reasons mã lý do ({@code ReviewResultValidator.REASON_*}) — giao diện dịch, không lưu câu dựng sẵn
+     */
+    public record ItemConfidence(String level, List<String> reasons, int filesRead, int filesTotal) {
+        public static final ItemConfidence NONE = new ItemConfidence(null, List.of(), 0, 0);
     }
 
     /**

@@ -30,4 +30,13 @@ public interface KpiAdjustmentRequestRepository extends JpaRepository<KpiAdjustm
             Pageable pageable);
 
     java.util.List<KpiAdjustmentRequest> findByStatusAndCreatedAtBefore(AdjustmentStatus status, java.time.Instant expiryTime);
+
+    /**
+     * Chỉ tiêu (trong {@code criteriaIds}) đang có yêu cầu XIN TẠM DỪNG chờ duyệt — trong lúc chờ, KPI ở trạng thái
+     * {@code EDIT} giống hệt yêu cầu đổi chỉ tiêu, nên phải hỏi bảng yêu cầu mới phân biệt được.
+     */
+    @Query("SELECT DISTINCT r.kpiCriteria.id FROM KpiAdjustmentRequest r "
+            + "WHERE r.kpiCriteria.id IN :criteriaIds AND r.status = com.kpitracking.enums.AdjustmentStatus.PENDING "
+            + "AND r.isDeactivationRequest = true")
+    java.util.List<UUID> findPendingDeactivationCriteriaIds(@Param("criteriaIds") java.util.Collection<UUID> criteriaIds);
 }

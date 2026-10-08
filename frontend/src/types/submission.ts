@@ -3,6 +3,10 @@ export type SubmissionStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | '
 // Matches BE: SubmissionResponse
 export interface Submission {
   id: string
+  /** Trạng thái chỉ tiêu — `INACTIVE` = đã duyệt xin tạm dừng (AI không chấm). */
+  kpiCriteriaStatus?: string | null
+  /** Chỉ tiêu đang có yêu cầu xin tạm dừng chờ duyệt (AI không chấm). */
+  kpiPausePending?: boolean
   kpiCriteriaId: string
   kpiCriteriaName: string
   kpiType: import('./kpi').KpiType
@@ -89,4 +93,21 @@ export interface ReviewSubmissionRequest {
   reviewNote?: string
   managerScore?: number
   qualitativeLevelId?: string
+}
+
+/**
+ * Điểm một chỉ tiêu do MỘT người chấm (sổ V32). Danh sách sắp theo lần chấm đầu: luật cấp bậc buộc cấp sau cao hơn
+ * cấp trước, nên người đầu là quản lý trực tiếp, người cuối là cấp trên cao nhất đã chấm.
+ */
+export interface SubmissionEvaluatorScore {
+  submissionId: string
+  evaluatorId: string
+  evaluatorName?: string | null
+  evaluatorRoleName?: string | null
+  /** Thang trọng số thô, như `Submission.managerScore`. */
+  managerScore?: number | null
+  qualitativeLevelId?: string | null
+  qualitativeLevelName?: string | null
+  createdAt: string
+  updatedAt: string
 }

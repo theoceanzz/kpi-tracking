@@ -58,6 +58,9 @@ public class KpiSubmissionService {
     private final com.kpitracking.workflow.engine.WorkflowEngine workflowEngine;
     private final com.kpitracking.service.kpi.CycleStatusGuard cycleStatusGuard;
     private final EvaluationRepository evaluationRepository;
+    /** Giữ điểm từng chỉ tiêu theo TỪNG người chấm (Quản lý / Sếp) — xem SubmissionScoreLedger. */
+    private final SubmissionScoreLedger scoreLedger;
+    private final com.kpitracking.repository.KpiAdjustmentRequestRepository adjustmentRepository;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -370,7 +373,21 @@ public class KpiSubmissionService {
         java.util.Map<UUID, Boolean> managerMemo = new java.util.HashMap<>();
         List<SubmissionResponse> out = subPage.getContent().stream().map(s -> mapToResponse(s, managerMemo)).toList();
         markResubmissions(out);
+        markPausePending(out);
         return out;
+    }
+
+    /**
+     * Đánh dấu bài của chỉ tiêu đang xin tạm dừng (chờ duyệt) — một truy vấn cho cả trang. Trong lúc chờ, KPI ở
+     * {@code EDIT} giống yêu cầu đổi chỉ tiêu, nên phải hỏi bảng yêu cầu; phiếu chấm dùng cờ này để AI không chấm.
+     */
+    private void markPausePending(List<SubmissionResponse> responses) {
+        List<UUID> editing = responses.stream()
+                .filter(r -> r.getKpiCriteriaStatus() == com.kpitracking.enums.KpiStatus.EDIT)
+                .map(SubmissionResponse::getKpiCriteriaId).distinct().toList();
+        if (editing.isEmpty()) return;
+        java.util.Set<UUID> pending = new java.util.HashSet<>(adjustmentRepository.findPendingDeactivationCriteriaIds(editing));
+        responses.forEach(r -> r.setKpiPausePending(pending.contains(r.getKpiCriteriaId())));
     }
 
     /** Đánh dấu bài nào là bài nộp lại (thay cho bài bị trả lại) — một truy vấn cho cả trang. */
@@ -611,6 +628,7 @@ public class KpiSubmissionService {
         }
 
         submission = submissionRepository.save(submission);
+        scoreLedger.record(submission, currentUser);
 
         eventPublisher.publishEvent(new SubmissionReviewedEvent(this, submission));
 
@@ -771,6 +789,7 @@ public class KpiSubmissionService {
             submission.setReviewedAt(Instant.now());
 
             final KpiSubmission savedSubmission = submissionRepository.save(submission);
+            scoreLedger.record(savedSubmission, currentUser);
             eventPublisher.publishEvent(new SubmissionReviewedEvent(this, savedSubmission));
             
             // Auto-rollup for Waterfall Mode

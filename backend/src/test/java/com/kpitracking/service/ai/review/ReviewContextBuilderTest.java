@@ -52,6 +52,7 @@ class ReviewContextBuilderTest {
     private KpiSubmissionRepository submissions;
     private AiReviewSettingsResolver resolver;
     private ReviewContextBuilder builder;
+    private com.kpitracking.repository.KpiAdjustmentRequestRepository adjustments;
 
     private final UUID managerId = UUID.randomUUID();
     private final UUID staffId = UUID.randomUUID();
@@ -73,8 +74,9 @@ class ReviewContextBuilderTest {
         QualitativeLevelRepository levels = mock(QualitativeLevelRepository.class);
         submissions = mock(KpiSubmissionRepository.class);
         resolver = mock(AiReviewSettingsResolver.class);
+        adjustments = mock(com.kpitracking.repository.KpiAdjustmentRequestRepository.class);
         builder = new ReviewContextBuilder(kpiRepository, periods, users, assignments, levels, permissions, calculator,
-                submissions, resolver, mock(ReviewConductSource.class));
+                submissions, resolver, mock(ReviewConductSource.class), adjustments);
         when(resolver.resolve(any(), any())).thenReturn(
                 new AiReviewSettingsResolver.Effective(true, new ReviewContext.Weights(50, 40, 10), null, "đơn vị"));
 
@@ -182,5 +184,73 @@ class ReviewContextBuilderTest {
         });
         assertThat(c.achievementRatio()).isEqualTo(0.8);
         assertThat(ctx.weights()).isEqualTo(new ReviewContext.Weights(50, 40, 10));
+    }
+
+    private static KpiCriteria kpi(String name, double weight, com.kpitracking.enums.KpiStatus status) {
+        KpiCriteria k = new KpiCriteria();
+        k.setId(UUID.randomUUID());
+        k.setName(name);
+        k.setKpiType(KpiType.QUANTITATIVE);
+        k.setTargetValue(10.0);
+        k.setWeight(weight);
+        k.setStatus(status);
+        k.setSubmissions(new ArrayList<>());
+        return k;
+    }
+
+    @Test
+    @DisplayName("chỉ tiêu xin tạm dừng (đã duyệt hoặc đang chờ) không vào phiếu AI và không vào mẫu số: 4 KPI 25 -> tối đa 25, không phải 19,2")
+    void pausedCriteriaLeaveTheSheetAndTheScale() {
+        KpiCriteria a = kpi("Kiểm thử phần mềm", 25, com.kpitracking.enums.KpiStatus.APPROVED);
+        KpiCriteria b = kpi("Mức độ bao phủ", 25, com.kpitracking.enums.KpiStatus.APPROVED);
+        KpiCriteria c = kpi("Tỷ lệ nhiệm vụ A", 25, com.kpitracking.enums.KpiStatus.EDITED);
+        // Đang chờ duyệt ĐỔI CHỈ TIÊU (không phải tạm dừng) — vẫn chấm như thường.
+        KpiCriteria d = kpi("Tỷ lệ nhiệm vụ B", 25, com.kpitracking.enums.KpiStatus.EDIT);
+        KpiCriteria pausedApproved = kpi("Phát triển thêm tính năng mới", 30, com.kpitracking.enums.KpiStatus.INACTIVE);
+        pausedApproved.setCompensatedAchievementPercent(15.0);   // core vẫn tính theo % bù — AI thì không
+        KpiCriteria pausePending = kpi("Đang xin tạm dừng", 20, com.kpitracking.enums.KpiStatus.EDIT);
+        when(kpiRepository.findByUserIdInAssigneesAndKpiPeriodId(eq(staffId), eq(periodId), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(a, b, c, d, pausedApproved, pausePending)));
+        when(adjustments.findPendingDeactivationCriteriaIds(any())).thenReturn(List.of(pausePending.getId()));
+
+        ReviewContext ctx = builder.build(org.getId(), periodId, staffId, org);
+
+        assertThat(ctx.criteria()).extracting(ReviewContext.Criterion::kpiCriteriaId)
+                .containsExactlyInAnyOrder(a.getId(), b.getId(), c.getId(), d.getId());
+        ReviewScoreCalculator calc = new ReviewScoreCalculator();
+        assertThat(calc.points(ctx, ctx.criteria().get(0), null).max()).isEqualByComparingTo("25.00");
+        assertThat(builder.reviewableCriteria(periodId, staffId)).containsExactlyInAnyOrder(a.getId(), b.getId(), c.getId(), d.getId());
+        assertThat(builder.pausedCriteria(periodId, staffId)).containsExactlyInAnyOrder(pausedApproved.getId(), pausePending.getId());
+    }
+
+    @Test
+    @DisplayName("bài đã TRẢ LẠI không vào ngữ cảnh AI — nộp lại thì AI chỉ đọc bài mới")
+    void returnedSubmissionIsLeftOut() {
+        User staff = new User();
+        staff.setId(staffId);
+        KpiCriteria kpi = kpi("Số task hoàn thành", 25, com.kpitracking.enums.KpiStatus.APPROVED);
+
+        KpiSubmission returned = new KpiSubmission();
+        returned.setId(UUID.randomUUID());
+        returned.setSubmittedBy(staff);
+        returned.setNote("Bài cũ — đã bị trả lại");
+        returned.setStatus(SubmissionStatus.RETURNED);
+        returned.setCreatedAt(Instant.now().minusSeconds(3600));
+        returned.setAttachments(new ArrayList<>());
+        KpiSubmission resubmitted = new KpiSubmission();
+        resubmitted.setId(UUID.randomUUID());
+        resubmitted.setSubmittedBy(staff);
+        resubmitted.setNote("Bài nộp lại");
+        resubmitted.setStatus(SubmissionStatus.PENDING);
+        resubmitted.setCreatedAt(Instant.now());
+        resubmitted.setAttachments(new ArrayList<>());
+        kpi.getSubmissions().addAll(List.of(returned, resubmitted));
+        when(kpiRepository.findByUserIdInAssigneesAndKpiPeriodId(eq(staffId), eq(periodId), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(kpi)));
+
+        ReviewContext ctx = builder.build(org.getId(), periodId, staffId, org);
+
+        assertThat(ctx.criteria().get(0).submissions()).extracting(ReviewContext.Submission::id)
+                .containsExactly(resubmitted.getId());
     }
 }

@@ -106,6 +106,20 @@ public class AiSubmissionReviewItem {
     @Column(name = "basis_citations", columnDefinition = "jsonb")
     private String basisCitations;
 
+    /** Mức tin cậy riêng của chỉ tiêu (CAO / TRUNG_BINH / THAP), do mã nguồn tính — null với lượt trước V34. */
+    @Column(name = "confidence", length = 20)
+    private String confidence;
+
+    /** Mã lý do của mức tin cậy, mỗi dòng một mã ({@code ReviewResults.ItemConfidence}). */
+    @Column(name = "confidence_reasons", columnDefinition = "TEXT")
+    private String confidenceReasons;
+
+    @Column(name = "files_read")
+    private Integer filesRead;
+
+    @Column(name = "files_total")
+    private Integer filesTotal;
+
     @Column(name = "manager_score", precision = 6, scale = 2)
     private BigDecimal managerScore;
 

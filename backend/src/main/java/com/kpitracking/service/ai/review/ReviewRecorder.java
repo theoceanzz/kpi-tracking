@@ -72,6 +72,10 @@ public class ReviewRecorder {
                     .suggestions(AiSubmissionReviewMapper.join(r.suggestions()))
                     .errorMessage(r.error())
                     .basisCitations(ReviewBasis.toJson(r.basis()))
+                    .confidence(r.confidence().level())
+                    .confidenceReasons(AiSubmissionReviewMapper.join(r.confidence().reasons()))
+                    .filesRead(r.confidence().filesRead())
+                    .filesTotal(r.confidence().filesTotal())
                     .build());
         }
         review.setOverallSummary(run.getSummary());
@@ -83,7 +87,11 @@ public class ReviewRecorder {
             review.setCriteriaSetId(run.getContext().criteriaSet().id());
             review.setCriteriaSetVersion(run.getContext().criteriaSet().version());
         }
-        int[] files = run.getContext().fileCounts();
+        // Lượt lẻ chỉ tải tệp của chỉ tiêu trong phạm vi — đếm cả phiếu sẽ báo các tệp còn lại là "không đọc được".
+        int[] files = run.scoped()
+                ? new int[]{run.getResults().stream().mapToInt(r -> r.confidence().filesRead()).sum(),
+                            run.getResults().stream().mapToInt(r -> r.confidence().filesTotal()).sum()}
+                : run.getContext().fileCounts();
         review.setFilesRead(files[0]);
         review.setFilesTotal(files[1]);
         review.setModelName(modelName);

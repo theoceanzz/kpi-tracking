@@ -116,6 +116,7 @@ public class ReviewSteps {
         record Job(UUID submissionId, ReviewContext.Attachment file, Future<EvidenceText> future) {}
         List<Job> jobs = new ArrayList<>();
         for (ReviewContext.Criterion c : ctx.criteria()) {
+            if (!run.inScope(c.kpiCriteriaId())) continue;   // lượt chấm lẻ: khỏi tải tệp của chỉ tiêu khác
             for (ReviewContext.Submission s : c.submissions()) {
                 for (ReviewContext.Attachment a : s.attachments()) {
                     Callable<EvidenceText> job = () -> {
@@ -161,7 +162,7 @@ public class ReviewSteps {
         List<String> queries = new ArrayList<>();
         queries.add("tiêu chí đánh giá, cách chấm điểm và xếp loại kết quả công việc");
         for (ReviewContext.Criterion c : ctx.criteria()) {
-            if (c.hasSubmission()) queries.add(c.name() + (c.description() == null ? "" : " — " + c.description()));
+            if (c.hasSubmission() && run.inScope(c.kpiCriteriaId())) queries.add(c.name() + (c.description() == null ? "" : " — " + c.description()));
         }
         UUID chosenSet = ctx.criteriaSet() == null ? null : ctx.criteriaSet().id();
         run.setContext(ctx.withExcerpts(documentSource.excerptsFor(ctx.organizationId(), queries, chosenSet)));
@@ -177,6 +178,7 @@ public class ReviewSteps {
         ReviewRun run = runOf(scope);
         List<ReviewContext.Criterion> pending = new ArrayList<>();
         for (ReviewContext.Criterion c : run.getContext().criteria()) {
+            if (!run.inScope(c.kpiCriteriaId())) continue;
             if (c.hasSubmission()) pending.add(c);
             else run.getResults().add(validator.noSubmission(run.getContext(), c));
         }
@@ -234,6 +236,8 @@ public class ReviewSteps {
 
     public void summary(AgenticScope scope) {
         ReviewRun run = runOf(scope);
+        // Lượt chấm lẻ vài bài: mỗi chỉ tiêu đã có nhận xét và mức tin cậy riêng — tóm tắt chung lấy từ lượt cả phiếu.
+        if (run.scoped()) return;
         // Không có bài nộp nào thì không có gì để tổng hợp — nói thẳng, khỏi tốn lời gọi.
         if (run.getPending().isEmpty()) {
             run.setSummary("Nhân viên chưa có bài nộp nào trong đợt này, nên chưa có nội dung để AI đọc.");
@@ -263,6 +267,12 @@ public class ReviewSteps {
 
     public void validate(AgenticScope scope) {
         ReviewRun run = runOf(scope);
+        if (run.scoped()) {
+            // Mức của lượt lẻ = mức thấp nhất của các chỉ tiêu nó chấm (không có ý kiến tổng hợp của mô hình).
+            run.setConfidence(ReviewResultValidator.lowest(run.getResults().stream()
+                    .map(r -> r.confidence().level()).toList()));
+            return;
+        }
         run.setConfidence(validator.confidence(run.getConfidence(), run.getContext(), run.getResults()));
     }
 

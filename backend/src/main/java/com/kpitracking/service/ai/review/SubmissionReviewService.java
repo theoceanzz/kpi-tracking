@@ -15,6 +15,7 @@ import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.enums.AiReviewStatus;
 import com.kpitracking.event.AiReviewEvents;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.mapper.AiSubmissionReviewMapper;
@@ -39,8 +40,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -73,15 +76,9 @@ public class SubmissionReviewService {
     private final AiRateLimiter aiRateLimiter;
     private final AiQuotaService aiQuotaService;
     private final ApplicationEventPublisher events;
-    private final com.kpitracking.repository.OrgUnitRepository orgUnitRepository;
     private final com.kpitracking.repository.KpiSubmissionRepository kpiSubmissionRepository;
     private final com.kpitracking.repository.QualitativeLevelRepository qualitativeLevelRepository;
-
-    /** Trần số người một lần chạy theo lô — lô lớn hơn thì chia nhỏ theo đơn vị con. */
-    static final int MAX_BATCH = 100;
-
-    /** Kết quả chạy theo lô: số lượt mới xếp hàng, số lượt dùng lại, số người bỏ qua (không quyền / không chỉ tiêu / đơn vị tắt). */
-    public record BatchResult(int queued, int reused, int skipped) {}
+    private final AiReviewLatestView latestView;
 
     @Value("${app.ai.review.enabled:true}")
     boolean systemEnabled = true;
@@ -92,35 +89,42 @@ public class SubmissionReviewService {
     // ── yêu cầu (luồng request) ───────────────────────────────────────────
 
     /**
-     * Nhờ AI đọc bài nộp. Không chấm lại: đã có lượt đang chạy, hoặc lượt {@code DONE} mà từ đó chưa bài
-     * nộp nào đổi, thì trả lượt đó.
+     * Nhờ AI chấm CÁC CHỈ TIÊU được chọn (nút "Gợi ý" ở từng ô của phiếu chấm). Từ 06/10 không còn chấm cả phiếu: thiếu
+     * {@code kpiCriteriaIds} thì từ chối. Không chấm lại khi chỉ tiêu đang chấm dở, hoặc đã có kết quả mà bài không
+     * đổi (trừ khi {@code force}).
      */
     @Transactional
     public AiSubmissionReviewResponse request(AiSubmissionReviewRequest req) {
-        return start(req.getKpiPeriodId(), req.getUserId(), false);
+        if (req.getKpiCriteriaIds() == null || req.getKpiCriteriaIds().isEmpty()) {
+            throw new BusinessException(ErrorCode.AI_REVIEW_CRITERIA_REQUIRED);
+        }
+        return start(req.getKpiPeriodId(), req.getUserId(), req.getKpiCriteriaIds(), Boolean.TRUE.equals(req.getForce()));
     }
 
-    /** Chạy lại bất kể đã có kết quả — vẫn tính vào tần suất và hạn mức. */
-    @Transactional
-    public AiSubmissionReviewResponse rerun(UUID reviewId) {
-        User me = currentUser();
-        AiSubmissionReview old = reviewRepository.findById(reviewId).orElseThrow(this::notFound);
-        contextBuilder.requireCanReview(me.getId(), old.getUserId());
-        return start(old.getKpiPeriodId(), old.getUserId(), true);
-    }
-
-    private AiSubmissionReviewResponse start(UUID kpiPeriodId, UUID userId, boolean force) {
+    /**
+     * @param criteriaIds các chỉ tiêu cần chấm (không rỗng)
+     * @param force       chấm lại kể cả khi bài không đổi
+     */
+    private AiSubmissionReviewResponse start(UUID kpiPeriodId, UUID userId, List<UUID> criteriaIds, boolean force) {
         User me = currentUser();
         // 1. Phạm vi: người yêu cầu phải chấm được người này (quyền theo đơn vị, không chỉ theo tổ chức).
         Organization org = contextBuilder.requireCanReview(me.getId(), userId);
         // 2. Cờ: công tắc hệ thống + AI của tổ chức + tính năng ở công ty + cấu hình đơn vị của người được chấm.
         requireEnabled(org, userId);
 
-        if (!force) {
-            AiSubmissionReview latest = reviewRepository
-                    .findFirstByKpiPeriodIdAndUserIdOrderByCreatedAtDesc(kpiPeriodId, userId).orElse(null);
-            if (latest != null && reusable(latest)) return summaryOf(latest);
+        // Chỉ tiêu nào không vào phiếu AI (KPI thưởng, khoá kỳ, xin tạm dừng…) thì bỏ; không còn gì thì báo đúng lý do.
+        Set<UUID> sheet = contextBuilder.reviewableCriteria(kpiPeriodId, userId);
+        Set<UUID> scope = new LinkedHashSet<>(criteriaIds);
+        scope.retainAll(sheet);
+        if (scope.isEmpty()) {
+            boolean paused = contextBuilder.pausedCriteria(kpiPeriodId, userId).stream().anyMatch(criteriaIds::contains);
+            throw new ForbiddenException(paused ? ErrorCode.AI_REVIEW_CRITERIA_PAUSED : ErrorCode.AI_REVIEW_CRITERIA_NOT_ON_SHEET);
         }
+        AiReviewLatestView.View view = latestView.of(
+                reviewRepository.findByKpiPeriodIdAndUserIdOrderByCreatedAtDesc(kpiPeriodId, userId), sheet);
+        // Đang chấm thì không xếp thêm lượt trùng; chưa đổi gì (và không ép) thì dùng lại kết quả cũ, khỏi tốn token.
+        if (view != null) scope.removeIf(id -> view.isRunning(id) || (!force && reusable(view, id, userId)));
+        if (scope.isEmpty()) return assemble(view);
 
         // 3-4. Tần suất rồi hạn mức — đúng thứ tự guard() của AiService.
         aiRateLimiter.check(me.getEmail());
@@ -132,71 +136,18 @@ public class SubmissionReviewService {
                 .userId(userId)
                 .requestedBy(me.getId())
                 .status(AiReviewStatus.QUEUED)
+                .scopeCriteriaIds(AiReviewLatestView.scopeColumn(scope))
                 .build());
         // Phát trong transaction; listener AFTER_COMMIT chỉ chạy khi dòng QUEUED đã thật sự lưu.
         events.publishEvent(new AiReviewEvents.Requested(review.getId(), me.getEmail()));
         return summaryOf(review);
     }
 
-    /**
-     * Chạy theo lô cho mọi người trong một nhánh đơn vị (GĐ2). Một lô là MỘT yêu cầu: kiểm tần suất và hạn
-     * mức một lần. Mỗi người vẫn đi qua đúng các chốt của lượt lẻ — không chấm được người đó, đơn vị của
-     * họ tắt tính năng, hay họ không có chỉ tiêu trong đợt thì bỏ qua (không lộ lý do theo từng người).
-     */
-    @Transactional
-    public BatchResult batch(UUID kpiPeriodId, UUID orgUnitId) {
-        User me = currentUser();
-        com.kpitracking.entity.OrgUnit unit = orgUnitRepository.findById(orgUnitId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
-        UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
-        List<UUID> unitIds = orgUnitRepository.findSubtree(unit.getPath(), orgId).stream()
-                .map(com.kpitracking.entity.OrgUnit::getId).toList();
-        List<UUID> members = userRoleOrgUnitRepository.findByOrgUnitIdIn(unitIds).stream()
-                .map(a -> a.getUser().getId())
-                .filter(id -> !id.equals(me.getId()))
-                .distinct()
-                .limit(MAX_BATCH)
-                .toList();
-
-        aiRateLimiter.check(me.getEmail());
-        aiQuotaService.checkAndThrow(me.getEmail());
-
-        int queued = 0, reused = 0, skipped = 0;
-        for (UUID userId : members) {
-            Organization org;
-            try {
-                org = contextBuilder.requireCanReview(me.getId(), userId);
-                requireEnabled(org, userId);
-            } catch (ForbiddenException e) {
-                skipped++;
-                continue;
-            }
-            if (!contextBuilder.hasCriteria(kpiPeriodId, userId)) {
-                skipped++;
-                continue;
-            }
-            AiSubmissionReview latest = reviewRepository
-                    .findFirstByKpiPeriodIdAndUserIdOrderByCreatedAtDesc(kpiPeriodId, userId).orElse(null);
-            if (latest != null && reusable(latest)) {
-                reused++;
-                continue;
-            }
-            AiSubmissionReview review = reviewRepository.save(AiSubmissionReview.builder()
-                    .organizationId(org.getId()).kpiPeriodId(kpiPeriodId).userId(userId)
-                    .requestedBy(me.getId()).status(AiReviewStatus.QUEUED).build());
-            events.publishEvent(new AiReviewEvents.Requested(review.getId(), me.getEmail()));
-            queued++;
-        }
-        log.info("Chạy AI đánh giá theo lô cho đơn vị {} đợt {}: {} xếp hàng, {} dùng lại, {} bỏ qua",
-                orgUnitId, kpiPeriodId, queued, reused, skipped);
-        return new BatchResult(queued, reused, skipped);
-    }
-
-    private boolean reusable(AiSubmissionReview latest) {
-        if (latest.getStatus() == AiReviewStatus.QUEUED || latest.getStatus() == AiReviewStatus.RUNNING) return true;
-        if (latest.getStatus() != AiReviewStatus.DONE) return false;
-        return reviewRepository.countSubmissionsChangedSince(
-                latest.getUserId(), latest.getKpiPeriodId(), latest.getCreatedAt()) == 0;
+    /** Kết quả hiện hành của chỉ tiêu còn dùng được: đã có, và bài của chỉ tiêu không đổi kể từ lượt chấm nó. */
+    private boolean reusable(AiReviewLatestView.View view, UUID kpiCriteriaId, UUID userId) {
+        AiSubmissionReview run = view.runOfCriterion().get(kpiCriteriaId);
+        return run != null
+                && reviewRepository.countCriterionSubmissionsChangedSince(userId, kpiCriteriaId, run.getCreatedAt()) == 0;
     }
 
     // ── đọc ───────────────────────────────────────────────────────────────
@@ -210,16 +161,31 @@ public class SubmissionReviewService {
         } catch (ForbiddenException e) {
             throw notFound();   // không phân biệt "không có" với "không được xem"
         }
-        return full(review);
+        var items = itemRepository.findAllByReviewId(review.getId());
+        Map<UUID, AiSubmissionReview> runOf = new HashMap<>();
+        items.forEach(i -> runOf.put(i.getKpiCriteriaId(), review));
+        return assemble(review, review.getStatus(), items, runOf);
     }
 
-    /** Lượt mới nhất cho một nhân viên trong một đợt, hoặc {@code null} khi chưa có. */
+    /**
+     * Kết quả AI HIỆN HÀNH cho một nhân viên trong một đợt — gộp item mới nhất của từng chỉ tiêu từ mọi lượt
+     * ({@link AiReviewLatestView}), hoặc {@code null} khi chưa có lượt nào.
+     */
     @Transactional(readOnly = true)
     public AiSubmissionReviewResponse latest(UUID kpiPeriodId, UUID userId) {
         User me = currentUser();
         contextBuilder.requireCanReview(me.getId(), userId);
-        return reviewRepository.findFirstByKpiPeriodIdAndUserIdOrderByCreatedAtDesc(kpiPeriodId, userId)
-                .map(this::full).orElse(null);
+        // Chỉ chỉ tiêu còn trên phiếu AI: kết quả cũ của chỉ tiêu nay đã xin tạm dừng không hiện nữa.
+        return assemble(latestView.of(reviewRepository.findByKpiPeriodIdAndUserIdOrderByCreatedAtDesc(kpiPeriodId, userId),
+                contextBuilder.reviewableCriteria(kpiPeriodId, userId)));
+    }
+
+    private AiSubmissionReviewResponse assemble(AiReviewLatestView.View view) {
+        if (view == null) return null;
+        AiSubmissionReviewResponse r = assemble(view.base(), view.status(), view.items(), view.runOfCriterion());
+        r.setRunningCriteriaIds(List.copyOf(view.runningCriteriaIds()));
+        r.setFailedCriteriaIds(List.copyOf(view.failedCriteriaIds()));
+        return r;
     }
 
     private AiSubmissionReviewResponse summaryOf(AiSubmissionReview review) {
@@ -228,25 +194,41 @@ public class SubmissionReviewService {
         return r;
     }
 
-    private AiSubmissionReviewResponse full(AiSubmissionReview review) {
+    /**
+     * Dựng response từ một lượt "nền" (phần chung) và danh sách item — của chính lượt đó, hoặc gộp từ nhiều lượt.
+     *
+     * @param runOf lượt đã chấm item của từng chỉ tiêu (ghi {@code reviewedAt})
+     */
+    private AiSubmissionReviewResponse assemble(AiSubmissionReview review, AiReviewStatus status,
+                                                List<com.kpitracking.entity.AiSubmissionReviewItem> allItems,
+                                                Map<UUID, AiSubmissionReview> runOf) {
         AiSubmissionReviewResponse r = mapper.toResponse(review);
-        var items = itemRepository.findAllByReviewId(review.getId());
+        r.setStatus(status);
         Map<UUID, KpiCriteria> kpis = new HashMap<>();
-        kpiCriteriaRepository.findAllById(items.stream().map(i -> i.getKpiCriteriaId()).distinct().toList())
+        kpiCriteriaRepository.findAllById(allItems.stream().map(i -> i.getKpiCriteriaId()).distinct().toList())
                 .forEach(k -> kpis.put(k.getId(), k));
         // Giá trị thực đạt của bài nộp mới nhất — để giao diện ghi lý do phần "đạt chỉ tiêu" (vd "8/10 cái").
         Map<UUID, Double> actual = new HashMap<>();
         // Định tính: mức người nộp tự đánh giá — căn cứ phần "đạt chỉ tiêu" trên thang hành vi.
         Map<UUID, String> selfLevel = new HashMap<>();
-        kpiSubmissionRepository.findAllById(items.stream().map(i -> i.getKpiSubmissionId())
+        java.util.Set<UUID> returned = new java.util.HashSet<>();
+        kpiSubmissionRepository.findAllById(allItems.stream().map(i -> i.getKpiSubmissionId())
                         .filter(java.util.Objects::nonNull).distinct().toList())
                 .forEach(s -> {
                     actual.put(s.getId(), s.getActualValue());
                     if (s.getQualitativeLevel() != null) selfLevel.put(s.getId(), s.getQualitativeLevel().getName());
+                    if (s.getStatus() == com.kpitracking.enums.SubmissionStatus.RETURNED) returned.add(s.getId());
                 });
+        // Kết quả AI của bài đã TRẢ LẠI không còn là kết quả hiện hành: nhân viên nộp lại là bài mới, AI phải chấm lại —
+        // để nguyên thì phiếu chấm và khối Xem đánh giá hiện điểm cũ như thể AI đã chấm bài mới (07/10).
+        List<com.kpitracking.entity.AiSubmissionReviewItem> items = allItems.stream()
+                .filter(i -> i.getKpiSubmissionId() == null || !returned.contains(i.getKpiSubmissionId()))
+                .toList();
         List<ReviewContext.QualityLevel> scale = qualityScale(review.getOrganizationId());
         r.setItems(items.stream().map(i -> {
             AiSubmissionReviewItemResponse ir = mapper.toItemResponse(i);
+            AiSubmissionReview run = runOf.get(i.getKpiCriteriaId());
+            if (run != null) ir.setReviewedAt(run.getCreatedAt());
             KpiCriteria k = kpis.get(i.getKpiCriteriaId());
             if (k != null) {
                 ir.setKpiCriteriaName(k.getName());
@@ -259,6 +241,12 @@ public class SubmissionReviewService {
                 ir.setActualValue(actual.get(i.getKpiSubmissionId()));
                 ir.setSelfLevel(selfLevel.get(i.getKpiSubmissionId()));
             }
+            // Mức tin cậy tính LẠI lúc đọc theo luật hiện hành (đi theo chất lượng, 07/10) — kết quả chấm theo luật cũ
+            // (hay lượt trước 06/10 chưa có mức riêng) cũng ra đúng, không phải chấm lại.
+            ReviewResultValidator.Confidence conf = ReviewResultValidator.qualityConfidence(i.getQualityLevel(), scale,
+                    i.getErrorMessage() != null, i.getKpiSubmissionId() != null);
+            ir.setConfidence(conf.level());
+            ir.setConfidenceReasons(conf.reasons());
             if (Boolean.TRUE.equals(i.getQualitative()) && i.getMaxPoints() != null && i.getSuggestedScore() != null
                     && i.getMaxPoints().signum() > 0) {
                 ir.setSuggestedLevel(nearestLevel(scale,
@@ -353,7 +341,8 @@ public class SubmissionReviewService {
                 new UsernamePasswordAuthenticationToken(requesterEmail, null, List.of())));
         try {
             Organization org = organizationRepository.findById(review.getOrganizationId()).orElseThrow();
-            ReviewRun run = new ReviewRun(review.getId(), review.getKpiPeriodId(), review.getUserId(), org);
+            ReviewRun run = new ReviewRun(review.getId(), review.getKpiPeriodId(), review.getUserId(), org,
+                    AiReviewLatestView.scopeOf(review));
             workflow.run(run);
             recorder.complete(run, modelName, startedAt);
             log.info("AI đánh giá bài nộp {} xong: {} chỉ tiêu, tin cậy {}, {}+{} token",
