@@ -245,6 +245,89 @@ public class PersonalTool {
         }
     }
 
+    @Tool(name = "get_my_todo", value = "VIỆC CẦN LÀM CỦA TÔI (nhân viên) — dùng cho 'hôm nay tôi cần làm gì', 'tôi còn việc gì', "
+            + "'việc của tôi', 'tôi phải nộp gì'. Gom một lần: chỉ tiêu QUÁ HẠN chưa nộp, chỉ tiêu cần nộp (hạn gần nhất trước), "
+            + "bài bị TRẢ LẠI cần nộp lại (lý do + hạn nộp lại), bài bị TỪ CHỐI cần sửa (lý do), bài đang chờ quản lý duyệt.")
+    public String getMyTodo(PersonalRequest request, InvocationParameters context) {
+        try {
+            MyKpiProgressResponse progress = statsService.getMyKpiProgress(0, 200);
+            List<KpiTaskResponse> tasks = progress == null || progress.getTasks() == null
+                    || progress.getTasks().getContent() == null ? List.of() : progress.getTasks().getContent();
+            List<SubmissionResponse> returned = submissionService.getMySubmissions(0, 100, SubmissionStatus.RETURNED, null,
+                    "createdAt", "desc").getContent();
+            List<SubmissionResponse> rejected = submissionService.getMySubmissions(0, 100, SubmissionStatus.REJECTED, null,
+                    "createdAt", "desc").getContent();
+            return support.respond(context, "get_my_todo", todoOf(tasks, returned, rejected, Instant.now()));
+        } catch (Exception e) {
+            return support.toolError("get_my_todo", e);
+        }
+    }
+
+    /**
+     * Danh sách việc của nhân viên từ đúng dữ liệu của trang "Việc cần làm" ({@code getMyKpiProgress}) cộng bài bị trả
+     * lại. Chỉ tiêu có bài bị trả lại đang chờ nộp lại chỉ nằm ở mục "nộp lại", không lặp ở "cần nộp". Kỳ chưa mở
+     * không tính.
+     */
+    static Map<String, Object> todoOf(List<KpiTaskResponse> tasks, List<SubmissionResponse> returned,
+                                      List<SubmissionResponse> rejected, Instant now) {
+        List<SubmissionResponse> toResubmit = returned.stream().filter(SubmissionResponse::isAwaitingResubmission).toList();
+        java.util.Set<UUID> resubmitKpis = new java.util.HashSet<>();
+        toResubmit.forEach(s -> resubmitKpis.add(s.getKpiCriteriaId()));
+        Map<UUID, String> rejectReason = new LinkedHashMap<>();
+        rejected.forEach(s -> rejectReason.putIfAbsent(s.getKpiCriteriaId(), s.getReviewNote()));
+
+        List<KpiTaskResponse> open = tasks.stream()
+                .filter(t -> t.getStartDate() == null || !t.getStartDate().isAfter(now))
+                .filter(t -> !resubmitKpis.contains(t.getId()))
+                .sorted(Comparator.comparing(KpiTaskResponse::getDeadline, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+        List<Map<String, Object>> overdue = open.stream().filter(t -> "OVERDUE".equals(t.getStatus())).map(PersonalTool::taskRow).toList();
+        List<Map<String, Object>> toSubmit = open.stream().filter(t -> "NOT_STARTED".equals(t.getStatus())).map(PersonalTool::taskRow).toList();
+        List<Map<String, Object>> toFix = open.stream().filter(t -> "REJECTED".equals(t.getStatus())).map(t -> {
+            Map<String, Object> m = taskRow(t);
+            m.put("reason", rejectReason.get(t.getId()));
+            return m;
+        }).toList();
+        List<Map<String, Object>> waiting = open.stream().filter(t -> "PENDING".equals(t.getStatus())).map(PersonalTool::taskRow).toList();
+        List<Map<String, Object>> resubmit = toResubmit.stream().map(s -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("kpiName", s.getKpiCriteriaName());
+            m.put("periodName", s.getKpiPeriod() != null ? s.getKpiPeriod().getName() : null);
+            m.put("returnReason", s.getReturnReason());
+            m.put("resubmitDeadline", s.getResubmitDeadline() != null ? s.getResubmitDeadline().toString() : null);
+            m.put("returnedBy", s.getReturnedByName());
+            return m;
+        }).toList();
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("today", now.toString());
+        out.put("overdue", overdue);
+        out.put("resubmit", resubmit);
+        out.put("toFix", toFix);
+        out.put("toSubmit", toSubmit);
+        out.put("waitingReview", waiting);
+        int todo = overdue.size() + resubmit.size() + toFix.size() + toSubmit.size();
+        out.put("todoCount", todo);
+        if (todo == 0) {
+            out.put("message", waiting.isEmpty()
+                    ? "Bạn không còn việc nào phải làm: không có chỉ tiêu cần nộp, bài bị trả lại hay bị từ chối."
+                    : "Bạn đã nộp đủ; chỉ còn bài đang chờ quản lý duyệt.");
+        }
+        return out;
+    }
+
+    private static Map<String, Object> taskRow(KpiTaskResponse t) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("kpiName", t.getName());
+        m.put("periodName", t.getPeriodName());
+        m.put("deadline", t.getDeadline() != null ? t.getDeadline().toString() : null);
+        if (t.getExpectedSubmissions() != null && t.getExpectedSubmissions() > 1) {
+            m.put("submitted", t.getSubmissionCount());
+            m.put("expected", t.getExpectedSubmissions());
+        }
+        return m;
+    }
+
     @Tool(name = "get_my_rewards", value = "THƯỞNG ĐIỂM CỦA TÔI: số dư ví điểm và các lần được thưởng (ai thưởng, bao nhiêu, lý do, khi nào).")
     public String getMyRewards(PersonalRequest request, InvocationParameters context) {
         try {

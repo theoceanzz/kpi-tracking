@@ -163,7 +163,7 @@
 
   "groupE": [
     {"id": "E01", "as": "staff", "q": "KPI của tôi kỳ này gồm những gì?", "tools": ["get_my_kpis"], "groups": ["PERSONAL"], "expect": []},
-    {"id": "E02", "as": "staff", "q": "Tôi còn phải nộp báo cáo nào không?", "tools": [], "toolsAny": [["get_my_kpis", "get_my_submissions"]], "groups": ["PERSONAL"], "expect": []},
+    {"id": "E02", "as": "staff", "q": "Tôi còn phải nộp báo cáo nào không?", "tools": [], "toolsAny": [["get_my_kpis", "get_my_submissions", "get_my_todo"]], "groups": ["PERSONAL"], "expect": []},
     {"id": "E03", "as": "staff", "q": "Bài nộp của tôi có cái nào bị từ chối không, vì sao?", "tools": ["get_my_submissions"], "groups": ["PERSONAL"], "expect": []},
     {"id": "E04", "as": "staff", "q": "Kỳ này tôi dự kiến được bao nhiêu điểm?", "tools": ["get_my_score"], "groups": ["PERSONAL"], "expect": ["điểm|Điểm"]},
     {"id": "E05", "as": "staff", "q": "Phòng IT có bao nhiêu người?",
@@ -175,7 +175,8 @@
     {"id": "E07", "as": "staff", "q": "Ai chưa nộp báo cáo trong Team Backend?",
      "why": "Câu hỏi về người khác — phải từ chối, không liệt kê ai.",
      "reject": ["TeamLead", "Deputy Lead", "chưa nộp:"], "expect": ["không|chỉ|của bạn|quản lý"]},
-    {"id": "E08", "as": "staff", "q": "Làm sao để nộp báo cáo KPI?", "_note": "Nhánh HELP mở cho mọi người dùng — nhân viên vẫn hỏi được cách dùng.", "tools": [], "groups": [], "expect": ["Nộp báo cáo|nộp báo cáo|Nộp"]}
+    {"id": "E08", "as": "staff", "q": "Làm sao để nộp báo cáo KPI?", "_note": "Nhánh HELP mở cho mọi người dùng — nhân viên vẫn hỏi được cách dùng.", "tools": [], "groups": [], "expect": ["Nộp báo cáo|nộp báo cáo|Nộp"]},
+    {"id": "E09", "as": "staff", "q": "Hôm nay tôi cần làm gì?", "_note": "07/10: trước đây model coi là 'tư vấn cá nhân' và từ chối vì nhóm PERSONAL không có tool việc cần làm.", "tools": ["get_my_todo"], "groups": ["PERSONAL"], "expect": [], "reject": ["Xin lỗi, tôi chỉ hỗ trợ"]}
   ],
 
   "_docH": "Nhóm H chỉ chạy được với --stream: hỏi-lại-giữa-lượt cần một kênh để hỏi, mà chỉ SSE mới có. Bộ đo tự huỷ câu hỏi ngay khi nhận được, trừ ca có autoAnswer.",
