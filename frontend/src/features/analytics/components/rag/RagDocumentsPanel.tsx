@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { toastUploadError } from '@/lib/upload'
 import { RAG_SOURCE_LABELS, type RagChunk, type RagDocument, type RagSearchHit } from '@/features/analytics/api/aiApi'
 import { useTranslation } from 'react-i18next'
 
@@ -70,7 +71,7 @@ export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions
       setDocTitle('')
       if (fileInput.current) fileInput.current.value = ''
     },
-    onError: err => toast.error(getApiErrorMessage(err, t('RagDocumentsPanel.couldNotLoadTheDocument'))),
+    onError: err => toastUploadError(err, () => upload.mutate(), t('RagDocumentsPanel.couldNotLoadTheDocument')),
   })
 
   const remove = useMutation({

@@ -42,6 +42,7 @@ public class KpiApprovalViewService {
     private final KpiCriteriaMapper kpiCriteriaMapper;
     private final PermissionChecker permissionChecker;
     private final KpiApprovalChainService chainService;
+    private final com.kpitracking.service.kpi.KpiAccessPolicy kpiAccessPolicy;
 
     private final com.kpitracking.repository.UserRepository userRepository;
 
@@ -182,7 +183,7 @@ public class KpiApprovalViewService {
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", kpiId));
         List<KpiApprovalFlow> flows = flowRepository.findByKpiCriteriaIdOrderByStartedAtDesc(kpiId);
-        requireCanView(kpi, flows, viewerId);
+        requireCanView(kpi, viewerId);
 
         Map<UUID, List<KpiApprovalEvent>> eventsByFlow = flows.isEmpty() ? Map.of()
                 : eventRepository.findByFlowIdInOrderByCreatedAtAsc(flows.stream().map(KpiApprovalFlow::getId).toList())
@@ -202,22 +203,11 @@ public class KpiApprovalViewService {
                 .build();
     }
 
-    /**
-     * Ai được xem lịch sử duyệt: người tạo, người được giao, người từng/đang giữ một bước, người
-     * có quyền xem/duyệt KPI trong đơn vị (cấp trên giám sát), admin tổ chức.
-     */
-    private void requireCanView(KpiCriteria kpi, List<KpiApprovalFlow> flows, UUID viewerId) {
-        if (kpi.getCreatedBy() != null && kpi.getCreatedBy().getId().equals(viewerId)) return;
-        if (kpi.getAssignees() != null && kpi.getAssignees().stream().anyMatch(u -> u.getId().equals(viewerId))) return;
-        for (KpiApprovalFlow f : flows) {
-            if (f.getRequester() != null && f.getRequester().getId().equals(viewerId)) return;
-            if (f.getSteps().stream().anyMatch(s -> s.isHeldBy(viewerId))) return;
+    /** Ai xem được lịch sử duyệt = ai xem được KPI (luật chung {@code KpiAccessPolicy}). */
+    private void requireCanView(KpiCriteria kpi, UUID viewerId) {
+        if (!kpiAccessPolicy.canView(viewerId, kpi)) {
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_KPI_APPROVAL_HISTORY);
         }
-        UUID unitId = kpi.getOrgUnit().getId();
-        if (permissionChecker.hasAnyPermissionInOrgUnit(viewerId, unitId,
-                "KPI:VIEW", "KPI:APPROVE_CRITERIA", "KPI:APPROVE_ADJUSTMENT")) return;
-        if (permissionChecker.isGlobalAdminIn(viewerId, unitId)) return;
-        throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_KPI_APPROVAL_HISTORY);
     }
 
     private ApprovalFlowResponse toResponse(KpiApprovalFlow f, List<KpiApprovalEvent> events) {

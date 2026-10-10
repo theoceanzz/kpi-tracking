@@ -17,6 +17,8 @@ import CascadeModal from '../components/CascadeModal'
 import CascadePolicyModal from '../components/CascadePolicyModal'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 /**
  * BSC chỉ còn MỘT luồng: bộ tiêu chí. Hạng mục không còn màn riêng mà được tạo/sửa ngay
@@ -50,6 +52,7 @@ export default function BscManagementPage() {
   const pageTitle = bscNavItem ? labelOf(bscNavItem) : t('BscManagementPage.bscManagement')
 
   const [scorecardModal, setScorecardModal] = useState<{ scorecard?: ScorecardResponse } | null>(null)
+  useTourModal('bsc.form', () => setScorecardModal({}), () => setScorecardModal(null))
   const [deleteScorecardId, setDeleteScorecardId] = useState<string | null>(null)
   const deleteCheck = useScorecardDeleteCheck(deleteScorecardId)
   const [publishTarget, setPublishTarget] = useState<ScorecardResponse | null>(null)
@@ -119,23 +122,23 @@ export default function BscManagementPage() {
                 Import ghi đè bộ tiêu chí của NHIỀU đơn vị theo mã trong tệp, không gác theo phạm vi
                 từng dòng được — nên chỉ người quản trị BSC toàn tổ chức mới thấy nút này. */}
             {canManageBsc && (
-              <Button variant="outline" onClick={() => setIsScorecardImportGuideOpen(true)}>
+              <Button {...tourAnchor('bsc.import')} variant="outline" onClick={() => setIsScorecardImportGuideOpen(true)}>
                 <FileUp aria-hidden="true" /> Import
               </Button>
             )}
             {canManageBsc && (
-              <Button variant="outline" onClick={() => setIsPolicyOpen(true)} title={t('BscManagementPage.recognizedScoreCapAndTheRequirement')}>
+              <Button {...tourAnchor('bsc.policy')} variant="outline" onClick={() => setIsPolicyOpen(true)} title={t('BscManagementPage.recognizedScoreCapAndTheRequirement')}>
                 <Sliders aria-hidden="true" /> {t('BscManagementPage.policy')}
               </Button>
             )}
-            <Button onClick={() => setScorecardModal({})}>
+            <Button {...tourAnchor('bsc.add')} onClick={() => setScorecardModal({})}>
               <Plus aria-hidden="true" /> {t('BscManagementPage.newScorecard')}
             </Button>
           </>
         }
       />
 
-      <div id="tour-bsc-scorecards">
+      <div {...tourAnchor('bsc.tree')} id="tour-bsc-scorecards">
         <BscScorecardTree
           organizationId={organizationId}
           scorecards={scorecards}

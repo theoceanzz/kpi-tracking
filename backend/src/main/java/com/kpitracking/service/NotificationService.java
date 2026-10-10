@@ -71,6 +71,23 @@ public class NotificationService {
         return notification;
     }
 
+    /**
+     * Viết lại tiêu đề / nội dung một thông báo đã có (gộp bình luận) và đẩy lại qua WebSocket. Client nhận cùng
+     * {@code id} thì thay bản cũ, không thêm dòng mới.
+     */
+    @Transactional
+    public Notification refreshNotification(Notification notification, LocalizedText title, LocalizedText message) {
+        notification.setTitle(title.render(SupportedLanguages.DEFAULT_LOCALE));
+        notification.setMessage(message.render(SupportedLanguages.DEFAULT_LOCALE));
+        notification.setTitleI18n(title.toJson());
+        notification.setMessageI18n(message.toJson());
+        notification = notificationRepository.save(notification);
+        User user = notification.getUser();
+        messagingTemplate.convertAndSendToUser(user.getEmail(), "/queue/notifications",
+                toResponse(notification, languageResolver.effectiveLocale(user)));
+        return notification;
+    }
+
     /** Giới hạn trên của {@code size} — bảng thông báo có thể rất lớn, không cho client kéo cả bảng. */
     private static final int MAX_PAGE_SIZE = 100;
 

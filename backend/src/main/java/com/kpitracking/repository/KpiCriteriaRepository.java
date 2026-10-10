@@ -21,10 +21,17 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     @Query("SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN k.assignees a JOIN FETCH k.kpiPeriod " +
            "LEFT JOIN FETCH k.keyResult kr LEFT JOIN FETCH kr.objective obj WHERE " +
            "k.orgUnit.orgHierarchyLevel.organization.id = :organizationId AND " +
+           // Luật xem KPI — phải khớp KpiAccessPolicy.canView (một luật cho mọi chỗ).
            "(" +
            "  k.createdBy.id = :currentUserId OR " +
            "  EXISTS (SELECT 1 FROM k.assignees sa WHERE sa.id = :currentUserId) OR " +
-           "  ((EXISTS (SELECT 1 FROM OrgUnit su WHERE k.orgUnit.path LIKE CONCAT(su.path, '%') AND su.id IN :managerUnitIds) OR k.orgUnit.id IN :memberUnitIds) AND (:approvalMode = true OR k.status = com.kpitracking.enums.KpiStatus.APPROVED))" +
+           "  (:isAdmin = true AND k.status <> com.kpitracking.enums.KpiStatus.DRAFT) OR " +
+           "  (k.status IN (com.kpitracking.enums.KpiStatus.APPROVED, com.kpitracking.enums.KpiStatus.EDIT, com.kpitracking.enums.KpiStatus.EDITED) AND " +
+           "     EXISTS (SELECT 1 FROM OrgUnit su WHERE k.orgUnit.path LIKE CONCAT(su.path, '%') AND su.id IN :managerUnitIds)) OR " +
+           "  (k.status = com.kpitracking.enums.KpiStatus.APPROVED AND k.orgUnit.id IN :memberUnitIds) OR " +
+           "  (k.status <> com.kpitracking.enums.KpiStatus.DRAFT AND EXISTS (SELECT 1 FROM KpiApprovalStep st LEFT JOIN st.approvers ap " +
+           "          WHERE st.flow.kpiCriteria = k AND (st.actedBy.id = :currentUserId " +
+           "            OR (st.status = com.kpitracking.enums.ApprovalStepStatus.PENDING AND ap.userId = :currentUserId))))" +
            ") AND " +
            "(:createdById IS NULL OR k.createdBy.id = :createdById) AND " +
            "(:assigneeId IS NULL OR a.id = :assigneeId) AND " +
@@ -53,7 +60,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
             @Param("currentUserId") UUID currentUserId,
             @Param("managerUnitIds") Collection<UUID> managerUnitIds,
             @Param("memberUnitIds") Collection<UUID> memberUnitIds,
-            @Param("approvalMode") boolean approvalMode,
+            @Param("isAdmin") boolean isAdmin,
             @Param("createdById") UUID createdById,
             @Param("assigneeId") UUID assigneeId,
             @Param("orgUnitPath") String orgUnitPath,
@@ -86,6 +93,20 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     Page<KpiCriteria> findByStatus(KpiStatus status, Pageable pageable);
 
     List<KpiCriteria> findByStatus(KpiStatus status);
+
+    /**
+     * KPI có thể đến hạn nhắc lúc {@code now} (DeadlineReminderService): đã duyệt, không phải "không giới hạn", đợt
+     * đã bắt đầu và hạn hiệu lực ({@code deadline} hoặc ngày kết thúc đợt) chưa qua. Nạp sẵn đợt, đợt đánh giá, đơn vị
+     * → tổ chức và người được giao để vòng nhắc không chạm DB thêm. Đợt/đơn vị đã xoá mềm bị @SQLRestriction loại.
+     */
+    @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.kpiPeriod p LEFT JOIN FETCH p.kpiCycle "
+            + "JOIN FETCH k.orgUnit ou JOIN FETCH ou.orgHierarchyLevel lv JOIN FETCH lv.organization "
+            + "LEFT JOIN FETCH k.assignees "
+            + "WHERE k.status = :status AND (k.frequency IS NULL OR k.frequency <> :excludedFrequency) "
+            + "AND p.startDate < :now AND COALESCE(k.deadline, p.endDate) > :now")
+    List<KpiCriteria> findDeadlineReminderCandidates(@Param("status") KpiStatus status,
+                                                     @Param("excludedFrequency") com.kpitracking.enums.KpiFrequency excludedFrequency,
+                                                     @Param("now") java.time.Instant now);
 
     Page<KpiCriteria> findByOrgUnitIdAndStatus(UUID orgUnitId, KpiStatus status, Pageable pageable);
 

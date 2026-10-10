@@ -59,7 +59,6 @@ public final class ToolProgress {
             Map.entry("suggest_submission_form", "Đang chuẩn bị đề xuất điền form"),
             Map.entry("suggest_evaluation_form", "Đang chuẩn bị đề xuất điền form"),
             Map.entry("suggest_kpi_adjustment_form", "Đang chuẩn bị đề xuất điền form"),
-            Map.entry("suggest_org_unit_form", "Đang chuẩn bị đề xuất điền form"),
             Map.entry("suggest_org_unit_drawer_form", "Đang chuẩn bị đề xuất điền form"),
             // Tool GHI. Nhãn nói rõ là ĐANG CHUẨN BỊ chứ không phải đang làm: người dùng đọc dòng
             // này lúc chờ, và "đang duyệt bài nộp" sẽ khiến họ tưởng việc đã chạy trong khi thực

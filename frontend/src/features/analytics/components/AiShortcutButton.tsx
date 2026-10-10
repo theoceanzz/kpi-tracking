@@ -16,6 +16,8 @@ interface Props {
   size?: ButtonProps['size']
   className?: string
   disabled?: boolean
+  /** Neo cho bài hướng dẫn (`tourAnchor(...)`). */
+  'data-tour'?: string
 }
 
 /**
@@ -28,6 +30,7 @@ interface Props {
  */
 export default function AiShortcutButton({
   prompt, focusUnitId, label = 'K.AI', title, variant = 'outline', size, className, disabled,
+  'data-tour': dataTour,
 }: Props) {
   const available = useAiAvailable()
   const ask = useAiAssistantStore(s => s.ask)
@@ -42,6 +45,7 @@ export default function AiShortcutButton({
   return (
     <Button
       type="button"
+      data-tour={dataTour}
       variant={variant}
       size={size}
       disabled={disabled}

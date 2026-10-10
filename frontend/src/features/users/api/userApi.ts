@@ -1,6 +1,7 @@
 import { ApiResponse, PageParams, PageResponse } from '@/types/api'
 import type { User, ImportUserResult, CreateUserRequest, UpdateUserRequest } from '@/types/user'
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 
 export const userApi = {
  /**
@@ -33,9 +34,6 @@ export const userApi = {
   importFile: (file: File, orgUnitId?: string) => {
     const formData = new FormData()
     formData.append('file', file)
-    return axiosInstance.post<ApiResponse<ImportUserResult>>('/users/import', formData, {
-      params: { orgUnitId },
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }).then((r) => r.data.data)
+    return sendMultipart<ApiResponse<ImportUserResult>>('/users/import', formData, { params: { orgUnitId } }).then((r) => r.data.data)
   },
 }

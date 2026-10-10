@@ -51,6 +51,7 @@ import { aiShortcuts } from '../aiShortcuts'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /** Tên "report ẩn" của kho cũ — chỉ còn dùng để vớt bố cục một lần. */
 const LEGACY_REPORT_NAME = '__SUMMARY_DASHBOARD_CONFIG__'
@@ -440,8 +441,8 @@ export default function SummaryTab() {
     <div className="space-y-8 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-[var(--color-foreground)]">{t('SummaryTab.unitsIManage')}</h2>
-        <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
-          <AiShortcutButton size="sm" label={t('SummaryTab.rankChanges')} prompt={aiShortcuts.rankDelta()} title={t('SummaryTab.kAiComparesTheRanksOf')} />
+        <div id="tour-analytics-customize" {...tourAnchor('analytics.toolbar')} className="flex items-center gap-3 flex-wrap">
+          <AiShortcutButton {...tourAnchor('analytics.ai')} size="sm" label={t('SummaryTab.rankChanges')} prompt={aiShortcuts.rankDelta()} title={t('SummaryTab.kAiComparesTheRanksOf')} />
           <DashboardEditToolbar api={dash} />
         </div>
       </div>

@@ -12,6 +12,7 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const STATUS_CLS: Record<SepayEventStatus, string> = {
   [SepayEventStatus.MATCHED]:
@@ -53,7 +54,7 @@ export default function SepayEventsTab() {
           người dùng tự suy từ một bảng rỗng. */}
       {reconcile && (
         <div
-          id="tour-sepay-status"
+          id="tour-sepay-status" {...tourAnchor('sepay.status')}
           className={`mb-5 flex flex-wrap items-center gap-3 rounded-card border px-5 py-4 text-sm ${
             allGood
               ? 'border-[var(--color-success-border)] bg-[var(--color-success-bg)]'
@@ -88,7 +89,7 @@ export default function SepayEventsTab() {
         </div>
       )}
 
-      <div id="tour-sepay-scope" className="mb-4 flex gap-2">
+      <div {...tourAnchor('sepay.scope')} id="tour-sepay-scope" className="mb-4 flex gap-2">
         {(['queue', 'all'] as const).map((s) => (
           <ChoiceChip selected={scope === s} variant="solid" className="py-1.5" key={s} onClick={() => {
               setScope(s)
@@ -102,7 +103,7 @@ export default function SepayEventsTab() {
       {isLoading ? (
         <LoadingSkeleton type="table" rows={4} />
       ) : events.length === 0 ? (
-        <div className="rounded-card border border-dashed border-[var(--color-border)]">
+        <div {...tourAnchor('sepay.table')} className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
             title={scope === 'queue' ? t('SepayEventsTab.nothingNeedsHandling') : t('SepayEventsTab.noSepayTransactionsYet')}
             description={
@@ -117,7 +118,7 @@ export default function SepayEventsTab() {
       ) : (
         <>
           <div className="overflow-x-auto rounded-card border border-[var(--color-border)]">
-            <table className="w-full min-w-[900px] text-sm">
+            <table {...tourAnchor('sepay.table')} className="w-full min-w-[900px] text-sm">
               <thead className="bg-[var(--color-muted)]/50 text-left">
                 <tr className="text-eyebrow">
                   <th className="px-4 py-3">{t('SepayEventsTab.receivedAt')}</th>
@@ -172,7 +173,7 @@ export default function SepayEventsTab() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       {e.inQueue && (
-                        <Button size="sm" className="whitespace-nowrap" type="button" onClick={() => setSelected(e)}>
+                        <Button {...tourAnchor('sepay.handle')} size="sm" className="whitespace-nowrap" type="button" onClick={() => setSelected(e)}>
                           {t('SepayEventsTab.handle')}
                         </Button>
                       )}

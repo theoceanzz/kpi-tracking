@@ -58,7 +58,13 @@ public class OrgNotificationConfigService {
             // nghĩa là không tổ chức nào tắt được chúng dù giao diện cấu hình vẫn hứa là tắt được.
             "wallet_topup_paid", "wallet_topup_expired", "wallet_topup_unmatched", "wallet_converted",
             // Đánh giá 360
-            "f360_rate_request", "f360_reminder", "f360_report_released", "f360_nomination", "f360_declined"
+            "f360_rate_request", "f360_reminder", "f360_report_released", "f360_nomination", "f360_declined",
+            // Thảo luận trên KPI / công việc: bình luận mới chỉ đi chuông (gộp), trả lời / được nhắc tên đi cả email gộp.
+            "discussion_comment", "discussion_reply", "discussion_mention",
+            // Công việc gắn KPI: nhắc trước hạn 1 ngày, quá hạn, KPI của việc đã được thay thế.
+            "task_due_soon", "task_overdue", "task_kpi_replaced",
+            // Công việc kiểu Lark: được giao / giao lại, được thêm theo dõi, việc mình liên quan đổi hạn / trạng thái (gộp).
+            "task_assigned", "task_follower_added", "task_changed"
     );
 
     private final OrgNotificationConfigRepository configRepository;

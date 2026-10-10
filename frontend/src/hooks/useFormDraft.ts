@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { FieldValues, UseFormReturn } from 'react-hook-form'
 import { readDraft, removeDraft, sanitize, writeDraft } from '@/lib/formDraft'
 import { queryClient } from '@/lib/queryClient'
+import { isTourRunning } from '@/store/tourStore'
 
 /**
  * Bản nháp tự lưu cho form trong modal — xem `lib/formDraft.ts`.
@@ -82,6 +83,8 @@ function useDraftCore<T>(opts: {
     const timer = setTimeout(() => {
       const raw = readRef.current()
       baselineRef.current = { raw, snap: snapshot(raw) }
+      // Bài hướng dẫn mở form: cho xem form sạch, không đổ nháp thật của người dùng vào.
+      if (isTourRunning()) return
       const draft = readDraft<T>(key)
       if (draft && snapshot(draft.values) !== baselineRef.current.snap) {
         applyRef.current(draft.values)
@@ -107,7 +110,8 @@ function useDraftCore<T>(opts: {
   }, [enabled, key, flush])
 
   const changed = useCallback((userInput: boolean, liftsClear = userInput) => {
-    if (!enabled || !baselineRef.current) return
+    // Gõ thử trong lúc học không phải nháp: không ghi, không đè nháp thật đang có.
+    if (!enabled || !baselineRef.current || isTourRunning()) return
     if (clearedRef.current) {
       if (!liftsClear) return
       clearedRef.current = false // form vẫn mở và người dùng gõ tiếp (vd. "lưu và tạo tiếp")

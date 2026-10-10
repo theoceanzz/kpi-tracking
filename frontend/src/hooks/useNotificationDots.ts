@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { taskApi } from '@/features/tasks/api/taskApi'
 import { statsApi } from '@/features/dashboard/api/statsApi'
 import { adjustmentApi } from '@/features/kpi/api/adjustmentApi'
 import { bscApi } from '@/features/bsc/api/bscApi'
@@ -35,6 +36,8 @@ export interface NotificationCounts {
   pendingAiCriteria: number
   /** Đề xuất đưa tài liệu lên đơn vị / công ty đang chờ mình duyệt. */
   pendingDocumentPromotions: number
+  /** Việc tôi phụ trách quá hạn + tới hạn hôm nay (menu Công việc). */
+  myTaskAlerts: number
 }
 
 export function useNotificationDots() {
@@ -144,6 +147,17 @@ export function useNotificationDots() {
 
   // Cùng khoá với `usePromotionInbox` của mục "Đề xuất" trong trang Tài liệu — duyệt / từ chối xong (mutation làm
   // mới mọi khoá 'documents') thì số ở sidebar giảm theo ngay. Backend tự trả rỗng cho ai không quyết được gì.
+  // Cùng khoá với cột trái của trang Công việc — đổi trạng thái / hạn việc (mutation làm mới mọi khoá 'kpi-tasks') thì
+  // huy hiệu trên menu cập nhật theo ngay.
+  const { data: taskSidebar } = useQuery({
+    queryKey: ['kpi-tasks', 'sidebar'],
+    queryFn: taskApi.sidebar,
+    enabled: !!user,
+    refetchInterval: 120_000,
+    staleTime: 30_000,
+    retry: false,
+  })
+
   const { data: documentPromotions } = useQuery({
     queryKey: ['documents', 'promotions', 'inbox'],
     queryFn: documentApi.promotionInbox,
@@ -170,6 +184,7 @@ export function useNotificationDots() {
     pendingWallet: reconcile ? reconcile.unresolvedEventCount + reconcile.amountMismatchCount : 0,
     pendingAiCriteria: aiCriteriaRequests?.length || 0,
     pendingDocumentPromotions: documentPromotions?.length || 0,
+    myTaskAlerts: taskSidebar?.badge || 0,
   }
 
   return { counts }

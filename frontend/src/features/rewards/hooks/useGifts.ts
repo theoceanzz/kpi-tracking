@@ -169,13 +169,14 @@ export const useRedemptions = (params: {
   status?: RedemptionStatus
   page?: number
   size?: number
-}) => {
+}, options: { enabled?: boolean } = {}) => {
   const { t } = useTranslation('rewards')
   const qc = useQueryClient()
 
   const query = useQuery({
     queryKey: ['redemptions', 'manage', params],
     queryFn: () => giftApi.getRedemptions(params),
+    enabled: options.enabled ?? true,
   })
 
   const approveMutation = useMutation({

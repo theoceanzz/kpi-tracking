@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const numCls =
   'rounded-control border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm tabular-nums outline-none focus:border-[var(--color-primary)]'
@@ -157,14 +158,14 @@ export default function CheckinConfigTab() {
 
   return (
     <div id="tour-checkin-root" className="space-y-6">
-      <div id="tour-checkin-note" className="flex items-start gap-2.5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
+      <div {...tourAnchor('checkin.note')} id="tour-checkin-note" className="flex items-start gap-2.5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
         <Info size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-muted-foreground)]" />
         <p className="text-[var(--color-muted-foreground)]">
           {t('CheckinConfigTab.employeesCheckInThemselvesEveryDay')}
         </p>
       </div>
 
-      <div id="tour-checkin-stats" className="grid gap-4 sm:grid-cols-2">
+      <div {...tourAnchor('checkin.stats')} id="tour-checkin-stats" className="grid gap-4 sm:grid-cols-2">
         <StatTile
           icon={<Users size={17} />}
           label={t('CheckinConfigTab.checkedInToday')}
@@ -177,7 +178,7 @@ export default function CheckinConfigTab() {
         />
       </div>
 
-      <div id="tour-checkin-form" className="space-y-5 rounded-card border border-[var(--color-border)] p-5">
+      <div {...tourAnchor('checkin.form')} id="tour-checkin-form" className="space-y-5 rounded-card border border-[var(--color-border)] p-5">
         <Toggle
           checked={form.enabled}
           onChange={(v) => set({ enabled: v })}
@@ -227,7 +228,7 @@ export default function CheckinConfigTab() {
       <div className="space-y-4 rounded-card border border-[var(--color-border)] p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-section-title">{t('CheckinConfigTab.streakMilestones')}</h3>
+            <h3 {...tourAnchor('checkin.milestones')} className="text-section-title">{t('CheckinConfigTab.streakMilestones')}</h3>
             <p className="text-xs text-[var(--color-muted-foreground)]">
               {trackDays
                 ? t('CheckinConfigTab.clickADayInTheStrip')
@@ -363,7 +364,7 @@ export default function CheckinConfigTab() {
       )}
 
       <div className="flex justify-end">
-        <Button onClick={() => saveConfig(form)} disabled={!!error || isSaving}>
+        <Button {...tourAnchor('checkin.save')} onClick={() => saveConfig(form)} disabled={!!error || isSaving}>
           {isSaving && <Loader2 aria-hidden="true" className="animate-spin" />}
           {t('CheckinConfigTab.saveSettings')}
         </Button>

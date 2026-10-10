@@ -13,6 +13,7 @@ import ConductTargetPicker from '../components/ConductTargetPicker'
 import { useConductSheet } from '../hooks/useConduct'
 import type { ConductTarget } from '../api/conductApi'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /**
  * Tự đánh giá hạnh kiểm của chính mình theo đợt/kỳ. Cùng một bảng với màn quản lý chấm,
@@ -59,12 +60,12 @@ export default function MyConductPage() {
       >
         {/* Nút phụ ở hàng dưới, phải — cùng bố cục với BSC / OKR của tôi. */}
         <div className="flex flex-wrap gap-2 sm:justify-end">
-          <AiShortcutButton prompt={aiShortcuts.myConduct()} title={t('MyConductPage.kAiReadsYourConductForm')} />
+          <AiShortcutButton {...tourAnchor('myconduct.ai')} prompt={aiShortcuts.myConduct()} title={t('MyConductPage.kAiReadsYourConductForm')} />
         </div>
       </WorkspaceHeader>
 
       {/* Chọn đợt / kỳ ở thanh lọc dưới tiêu đề như các trang "của tôi" khác — một ô duy nhất. */}
-      <FilterBar id="tour-my-conduct-target">
+      <FilterBar {...tourAnchor('myconduct.target')} id="tour-my-conduct-target">
         <ConductTargetPicker organizationId={orgId} value={target} onChange={setTarget} />
       </FilterBar>
 

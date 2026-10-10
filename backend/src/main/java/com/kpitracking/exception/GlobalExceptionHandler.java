@@ -107,6 +107,12 @@ public class GlobalExceptionHandler {
         return coded(ex, ErrorCode.BUSINESS_RULE, ex.getMessage());
     }
 
+    @ExceptionHandler(FileStorageUnavailableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleFileStorageUnavailable(FileStorageUnavailableException ex) {
+        log.warn("File storage unavailable: {}", ex.getMessage());
+        return translated(ex.getErrorCode(), ex.getArgs());
+    }
+
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<ApiResponse<Void>> handleForbidden(ForbiddenException ex) {
         log.warn("Forbidden: {}", ex.getMessage());

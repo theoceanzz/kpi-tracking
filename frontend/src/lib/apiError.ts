@@ -41,6 +41,9 @@ export function getApiErrorCode(error: unknown): string | null {
   return typeof code === 'string' && code ? code : null
 }
 
+/** Mã lỗi `sendMultipart` (lib/upload.ts) gắn khi kết nối treo giữa lúc gửi tệp. */
+export const UPLOAD_STALLED = 'ERR_UPLOAD_STALLED'
+
 /**
  * Phản hồi KHÔNG có thân JSON = lỗi do tầng hạ tầng trả về (nginx, proxy), backend không kịp nói gì.
  * Đây là chỗ duy nhất frontend tự đặt câu theo HTTP status.
@@ -70,6 +73,7 @@ export function getApiErrorMessage(error: unknown, fallback?: string): string {
 
   // Không có response: request chưa tới được server (mất mạng, CORS, timeout).
   if (!response) {
+    if (axiosError.code === UPLOAD_STALLED) return i18n.t('errors.uploadStalled')
     if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
       return i18n.t('errors.timeout')
     }

@@ -51,6 +51,8 @@ import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
 import { useStateDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 const MODE_LABEL = perLanguage((): Record<CycleEvaluationMode, string> => ({
   QUANTITATIVE: i18n.t('kpi:CycleEvaluationPage.quantitative'),
@@ -97,6 +99,10 @@ export default function CycleEvaluationPage() {
   const [showUnitScore, setShowUnitScore] = useState(false)
   const [showCalibration, setShowCalibration] = useState(false)
   const [showSend, setShowSend] = useState(false)
+  // Bài hướng dẫn mở lần lượt ba hộp của dải bước; hộp nào người xem không có quyền dùng thì không mở.
+  useTourModal('cycleeval.unitScore', () => { setShowFinalize(false); setShowSend(false); if (canFinalize) setShowUnitScore(true) }, () => setShowUnitScore(false))
+  useTourModal('cycleeval.finalize', () => { setShowUnitScore(false); setShowSend(false); if (canFinalize) setShowFinalize(true) }, () => setShowFinalize(false))
+  useTourModal('cycleeval.sendDialog', () => { setShowUnitScore(false); setShowFinalize(false); if (canSend && summary?.members?.length) setShowSend(true) }, () => setShowSend(false))
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'userName', direction: 'asc' })
 
   // Chọn sẵn kỳ đang chạy; đang ở kẽ giữa hai kỳ thì giữ nguyên kỳ vừa kết thúc.
@@ -319,16 +325,16 @@ export default function CycleEvaluationPage() {
           search={{ value: search, onChange: setSearch, placeholder: t('CycleEvaluationPage.searchEmployees') }}
           trailing={
             <div id="tour-cycleeval-actions" className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting || !summary?.members?.length}>
+              <Button {...tourAnchor('cycleeval.export')} variant="outline" size="sm" onClick={handleExport} disabled={isExporting || !summary?.members?.length}>
                 <FileSpreadsheet aria-hidden="true" /> {isExporting ? t('CycleEvaluationPage.exporting') : t('CycleEvaluationPage.exportExcel')}
               </Button>
               {canSend && (
-                <Button variant="outline" size="sm" onClick={() => setShowSend(true)} disabled={!summary?.members?.length} title={t('CycleEvaluationPage.emailTheCycleEvaluationResultsTo')}>
+                <Button {...tourAnchor('cycleeval.send')} variant="outline" size="sm" onClick={() => setShowSend(true)} disabled={!summary?.members?.length} title={t('CycleEvaluationPage.emailTheCycleEvaluationResultsTo')}>
                   <Mail aria-hidden="true" /> {t('CycleEvaluationPage.sendEvaluations')}
                 </Button>
               )}
               {aiCyclePrompt && cycleId && orgUnitId && (
-                <AiShortcutButton
+                <AiShortcutButton {...tourAnchor('cycleeval.ai')}
                   size="sm"
                   label={aiCycleLabel}
                   prompt={aiCyclePrompt}
@@ -340,7 +346,7 @@ export default function CycleEvaluationPage() {
           }
         >
           <Select value={orgUnitId} onValueChange={setOrgUnitId}>
-            <SelectTrigger className="w-full sm:w-auto sm:min-w-60" aria-label={t('CycleEvaluationPage.unit')}>
+            <SelectTrigger {...tourAnchor('cycleeval.unit')} className="w-full sm:w-auto sm:min-w-60" aria-label={t('CycleEvaluationPage.unit')}>
               <Building2 size={15} className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" />
               <SelectValue placeholder={t('CycleEvaluationPage.chooseUnit')} />
             </SelectTrigger>
@@ -351,7 +357,7 @@ export default function CycleEvaluationPage() {
             </SelectContent>
           </Select>
           <Select value={cycleId} onValueChange={setCycleId}>
-            <SelectTrigger className="w-full sm:w-auto sm:min-w-60" aria-label={t('CycleEvaluationPage.evaluationCycles')}>
+            <SelectTrigger {...tourAnchor('cycleeval.cycle')} className="w-full sm:w-auto sm:min-w-60" aria-label={t('CycleEvaluationPage.evaluationCycles')}>
               <CalendarRange size={15} className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" />
               <SelectValue placeholder={t('CycleEvaluationPage.chooseCycle')} />
             </SelectTrigger>
@@ -368,7 +374,7 @@ export default function CycleEvaluationPage() {
 
         {/* Dải luồng: trạng thái + nút của từng bước nằm ngay trong ô bước đó. */}
         {summary && (
-          <div id="tour-cycleeval-actions">
+          <div {...tourAnchor('cycleeval.flow')} id="tour-cycleeval-actions">
             <CycleFlowBar
               summary={summary}
               plan={plan}
@@ -430,7 +436,7 @@ export default function CycleEvaluationPage() {
           </div>
         ) : (
           <>
-            <div id="tour-cycleeval-table" className="hidden overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] md:block">
+            <div {...tourAnchor('cycleeval.table')} id="tour-cycleeval-table" className="hidden overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] md:block">
               <table className="w-full">
                 <thead>
                   {/* Cột đi đúng ba chặng của phiếu: các đợt → xếp loại kỳ → điểm chốt. */}
@@ -510,7 +516,7 @@ export default function CycleEvaluationPage() {
                           >
                             {exportingUserId === m.userId ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
                           </Button>
-                          <Button variant="ghost" size="icon-sm" aria-label={t('CycleEvaluationPage.viewDetails')} title={t('CycleEvaluationPage.viewDetails')}>
+                          <Button {...tourAnchor('cycleeval.view')} variant="ghost" size="icon-sm" aria-label={t('CycleEvaluationPage.viewDetails')} title={t('CycleEvaluationPage.viewDetails')}>
                             <ChevronRight aria-hidden="true" />
                           </Button>
                         </div>

@@ -11,6 +11,8 @@ import { useStateDraft } from '@/hooks/useFormDraft'
 import { useCreateOnlineDocument } from '../hooks/useDocuments'
 import type { DocumentCapabilities, DocumentFolder, DocumentScope } from '../types'
 import { creatableScopes, editorPath } from '../utils'
+import { blockedByTour } from '@/components/common/tours/guard'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 interface FormState {
   title: string
@@ -56,6 +58,7 @@ export default function NewOnlineDocumentDialog({ onClose, caps, folder, scope, 
   const canSubmit = !needsUnit && !create.isPending
 
   const submit = () => {
+    if (blockedByTour()) return
     const s = folder ? undefined : pickScope ? form.scope : scope
     const u = folder ? undefined : pickScope ? form.unitId : unitId
     create.mutate({
@@ -84,7 +87,7 @@ export default function NewOnlineDocumentDialog({ onClose, caps, folder, scope, 
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={create.isPending}>{t('common.cancel')}</Button>}
           primary={
-            <Button onClick={submit} disabled={!canSubmit}>
+            <Button {...tourAnchor('online.form.submit')} onClick={submit} disabled={!canSubmit}>
               {create.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
               {t('online.create')}
             </Button>
@@ -94,14 +97,14 @@ export default function NewOnlineDocumentDialog({ onClose, caps, folder, scope, 
     >
       <DraftNotice draft={draft} className="mb-4" />
       <form className="space-y-4" onSubmit={e => { e.preventDefault(); if (canSubmit) submit() }}>
-        <div className="space-y-1.5">
+        <div {...tourAnchor('online.form.title')} className="space-y-1.5">
           <label className="text-label" htmlFor="online-doc-title">{t('fields.title')}</label>
           <Input id="online-doc-title" autoFocus value={form.title} maxLength={255} placeholder={t(kind === 'sheet' ? 'editor.sheetTitlePlaceholder' : 'editor.titlePlaceholder')}
                  onChange={e => set('title', e.target.value)} />
         </div>
         {pickScope && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
+            <div {...tourAnchor('online.form.scope')} className="space-y-1.5">
               <label className="text-label">{t('fields.scope')}</label>
               <Select value={form.scope} onValueChange={v => set('scope', v as DocumentScope)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>

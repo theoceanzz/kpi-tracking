@@ -12,6 +12,7 @@ import { useFormat } from '@/i18n/useFormat'
 import AiReviewUnitSettingsSection from './AiReviewUnitSettingsSection'
 import { useAiReviewSettings, useUpdateAiReviewSettings } from '../hooks/useAiReview'
 import type { AiReviewSettings } from '../api/aiReviewApi'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /**
  * Một thẻ duy nhất cho "AI gợi ý điểm khi chấm": bật/tắt cho công ty, trọng số mặc định (kèm ví dụ tính), rồi trọng
@@ -53,7 +54,7 @@ export default function AiReviewSettingsSection() {
   const valid = weightTotal(draft) === 100
 
   return (
-    <div className="space-y-5 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
+    <div {...tourAnchor('aireview.settings')} className="space-y-5 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <Bot size={20} className="mt-0.5 text-[var(--color-ai)]" aria-hidden="true" />
@@ -67,12 +68,12 @@ export default function AiReviewSettingsSection() {
         </div>
         <label className="flex shrink-0 items-center gap-2 text-sm text-[var(--color-muted-foreground)]">
           {draft.enabled ? t('AiReviewSettings.on') : t('AiReviewSettings.off')}
-          <Switch checked={draft.enabled} onCheckedChange={enabled => setDraft({ ...draft, enabled })}
+          <Switch {...tourAnchor('aireview.toggle')} checked={draft.enabled} onCheckedChange={enabled => setDraft({ ...draft, enabled })}
                   aria-label={t('AiReviewSettings.toggleAria')} />
         </label>
       </div>
 
-      <section className="space-y-3">
+      <section {...tourAnchor('aireview.weights')} className="space-y-3">
         <div>
           <p className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-foreground)]">
             {t('AiReviewSettings.weightsTitle')}
@@ -87,7 +88,7 @@ export default function AiReviewSettingsSection() {
               {t('AiReviewSettings.discard')}
             </Button>
           )}
-          <Button disabled={!dirty || !valid || save.isPending}
+          <Button {...tourAnchor('aireview.save')} disabled={!dirty || !valid || save.isPending}
                   onClick={() => save.mutate(draft, { onSuccess: () => setDraft(null) })}>
             {save.isPending && <Loader2 className="animate-spin" aria-hidden="true" />} {t('AiReviewSettings.save')}
           </Button>

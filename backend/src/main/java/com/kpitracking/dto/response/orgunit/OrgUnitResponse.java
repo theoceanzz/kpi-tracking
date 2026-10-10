@@ -12,6 +12,7 @@ public class OrgUnitResponse {
     private String name;
     private String code;
     private UUID parentId;
+    private com.kpitracking.enums.OrgUnitRelationType parentRelation;
     private UUID orgHierarchyId;
     private UUID organizationId;
     private String type;

@@ -28,6 +28,8 @@ import CodeField from '@/components/common/CodeField'
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 interface ObjectiveFormModalProps {
   isOpen: boolean
@@ -144,6 +146,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
   }
 
   const onSubmit = (data: ObjectiveFormData) => {
+    if (blockedByTour()) return
     if (data.perspectiveId === 'NONE' || data.perspectiveId === '') data.perspectiveId = null
     // Ô mã bị khoá ⇒ không gửi mã lên: backend giữ mã cũ khi sửa, tự cấp mã khi tạo.
     if (codeRule.locked) data.code = undefined
@@ -161,7 +164,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
   const isPending = createObjective.isPending || updateObjective.isPending
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('okr.form')}
       open={isOpen}
       onClose={onClose}
       size="md"
@@ -172,7 +175,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>{t('ObjectiveFormModal.cancel')}</Button>}
           primary={
-            <Button type="submit" form="objective-form" disabled={isPending}>
+            <Button {...tourAnchor('okr.form.submit')} type="submit" form="objective-form" disabled={isPending}>
               {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
               {objective ? t('ObjectiveFormModal.saveChanges') : t('ObjectiveFormModal.confirmCreate')}
             </Button>
@@ -182,7 +185,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
     >
       <DraftNotice draft={draft} className="mb-4" />
       <form id="objective-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div {...tourAnchor('okr.form.name')} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="sm:col-span-2 space-y-1.5">
             <label className="text-label">{t('ObjectiveFormModal.objectiveName')} <span className="text-[var(--color-error)]">*</span></label>
             <input
@@ -203,7 +206,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
           />
         </div>
 
-        <div className="space-y-1.5">
+        <div {...tourAnchor('okr.form.description')} className="space-y-1.5">
           <label className="text-label">{t('ObjectiveFormModal.detailedDescription')}</label>
           <textarea
             {...register('description')}
@@ -213,7 +216,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div {...tourAnchor('okr.form.dates')} className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-label">{t('ObjectiveFormModal.startDate')} <span className="text-[var(--color-error)]">*</span></label>
             <div className="relative">
@@ -245,7 +248,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
+          <div {...tourAnchor('okr.form.units')} className="space-y-1.5">
             <label className="text-label">{t('ObjectiveFormModal.department')}</label>
             <Popover>
               <PopoverTrigger asChild>
@@ -288,7 +291,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
             </Popover>
           </div>
 
-          <div className="space-y-1.5">
+          <div {...tourAnchor('okr.form.status')} className="space-y-1.5">
             <label className="text-label">{t('ObjectiveFormModal.status')}</label>
             <Controller
               name="status"
@@ -310,7 +313,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
         </div>
 
         {enableBsc && (
-          <div className="space-y-1.5">
+          <div {...tourAnchor('okr.form.bsc')} className="space-y-1.5">
             <label className="text-label">{t('ObjectiveFormModal.bscItem')}</label>
             <Controller
               name="perspectiveId"

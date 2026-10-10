@@ -7,6 +7,8 @@ import { useConversion } from '../hooks/useWallet'
 import type { CashWallet } from '../types'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 interface ConvertPointsCardProps {
   wallet?: CashWallet
@@ -40,6 +42,7 @@ export default function ConvertPointsCard({ wallet }: ConvertPointsCardProps) {
   }, [points])
 
   const submit = async () => {
+    if (blockedByTour()) return
     await convert({ points, requestId })
     setPoints(0)
   }
@@ -51,12 +54,12 @@ export default function ConvertPointsCard({ wallet }: ConvertPointsCardProps) {
         {t('ConvertPointsCard.convertMoneyIntoRewardPoints')}
       </div>
 
-      <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
+      <p {...tourAnchor('convert.rate')} className="mt-2 text-sm text-[var(--color-muted-foreground)]">
         {t('ConvertPointsCard.currentRate')} <strong>{formatCurrency(rate)}</strong> {t('ConvertPointsCard.for1PointPointsGoStraight')}
       </p>
 
       <div className="mt-5 grid items-end gap-4 sm:grid-cols-[1fr_auto_1fr]">
-        <div>
+        <div {...tourAnchor('convert.points')}>
           <label className="text-label mb-1.5 block font-medium">{t('ConvertPointsCard.pointsToConvert')}</label>
           <NumberInput
             value={points}
@@ -69,7 +72,7 @@ export default function ConvertPointsCard({ wallet }: ConvertPointsCardProps) {
 
         <ArrowRight className="mx-auto hidden text-[var(--color-muted-foreground)] sm:block" size={20} />
 
-        <div>
+        <div {...tourAnchor('convert.cost')}>
           <div className="mb-1.5 text-sm font-medium">{t('ConvertPointsCard.amountDeducted')}</div>
           <div
             className={`rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-right text-xl font-semibold tabular-nums ${
@@ -88,7 +91,7 @@ export default function ConvertPointsCard({ wallet }: ConvertPointsCardProps) {
             {formatCurrency(Math.max(balance - cost, 0))}
           </strong>
         </span>
-        <Button variant="ghost" type="button" onClick={() => setPoints(maxPoints)} disabled={maxPoints <= 0}>
+        <Button {...tourAnchor('convert.max')} variant="ghost" type="button" onClick={() => setPoints(maxPoints)} disabled={maxPoints <= 0}>
           {t('ConvertPointsCard.convertMax')}{maxPoints.toLocaleString(intlLocale())} {t('ConvertPointsCard.points')}
         </Button>
       </div>
@@ -99,7 +102,7 @@ export default function ConvertPointsCard({ wallet }: ConvertPointsCardProps) {
         </p>
       )}
 
-      <Button className="mt-5 w-full" type="button" onClick={submit} disabled={!affordable || isConverting}>
+      <Button {...tourAnchor('convert.submit')} className="mt-5 w-full" type="button" onClick={submit} disabled={!affordable || isConverting}>
         {isConverting ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Coins aria-hidden="true" />}
         {t('ConvertPointsCard.change')} {points > 0 ? points.toLocaleString(intlLocale()) : ''} {t('ConvertPointsCard.points2')}
       </Button>

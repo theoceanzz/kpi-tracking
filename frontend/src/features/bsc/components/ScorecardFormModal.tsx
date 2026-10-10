@@ -35,6 +35,8 @@ import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 interface ScorecardFormModalProps {
   isOpen: boolean
@@ -462,6 +464,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
   }
 
   const onSubmit = (data: ScorecardFormData) => {
+    if (blockedByTour()) return
     const cycleMode = data.applyScope === BscScorecardApplyScope.CYCLE
     const payload: ScorecardRequest = {
       name: data.name.trim(),
@@ -552,7 +555,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
         onMouseUp={() => { if (!dragId) setDragArmed(null) }}>
         <GripVertical size={14} aria-hidden="true" />
       </span>
-      <ChoiceChip selected={r.enabled} variant="solid" className="shrink-0" onClick={() => { if (!r.locked) toggle(r.perspectiveId) }} disabled={!!r.locked} title={r.locked
+      <ChoiceChip {...tourAnchor('bsc.form.row-toggle')} selected={r.enabled} variant="solid" className="shrink-0" onClick={() => { if (!r.locked) toggle(r.perspectiveId) }} disabled={!!r.locked} title={r.locked
           ? t('ScorecardFormModal.kpiAssignedByTheParentRemoving')
           : r.enabled ? t('ScorecardFormModal.removeTheItemFromThisScorecard') : t('ScorecardFormModal.addTheItemToThisScorecard')}>
         {r.enabled && <span className="text-xs font-semibold">✓</span>}
@@ -607,7 +610,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
           <Trash2 aria-hidden="true" />
         </Button>
       </div>}
-      <div className="flex items-center gap-1 shrink-0">
+      <div {...tourAnchor('bsc.form.row-weight')} className="flex items-center gap-1 shrink-0">
         <LocaleNumberInput type="number" min={0} max={100} step={0.1} value={r.weight} disabled={!r.enabled || !!r.locked}
           title={r.locked ? t('ScorecardFormModal.weightSetByTheParentContact') : undefined}
           onChange={e => setWeight(r.perspectiveId, Number(e.target.value))}
@@ -750,7 +753,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
 
   return (
     <>
-      <Dialog
+      <Dialog {...tourAnchor('bsc.form')}
         open={isOpen}
         onClose={onClose}
         size="lg"
@@ -768,7 +771,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
               )}
             </>}
             primary={
-              <Button onClick={submitAs(quickCreate ? BscScorecardStatus.ACTIVE : undefined)} disabled={isPending}>
+              <Button {...tourAnchor('bsc.form.submit')} onClick={submitAs(quickCreate ? BscScorecardStatus.ACTIVE : undefined)} disabled={isPending}>
                 {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
                 {scorecard ? t('ScorecardFormModal.saveChanges') : t('ScorecardFormModal.confirmCreate')}
               </Button>
@@ -779,12 +782,12 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
         <DraftNotice draft={draft} className="mb-4" />
         <div className="space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+            <div {...tourAnchor('bsc.form.name')} className="space-y-1.5">
               <label className="text-label">{t('ScorecardFormModal.criteriaSetName')} <span className="text-[var(--color-error)]">*</span></label>
               <input {...register('name')} placeholder={t('ScorecardFormModal.eGQ32026Strategy')}
                 className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"/>
             </div>
-            <div className="space-y-1.5">
+            <div {...tourAnchor('bsc.form.apply-scope')} className="space-y-1.5">
               <label className="text-label">{t('ScorecardFormModal.applyBy')} <span className="text-[var(--color-error)]">*</span></label>
               <div className="grid grid-cols-2 gap-2">
                 {[
@@ -800,7 +803,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
           </div>
 
           {/* Theo KỲ: chọn đúng 1 kỳ, mọi đợt trong kỳ tự áp dụng. Theo ĐỢT: tick nhiều đợt. */}
-          <div className="space-y-1.5">
+          <div {...tourAnchor('bsc.form.periods')} className="space-y-1.5">
             <label className="text-label">
               {isCycleMode ? t('ScorecardFormModal.applicableCycles') : t('ScorecardFormModal.applicablePeriodsMultiple')} <span className="text-[var(--color-error)]">*</span>
             </label>
@@ -871,7 +874,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
             </p>
           </div>
 
-          <div className="space-y-1.5">
+          <div {...tourAnchor('bsc.form.scope')} className="space-y-1.5">
             <label className="text-label">{t('ScorecardFormModal.scopeDepartments')}</label>
             <Popover>
               <PopoverTrigger asChild disabled={!!scorecard}>
@@ -913,7 +916,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
             </p>
           </div>
 
-          <div className="space-y-1.5">
+          <div {...tourAnchor('bsc.form.vision')} className="space-y-1.5">
             <label className="text-label">{t('ScorecardFormModal.strategyStatementVision')}</label>
             <textarea {...register('vision')} rows={2} placeholder={t('ScorecardFormModal.theCentralStrategyStatement')}
               className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all resize-none"/>
@@ -942,7 +945,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
                   </SelectContent>
                 </Select>
             </div>}
-            <div className="space-y-1.5">
+            <div {...tourAnchor('bsc.form.empty-policy')} className="space-y-1.5">
               {/* "Chính sách hạng mục rỗng / Chuẩn hoá lại" là chữ của mô hình dữ liệu, người
                   dùng cuối không đọc ra được hệ quả. Đổi thành câu hỏi đúng tình huống họ gặp,
                   mỗi lựa chọn kèm một dòng nói rõ điểm bị ảnh hưởng thế nào. */}
@@ -976,12 +979,12 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
           </div>
 
           {/* Hạng mục & trọng số — xếp theo 4 lĩnh vực, thêm/sửa/xoá ngay tại đây */}
-          <div className="space-y-2">
+          <div {...tourAnchor('bsc.form.items')} className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-label ml-1 flex items-center gap-1.5">
                 <Scale size={12} /> {t('ScorecardFormModal.itemsWeights')}
               </label>
-              <Button variant="ghost" type="button" onClick={distributeEvenly}>{t('ScorecardFormModal.splitEvenly')}</Button>
+              <Button {...tourAnchor('bsc.form.split')} variant="ghost" type="button" onClick={distributeEvenly}>{t('ScorecardFormModal.splitEvenly')}</Button>
             </div>
             <p className="text-caption ml-1">
               {t('ScorecardFormModal.tickToAddItemsToThis')}
@@ -989,7 +992,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
 
             <div className="space-y-3">
               {groups.map(g => (
-                <div key={g.fixed.code} className="rounded-card border border-[var(--color-border)] overflow-hidden">
+                <div {...tourAnchor('bsc.form.area')} key={g.fixed.code} className="rounded-card border border-[var(--color-border)] overflow-hidden">
                   <div className="flex items-center gap-2 px-4 py-2 bg-[var(--color-muted)] border-b border-[var(--color-border)]">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.fixed.color }} />
                     <h4 className="text-eyebrow">{g.fixed.name}</h4>
@@ -998,7 +1001,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
                         <Edit2 aria-hidden="true" />
                       </Button>
                     )}
-                    <Button variant="ghost" size="sm" className="ml-auto shrink-0" type="button" onClick={() => setPerspectiveModal({ fixed: g.fixed.code })}>
+                    <Button {...tourAnchor('bsc.form.add-item')} variant="ghost" size="sm" className="ml-auto shrink-0" type="button" onClick={() => setPerspectiveModal({ fixed: g.fixed.code })}>
                       <PlusCircle aria-hidden="true" /> {t('ScorecardFormModal.addItem')}
                     </Button>
                   </div>

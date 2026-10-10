@@ -12,6 +12,8 @@ import { formatCurrency } from '@/lib/utils'
 import { useTopupActions, useTopupOrder } from '../hooks/useWallet'
 import { TopupOrderStatus, type TopupOrder, type WalletConfig } from '../types'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 interface TopupModalProps {
   open: boolean
@@ -62,7 +64,7 @@ function InfoRow({ label, value, copyLabel }: { label: string; value: string; co
   return (
     <div className="flex items-center justify-between gap-3 border-b border-[var(--color-border)] py-2.5 last:border-b-0">
       <span className="flex-shrink-0 text-sm text-[var(--color-muted-foreground)]">{label}</span>
-      <div className="flex min-w-0 items-center gap-1">
+      <div {...tourAnchor('topup.amount')} className="flex min-w-0 items-center gap-1">
         <span className="truncate font-semibold">{value}</span>
         {copyLabel && <CopyText value={value} label={copyLabel} />}
       </div>
@@ -164,6 +166,7 @@ export default function TopupModal({
   if (!open) return null
 
   const onSubmit = async (data: TopupFormData) => {
+    if (blockedByTour()) return
     const result = await createTopup({ amount: data.amount })
     setCreated(result)
     setOrderId(result.id)
@@ -175,7 +178,7 @@ export default function TopupModal({
   }
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('topup.dialog')}
       open
       onClose={onClose}
       size="md"
@@ -188,7 +191,7 @@ export default function TopupModal({
         !order ? (
           <DialogFooter
             primary={
-              <Button onClick={handleSubmit(onSubmit)} disabled={isCreating}>
+              <Button {...tourAnchor('topup.submit')} onClick={handleSubmit(onSubmit)} disabled={isCreating}>
                 {isCreating ? <Loader2 className="animate-spin" aria-hidden="true" /> : <QrCode aria-hidden="true" />}
                 {t('TopupModal.createTransferCode')}
               </Button>
@@ -221,7 +224,7 @@ export default function TopupModal({
             </p>
           )}
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div {...tourAnchor('topup.quick')} className="mt-3 flex flex-wrap gap-2">
             {[50_000, 100_000, 200_000, 500_000]
               .filter((v) => v >= min && v <= max)
               .map((v) => (

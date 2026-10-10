@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 /** Dữ liệu giả cho ảnh thu nhỏ trong danh sách. */
 const THUMB_DATA = perLanguage((): Omit<CertificateData, 'organizationName' | 'organizationLogoUrl'> => ({
@@ -39,6 +41,7 @@ export default function CertificatesTab() {
   const { t: tr } = useTranslation('rewards')
   const [editing, setEditing] = useState<CertificateTemplate | null>(null)
   const [formOpen, setFormOpen] = useState(false)
+  useTourModal('rewards.certificate', () => { setEditing(null); setFormOpen(true) }, () => setFormOpen(false))
   const [deleting, setDeleting] = useState<CertificateTemplate | null>(null)
 
   const { data, isLoading, deleteTemplate, isDeleting } = useCertificateTemplates()
@@ -51,12 +54,12 @@ export default function CertificatesTab() {
 
   return (
     <div id="tour-certificates-root">
-      <div id="tour-certificates-intro" className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div {...tourAnchor('cert.intro')} id="tour-certificates-intro" className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <p className="max-w-2xl text-sm text-[var(--color-muted-foreground)]">
           {tr('CertificatesTab.certificateTemplatesUsedWhenPrintingCertificates')}
         </p>
         <WorkspaceHeaderActions>
-          <Button onClick={openCreate}>
+          <Button {...tourAnchor('cert.add')} onClick={openCreate}>
             <Plus aria-hidden="true" />
             {tr('CertificatesTab.createTemplate')}
           </Button>
@@ -181,7 +184,7 @@ function TemplateCard({
         </div>
 
         <div className="flex flex-shrink-0 gap-1">
-          <Button variant="ghost" size="icon-sm" aria-label={t('CertificatesTab.editTemplate')} onClick={onEdit} title={t('CertificatesTab.editTemplate')}>
+          <Button {...tourAnchor('cert.edit')} variant="ghost" size="icon-sm" aria-label={t('CertificatesTab.editTemplate')} onClick={onEdit} title={t('CertificatesTab.editTemplate')}>
             <Pencil aria-hidden="true" />
           </Button>
           <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={t('CertificatesTab.deleteTemplate')} onClick={onDelete} title={t('CertificatesTab.deleteTemplate')}>

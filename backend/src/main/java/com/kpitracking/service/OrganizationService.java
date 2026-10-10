@@ -632,12 +632,10 @@ public class OrganizationService {
      * Tải logo/ảnh bìa của công ty. Ảnh đi qua đây thay vì nhận URL trong body update:
      * client không được phép trỏ nhận diện thương hiệu sang máy chủ bất kỳ.
      */
-    @Transactional
     public OrganizationResponse uploadBranding(UUID orgId, String kind, org.springframework.web.multipart.MultipartFile file)
             throws java.io.IOException {
-        Organization organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
-
+        // Kiểm tệp trước (không cần DB), rồi ảnh đi lên NGOÀI transaction — khuôn chung
+        // CloudinaryStorageService.uploadThenSave.
         if (file == null || file.isEmpty()) {
             throw new BusinessException(ErrorCode.NO_IMAGE_FILE_SELECTED);
         }
@@ -654,13 +652,19 @@ public class OrganizationService {
             throw new BusinessException(ErrorCode.INVALID_IMAGE_TYPE, String.valueOf(kind));
         }
 
-        String url = cloudinaryStorageService.uploadFile(file, isCover ? "org-covers" : "org-logos").get("url");
-        if (isCover) {
-            organization.setCoverUrl(url);
-        } else {
-            organization.setLogoUrl(url);
-        }
-        return organizationMapper.toResponse(organizationRepository.save(organization));
+        return cloudinaryStorageService.uploadThenSave(new org.springframework.web.multipart.MultipartFile[]{file},
+                isCover ? "org-covers" : "org-logos",
+                () -> organizationRepository.findById(orgId)
+                        .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId)),
+                (organization, stored) -> {
+                    String url = stored.get(0).url();
+                    if (isCover) {
+                        organization.setCoverUrl(url);
+                    } else {
+                        organization.setLogoUrl(url);
+                    }
+                    return organizationMapper.toResponse(organizationRepository.save(organization));
+                });
     }
 
     private static final long MAX_BRANDING_IMAGE_BYTES = 5L * 1024 * 1024;

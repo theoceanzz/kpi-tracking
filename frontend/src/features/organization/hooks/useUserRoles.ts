@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { userRoleApi, AssignRoleRequest, BulkAssignRoleRequest } from '../api/user-role.api'
 import { roleApi } from '../api/role.api'
+import { useApiAllowed } from '@/hooks/useApiAllowed'
 import { userApi } from '@/features/users/api/userApi'
 
 export function useOrgUnitMembers(orgUnitId?: string) {
@@ -23,10 +24,12 @@ export function useRoles() {
  * ô chọn người (uỷ quyền, thêm thành viên...) dùng mặc định — BE ẩn INACTIVE/SUSPENDED.
  */
 export function useOrganizationUsers(orgUnitId?: string, includeInactive = false) {
+  const allowed = useApiAllowed('GET', '/users') // USER:VIEW / USER:VIEW_LIST — nhân viên thường không có
   return useQuery({
     queryKey: ['organization-users', orgUnitId, includeInactive],
     // BE nhận orgUnitIds (List) — xem chú thích ở userApi.getAll.
-    queryFn: () => userApi.getAll({ page: 0, size: 1000, orgUnitIds: orgUnitId ? [orgUnitId] : undefined, includeInactive: includeInactive || undefined })
+    queryFn: () => userApi.getAll({ page: 0, size: 1000, orgUnitIds: orgUnitId ? [orgUnitId] : undefined, includeInactive: includeInactive || undefined }),
+    enabled: allowed,
   })
 }
 

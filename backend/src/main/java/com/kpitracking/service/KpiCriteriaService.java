@@ -84,6 +84,9 @@ public class KpiCriteriaService {
     /** Chuỗi duyệt theo phân cấp (approverMode = CHAIN). */
     private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
     private final com.kpitracking.service.kpi.approval.KpiApprovalViewService approvalView;
+    private final com.kpitracking.service.kpi.KpiAccessPolicy kpiAccessPolicy;
+    private final com.kpitracking.service.kpi.KpiCollabEnricher collabEnricher;
+    private final com.kpitracking.service.kpi.KpiCollabHooks collabHooks;
 
     private static final List<KpiStatus> WEIGHT_COUNTED_STATUSES = java.util.Arrays.asList(
             KpiStatus.DRAFT,
@@ -441,10 +444,9 @@ public class KpiCriteriaService {
         User currentUser = getCurrentUser();
         UUID organizationId = getCurrentUserOrganizationId(currentUser);
 
-        // User's own units: colleagues' KPIs are visible only when APPROVED.
-        // Quản lý thấy cả cây con của đơn vị mình, nhân viên chỉ thấy đúng đơn vị mình.
-        com.kpitracking.security.PermissionChecker.KpiVisibilityScope scope =
-                permissionChecker.getKpiVisibilityScope(currentUser.getId());
+        // Ai thấy KPI nào: một luật duy nhất ở KpiAccessPolicy (truy vấn dưới viết lại đúng luật đó).
+        // approvalMode không còn nới phạm vi xem — người đang/đã giữ bước duyệt đã thấy KPI qua luật chung.
+        com.kpitracking.service.kpi.KpiAccessPolicy.Viewer viewer = kpiAccessPolicy.viewer(currentUser.getId(), organizationId);
 
         // When qualitative KPIs are disabled for the org, hide them entirely by
         // forcing the type filter to QUANTITATIVE (ignoring any incoming qualitative filter).
@@ -465,9 +467,9 @@ public class KpiCriteriaService {
         Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findAllWithFilters(
                 organizationId,
                 currentUser.getId(),
-                scope.managerUnitIdsForQuery(),
-                scope.memberUnitIdsForQuery(),
-                approvalMode,
+                viewer.managerUnitIdsForQuery(),
+                viewer.memberUnitIdsForQuery(),
+                viewer.admin(),
                 createdById,
                 assigneeId,
                 orgUnitPath,
@@ -488,6 +490,7 @@ public class KpiCriteriaService {
 
         List<KpiCriteriaResponse> content = kpiPage.getContent().stream().map(kpiCriteriaMapper::toResponse).toList();
         approvalView.enrichCriteria(content, currentUser.getId());
+        collabEnricher.enrich(content, currentUser.getId());
 
         return PageResponse.<KpiCriteriaResponse>builder()
                 .content(content)
@@ -505,19 +508,12 @@ public class KpiCriteriaService {
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", kpiId));
         
-        boolean isCreator = kpi.getCreatedBy().getId().equals(currentUser.getId());
-        boolean isAssignee = kpi.getAssignees().stream().anyMatch(a -> a.getId().equals(currentUser.getId()));
-        boolean isSameUnit = !userRoleOrgUnitRepository.findByUserIdAndOrgUnitId(currentUser.getId(), kpi.getOrgUnit().getId()).isEmpty();
+        // Người đang giữ bước duyệt (thường ở đơn vị cấp trên) xem được nhờ luật "nằm trong chuỗi duyệt".
+        kpiAccessPolicy.assertCanView(currentUser.getId(), kpi);
 
-        boolean canView = isCreator || isAssignee || (isSameUnit && kpi.getStatus() == KpiStatus.APPROVED);
-        // Người đang giữ bước duyệt (thường ở đơn vị cấp trên) phải mở được chỉ tiêu mình đang duyệt.
         KpiCriteriaResponse response = kpiCriteriaMapper.toResponse(kpi);
         approvalView.enrichCriteria(List.of(response), currentUser.getId());
-        boolean isHolder = response.getApproval() != null && response.getApproval().isCanAct();
-        if (!canView && !isHolder) {
-            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_KPI);
-        }
-
+        collabEnricher.enrich(List.of(response), currentUser.getId());
         return response;
     }
 
@@ -565,16 +561,12 @@ public class KpiCriteriaService {
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", kpiId));
 
-        boolean isCreator = kpi.getCreatedBy().getId().equals(currentUser.getId());
-        boolean isAssignee = kpi.getAssignees().stream().anyMatch(a -> a.getId().equals(currentUser.getId()));
-        boolean isSameUnit = !userRoleOrgUnitRepository.findByUserIdAndOrgUnitId(currentUser.getId(), kpi.getOrgUnit().getId()).isEmpty();
+        kpiAccessPolicy.assertCanView(currentUser.getId(), kpi);
 
-        boolean canView = isCreator || isAssignee || (isSameUnit && kpi.getStatus() == KpiStatus.APPROVED);
-        if (!canView) {
-            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_KPI);
-        }
-
+        // KPI con nằm ở đơn vị khác — chỉ trả những con mà người xem cũng xem được.
+        com.kpitracking.service.kpi.KpiAccessPolicy.Viewer viewer = kpiAccessPolicy.viewer(currentUser.getId(), com.kpitracking.service.kpi.KpiAccessPolicy.organizationIdOf(kpi));
         return kpiCriteriaRepository.findByParentId(kpiId).stream()
+                .filter(c -> kpiAccessPolicy.canView(viewer, c))
                 .map(kpiCriteriaMapper::toResponse)
                 .toList();
     }
@@ -1123,6 +1115,7 @@ public class KpiCriteriaService {
             kpiCriteriaRepository.save(old);
             approvalChain.cancelRunning(List.of(old.getId()), actor,
                     LocalizedText.of("approvalEvent.reason.replaced", replacement.getName()));
+            collabHooks.onReplaced(old, replacement);
         }
     }
 
@@ -1289,6 +1282,7 @@ public class KpiCriteriaService {
         kpi = kpiCriteriaRepository.save(kpi);
 
         eventPublisher.publishEvent(new KpiCriteriaApprovalRevertedEvent(this, kpi, currentUser));
+        collabHooks.onApprovalReverted(kpi, currentUser);
 
         return kpiCriteriaMapper.toResponse(kpi);
     }
@@ -1314,6 +1308,7 @@ public class KpiCriteriaService {
     /** KPI bị xoá: dừng chuỗi duyệt của nó; nếu nó là bản thay thế đang chờ thì KPI cũ thôi chờ. */
     private void onDeleted(KpiCriteria kpi, User actor) {
         approvalChain.cancelRunning(List.of(kpi.getId()), actor, LocalizedText.of("approvalEvent.reason.kpiDeleted"));
+        collabHooks.onDeleted(kpi);
         for (KpiCriteria old : kpiCriteriaRepository.findByReplacedById(kpi.getId())) {
             if (old.getStatus() == KpiStatus.REPLACED) continue;
             old.setReplacedBy(null);
@@ -1410,6 +1405,7 @@ public class KpiCriteriaService {
                 })
                 .toList();
         approvalView.enrichCriteria(content, currentUser.getId());
+        collabEnricher.enrich(content, currentUser.getId());
 
         return PageResponse.<KpiCriteriaResponse>builder()
                 .content(content)
@@ -2088,6 +2084,7 @@ public class KpiCriteriaService {
                     LocalizedText.of("approvalEvent.reason.replaced", newKpi.getName()));
         }
         kpiCriteriaRepository.save(replacedKpi);
+        if (!deferReplace) collabHooks.onReplaced(replacedKpi, newKpi);
 
         if (initialStatus == KpiStatus.APPROVED) {
             eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, newKpi));

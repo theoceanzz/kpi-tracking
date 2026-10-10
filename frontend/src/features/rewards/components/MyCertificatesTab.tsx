@@ -10,6 +10,7 @@ import { useMyAwards } from '../hooks/useCertificates'
 import type { RewardGrant } from '../types'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const fmtDate = (iso?: string | null) =>
   iso
@@ -37,7 +38,7 @@ export default function MyCertificatesTab() {
 
   if (awards.length === 0) {
     return (
-      <div className="rounded-card border border-dashed border-[var(--color-border)]">
+      <div {...tourAnchor('myrewards.certificates')} className="rounded-card border border-dashed border-[var(--color-border)]">
         <EmptyState
           title={t('MyCertificatesTab.youHaveNoCertificatesYet')}
           description={t('MyCertificatesTab.certificatesOnlyComeWithRewardsThe')}
@@ -48,7 +49,7 @@ export default function MyCertificatesTab() {
 
   return (
     <div>
-      <div id="tour-my-certificates-grid" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div {...tourAnchor('myrewards.certificates')} id="tour-my-certificates-grid" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {awards.map((award) => {
           const mine = award.recipients[0]
           return (
@@ -74,7 +75,7 @@ export default function MyCertificatesTab() {
                 {t('MyCertificatesTab.awardedBy', { name: award.grantorName })} · {fmtDate(award.approvedAt ?? award.createdAt)}
               </div>
 
-              <Button variant="outline" className="mt-3" onClick={() => setPrinting(award)}>
+              <Button {...tourAnchor('mycert.print')} variant="outline" className="mt-3" onClick={() => setPrinting(award)}>
                 <Printer aria-hidden="true" />
                 {t('MyCertificatesTab.viewPrintCertificate')}
               </Button>

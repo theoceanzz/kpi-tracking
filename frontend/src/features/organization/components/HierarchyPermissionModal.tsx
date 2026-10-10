@@ -15,6 +15,8 @@ import { useRoles } from '../hooks/useRoles'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 
 interface HierarchyPermissionModalProps {
@@ -204,6 +206,7 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
   }, [roles, hierarchyLevels, t])
 
   const handleApply = async () => {
+    if (blockedByTour()) return
     setIsApplying(true)
     try {
       let successCount = 0
@@ -253,7 +256,7 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
   }
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('hier.modal')}
       open={isOpen}
       onClose={onClose}
       size="full"
@@ -265,7 +268,7 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
           note={t('HierarchyPermissionModal.replacesAllCurrentPermissionSettingsOf')}
           secondary={<Button variant="outline" onClick={onClose} disabled={isApplying}>{t('HierarchyPermissionModal.cancel')}</Button>}
           primary={
-            <Button onClick={handleApply} disabled={isApplying}>
+            <Button {...tourAnchor('hier.apply')} onClick={handleApply} disabled={isApplying}>
               {isApplying ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Zap aria-hidden="true" />}
               {isApplying ? t('HierarchyPermissionModal.settingUp') : t('HierarchyPermissionModal.confirmApplyingToTheWholeCompany')}
             </Button>
@@ -280,7 +283,7 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
              <h4 className="text-eyebrow flex items-center gap-2">
                <Zap size={14} className="text-[var(--color-warning)]" /> {t('HierarchyPermissionModal.detailedPermissionMatrix')}
              </h4>
-             <div className="hidden sm:flex items-center gap-6">
+             <div {...tourAnchor('hier.legend')} className="hidden sm:flex items-center gap-6">
                <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--color-success-solid)]" />
                   <span className="text-caption">{t('HierarchyPermissionModal.full')}</span>
@@ -297,7 +300,7 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
           </div>
 
           {/* Desktop matrix */}
-          <div className="hidden md:block overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
+          <div {...tourAnchor('hier.matrix')} className="hidden md:block overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
             <div className="min-width-max space-y-3" style={{ minWidth: `${180 + 250 + (displayRoles.length * 75)}px` }}>
               {Object.entries(groupedPermissions).map(([resource, codes]) => (
                 <div key={resource} className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
@@ -365,7 +368,7 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
           </div>
 
           {/* Mobile matrix - card layout with role pills */}
-          <div className="md:hidden space-y-3">
+          <div {...tourAnchor('hier.matrix')} className="md:hidden space-y-3">
             {Object.entries(groupedPermissions).map(([resource, codes]) => (
               <div key={resource} className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
                 <div className="px-4 py-2.5 bg-[var(--color-muted)] border-b border-[var(--color-border)] flex items-center gap-2">

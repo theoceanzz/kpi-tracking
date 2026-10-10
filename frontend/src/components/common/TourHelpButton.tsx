@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { CircleHelp, Lightbulb, RotateCcw, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
-import { useTourStore, tourLevelOf, type TourKey } from '@/store/tourStore'
-import { availableTourChain, tourTitleOf } from './tours'
+import { useTourStore, tourLevelOf, tourSeenStatus, type TourKey } from '@/store/tourStore'
+import { availableTourChain, getTour, tourTitleOf, tourVersionOf, withContinuations } from './tours'
+import { tourAnchor } from './tours/anchors'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
@@ -13,6 +14,7 @@ const LEVEL_LABEL = perLanguage((): Record<string, string> => ({
   page: i18n.t('shared:TourHelpButton.page'),
   section: i18n.t('shared:TourHelpButton.section'),
   tab: 'Tab',
+  series: i18n.t('shared:TourHelpButton.series'),
 }))
 
 /**
@@ -50,10 +52,15 @@ export default function TourHelpButton() {
   }, [open])
 
   const chain = availableTourChain(scope)
+  // Menu liệt kê cả bài nối tiếp (vd. "Tạo KPI 2/3") để mở thẳng; chấm/nhấp nháy chỉ xét chuỗi màn hình.
+  const menu = withContinuations(chain)
   if (!user?.id || chain.length === 0) return null
 
   const seen = seenToursByUser[user.id] ?? {}
-  const hasUnseen = chain.some((key) => !seen[key])
+  const statusOf = (key: TourKey) => tourSeenStatus(seen[key], tourVersionOf(getTour(key)))
+  const hasUnseen = chain.some((key) => statusOf(key) === 'unseen')
+  // Bài đã xem bản cũ rồi được viết lại: không tự chạy, chỉ báo bằng chấm để người dùng tự mở.
+  const hasUpdate = !hasUnseen && chain.some((key) => statusOf(key) === 'outdated')
 
   const play = (key: TourKey) => {
     setOpen(false)
@@ -64,38 +71,51 @@ export default function TourHelpButton() {
   }
 
   const handleClick = () => {
-    if (chain.length === 1) play(chain[0]!)
+    if (menu.length === 1) play(menu[0]!)
     else setOpen(!open)
   }
 
   return (
     <div className="relative" ref={menuRef}>
-      <Button variant="ghost" size="icon-sm" className={cn(
+      {hasUpdate && !activeTour && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute right-1 top-1 z-10 size-2 rounded-full bg-[var(--color-destructive)] ring-2 ring-[var(--color-card)]"
+        />
+      )}
+      <Button {...tourAnchor('tour.help')} variant="ghost" size="icon-sm" className={cn(
           '',
           activeTour
             ? 'text-[var(--color-primary)] bg-[var(--color-primary-soft)]'
             : hasUnseen
               ? 'text-[var(--color-warning)] bg-[var(--color-warning-bg)] animate-pulse'
               : 'hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]'
-        )} onClick={handleClick} title={hasUnseen ? t('TourHelpButton.thisScreenHasAGuideYou') : t('TourHelpButton.reviewGuide')} aria-label={t('TourHelpButton.userGuide')}>
+        )} onClick={handleClick} title={hasUnseen ? t('TourHelpButton.thisScreenHasAGuideYou') : hasUpdate ? t('TourHelpButton.newGuideAvailable') : t('TourHelpButton.reviewGuide')} aria-label={hasUpdate ? `${t('TourHelpButton.userGuide')} — ${t('TourHelpButton.newGuideAvailable')}` : t('TourHelpButton.userGuide')}>
         {hasUnseen ? <Lightbulb aria-hidden="true" /> : <CircleHelp aria-hidden="true" />}
       </Button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-72 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] rounded-card border border-[var(--color-border)] bg-[var(--color-card)] shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
           <div className="text-eyebrow px-4 py-2.5 border-b border-[var(--color-border)]">
             {t('TourHelpButton.guideForThisScreen')}
           </div>
 
-          {chain.map((key) => (
+          {menu.map((key) => (
             <button type="button" className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]" key={key} onClick={() => play(key)}>
-              <span className="text-eyebrow shrink-0 w-10">
+              {/* Đủ rộng cho nhãn dài nhất ("Bài tiếp" / "Next guide") trên một dòng, tên bài thẳng cột. */}
+              <span className="text-eyebrow shrink-0 w-20 whitespace-nowrap">
                 {LEVEL_LABEL()[tourLevelOf(key)]}
               </span>
               <span className="flex-1 min-w-0 truncate text-[13px] font-medium text-[var(--color-foreground)]">
                 {tourTitleOf(key)}
               </span>
-              {seen[key] && <Check aria-hidden="true" className="shrink-0 text-[var(--color-success)]" />}
+              {/* Bài nối chưa mở lần nào (vd. bài đi qua từng ô của một form) cũng là "mới". */}
+              {(statusOf(key) === 'outdated' || (tourLevelOf(key) === 'series' && statusOf(key) === 'unseen')) && (
+                <span className="shrink-0 rounded-full bg-[var(--color-primary-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-primary)]">
+                  {t('TourHelpButton.new')}
+                </span>
+              )}
+              {statusOf(key) === 'current' && <Check aria-hidden="true" className="shrink-0 text-[var(--color-success)]" />}
             </button>
           ))}
 

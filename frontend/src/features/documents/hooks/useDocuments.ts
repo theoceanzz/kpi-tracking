@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { toastUploadError } from '@/lib/upload'
 import { documentApi } from '../api/documentApi'
 import { autoConvert } from '../editor/autoConvert'
 import type {
@@ -61,17 +62,24 @@ export function useDocumentChunks(id: string | null) {
   return useQuery({ queryKey: [KEY, 'chunks', id], queryFn: () => documentApi.chunks(id!), enabled: !!id })
 }
 
-/** Mutation có toast và làm mới mọi query tài liệu (danh sách, dung lượng, tài liệu cũ). */
-function useDocMutation<TVars, TData>(fn: (vars: TVars) => Promise<TData>, success: string | null, errorFallback: string) {
+/**
+ * Mutation có toast và làm mới mọi query tài liệu (danh sách, dung lượng, tài liệu cũ).
+ * {@code retryable}: mutation gửi tệp — lỗi mạng / 5xx thì toast kèm nút Thử lại gửi lại đúng tệp đó.
+ */
+function useDocMutation<TVars, TData>(fn: (vars: TVars) => Promise<TData>, success: string | null, errorFallback: string,
+                                      retryable = false) {
   const qc = useQueryClient()
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: fn,
     onSuccess: () => {
       if (success) toast.success(success)
       qc.invalidateQueries({ queryKey: [KEY] })
     },
-    onError: (e: unknown) => toast.error(getApiErrorMessage(e, errorFallback)),
+    onError: (e: unknown, vars: TVars) => retryable
+      ? toastUploadError(e, () => mutation.mutate(vars), errorFallback)
+      : toast.error(getApiErrorMessage(e, errorFallback)),
   })
+  return mutation
 }
 
 /** Tải lên; tệp Word / Markdown tự chuyển sang tài liệu soạn trực tuyến (tệp gốc vào tab Phiên bản). */
@@ -81,7 +89,7 @@ export function useUploadDocument() {
     const r = await autoConvert(await documentApi.upload(input))
     if (r.convertFailed) toast.warning(t('toast.autoConvertFailed'))
     return r.doc
-  }, t('toast.uploaded'), t('toast.uploadFailed'))
+  }, t('toast.uploaded'), t('toast.uploadFailed'), true)
 }
 
 export function useUpdateDocument() {
@@ -126,7 +134,7 @@ export function useReplaceDocumentFile() {
     const r = await autoConvert(await documentApi.replaceFile(id, file))
     if (r.convertFailed) toast.warning(t('toast.autoConvertFailed'))
     return r.doc
-  }, t('toast.fileReplaced'), t('toast.uploadFailed'))
+  }, t('toast.fileReplaced'), t('toast.uploadFailed'), true)
 }
 
 export function useDeleteDocument() {
@@ -143,7 +151,7 @@ export function useReindexDocument() {
 export function useReplaceLegacyDocument() {
   const { t } = useTranslation('documents')
   return useDocMutation(({ id, file }: { id: string; file: File }) => documentApi.replaceLegacy(id, file),
-    t('toast.legacyReplaced'), t('toast.uploadFailed'))
+    t('toast.legacyReplaced'), t('toast.uploadFailed'), true)
 }
 
 // ── Trang chủ: gần đây, ghim, yêu thích ──────────────────────────────────────────────────────────

@@ -29,6 +29,7 @@ import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPositio
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /** Cắt cây tại đơn vị gốc (subtree) để không lộ đơn vị ngoài quyền drill của user. */
 function subtreeOf(nodes: OrgUnitTreeResponse[], rootId?: string): OrgUnitTreeResponse[] {
@@ -267,8 +268,8 @@ export default function DrillDownTab() {
     <div className="space-y-6 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-[var(--color-foreground)]">{tr('DrillDownTab.unitComparison')}</h2>
-        <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
-          <AiShortcutButton size="sm" label={tr('DrillDownTab.selfAssessmentGap')} prompt={aiShortcuts.deviation()} title={tr('DrillDownTab.kAiPointsOutTheChild')} />
+        <div id="tour-analytics-customize" {...tourAnchor('analytics.toolbar')} className="flex items-center gap-3 flex-wrap">
+          <AiShortcutButton {...tourAnchor('analytics.ai')} size="sm" label={tr('DrillDownTab.selfAssessmentGap')} prompt={aiShortcuts.deviation()} title={tr('DrillDownTab.kAiPointsOutTheChild')} />
           <DashboardEditToolbar api={dash} />
         </div>
       </div>

@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import { ENV } from '@/config/env'
 import type { ApiResponse, PageResponse } from '@/types/api'
 import type { RagChunk, RagSearchHit } from '@/features/analytics/api/aiApi'
@@ -54,8 +55,7 @@ export const documentApi = {
     if (input.folderId) form.append('folderId', input.folderId)
     if (input.reviewDate) form.append('reviewDate', input.reviewDate)
     if (input.expiryDate) form.append('expiryDate', input.expiryDate)
-    return axiosInstance
-      .post<ApiResponse<KbDocument>>(BASE, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+    return sendMultipart<ApiResponse<KbDocument>>(BASE, form)
       .then(r => r.data.data)
   },
 
@@ -65,8 +65,7 @@ export const documentApi = {
   replaceFile: (id: string, file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return axiosInstance
-      .put<ApiResponse<KbDocument>>(`${BASE}/${id}/file`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+    return sendMultipart<ApiResponse<KbDocument>>(`${BASE}/${id}/file`, form, { method: 'put' })
       .then(r => r.data.data)
   },
 
@@ -98,8 +97,7 @@ export const documentApi = {
   replaceLegacy: (id: string, file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return axiosInstance
-      .post<ApiResponse<KbDocument>>(`${BASE}/legacy/${id}/replace`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+    return sendMultipart<ApiResponse<KbDocument>>(`${BASE}/legacy/${id}/replace`, form)
       .then(r => r.data.data)
   },
 

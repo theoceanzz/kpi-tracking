@@ -5,6 +5,7 @@ import { CashTransactionType, type CashTransaction } from '../types'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const TYPE_META = perLanguage((): Record<
   CashTransactionType,
@@ -41,10 +42,10 @@ export default function CashLedgerTable({ data }: CashLedgerTableProps) {
         <thead className="bg-[var(--color-muted)]/50 text-left">
           <tr className="text-eyebrow">
             <th className="px-4 py-3">{tr('CashLedgerTable.time')}</th>
-            <th className="px-4 py-3">{tr('CashLedgerTable.type')}</th>
+            <th {...tourAnchor('ledger.type')} className="px-4 py-3">{tr('CashLedgerTable.type')}</th>
             <th className="px-4 py-3 text-right">{tr('CashLedgerTable.amount')}</th>
             <th className="px-4 py-3 text-right">{tr('CashLedgerTable.balanceAfter')}</th>
-            <th className="px-4 py-3">{tr('CashLedgerTable.explanation')}</th>
+            <th {...tourAnchor('ledger.explain')} className="px-4 py-3">{tr('CashLedgerTable.explanation')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--color-border)]">

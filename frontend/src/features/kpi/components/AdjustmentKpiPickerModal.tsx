@@ -11,6 +11,8 @@ import EmptyState from '@/components/common/EmptyState'
 import { cn, formatNumber } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourAction } from '@/components/common/tours/actions'
 
 interface AdjustmentKpiPickerModalProps {
   onClose: () => void
@@ -37,6 +39,9 @@ export default function AdjustmentKpiPickerModal({ onClose, onSelect }: Adjustme
     })
   }, [data])
 
+  // Bài hướng dẫn chọn hộ KPI đầu tiên còn điều chỉnh được để mở tiếp form đề nghị (chỉ mở form, không gửi).
+  useTourAction('adjpicker.pickFirst', () => { const first = adjustableKpis.find(k => !pendingKpiIds.has(k.id)); if (first) onSelect(first) })
+
   const filteredKpis = useMemo(() => {
     const q = keyword.trim().toLowerCase()
     if (!q) return adjustableKpis
@@ -44,7 +49,7 @@ export default function AdjustmentKpiPickerModal({ onClose, onSelect }: Adjustme
   }, [adjustableKpis, keyword])
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('adjpicker.dialog')}
       open
       onClose={onClose}
       size="lg"
@@ -52,7 +57,7 @@ export default function AdjustmentKpiPickerModal({ onClose, onSelect }: Adjustme
       title={t('AdjustmentKpiPickerModal.chooseTheKpiToAdjust')}
       description={t('AdjustmentKpiPickerModal.onlyKpisThatCanStillBe')}
     >
-      <div className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-card)] px-5 py-3">
+      <div {...tourAnchor('adjpicker.search')} className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-card)] px-5 py-3">
         <div className="relative">
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" aria-hidden="true" />
           <input
@@ -84,7 +89,7 @@ export default function AdjustmentKpiPickerModal({ onClose, onSelect }: Adjustme
             {filteredKpis.map(kpi => {
               const isPending = pendingKpiIds.has(kpi.id)
               return (
-                <button
+                <button {...tourAnchor('adjpicker.item')}
                   key={kpi.id}
                   type="button"
                   disabled={isPending}

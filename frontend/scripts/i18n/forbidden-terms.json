@@ -1,0 +1,12 @@
+{
+  "$comment": "Từ cấm trong bản dịch tiếng Anh, theo docs/i18n/GLOSSARY.md. pattern: regex, không phân biệt hoa thường. unlessSource: regex trên câu tiếng Việt gốc — nếu gốc khớp thì từ tiếng Anh là dịch đúng, không báo (vd. 'phòng ban' → department là đúng; chỉ sai khi 'đơn vị' bị dịch thành department). namespaces: chỉ xét các namespace này (bỏ trống = mọi nơi). allowKeys: 'namespace:key.path' được phép dùng.",
+  "terms": [
+    { "pattern": "\\bterms?\\b", "use": "Cycle / Period", "unlessSource": "điều kiện sử dụng|ngắn hạn|dài hạn|ngôn ngữ|thuật ngữ|điều khoản", "allowKeys": [] },
+    { "pattern": "\\bbatch(es)?\\b", "use": "Period", "unlessSource": "lô|mẻ", "allowKeys": [] },
+    { "pattern": "\\bdepartments?\\b", "use": "Unit", "unlessSource": "phòng|bộ phận|ban\\b|ban giám đốc", "allowKeys": [] },
+    { "pattern": "\\bcriteri(a|on)\\b", "use": "KPI", "unlessSource": "tiêu chí", "allowKeys": [] },
+    { "pattern": "^\\s*measures?\\s*:?\\s*$", "use": "Unit of measure / UoM", "allowKeys": [] },
+    { "pattern": "\\bbehaviou?r axis\\b", "use": "Conduct axis", "allowKeys": [] },
+    { "pattern": "\\bdelegat", "use": "Final approval granted at a lower level", "unlessSource": "uỷ quyền quản lý|ủy quyền quản lý|chéo đơn vị|người được uỷ quyền|thu hồi uỷ quyền|uỷ quyền mới|ký thay", "namespaces": ["kpi"], "allowKeys": [] }
+  ]
+}

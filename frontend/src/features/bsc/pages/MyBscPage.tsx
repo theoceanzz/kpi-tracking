@@ -26,6 +26,7 @@ import {
   type ScorecardPerspectiveResponse, type ScorecardResponse,
 } from '../types'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /** Thẻ đã đóng / lưu trữ không còn chấm điểm (cùng luật với backend `isRetired`). */
 const isRetired = (s: ScorecardResponse) =>
@@ -184,12 +185,12 @@ export default function MyBscPage() {
         {(hasPermission('BSC:MANAGE') || canManage) && (
           <div className="flex flex-wrap gap-2 sm:justify-end">
             {hasPermission('BSC:MANAGE') && (
-              <Button asChild variant="outline">
+              <Button {...tourAnchor('mybsc.analytics')} asChild variant="outline">
                 <Link to="/analytics?section=bsc"><TrendingUp aria-hidden="true" /> {t('MyBscPage.viewAnalytics')}</Link>
               </Button>
             )}
             {canManage && (
-              <Button asChild variant="outline">
+              <Button {...tourAnchor('mybsc.manage')} asChild variant="outline">
                 <Link to="/settings/tools?section=bsc"><ExternalLink aria-hidden="true" /> {t('MyBscPage.bscManagement')}</Link>
               </Button>
             )}
@@ -246,7 +247,7 @@ export default function MyBscPage() {
       ) : (
         <div className="space-y-3">
           {/* Thẻ bộ tiêu chí */}
-          <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-3">
+          <section {...tourAnchor('mybsc.scorecard')} className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-3">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-semibold text-[var(--color-foreground)]">{scorecard.name}</h3>
               <span className={cn('inline-flex items-center rounded-control px-2 py-0.5 text-xs font-medium', status.badgeClass)}>{status.label}</span>
@@ -269,7 +270,7 @@ export default function MyBscPage() {
             </p>
           )}
           {groups.map(({ fp, items }) => (
-            <section key={fp.code} className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+            <section {...tourAnchor('mybsc.perspective')} key={fp.code} className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
               <div className="flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-muted)] px-4 py-2">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: fp.color }} aria-hidden="true" />
                 <h4 className="text-label">{fp.name}</h4>

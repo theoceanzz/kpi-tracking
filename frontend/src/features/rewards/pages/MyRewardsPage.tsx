@@ -17,6 +17,7 @@ import { useMyTransactions, useMyWallet } from '../hooks/useRewards'
 import { useMyRedemptions } from '../hooks/useGifts'
 import { useMyAwards } from '../hooks/useCertificates'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 type TabKey = 'shop' | 'history' | 'certificates' | 'redemptions'
 
@@ -80,14 +81,14 @@ export default function MyRewardsPage() {
         description={t('MyRewardsPage.pointBalanceDailyCheckInGift')}
       />
 
-      <div id="tour-my-rewards-balance">
+      <div {...tourAnchor('myrewards.balance')} id="tour-my-rewards-balance">
         <RewardBalanceCard wallet={wallet} loading={walletLoading} />
       </div>
 
       {/* Ngay dưới số dư, TRÊN nội dung tab: điểm danh là việc phải làm mỗi ngày, để nó nằm
           trong một tab thì hôm nào nhân viên không mở tab đó là mất chuỗi. Thẻ tự ẩn
           khi tổ chức chưa bật, nên không chiếm chỗ vô ích. */}
-      <div id="tour-my-rewards-checkin">
+      <div {...tourAnchor('myrewards.checkin')} id="tour-my-rewards-checkin">
         <CheckinCard />
       </div>
 
@@ -96,7 +97,7 @@ export default function MyRewardsPage() {
       {activeTab === 'shop' && <GiftShopGrid balance={wallet?.balance ?? 0} />}
 
       {activeTab === 'history' && (
-        <div id="tour-my-rewards-history">
+        <div {...tourAnchor('myrewards.history')} id="tour-my-rewards-history">
           {txLoading ? (
             <LoadingSkeleton type="table" rows={4} />
           ) : transactions.length === 0 ? (
@@ -129,7 +130,7 @@ export default function MyRewardsPage() {
       {activeTab === 'certificates' && <MyCertificatesTab />}
 
       {activeTab === 'redemptions' && (
-        <div id="tour-my-rewards-redemptions">
+        <div {...tourAnchor('myrewards.redemptions')} id="tour-my-rewards-redemptions">
           {redemptionsLoading ? (
             <LoadingSkeleton type="table" rows={3} />
           ) : redemptions.length === 0 ? (

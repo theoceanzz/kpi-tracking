@@ -32,6 +32,8 @@ export interface UserInfo {
   requirePasswordChange?: boolean
   hasSeenOnboarding?: boolean
   isPlatformAdmin?: boolean
+  /** Backend: đăng nhập được nhưng chưa thuộc tổ chức nào. Thiếu field = hồ sơ cache bản cũ. */
+  needsOrganization?: boolean
   /** Ngôn ngữ người dùng tự chọn; null = chưa chọn. Thiếu field = hồ sơ cache từ bản cũ, chưa biết. */
   preferredLanguage?: string | null
   /** Ngôn ngữ thực dùng: tự chọn → mặc định của tổ chức → vi. */

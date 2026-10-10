@@ -41,7 +41,15 @@ public class ConductCriteria {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    /** Trọng số %, tổng của cả bộ phải bằng 100. */
+    /** Nhóm chứa tiêu chí; null = bộ không chia nhóm. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "conduct_criteria_group_id")
+    private ConductCriteriaGroup group;
+
+    /**
+     * Trọng số %. Không có nhóm: % trên tổng (cả bộ cộng 100). Có nhóm: % TRONG NHÓM (mỗi nhóm
+     * cộng 100) — trọng số trên tổng = weight × group.weight / 100.
+     */
     @Column(name = "weight", nullable = false)
     private Double weight;
 

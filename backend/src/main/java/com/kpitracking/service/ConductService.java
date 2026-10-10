@@ -2,6 +2,7 @@ package com.kpitracking.service;
 
 import com.kpitracking.constant.ConductConstants;
 import com.kpitracking.dto.request.conduct.ConductCriteriaRequest;
+import com.kpitracking.dto.request.conduct.ConductGroupRequest;
 import com.kpitracking.dto.request.conduct.ConductScoreRequest;
 import com.kpitracking.dto.request.conduct.ConductSetRequest;
 import com.kpitracking.dto.response.conduct.*;
@@ -39,6 +40,7 @@ import java.util.*;
 public class ConductService {
 
     private final ConductCriteriaRepository conductCriteriaRepository;
+    private final ConductCriteriaGroupRepository conductCriteriaGroupRepository;
     private final ConductCriteriaSetRepository conductCriteriaSetRepository;
     private final ConductEvaluationRepository conductEvaluationRepository;
     private final OrganizationRepository organizationRepository;
@@ -87,10 +89,13 @@ public class ConductService {
                 .kpiCycleIds(new LinkedHashSet<>())
                 .build());
 
-        List<ConductCriteriaRequest> criteria = request.getCriteria() != null && !request.getCriteria().isEmpty()
-                ? request.getCriteria()
-                : copyOf(source);
-        replaceCriteria(org, set, criteria);
+        boolean given = (request.getGroups() != null && !request.getGroups().isEmpty())
+                || (request.getCriteria() != null && !request.getCriteria().isEmpty());
+        if (given) replaceCriteria(org, set, request.getCriteria(), request.getGroups());
+        else {
+            CriteriaPlan copy = copyOf(source);
+            replaceCriteria(org, set, copy.criteria(), copy.groups());
+        }
         assignCycles(org, set, request.getKpiCycleIds());
 
         return toConfigResponse(org, listSets(org));
@@ -113,7 +118,9 @@ public class ConductService {
         if (request.getMaxScore() != null) set.setMaxScore(request.getMaxScore());
         conductCriteriaSetRepository.save(set);
 
-        if (request.getCriteria() != null) replaceCriteria(org, set, request.getCriteria());
+        if (request.getCriteria() != null || request.getGroups() != null) {
+            replaceCriteria(org, set, request.getCriteria(), request.getGroups());
+        }
         if (request.getKpiCycleIds() != null) assignCycles(org, set, request.getKpiCycleIds());
 
         return toConfigResponse(org, listSets(org));
@@ -247,21 +254,48 @@ public class ConductService {
         return name;
     }
 
-    private List<ConductCriteriaRequest> copyOf(ConductCriteriaSet source) {
+    /** Tiêu chí của một bộ: phẳng ({@code groups} rỗng) hoặc theo nhóm. */
+    private record CriteriaPlan(List<ConductCriteriaRequest> criteria, List<ConductGroupRequest> groups) {}
+
+    /** Chép cấu hình (kể cả nhóm) của bộ nguồn; không có nguồn thì 4 tiêu chí mặc định. */
+    private CriteriaPlan copyOf(ConductCriteriaSet source) {
         if (source == null) {
-            return ConductConstants.DEFAULT_CRITERIA.stream()
+            return new CriteriaPlan(ConductConstants.DEFAULT_CRITERIA.stream()
                     .map(d -> ConductCriteriaRequest.builder()
                             .name(d.getName()).description(d.getDescription()).weight(d.getWeight()).build())
-                    .toList();
+                    .toList(), List.of());
         }
-        return conductCriteriaRepository.findByCriteriaSetIdOrderByPositionAsc(source.getId()).stream()
-                .map(c -> ConductCriteriaRequest.builder()
-                        .name(c.getName()).description(c.getDescription()).weight(c.getWeight()).build())
-                .toList();
+        List<ConductCriteria> criteria = conductCriteriaRepository.findByCriteriaSetIdOrderByPositionAsc(source.getId());
+        List<ConductCriteriaGroup> groups = conductCriteriaGroupRepository.findByCriteriaSetIdOrderByPositionAsc(source.getId());
+        if (groups.isEmpty()) {
+            return new CriteriaPlan(criteria.stream().map(ConductService::toRequest).toList(), List.of());
+        }
+        return new CriteriaPlan(null, groups.stream()
+                .map(g -> ConductGroupRequest.builder()
+                        .name(g.getName()).weight(g.getWeight())
+                        .criteria(criteria.stream().filter(c -> inGroup(c, g)).map(ConductService::toRequest).toList())
+                        .build())
+                .toList());
     }
 
-    /** Thay THẾ toàn bộ tiêu chí của một bộ; tổng trọng số phải bằng 100%. */
-    private void replaceCriteria(Organization org, ConductCriteriaSet set, List<ConductCriteriaRequest> criteria) {
+    private static ConductCriteriaRequest toRequest(ConductCriteria c) {
+        return ConductCriteriaRequest.builder().name(c.getName()).description(c.getDescription()).weight(c.getWeight()).build();
+    }
+
+    private static boolean inGroup(ConductCriteria c, ConductCriteriaGroup g) {
+        return c.getGroup() != null && c.getGroup().getId().equals(g.getId());
+    }
+
+    /**
+     * Thay THẾ toàn bộ tiêu chí của một bộ. Có {@code groups} thì bộ chia nhóm: trọng số các nhóm
+     * cộng 100% và trọng số tiêu chí trong MỖI nhóm cộng 100%. Không thì bộ phẳng: tổng 100%.
+     */
+    private void replaceCriteria(Organization org, ConductCriteriaSet set,
+                                 List<ConductCriteriaRequest> criteria, List<ConductGroupRequest> groups) {
+        if (groups != null && !groups.isEmpty()) {
+            replaceGroupedCriteria(org, set, groups);
+            return;
+        }
         if (criteria == null || criteria.isEmpty()) {
             throw new BusinessException(ErrorCode.SET_NEEDS_LEAST_ONE_CRITERION, set.getName());
         }
@@ -285,6 +319,55 @@ public class ConductService {
         }
     }
 
+    private void replaceGroupedCriteria(Organization org, ConductCriteriaSet set, List<ConductGroupRequest> groups) {
+        double groupTotal = 0;
+        for (ConductGroupRequest g : groups) {
+            if (g.getName() == null || g.getName().isBlank()) {
+                throw new BusinessException(ErrorCode.CONDUCT_GROUP_NAME_EMPTY);
+            }
+            if (g.getCriteria() == null || g.getCriteria().isEmpty()) {
+                throw new BusinessException(ErrorCode.CONDUCT_GROUP_NEEDS_CRITERION, g.getName().trim());
+            }
+            double inGroup = g.getCriteria().stream()
+                    .mapToDouble(c -> c.getWeight() != null ? c.getWeight() : 0.0).sum();
+            if (Math.abs(inGroup - 100.0) > 0.01) {
+                throw new BusinessException(ErrorCode.CONDUCT_GROUP_WEIGHT_MUST_100_PERCENT,
+                        g.getName().trim(), String.valueOf(Math.round(inGroup * 100.0) / 100.0));
+            }
+            groupTotal += g.getWeight() != null ? g.getWeight() : 0.0;
+        }
+        if (Math.abs(groupTotal - 100.0) > 0.01) {
+            throw new BusinessException(ErrorCode.TOTAL_WEIGHT_SET_MUST_100_PERCENT, set.getName(),
+                    String.valueOf(Math.round(groupTotal * 100.0) / 100.0));
+        }
+
+        softDeleteCriteria(set);
+        // Thứ tự tiêu chí chạy liên tục qua các nhóm: dòng phiếu khớp tiêu chí theo vị trí.
+        int position = 1;
+        int groupPosition = 1;
+        for (ConductGroupRequest g : groups) {
+            ConductCriteriaGroup group = conductCriteriaGroupRepository.save(ConductCriteriaGroup.builder()
+                    .organization(org)
+                    .criteriaSet(set)
+                    .name(g.getName().trim())
+                    .weight(g.getWeight())
+                    .position(groupPosition++)
+                    .build());
+            for (ConductCriteriaRequest req : g.getCriteria()) {
+                conductCriteriaRepository.save(ConductCriteria.builder()
+                        .organization(org)
+                        .criteriaSet(set)
+                        .group(group)
+                        .name(req.getName().trim())
+                        .description(req.getDescription())
+                        .weight(req.getWeight())
+                        .position(position++)
+                        .build());
+            }
+        }
+    }
+
+    /** Xoá mềm tiêu chí VÀ nhóm của bộ (phiếu đã chấm giữ bản chụp riêng). */
     private void softDeleteCriteria(ConductCriteriaSet set) {
         List<ConductCriteria> existing = conductCriteriaRepository
                 .findByCriteriaSetIdOrderByPositionAsc(set.getId());
@@ -292,6 +375,18 @@ public class ConductService {
         existing.forEach(c -> c.setDeletedAt(now));
         conductCriteriaRepository.saveAll(existing);
         conductCriteriaRepository.flush();
+        List<ConductCriteriaGroup> groups = conductCriteriaGroupRepository
+                .findByCriteriaSetIdOrderByPositionAsc(set.getId());
+        groups.forEach(g -> g.setDeletedAt(now));
+        conductCriteriaGroupRepository.saveAll(groups);
+        conductCriteriaGroupRepository.flush();
+    }
+
+    /** % TRÊN TỔNG của một tiêu chí: thuộc nhóm thì % trong nhóm × % nhóm. */
+    private static double overallWeight(ConductCriteria c) {
+        double w = c.getWeight() != null ? c.getWeight() : 0.0;
+        if (c.getGroup() == null || c.getGroup().getWeight() == null) return w;
+        return w * c.getGroup().getWeight() / 100.0;
     }
 
     /**
@@ -719,13 +814,18 @@ public class ConductService {
                 .items(new ArrayList<>())
                 .build();
         for (ConductCriteria c : criteria) {
+            ConductCriteriaGroup g = c.getGroup();
             sheet.getItems().add(ConductEvaluationItem.builder()
                     .conductEvaluation(sheet)
                     .criteria(c)
                     .criteriaName(c.getName())
                     .criteriaDescription(c.getDescription())
-                    .weight(c.getWeight())
+                    .weight(overallWeight(c))
                     .position(c.getPosition())
+                    .groupName(g != null ? g.getName() : null)
+                    .groupWeight(g != null ? g.getWeight() : null)
+                    .groupPosition(g != null ? g.getPosition() : null)
+                    .weightInGroup(g != null ? c.getWeight() : null)
                     .build());
         }
         return conductEvaluationRepository.save(sheet);
@@ -890,16 +990,22 @@ public class ConductService {
                 .map(c -> {
                     Double self = avg.self(c.getId(), c.getPosition());
                     Double mgr = avg.manager(c.getId(), c.getPosition());
+                    double w = overallWeight(c);
+                    ConductCriteriaGroup g = c.getGroup();
                     return ConductItemResponse.builder()
                             .criteriaId(c.getId())
                             .name(c.getName())
                             .description(c.getDescription())
-                            .weight(c.getWeight())
+                            .weight(w)
                             .position(c.getPosition())
+                            .groupName(g != null ? g.getName() : null)
+                            .groupWeight(g != null ? g.getWeight() : null)
+                            .groupPosition(g != null ? g.getPosition() : null)
+                            .weightInGroup(g != null ? c.getWeight() : null)
                             .selfScore(self)
                             .managerScore(mgr)
-                            .selfWeighted(weighted(self, c.getWeight()))
-                            .managerWeighted(weighted(mgr, c.getWeight()))
+                            .selfWeighted(weighted(self, w))
+                            .managerWeighted(weighted(mgr, w))
                             .build();
                 })
                 .toList();
@@ -948,6 +1054,10 @@ public class ConductService {
                         .description(i.getCriteriaDescription())
                         .weight(i.getWeight())
                         .position(i.getPosition())
+                        .groupName(i.getGroupName())
+                        .groupWeight(i.getGroupWeight())
+                        .groupPosition(i.getGroupPosition())
+                        .weightInGroup(i.getWeightInGroup())
                         .selfScore(i.getSelfScore())
                         .selfEvidence(i.getSelfEvidence())
                         .managerScore(i.getManagerScore())
@@ -1008,7 +1118,12 @@ public class ConductService {
     private ConductSetResponse toSetResponse(ConductCriteriaSet set) {
         List<ConductCriteria> criteria = conductCriteriaRepository
                 .findByCriteriaSetIdOrderByPositionAsc(set.getId());
-        double total = criteria.stream().mapToDouble(c -> c.getWeight() != null ? c.getWeight() : 0.0).sum();
+        List<ConductCriteriaGroup> groups = conductCriteriaGroupRepository
+                .findByCriteriaSetIdOrderByPositionAsc(set.getId());
+        // Bộ chia nhóm: tổng là tổng trọng số các NHÓM (trong từng nhóm có tổng riêng).
+        double total = groups.isEmpty()
+                ? criteria.stream().mapToDouble(c -> c.getWeight() != null ? c.getWeight() : 0.0).sum()
+                : groups.stream().mapToDouble(g -> g.getWeight() != null ? g.getWeight() : 0.0).sum();
         return ConductSetResponse.builder()
                 .id(set.getId())
                 .name(set.getName())
@@ -1016,15 +1131,32 @@ public class ConductService {
                 .maxScore(set.getMaxScore())
                 .kpiCycleIds(new ArrayList<>(set.getKpiCycleIds()))
                 .totalWeight(Math.round(total * 100.0) / 100.0)
-                .criteria(criteria.stream()
-                        .map(c -> ConductCriteriaResponse.builder()
-                                .id(c.getId())
-                                .name(c.getName())
-                                .description(c.getDescription())
-                                .weight(c.getWeight())
-                                .position(c.getPosition())
-                                .build())
+                .criteria(criteria.stream().map(ConductService::toCriteriaResponse).toList())
+                .groups(groups.stream()
+                        .map(g -> {
+                            List<ConductCriteria> inside = criteria.stream().filter(c -> inGroup(c, g)).toList();
+                            double sum = inside.stream().mapToDouble(c -> c.getWeight() != null ? c.getWeight() : 0.0).sum();
+                            return ConductGroupResponse.builder()
+                                    .id(g.getId())
+                                    .name(g.getName())
+                                    .weight(g.getWeight())
+                                    .position(g.getPosition())
+                                    .totalWeight(Math.round(sum * 100.0) / 100.0)
+                                    .criteria(inside.stream().map(ConductService::toCriteriaResponse).toList())
+                                    .build();
+                        })
                         .toList())
+                .build();
+    }
+
+    private static ConductCriteriaResponse toCriteriaResponse(ConductCriteria c) {
+        return ConductCriteriaResponse.builder()
+                .id(c.getId())
+                .name(c.getName())
+                .description(c.getDescription())
+                .weight(c.getWeight())
+                .position(c.getPosition())
+                .groupId(c.getGroup() != null ? c.getGroup().getId() : null)
                 .build();
     }
 

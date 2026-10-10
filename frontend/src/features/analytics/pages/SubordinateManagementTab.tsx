@@ -22,6 +22,7 @@ import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPositio
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /** Tên "report ẩn" của kho cũ — chỉ còn dùng để vớt bố cục một lần. */
 const LEGACY_REPORT_NAME = '__SUBORDINATE_DASHBOARD_CONFIG__'
@@ -189,7 +190,7 @@ export default function SubordinateManagementTab() {
       {/* Tiêu đề + khoảng mặc định + thêm biểu đồ */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-[var(--color-foreground)]">{t('SubordinateManagementTab.unitObjectivesIManage')}</h2>
-        <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
+        <div id="tour-analytics-customize" {...tourAnchor('analytics.toolbar')} className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>
       </div>

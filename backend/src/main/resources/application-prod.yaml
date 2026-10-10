@@ -271,6 +271,15 @@ app:
     # ⚠️ ĐỔI KHOÁ NÀY = MẤT LIÊN KẾT Lark của mọi công ty, không phục hồi được.
     # Sinh khoá: openssl rand -base64 48
     data-key: ${DATA_ENCRYPTION_KEY:}
+    # Cảnh báo 403 dồn dập (ForbiddenBurstDetector): một người dính >= threshold lần 403 trong window-seconds
+    # ⇒ log ERROR "ALERT FORBIDDEN_BURST" + dòng FORBIDDEN_BURST trong security_audit_logs + metric
+    # security.forbidden.burst. Gắn cảnh báo theo log vào nhãn đó. Mỗi người tối đa 1 cảnh báo / cooldown.
+    forbidden-burst:
+      threshold: ${FORBIDDEN_BURST_THRESHOLD:10}
+      window-seconds: ${FORBIDDEN_BURST_WINDOW_SECONDS:60}
+      cooldown-seconds: ${FORBIDDEN_BURST_COOLDOWN_SECONDS:600}
+      # Ai nhận email cảnh báo (cách nhau dấu phẩy). Để trống = mọi quản trị nền tảng đang hoạt động.
+      alert-emails: ${FORBIDDEN_BURST_ALERT_EMAILS:}
   cors:
     # ⚠️ KHÔNG dùng '*': phiên đăng nhập đi bằng cookie nên allowCredentials=true, một wildcard
     # ở đây đồng nghĩa mọi website đều gọi được API thay mặt người dùng đang đăng nhập.
@@ -296,6 +305,9 @@ app:
       # Quyen bi go con hieu luc toi da TTL tren instance KHAC. docs/DATABASE_SCALING.md C2.
       ttl-seconds: ${AUTHORITY_CACHE_TTL_SECONDS:30}
       max-entries: ${AUTHORITY_CACHE_MAX_ENTRIES:50000}
+  tasks:
+    # Nhac viec gan KPI (KpiTaskReminderScheduler): moc nhac theo tung task + qua han, 5 phut mot lan. Cron Spring 6 truong, gio VN.
+    reminder-cron: ${APP_TASKS_REMINDER_CRON:0 */5 * * * *}
   retention:
     # Job don du lieu ghi lien tuc (DataRetentionScheduler). MAC DINH TAT — bat sau khi da chay
     # backend/db/ops/002 + 003 tren prod va xac nhan TTL voi nghiep vu. docs/DATABASE_SCALING.md C3.

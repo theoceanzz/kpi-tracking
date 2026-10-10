@@ -24,7 +24,6 @@ public class FormRegistry {
     public static final String SUBMISSION_FORM = "submission_form";
     public static final String EVALUATION_FORM = "evaluation_form";
     public static final String KPI_ADJUSTMENT_FORM = "kpi_adjustment_form";
-    public static final String ORG_UNIT_FORM = "org_unit_form";
     public static final String ORG_UNIT_DRAWER_FORM = "org_unit_drawer_form";
 
     /**
@@ -122,29 +121,11 @@ public class FormRegistry {
                     Field.text("reason", "Lý do", 10)));
 
     /**
-     * Form tạo/sửa đơn vị. Phản chiếu {@code frontend/src/features/orgunits/schemas/orgUnitSchema.ts}.
-     *
-     * <p>Cố ý BỎ {@code provinceId}/{@code districtId} (huyện chỉ tra được khi biết tỉnh, mà tỉnh
-     * lại không có hàm tìm theo tên — chi phí cao, giá trị thấp) và {@code roleIds} (gán vai trò là
-     * bề mặt liên quan phân quyền).
-     */
-    private static final Descriptor ORG_UNIT = new Descriptor(
-            ORG_UNIT_FORM,
-            "Tạo/sửa đơn vị",
-            "suggest_org_unit_form",
-            List.of(
-                    Field.text("name", "Tên đơn vị"),
-                    Field.text("code", "Mã đơn vị"),
-                    Field.text("email", "Email"),
-                    Field.text("phone", "Điện thoại"),
-                    Field.text("address", "Địa chỉ"),
-                    Field.entity("orgHierarchyId", "Cấp bậc"),
-                    Field.entity("parentId", "Đơn vị cha")));
-
-    /**
-     * Form sửa đơn vị dạng drawer. KHÁC {@link #ORG_UNIT} dù nhìn giống: cấp bậc ở đây là chữ tự do
-     * ({@code unitTypeName}) chứ không phải id, có thêm {@code status}, và không có đơn vị cha.
-     * Gộp hai form lại là mở đường cho đề xuất sai kiểu.
+     * Form tạo/sửa đơn vị dạng drawer (màn Cơ cấu tổ chức) — form đơn vị DUY NHẤT còn dùng. Phản chiếu
+     * schema nội tuyến trong {@code frontend/src/features/organization/components/OrgUnitDrawer.tsx}.
+     * Cấp bậc là chữ tự do ({@code unitTypeName}), không có đơn vị cha (do chỗ bấm mở drawer quyết
+     * định). Cố ý BỎ tỉnh/huyện (huyện chỉ tra được khi biết tỉnh, mà tỉnh không có hàm tìm theo tên)
+     * và {@code roleIds} (gán vai trò là bề mặt liên quan phân quyền).
      */
     private static final Descriptor ORG_UNIT_DRAWER = new Descriptor(
             ORG_UNIT_DRAWER_FORM,
@@ -157,7 +138,18 @@ public class FormRegistry {
                     Field.text("email", "Email"),
                     Field.text("phone", "Điện thoại"),
                     Field.text("address", "Địa chỉ"),
-                    Field.enumOf("status", "Trạng thái", statusLabels())));
+                    Field.enumOf("status", "Trạng thái", statusLabels()),
+                    // Chỉ để vẽ sơ đồ. Tool chỉ nhận ADVISORY/SUPERVISORY khi người dùng nói rõ quan hệ
+                    // (OrgUnitDrawerFormFillTool.relationOf); đơn vị gốc không có ô này trên màn hình.
+                    Field.enumOf("parentRelation", "Quan hệ với đơn vị cấp trên", parentRelationLabels())));
+
+    private static Map<String, String> parentRelationLabels() {
+        Map<String, String> m = new LinkedHashMap<>();
+        m.put("DIRECT", "Trực tuyến");
+        m.put("ADVISORY", "Tham mưu – tư vấn");
+        m.put("SUPERVISORY", "Giám sát độc lập");
+        return m;
+    }
 
     private static Map<String, String> statusLabels() {
         Map<String, String> m = new LinkedHashMap<>();
@@ -187,7 +179,6 @@ public class FormRegistry {
         byFormId.put(SUBMISSION.formId(), SUBMISSION);
         byFormId.put(EVALUATION.formId(), EVALUATION);
         byFormId.put(KPI_ADJUSTMENT.formId(), KPI_ADJUSTMENT);
-        byFormId.put(ORG_UNIT.formId(), ORG_UNIT);
         byFormId.put(ORG_UNIT_DRAWER.formId(), ORG_UNIT_DRAWER);
     }
 

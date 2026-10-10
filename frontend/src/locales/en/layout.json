@@ -131,7 +131,9 @@
     "aiSubmissionReview": "AI submission review",
     "aiReadsSubmissionsAndAppliesRules": "Let AI pre-read submissions when scoring, and apply scoring rules per unit",
     "approvalProcesses": "Approval processes",
-    "approvalProcessesDescription": "Draw condition-based approval processes for KPI assignment and KPI adjustment requests"
+    "approvalProcessesDescription": "Draw condition-based approval processes for KPI assignment and KPI adjustment requests",
+    "myTasks": "Tasks",
+    "yourTasksToCompleteKpis": "What you need to do to complete your KPIs, as a list or Kanban board"
   },
   "Sidebar": {
     "administrator": "Administrator",

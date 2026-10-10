@@ -11,7 +11,7 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Quy trình duyệt của một tổ chức cho một đối tượng (xem {@code V38__approval_processes.sql}).
+ * Quy trình duyệt của một tổ chức cho một đối tượng (xem {@code V42__approval_processes.sql}).
  * Sơ đồ ở {@link #definition} là dạng lưu của {@code ProcessGraph}; để jsonb thay vì trải thành
  * bảng node/cạnh vì luôn đọc/ghi nguyên khối và chỉ cần kiểm ở một chỗ.
  */

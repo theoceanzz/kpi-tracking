@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse, PageResponse } from '@/types/api'
 import type { Submission, CreateSubmissionRequest, UpdateSubmissionRequest, ReviewSubmissionRequest, ReturnSubmissionRequest, Attachment, SubmissionEvaluatorScore } from '@/types/submission'
 import type { SubmissionStatus } from '@/types/submission'
@@ -63,9 +64,7 @@ export const submissionApi = {
   uploadAttachments: (id: string, files: File[]) => {
     const formData = new FormData()
     files.forEach((f) => formData.append('files', f))
-    return axiosInstance.post<ApiResponse<Attachment[]>>(`/submissions/${id}/attachments`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }).then((r) => r.data.data)
+    return sendMultipart<ApiResponse<Attachment[]>>(`/submissions/${id}/attachments`, formData).then((r) => r.data.data)
   },
 
   getAttachments: (id: string) =>

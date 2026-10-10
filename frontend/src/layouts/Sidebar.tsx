@@ -176,6 +176,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
     if (path === '/rewards' && counts.pendingRewards > 0) return counts.pendingRewards
     if (path === '/wallet' && counts.pendingWallet > 0) return counts.pendingWallet
     if (path === '/documents' && counts.pendingDocumentPromotions > 0) return counts.pendingDocumentPromotions
+    if (path === '/tasks' && counts.myTaskAlerts > 0) return counts.myTaskAlerts
     return null
   }
 
@@ -509,7 +510,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                 {t('Sidebar.securityPassword')}
               </Link>
               <div className="h-px bg-[var(--color-border)] my-1" />
-              <Button variant="ghost" className="w-full text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => { logout(); setUserMenuOpen(false) }}>
+              <Button data-testid="sign-out" variant="ghost" className="w-full text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => { logout(); setUserMenuOpen(false) }}>
                 <LogOut aria-hidden="true" />
                 {t('Sidebar.signOut')}
               </Button>
@@ -518,6 +519,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
 
           {/* Trigger Button */}
           <button 
+            data-testid="user-menu"
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             className={cn(
               "group flex w-full items-center justify-between rounded-control p-1.5 transition-colors hover:bg-[var(--color-muted)]",

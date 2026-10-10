@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse } from '@/types/api'
 import {
   PerspectiveResponse, PerspectiveRequest, ImportBscResponse, FixedPerspectiveResponse, FixedPerspectiveUpdateRequest,
@@ -198,10 +199,7 @@ export const bscApi = {
   importScorecards: (organizationId: string, file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    return axiosInstance
-      .post<ApiResponse<ImportBscResponse>>(`/bsc/organization/${organizationId}/scorecards/import`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+    return sendMultipart<ApiResponse<ImportBscResponse>>(`/bsc/organization/${organizationId}/scorecards/import`, formData)
       .then(r => r.data.data)
   },
 }

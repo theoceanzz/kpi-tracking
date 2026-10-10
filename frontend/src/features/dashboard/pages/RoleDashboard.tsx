@@ -6,6 +6,7 @@ import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/com
 import { DashboardToolbarPortal } from '@/components/common/dashboard/DashboardToolbarSlot'
 import { useDashboardLayout } from '@/components/common/dashboard/useDashboardLayout'
 import { useTourScope } from '@/hooks/useTourScope'
+import { tourAnchor } from '@/components/common/tours/anchors'
 import { POSITION_LABEL } from '../hooks/useViewerPosition'
 import type { DashboardScope } from '../api/dashboardLayoutApi'
 import type { DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
@@ -100,7 +101,7 @@ function RoleDashboardGrid({ scope, organization }: {
   return (
     <div className="max-w-[1600px] mx-auto space-y-6">
       <DashboardToolbarPortal>
-        <div id="tour-dashboard-customize" className="flex items-center gap-2">
+        <div {...tourAnchor('dashboard.toolbar')} className="flex items-center gap-2">
           <AiShortcutButton size="sm" label={t('RoleDashboard.toDo')} prompt={aiShortcuts.myTasks()} title={t('RoleDashboard.kAiGathersTheWorkWaiting')} />
           <DashboardEditToolbar api={dash} />
         </div>
@@ -110,7 +111,7 @@ function RoleDashboardGrid({ scope, organization }: {
           Đứng TRÊN lưới widget vì nó là việc đang chờ người dùng, không phải số liệu để ngắm. */}
       {scope === 'STAFF' && <CompletedPeriodEvaluationPrompt />}
 
-      <div id="tour-dashboard-grid">
+      <div {...tourAnchor('dashboard.grid')}>
         <DashboardCustomizeChrome
           api={dash}
           catalog={catalog}

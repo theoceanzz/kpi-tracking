@@ -53,6 +53,8 @@ import ApprovalStepHint from '../components/ApprovalStepHint'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 /** Số nhóm (đơn vị, hoặc người khi chỉ có một đơn vị) hiển thị mỗi trang. */
 const GROUP_PAGE_SIZE = 10
@@ -104,15 +106,15 @@ function RowActions({ kpi, onView, onApprove, onReject, busy, canAct }: {
   return (
     <div className="flex items-center justify-end gap-0.5">
       {lockReason && <LockedBadge reason={lockReason} />}
-      <Button variant="ghost" size="icon-sm" onClick={onView} aria-label={t('KpiApprovalPage.viewDetails')} title={t('KpiApprovalPage.viewDetails')}>
+      <Button {...tourAnchor('pending.view')} variant="ghost" size="icon-sm" onClick={onView} aria-label={t('KpiApprovalPage.viewDetails')} title={t('KpiApprovalPage.viewDetails')}>
         <Eye aria-hidden="true" />
       </Button>
       {pending && (
         <>
-          <Button variant="ghost" size="icon-sm" onClick={onApprove} disabled={busy} aria-label={approveLabel} title={approveLabel} className="text-[var(--color-success)] hover:bg-[var(--color-success-bg)]">
+          <Button {...tourAnchor('pending.approve')} variant="ghost" size="icon-sm" onClick={onApprove} disabled={busy} aria-label={approveLabel} title={approveLabel} className="text-[var(--color-success)] hover:bg-[var(--color-success-bg)]">
             <CheckCircle aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="icon-sm" onClick={onReject} disabled={busy} aria-label={t('KpiApprovalPage.return')} title={t('KpiApprovalPage.return')} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]">
+          <Button {...tourAnchor('pending.reject')} variant="ghost" size="icon-sm" onClick={onReject} disabled={busy} aria-label={t('KpiApprovalPage.return')} title={t('KpiApprovalPage.return')} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]">
             <XCircle aria-hidden="true" />
           </Button>
         </>
@@ -392,7 +394,7 @@ export default function KpiApprovalPage() {
     const pendingIds = list.filter(k => canActOn(k) && !kpiLockReason(k)).map(k => k.id)
     if (pendingIds.length === 0) return null
     return (
-      <Button
+      <Button {...tourAnchor('pending.person-approve')}
         variant="outline" size="sm"
         onClick={() => bulkApproveMutation.mutate(pendingIds)}
         disabled={bulkApproveMutation.isPending}
@@ -494,7 +496,14 @@ export default function KpiApprovalPage() {
 
   const approveOne = (id: string) => bulkApproveMutation.mutate([id])
   const openReview = (kpi: KpiCriteria, mode: 'view' | 'reject' = 'view') => { setReviewMode(mode); setReviewKpi(kpi) }
+  // Bài hướng dẫn mở hộp xem của KPI đầu danh sách (chỉ xem — các nút duyệt bị `blockedByTour` chặn).
+  useTourModal('pending.review', () => { const first = items[0]; if (first) openReview(first) }, () => setReviewKpi(null))
   const busy = bulkApproveMutation.isPending
+  // Hộp xem đọc bản MỚI NHẤT của KPI trong danh sách (vừa sửa xong, hoặc người khác vừa đổi),
+  // không giữ bản chụp lúc bấm mở; KPI rời danh sách (đã duyệt/trả lại) thì giữ bản đang mở.
+  const liveReviewKpi = reviewKpi
+    ? items.find(k => k.id === reviewKpi.id) ?? statsData?.content?.find(k => k.id === reviewKpi.id) ?? reviewKpi
+    : null
 
   const pendingSelectable = items.filter(k => canActOn(k))
   const allPendingSelected = pendingSelectable.length > 0 && selectedKpis.length === pendingSelectable.length
@@ -659,7 +668,7 @@ export default function KpiApprovalPage() {
           { label: t('KpiApprovalPage.returned'), value: stats.rejected, icon: Undo2 },
         ]}
         actions={hasPermission('KPI:APPROVE_CRITERIA') && (
-          <AiShortcutButton
+          <AiShortcutButton {...tourAnchor('pending.ai')}
             label={t('KpiApprovalPage.approveWithKAi')}
             prompt={aiShortcuts.reviewKpiCriteria(null, selectedPeriodId === 'ALL' ? null : periodsData?.content.find(p => p.id === selectedPeriodId)?.name)}
             title={t('KpiApprovalPage.kAiListsTheKpisPending')}
@@ -700,7 +709,7 @@ export default function KpiApprovalPage() {
         ) : undefined}
       >
         <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0); resetGroups() }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label={t('KpiApprovalPage.evaluationPeriods')}><SelectValue placeholder={t('KpiApprovalPage.evaluationPeriods')} /></SelectTrigger>
+          <SelectTrigger {...tourAnchor('pending.period')} className="w-full sm:w-auto sm:min-w-52" aria-label={t('KpiApprovalPage.evaluationPeriods')}><SelectValue placeholder={t('KpiApprovalPage.evaluationPeriods')} /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">{t('KpiApprovalPage.allPeriods')}</SelectItem>
             {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -722,7 +731,7 @@ export default function KpiApprovalPage() {
       </FilterBar>
 
       {/* Tab trạng thái — kèm số đếm để biết còn bao nhiêu việc trước khi bấm */}
-      <div id="tour-pending-tabs" className="flex items-center justify-between gap-3">
+      <div {...tourAnchor('pending.tabs')} id="tour-pending-tabs" className="flex items-center justify-between gap-3">
         <SegmentedControl
           ariaLabel={t('KpiApprovalPage.filterByStatus')}
           value={activeTab}
@@ -755,12 +764,12 @@ export default function KpiApprovalPage() {
       {isLoading ? (
         <LoadingSkeleton type="table" rows={8} />
       ) : items.length === 0 ? (
-        <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
+        <div {...tourAnchor('pending.table')} className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
           <EmptyState icon={Inbox} title={emptyTitle} description={emptyDesc} />
             </div>
       ) : viewMode === 'list' ? (
         <div className="hidden overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] md:block">
-          <table className="w-full">
+          <table {...tourAnchor('pending.table')} className="w-full">
                 <thead>
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
                 <th scope="col" className="w-10 px-3 py-2.5">
@@ -858,7 +867,7 @@ export default function KpiApprovalPage() {
               selectionSummary.forwarded && t('KpiApprovalPage.forwardedToTheParent', { forwarded: selectionSummary.forwarded })].filter(Boolean).join(' · ')}
           </span>
         )}
-        <Button onClick={() => bulkApproveMutation.mutate(selectedKpis)} disabled={busy}>
+        <Button {...tourAnchor('pending.bulk')} onClick={() => bulkApproveMutation.mutate(selectedKpis)} disabled={busy}>
           {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <CheckCircle aria-hidden="true" />}
           {t('KpiApprovalPage.approve')} {selectedKpis.length} {t('KpiApprovalPage.kpis')}
         </Button>
@@ -867,7 +876,7 @@ export default function KpiApprovalPage() {
         <KpiReviewModal 
           open={!!reviewKpi} 
           onClose={() => setReviewKpi(null)} 
-          kpi={reviewKpi} 
+          kpi={liveReviewKpi}
           onEdit={handleEdit}
         initialMode={reviewMode}
         />

@@ -1,366 +1,185 @@
 import type { TourKey } from '@/store/tourStore'
 import type { TourDef } from './registry'
-import {
-  myKpiSteps,
-  mySubmissionsSteps,
-  evaluationsSteps,
-  myAdjustmentsSteps,
-} from './inherited'
-import i18n from 'i18next'
+import { tourKit, tourTarget } from './kit'
 import { perLanguage } from '@/i18n/perLanguage'
+import { EVAL_FORM, MY_ADJ_FORM, MY_KPI_ADJUST, REDEEM_FORM, TOPUP_FORM } from './forms-me'
 
 /**
- * Hướng dẫn cho "Của tôi" — dòng sidebar, sáu mục, và các tab của hai mục ví.
+ * Hướng dẫn cho "Của tôi" — trang gộp, từng mục và các tab của Điểm / Ví.
  *
- * Bốn mục công việc đã có nội dung từ hồi chúng còn là bốn dòng sidebar riêng; ở đây chỉ
- * gắn lại vào khoá ba tầng. Phần viết mới là cấp trang và hai mục ví — hai mục này trước
- * đó không có gì, dù chúng động tới điểm thưởng và tiền thật.
+ * Bản 2 viết lại theo khuôn từng bước nhỏ (xem `kit.tsx`). Bản 1 nói "bốn thẻ của cụm Công việc"
+ * trong khi cụm nay có tới tám thẻ tuỳ module. Ba mục OKR, BSC và Đánh giá 360 của tôi trước đây
+ * chưa có bài — nay có, bản 1.
  */
 
-const note = (text: string) => (
-  <p className="text-xs bg-[var(--color-primary-soft)] p-2 rounded-control text-[var(--color-primary)] font-medium italic">
-    💡 {text}
-  </p>
-)
-
-const warn = (text: string) => (
-  <p className="text-xs bg-[var(--color-warning-bg)] p-2 rounded-control text-[var(--color-warning)] font-medium italic border-l-4 border-[var(--color-warning-border)]">
-    ⚠️ {text}
-  </p>
-)
+const V = 2
+/** Bản 3: mục có hộp thoại nối thêm bài đi qua hộp đó (xem `forms-me.tsx`). */
+const V3 = 3
+const { s, sectionCards } = tourKit('tourMySpace')
 
 const mySpaceTours = perLanguage((): Record<TourKey, TourDef> => ({
-  /* ══════════ Cấp trang ══════════ */
-  'my-space': {
+  'my-space': { version: V, steps: sectionCards('my-space') },
+
+  'my-space/my-kpi': {
+    version: V3,
+    next: MY_KPI_ADJUST,
     steps: [
-      {
-        target: '#tour-settings-nav',
-        title: i18n.t('shared:my_space.everythingThatIsYours'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:my_space.theGroup')} <strong>{i18n.t('shared:my_space.work')}</strong> {i18n.t('shared:my_space.isTheKpisAssignedToYou')}
-            </p>
-            <p>
-              {i18n.t('shared:my_space.theGroup')} <strong>{i18n.t('shared:my_space.wallet')}</strong> {i18n.t('shared:my_space.isSeparateBecauseTheyAreTwo')}
-            </p>
-          </div>
-        ),
-        placement: 'top',
-      },
-      {
-        target: '#tour-card-my-kpi',
-        title: i18n.t('shared:my_space.yourWorkLoop'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:my_space.theFourCardsOfTheWork')} <strong>{i18n.t('shared:my_space.kpis')}</strong> {i18n.t('shared:my_space.submit')}{' '}
-              <strong>{i18n.t('shared:my_space.reports')}</strong> {i18n.t('shared:my_space.receive')} <strong>{i18n.t('shared:my_space.evaluations')}</strong>{i18n.t('shared:my_space.ifAKpiNoLongerFits')} <strong>{i18n.t('shared:my_space.adjustmentRequest')}</strong>.
-            </p>
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-settings-nav',
-        title: i18n.t('shared:my_space.aRedDotIsWorkWaiting'),
-        content: (
-          <div className="space-y-2">
-            <p>{i18n.t('shared:my_space.aCardWithARedDot')}</p>
-            {note(i18n.t('shared:my_space.missingACardTheWalletGroup'))}
-          </div>
-        ),
-        placement: 'top',
-      },
+      s('mykpi.ai', tourTarget('mykpi.ai'), 'left'),
+      s('mykpi.search', tourTarget('filter.search'), 'bottom'),
+      s('mykpi.view', tourTarget('filter.trailing'), 'bottom'),
+      s('mykpi.table', tourTarget('mykpi.table'), 'top'),
+      s('mykpi.submit', tourTarget('mykpi.submit'), 'left'),
+      s('mykpi.adjust', tourTarget('mykpi.adjust'), 'left'),
+      s('mykpi.selfEval', tourTarget('mykpi.self-eval'), 'left'),
     ],
   },
 
-  /* ══════════ Cụm Công việc ══════════ */
-  'my-space/my-kpi': { steps: myKpiSteps() },
-  'my-space/my-submissions': { steps: mySubmissionsSteps() },
-  'my-space/evaluations': { steps: evaluationsSteps() },
-  'my-space/my-adjustments': { steps: myAdjustmentsSteps() },
-
-  /* ══════════ Cụm Ví ══════════ */
-  'my-space/my-rewards': {
+  'my-space/my-okr': {
     steps: [
-      {
-        target: '#tour-my-rewards-balance',
-        title: i18n.t('shared:my_space.yourRewardPoints'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:my_space.thisCardIsYourCurrentPoint')}
-            </p>
-            {note(i18n.t('shared:my_space.theFeedAboveIsTheReward'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-my-rewards-checkin',
-        title: i18n.t('shared:my_space.theCheckInCardSitsOutside'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:my_space.theCheckInCardIsPlaced')} <strong>{i18n.t('shared:my_space.above')}</strong> {i18n.t('shared:my_space.theTabRowOnPurposeIf')}
-            </p>
-            {warn(i18n.t('shared:my_space.breakingADailyStreakLosesThe'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-workspace-tabs',
-        title: i18n.t('shared:my_space.fourTabsSpendViewShowOff'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              <strong>{i18n.t('shared:my_space.giftShop')}</strong> {i18n.t('shared:my_space.toRedeemPoints')} <strong>{i18n.t('shared:my_space.pointHistory')}</strong> {i18n.t('shared:my_space.toSeeWherePointsComeFrom')} <strong>{i18n.t('shared:my_space.certificates')}</strong> {i18n.t('shared:my_space.toDownloadCertificates')} <strong>{i18n.t('shared:my_space.redeemedGifts')}</strong> {i18n.t('shared:my_space.toTrackItemsWaitingToBe')}
-            </p>
-            {note(i18n.t('shared:my_space.theNumberOnEachTabIs'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
+      s('myokr.objective', tourTarget('myokr.objective'), 'top'),
+      s('myokr.search', tourTarget('filter.search'), 'bottom'),
+      s('myokr.analytics', tourTarget('myokr.analytics'), 'left'),
+      s('myokr.manage', tourTarget('myokr.manage'), 'left'),
     ],
   },
 
-  'my-space/my-rewards#shop': {
-    title: i18n.t('shared:my_space.giftShop'),
+  'my-space/my-bsc': {
     steps: [
-      {
-        target: '#tour-gift-shop-grid',
-        title: i18n.t('shared:my_space.redeemPointsForGifts'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:my_space.eachCardShowsThePointPrice')}{' '}
-              <strong>{i18n.t('shared:my_space.short')}</strong>{i18n.t('shared:my_space.noMentalMathNeeded')}
-            </p>
-            {note(i18n.t('shared:my_space.outOfStockAndNotEnough'))}
-          </div>
-        ),
-        placement: 'top',
-      },
-      {
-        target: '#tour-gift-shop-grid',
-        title: i18n.t('shared:my_space.pointsAreDeductedTheMomentYou'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:my_space.clickingRedeemDeductsPointsImmediatelyBefore')}{' '}
-              <strong>{i18n.t('shared:my_space.redeemedGifts')}</strong> {i18n.t('shared:my_space.waitingForThePersonInCharge')}
-            </p>
-            {warn(i18n.t('shared:my_space.thereIsNoRefundButtonThink'))}
-          </div>
-        ),
-        placement: 'top',
-      },
+      s('mybsc.scorecard', tourTarget('mybsc.scorecard'), 'bottom'),
+      s('mybsc.perspective', tourTarget('mybsc.perspective'), 'top'),
+      s('mybsc.search', tourTarget('filter.search'), 'bottom'),
+      s('mybsc.analytics', tourTarget('mybsc.analytics'), 'left'),
+      s('mybsc.manage', tourTarget('mybsc.manage'), 'left'),
     ],
   },
 
-  'my-space/my-rewards#history': {
-    title: i18n.t('shared:my_space.pointHistory'),
+  'my-space/my-submissions': {
+    version: V,
     steps: [
-      {
-        target: '#tour-my-rewards-history',
-        title: i18n.t('shared:my_space.wherePointsComeFromAndGo'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:my_space.eachRowShowsTheReasonThe')}
-            </p>
-            {note(i18n.t('shared:my_space.longListsArePaginatedUseThe'))}
-          </div>
-        ),
-        placement: 'top',
-      },
+      s('mysub.stats', tourTarget('ws.stats'), 'bottom'),
+      s('mysub.add', tourTarget('mysub.add'), 'left'),
+      s('mysub.search', tourTarget('filter.search'), 'bottom'),
+      s('mysub.tabs', tourTarget('mysub.tabs'), 'bottom'),
+      s('mysub.drafts', tourTarget('mysub.drafts'), 'bottom'),
+      s('mysub.list', tourTarget('mysub.list'), 'top'),
+      s('mysub.edit', tourTarget('mysub.edit'), 'left'),
+      s('mysub.send', tourTarget('mysub.send'), 'left'),
     ],
   },
 
-  'my-space/my-rewards#certificates': {
-    title: i18n.t('shared:my_space.certificates'),
+  'my-space/evaluations': {
+    version: V3,
+    next: EVAL_FORM,
     steps: [
-      {
-        target: '#tour-my-certificates-grid',
-        title: i18n.t('shared:my_space.yourCertificates'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:my_space.notEveryRewardComesWithA')}
-            </p>
-            {note(i18n.t('shared:my_space.ifTheCompanyHasNotBuilt'))}
-          </div>
-        ),
-        placement: 'top',
-      },
+      s('eval.add', tourTarget('eval.add'), 'left'),
+      s('eval.selfNow', tourTarget('eval.self-now'), 'bottom'),
+      s('eval.period', tourTarget('eval.period'), 'bottom'),
+      s('eval.table', tourTarget('eval.table'), 'top'),
+      s('eval.view', tourTarget('eval.view'), 'left'),
     ],
   },
 
-  'my-space/my-rewards#redemptions': {
-    title: i18n.t('shared:my_space.redeemedGifts'),
+  'my-space/my-adjustments': {
+    version: V3,
+    next: MY_ADJ_FORM,
     steps: [
-      {
-        target: '#tour-my-rewards-redemptions',
-        title: i18n.t('shared:my_space.itemsWaitingToBeReceived'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:my_space.theStatusOfEachRedemptionFrom')}
-            </p>
-            {note(i18n.t('shared:my_space.ifAnItemStaysPendingToo'))}
-          </div>
-        ),
-        placement: 'top',
-      },
-    ],
-  },
-
-  'my-space/my-cash-wallet': {
-    steps: [
-      {
-        target: '#tour-my-wallet-balance',
-        title: i18n.t('shared:my_space.thisIsMoneyNotPoints'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:my_space.theWalletHoldsYourRealCash')}
-            </p>
-            {warn(i18n.t('shared:my_space.conversionIsOneWayMoneyTo'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-my-wallet-topup',
-        title: i18n.t('shared:my_space.topUpFromAnywhere'),
-        content: (
-          <p>
-            {i18n.t('shared:my_space.theButton')} <strong>{i18n.t('shared:my_space.topUp')}</strong> {i18n.t('shared:my_space.inTheTopCornerIsAlways')}
-          </p>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-workspace-tabs',
-        title: '🗂️ Ba tab',
-        content: (
-          <p>
-            <strong>{i18n.t('shared:my_space.convertToPoints')}</strong> {i18n.t('shared:my_space.toConvert')} <strong>{i18n.t('shared:my_space.topUpOrders')}</strong> {i18n.t('shared:my_space.toTrackTopUpsWaitingTo')} <strong>{i18n.t('shared:my_space.walletHistory')}</strong> {i18n.t('shared:my_space.toLookUpEveryMovement')}
-          </p>
-        ),
-        placement: 'bottom',
-      },
-    ],
-  },
-
-  'my-space/my-cash-wallet#convert': {
-    title: i18n.t('shared:my_space.convertToPoints'),
-    steps: [
-      {
-        target: '#tour-my-wallet-convert',
-        title: i18n.t('shared:my_space.convertAtTheCurrentRate'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:my_space.enterTheAmountYouWantTo')}
-            </p>
-            {warn(i18n.t('shared:my_space.onceConvertedItCannotBeReversed'))}
-          </div>
-        ),
-        placement: 'top',
-      },
-    ],
-  },
-
-  'my-space/my-cash-wallet#topups': {
-    title: i18n.t('shared:my_space.topUpOrders'),
-    steps: [
-      {
-        target: '#tour-my-wallet-topups',
-        title: i18n.t('shared:my_space.topUpByBankTransfer'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:my_space.eachTopUpHasItsOwn')}
-            </p>
-            {warn(i18n.t('shared:my_space.ifTheTransferDescriptionIsWrong'))}
-          </div>
-        ),
-        placement: 'top',
-      },
-      {
-        target: '#tour-my-wallet-topups',
-        title: i18n.t('shared:my_space.theQrCodeExpires'),
-        content: (
-          <p>
-            {i18n.t('shared:my_space.overdueOrdersAreCancelledAutomaticallyCreate')}
-          </p>
-        ),
-        placement: 'top',
-      },
-    ],
-  },
-
-  'my-space/my-cash-wallet#history': {
-    title: i18n.t('shared:my_space.walletHistory'),
-    steps: [
-      {
-        target: '#tour-my-wallet-history',
-        title: i18n.t('shared:my_space.everyBalanceMovement'),
-        content: (
-          <div className="space-y-2">
-            <p>{i18n.t('shared:my_space.topUpsConversionsToPointsAnd')}</p>
-            {note(i18n.t('shared:my_space.thisIsTheSourceLedgerFor'))}
-          </div>
-        ),
-        placement: 'top',
-      },
+      s('myadj.add', tourTarget('myadj.add'), 'left'),
+      s('myadj.list', tourTarget('myadj.list'), 'top'),
     ],
   },
 
   'my-space/my-conduct': {
+    version: V,
     steps: [
-      {
-        target: '#tour-my-conduct-target',
-        title: i18n.t('shared:my_space.selfScoreConduct'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:my_space.choose')} <strong>{i18n.t('shared:my_space.onePeriod')}</strong> {i18n.t('shared:my_space.or')} <strong>{i18n.t('shared:my_space.theWholeCycle')}</strong> {i18n.t('shared:my_space.toOpenTheFormUntilYou')}
-            </p>
-            {note(i18n.t('shared:my_space.theFigureBoxesOnTheCard'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-conduct-sheet',
-        title: i18n.t('shared:my_space.evidenceMattersMoreThanTheScore'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:my_space.eachCriterionHasAScoreField')} <strong>{i18n.t('shared:my_space.evidence')}</strong>{i18n.t('shared:my_space.fieldTheManagerScoresBasedOn')}
-            </p>
-            {note(i18n.t('shared:my_space.theWeightColumnShowsWhichCriteria'))}
-          </div>
-        ),
-        placement: 'top',
-      },
-      {
-        target: '#tour-conduct-sheet-actions',
-        title: i18n.t('shared:my_space.saveAndExport'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              <strong>{i18n.t('shared:my_space.saveSelfAssessment')}</strong> {i18n.t('shared:my_space.savesYourPart')} <strong>{i18n.t('shared:my_space.exportExcel')}</strong> {i18n.t('shared:my_space.exportsTheWholeFormToA')}
-            </p>
-            {warn(i18n.t('shared:my_space.onceTheUnitHasFinalizedThe'))}
-          </div>
-        ),
-        placement: 'top',
-      },
+      s('myconduct.target', tourTarget('filter.bar'), 'bottom'),
+      s('myconduct.sheet', tourTarget('myconduct.sheet'), 'top'),
+      s('myconduct.saveSelf', tourTarget('myconduct.save-self'), 'top'),
+      s('myconduct.export', tourTarget('myconduct.export'), 'top'),
+      s('myconduct.ai', tourTarget('myconduct.ai'), 'left'),
+    ],
+  },
+
+  'my-space/my-feedback360': {
+    steps: [
+      s('myf360.waiting', tourTarget('myf360.waiting'), 'top'),
+      s('myf360.done', tourTarget('myf360.done'), 'top'),
+      s('myf360.reports', tourTarget('myf360.reports'), 'top'),
+    ],
+  },
+
+  /* ── Điểm của tôi: mục có bốn tab ── */
+  'my-space/my-rewards': {
+    version: V,
+    steps: [
+      s('myrewards.balance', tourTarget('myrewards.balance'), 'bottom'),
+      s('myrewards.checkin', tourTarget('myrewards.checkin'), 'bottom'),
+      s('myrewards.tabs', tourTarget('ws.tabs'), 'bottom'),
+    ],
+  },
+  'my-space/my-rewards#shop': {
+    version: V3,
+    next: REDEEM_FORM,
+    steps: [
+      s('myrewards.shop', tourTarget('myrewards.shop'), 'top'),
+      s('myrewards.redeem', tourTarget('myrewards.redeem'), 'top'),
+    ],
+  },
+  'my-space/my-rewards#history': {
+    version: V,
+    steps: [s('myrewards.history', tourTarget('myrewards.history'), 'top')],
+  },
+  'my-space/my-rewards#certificates': {
+    version: V3,
+    steps: [
+      s('myrewards.certificates', tourTarget('myrewards.certificates'), 'top'),
+      s('myrewards.certPrint', tourTarget('mycert.print'), 'top'),
+    ],
+  },
+  'my-space/my-rewards#redemptions': {
+    version: V3,
+    steps: [
+      s('myrewards.redemptions', tourTarget('myrewards.redemptions'), 'top'),
+      s('myrewards.redeemView', tourTarget('myredeem.view'), 'left'),
+      s('myrewards.redeemCancel', tourTarget('myredeem.cancel'), 'left'),
+    ],
+  },
+
+  /* ── Ví của tôi: mục có ba tab ── */
+  'my-space/my-cash-wallet': {
+    version: V3,
+    next: TOPUP_FORM,
+    steps: [
+      s('mywallet.balance', tourTarget('mywallet.balance'), 'bottom'),
+      s('mywallet.topup', tourTarget('mywallet.topup'), 'left'),
+      s('mywallet.tabs', tourTarget('ws.tabs'), 'bottom'),
+    ],
+  },
+  'my-space/my-cash-wallet#convert': {
+    version: V3,
+    steps: [
+      s('mywallet.convert', tourTarget('mywallet.convert'), 'top'),
+      s('mywallet.convertRate', tourTarget('convert.rate'), 'bottom'),
+      s('mywallet.convertPoints', tourTarget('convert.points'), 'bottom'),
+      s('mywallet.convertCost', tourTarget('convert.cost'), 'bottom'),
+      s('mywallet.convertMax', tourTarget('convert.max'), 'left'),
+      s('mywallet.convertSubmit', tourTarget('convert.submit'), 'top'),
+    ],
+  },
+  'my-space/my-cash-wallet#topups': {
+    version: V3,
+    steps: [
+      s('mywallet.topups', tourTarget('mywallet.topups'), 'top'),
+      s('mywallet.topupStatus', tourTarget('topups.status'), 'bottom'),
+      s('mywallet.topupReceipt', tourTarget('topups.receipt'), 'left'),
+      s('mywallet.topupResume', tourTarget('topups.resume'), 'left'),
+    ],
+  },
+  'my-space/my-cash-wallet#history': {
+    version: V3,
+    steps: [
+      s('mywallet.history', tourTarget('mywallet.history'), 'top'),
+      s('mywallet.ledgerType', tourTarget('ledger.type'), 'bottom'),
+      s('mywallet.ledgerExplain', tourTarget('ledger.explain'), 'bottom'),
     ],
   },
 }))

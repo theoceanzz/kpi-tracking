@@ -4,6 +4,8 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { DatePicker } from '@/components/common/DateTimePicker'
 import EmptyState from '@/components/common/EmptyState'
 import KpiFormModal from '../components/KpiFormModal'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourAction } from '@/components/common/tours/actions'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useKpiCriteria } from '../hooks/useKpiCriteria'
 import { useAuthStore } from '@/store/authStore'
@@ -516,7 +518,7 @@ export default function KpiCriteriaPage() {
     if (selectable.length === 0) return null
     const allSelected = selectable.every(k => selectedKpiIds.includes(k.id))
     return (
-      <Button variant={allSelected ? 'secondary' : 'outline'} size="sm" onClick={() => toggleSelectPerson(items)} title={tr('KpiCriteriaPage.selectKpisThatCanBeSubmitted', { count: selectable.length })} aria-pressed={allSelected}>
+      <Button {...tourAnchor('kpi.person.select')} variant={allSelected ? 'secondary' : 'outline'} size="sm" onClick={() => toggleSelectPerson(items)} title={tr('KpiCriteriaPage.selectKpisThatCanBeSubmitted', { count: selectable.length })} aria-pressed={allSelected}>
         {allSelected ? tr('KpiCriteriaPage.deselect') : tr('KpiCriteriaPage.select', { length: selectable.length })}
       </Button>
     )
@@ -591,6 +593,32 @@ export default function KpiCriteriaPage() {
     </>
   )
 
+  // Bài "Tạo KPI" mở/đóng form tạo mới (xem `tours/kpi-create.tsx`). Chỉ mở form TẠO MỚI — không
+  // đụng vào form sửa đang mở dở của người dùng.
+  useTourAction('kpi.form.open', () => { setEditKpi(null); setDelegateKpi(null); setDecomposeKpi(null); setShowForm(true) })
+  useTourAction('kpi.form.close', () => { setShowForm(false); setEditKpi(null); setDelegateKpi(null); setDecomposeKpi(null) })
+  // Bài "Gửi duyệt" cần thấy dòng chỉ tiêu, mà nhóm đơn vị / người mặc định thu gọn: mở nhóm đầu
+  // tiên, hết bài trả lại đúng các nhóm người dùng đang mở trước đó.
+  const tourGroupsSnapshot = useRef<{ unit: Set<string>; person: Set<string> } | null>(null)
+  useTourAction('kpi.groups.expand', () => {
+    tourGroupsSnapshot.current ??= { unit: unitCollapse.expanded, person: personCollapse.expanded }
+    if (unitMode) {
+      const first = visibleUnits[0]
+      if (!first) return
+      unitCollapse.expandAll([...unitCollapse.expanded, first.id])
+      personCollapse.expandAll([...personCollapse.expanded, ...first.people.map(g => personGroupKey(first.id, g.id))])
+    } else {
+      personCollapse.expandAll([...personCollapse.expanded, ...visibleGroups.slice(0, 1).map(g => g.id)])
+    }
+  })
+  useTourAction('kpi.groups.restore', () => {
+    const saved = tourGroupsSnapshot.current
+    if (!saved) return
+    tourGroupsSnapshot.current = null
+    unitCollapse.expandAll([...saved.unit])
+    personCollapse.expandAll([...saved.person])
+  })
+
   const emptyTitle = search ? tr('KpiCriteriaPage.noKpisFound') : activeTab !== 'ALL' ? tr('KpiCriteriaPage.noKpis', { toLowerCase: TAB_LABELS[activeTab]?.toLowerCase() }) : tr('KpiCriteriaPage.noKpisYet')
   const emptyDesc = search || activeTab !== 'ALL' ? tr('KpiCriteriaPage.tryChangingTheFiltersOrClearing') : tr('KpiCriteriaPage.createANewKpiImportFrom')
 
@@ -606,14 +634,15 @@ export default function KpiCriteriaPage() {
           { label: tr('KpiCriteriaPage.pendingApproval2'), value: stats.pending, icon: Clock },
         ]}
         /* Hàng trên: khối số liệu + nút chính "Tạo chỉ tiêu"; ba nút phụ xuống hàng dưới qua khe `children`. */
-        actions={<Button id="tour-kpi-add-btn" onClick={() => { setEditKpi(null); setShowForm(true) }}><Plus aria-hidden="true" /> {tr('KpiCriteriaPage.createKpi')}</Button>}
+        actions={<Button id="tour-kpi-add-btn" {...tourAnchor('kpi.add')} onClick={() => { setEditKpi(null); setShowForm(true) }}><Plus aria-hidden="true" /> {tr('KpiCriteriaPage.createKpi')}</Button>}
       >
         <div className="flex flex-wrap gap-2 sm:justify-end">
-          <Button variant="outline" onClick={() => setShowImportGuide(true)}><Upload aria-hidden="true" /> {tr('KpiCriteriaPage.excelImport')}</Button>
+          <Button variant="outline" {...tourAnchor('kpi.import')} onClick={() => setShowImportGuide(true)}><Upload aria-hidden="true" /> {tr('KpiCriteriaPage.excelImport')}</Button>
           {selectedPeriodId && selectedOrgUnitId && (
             <Button variant="outline" onClick={() => setShowUrgentModal(true)}><Zap aria-hidden="true" /> {tr('KpiCriteriaPage.urgentTask')}</Button>
           )}
           {hasPermission('KPI:SUBMIT') && selectedOrgUnitId && (
+            <span {...tourAnchor('kpi.submit-ai')} className="inline-flex">
             <AiShortcutButton
               label={tr('KpiCriteriaPage.submitWithKAi')}
               prompt={aiShortcuts.submitDraftKpis(
@@ -623,6 +652,7 @@ export default function KpiCriteriaPage() {
               focusUnitId={selectedOrgUnitId}
               title={tr('KpiCriteriaPage.kAiChecksTheWeightsAnd')}
             />
+            </span>
           )}
         </div>
       </WorkspaceHeader>
@@ -696,12 +726,12 @@ export default function KpiCriteriaPage() {
         }
       >
         <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0); resetGroups() }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label={tr('KpiCriteriaPage.evaluationPeriods')}><SelectValue placeholder={tr('KpiCriteriaPage.evaluationPeriods')} /></SelectTrigger>
+          <SelectTrigger {...tourAnchor('kpi.period')} className="w-full sm:w-auto sm:min-w-52" aria-label={tr('KpiCriteriaPage.evaluationPeriods')}><SelectValue placeholder={tr('KpiCriteriaPage.evaluationPeriods')} /></SelectTrigger>
           <SelectContent><ScopeSelectItems items={periodsData?.content} selectedId={selectedPeriodId} /></SelectContent>
         </Select>
 
         <Select value={kpiTypeFilter} onValueChange={val => { setKpiTypeFilter(val as KpiTypeFilterKey); setPage(0) }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-48" aria-label={tr('KpiCriteriaPage.kpiType')}><SelectValue placeholder={tr('KpiCriteriaPage.kpiType')} /></SelectTrigger>
+          <SelectTrigger {...tourAnchor('kpi.type')} className="w-full sm:w-auto sm:min-w-48" aria-label={tr('KpiCriteriaPage.kpiType')}><SelectValue placeholder={tr('KpiCriteriaPage.kpiType')} /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">{tr('KpiCriteriaPage.allTypes')}</SelectItem>
             <SelectGroup>
@@ -725,7 +755,7 @@ export default function KpiCriteriaPage() {
                   </Select>
 
         <Select value={`${sortBy}-${sortDir}`} onValueChange={(val) => { const [field, dir] = val.split('-'); if (field && dir) { setSortBy(field); setSortDir(dir as 'asc' | 'desc'); setPage(0) } }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label={tr('KpiCriteriaPage.order')}><SelectValue placeholder={tr('KpiCriteriaPage.order')} /></SelectTrigger>
+          <SelectTrigger {...tourAnchor('kpi.sort')} className="w-full sm:w-auto sm:min-w-44" aria-label={tr('KpiCriteriaPage.order')}><SelectValue placeholder={tr('KpiCriteriaPage.order')} /></SelectTrigger>
           <SelectContent>
             <SelectItem value="createdAt-desc">{tr('KpiCriteriaPage.newestFirst')}</SelectItem>
             <SelectItem value="createdAt-asc">{tr('KpiCriteriaPage.oldestFirst')}</SelectItem>
@@ -739,7 +769,7 @@ export default function KpiCriteriaPage() {
         </Select>
       </FilterBar>
 
-      <div id="tour-kpi-tabs" className="flex flex-wrap items-center justify-between gap-3">
+      <div id="tour-kpi-tabs" {...tourAnchor('kpi.tabs')} className="flex flex-wrap items-center justify-between gap-3">
         <SegmentedControl
           ariaLabel={tr('KpiCriteriaPage.filterByStatus')}
           value={activeTab}
@@ -747,7 +777,7 @@ export default function KpiCriteriaPage() {
           options={(['ALL', 'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'] as const).map(t => ({ value: t, label: TAB_LABELS[t] }))}
         />
         {hasPersonalDrafts && activeTab !== 'DRAFT' && (
-          <Button variant="ghost" type="button" onClick={() => { setActiveTab('DRAFT'); setPage(0) }}>
+          <Button variant="ghost" type="button" {...tourAnchor('kpi.my-drafts')} onClick={() => { setActiveTab('DRAFT'); setPage(0) }}>
             <AlertCircle aria-hidden="true" /> {personalDraftsData?.totalElements} {tr('KpiCriteriaPage.ofYourKpisHaveNotBeen')}
                   </Button>
             )}
@@ -767,7 +797,7 @@ export default function KpiCriteriaPage() {
           <EmptyState icon={Inbox} title={emptyTitle} description={emptyDesc} action={!search && activeTab === 'ALL' ? <Button onClick={() => { setEditKpi(null); setShowForm(true) }}><Plus aria-hidden="true" /> {tr('KpiCriteriaPage.createKpi')}</Button> : undefined} />
             </div>
           ) : viewMode === 'TABLE' ? (
-        <div id="tour-kpi-list" className="overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+        <div id="tour-kpi-list" {...tourAnchor('kpi.list')} className="overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
           <table className="w-full">
                   <thead>
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
@@ -965,7 +995,7 @@ function KpiRowMenu({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, onDec
     <div onClick={e => e.stopPropagation()}>
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label={t('KpiCriteriaPage.actions2')} title={t('KpiCriteriaPage.actions2')}><MoreVertical aria-hidden="true" /></Button>
+          <Button {...tourAnchor('kpi.row.menu')} variant="ghost" size="icon-sm" aria-label={t('KpiCriteriaPage.actions2')} title={t('KpiCriteriaPage.actions2')}><MoreVertical aria-hidden="true" /></Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-56 p-1">
           <button type="button" onClick={onView} className={item}><Eye aria-hidden="true" /> {t('KpiCriteriaPage.viewDetails')}</button>
@@ -1035,7 +1065,7 @@ function KpiTableRow(props: RowProps) {
   return (
     <tr aria-selected={selected || undefined} className={cn('transition-colors', selected ? 'bg-[var(--color-primary-soft)]' : 'hover:bg-[var(--color-muted)]', isChildRow && !selected && 'bg-[var(--color-background)]')}>
       <td className="w-10 px-3 py-3">
-        {isSelectable && <input type="checkbox" aria-label={t('KpiCriteriaPage.selectKpi')} checked={!!selected} onChange={onToggleSelect} className={CHECKBOX} />}
+        {isSelectable && <input {...tourAnchor('kpi.row.select')} type="checkbox" aria-label={t('KpiCriteriaPage.selectKpi')} checked={!!selected} onChange={onToggleSelect} className={CHECKBOX} />}
       </td>
       <td className="px-4 py-3">
         <div className="flex items-start gap-1.5" style={{ paddingLeft: isChildRow ? 24 : 0 }}>

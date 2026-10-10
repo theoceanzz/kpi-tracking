@@ -22,6 +22,8 @@ import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 const adjustmentSchema = perLanguage(() => (z.object({
   requestedTargetValue: z.any().optional(),
@@ -31,6 +33,14 @@ const adjustmentSchema = perLanguage(() => (z.object({
 })))
 
 type AdjustmentFormData = z.infer<ReturnType<typeof adjustmentSchema>>
+
+// Ô số để trống phải thành `undefined`, không phải NaN (`valueAsNumber`) — NaN bị ghi ngược vào ô
+// khi chuyển tab / khôi phục bản nháp và hiện nguyên chữ "NaN".
+const numOrUndef = (v: unknown) => {
+  if (v === '' || v === null || v === undefined) return undefined
+  const n = Number(v)
+  return Number.isFinite(n) ? n : undefined
+}
 
 interface KpiAdjustmentModalProps {
   open: boolean
@@ -95,7 +105,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
   if (!open || !kpi) return null
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('adjform.dialog')}
       open
       onClose={onClose}
       size="md"
@@ -106,7 +116,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={mutation.isPending}>{t('KpiAdjustmentModal.cancel')}</Button>}
           primary={
-            <Button type="submit" form="kpi-adjustment-form" disabled={mutation.isPending}>
+            <Button {...tourAnchor('adjform.submit')} type="submit" form="kpi-adjustment-form" disabled={mutation.isPending}>
               {mutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
               {t('KpiAdjustmentModal.sendAdjustmentRequest')}
             </Button>
@@ -119,16 +129,17 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
         onSubmit={handleSubmit(data => {
           const formattedData = {
             ...data,
-            requestedTargetValue: (isNaN(data.requestedTargetValue as any) || data.requestedTargetValue === kpi.targetValue) ? undefined : data.requestedTargetValue,
-            requestedMinimumValue: (isNaN(data.requestedMinimumValue as any) || data.requestedMinimumValue === kpi.minimumValue) ? undefined : data.requestedMinimumValue,
+            requestedTargetValue: (numOrUndef(data.requestedTargetValue) === undefined || data.requestedTargetValue === kpi.targetValue) ? undefined : data.requestedTargetValue,
+            requestedMinimumValue: (numOrUndef(data.requestedMinimumValue) === undefined || data.requestedMinimumValue === kpi.minimumValue) ? undefined : data.requestedMinimumValue,
           }
+          if (blockedByTour()) return
           mutation.mutate(formattedData)
         })} 
         id="kpi-adjustment-form"
         className="space-y-5"
       >
         
-        <div className="p-4 rounded-card bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] flex gap-3 items-start">
+        <div {...tourAnchor('adjform.note')} className="p-4 rounded-card bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] flex gap-3 items-start">
           <Info size={18} className="text-[var(--color-warning)] mt-0.5" />
           <p className="text-xs font-medium text-[var(--color-warning)] leading-relaxed">
             {t('KpiAdjustmentModal.youCanRequestToChangeThe')}
@@ -136,11 +147,11 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
         </div>
 
         {/* Type Toggle */}
-        <div className="flex p-1 bg-[var(--color-muted)] rounded-card">
-          <ChoiceChip selected={!deactivationRequest} variant="segment" className="flex-1 py-2.5" onClick={() => reset({ ...watch(), deactivationRequest: false })}>
+        <div {...tourAnchor('adjform.mode')} className="flex p-1 bg-[var(--color-muted)] rounded-card">
+          <ChoiceChip selected={!deactivationRequest} variant="segment" className="flex-1 py-2.5" onClick={() => setValue('deactivationRequest', false, { shouldDirty: true })}>
             {t('KpiAdjustmentModal.changeFigures')}
           </ChoiceChip>
-          <ChoiceChip selected={deactivationRequest} variant="segment" className="flex-1 py-2.5" onClick={() => reset({ ...watch(), deactivationRequest: true })}>
+          <ChoiceChip selected={deactivationRequest} variant="segment" className="flex-1 py-2.5" onClick={() => setValue('deactivationRequest', true, { shouldDirty: true })}>
             {t('KpiAdjustmentModal.requestToStopTheKpi')}
           </ChoiceChip>
         </div>
@@ -148,7 +159,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
         <input type="hidden" {...register('deactivationRequest')} />
 
         {!deactivationRequest ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div {...tourAnchor('adjform.numbers')} className="grid grid-cols-2 gap-4">
             <div className="space-y-2 col-span-2">
               <label className="text-label flex items-center gap-2 text-[var(--color-muted-foreground)] tracking-widest">
                 <Target size={14} /> {t('KpiAdjustmentModal.newTarget')}
@@ -157,7 +168,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
                 <LocaleNumberInput
                   type="number"
                   step="any"
-                  {...register('requestedTargetValue', { valueAsNumber: true })}
+                  {...register('requestedTargetValue', { setValueAs: numOrUndef })}
                   onWheel={(e) => (e.target as HTMLInputElement).blur()}
                   placeholder={kpi.targetValue?.toString()}
                   className="no-edit-hint w-full px-4 py-3 pr-12 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:ring-2 focus:ring-[var(--color-ring)] outline-none"
@@ -174,7 +185,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
                 <LocaleNumberInput
                   type="number"
                   step="any"
-                  {...register('requestedMinimumValue', { valueAsNumber: true })}
+                  {...register('requestedMinimumValue', { setValueAs: numOrUndef })}
                   onWheel={(e) => (e.target as HTMLInputElement).blur()}
                   placeholder={kpi.minimumValue?.toString() || "0"}
                   className="no-edit-hint w-full px-4 py-3 pr-12 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:ring-2 focus:ring-[var(--color-ring)] outline-none"
@@ -192,7 +203,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
           </div>
         )}
 
-        <div className="space-y-2">
+        <div {...tourAnchor('adjform.reason')} className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <label className="text-label flex items-center gap-2 text-[var(--color-muted-foreground)] tracking-widest">
               <MessageSquare size={14} /> {t('KpiAdjustmentModal.adjustmentReason')} <span className="text-[var(--color-error)]">*</span>

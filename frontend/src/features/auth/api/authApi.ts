@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse } from '@/types/api'
 import type { AuthResponse, LoginRequest, RegisterRequest, ChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest, UserInfo, LarkAuthorizeUrl } from '@/types/auth'
 
@@ -44,9 +45,7 @@ export const authApi = {
     axiosInstance.get<ApiResponse<UserInfo>>('/auth/me').then((r) => r.data.data),
 
   uploadAvatar: (data: FormData) =>
-    axiosInstance.post<ApiResponse<UserInfo>>('/auth/me/avatar', data, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }).then((r) => r.data.data),
+    sendMultipart<ApiResponse<UserInfo>>('/auth/me/avatar', data).then((r) => r.data.data),
   
   completeOnboarding: () =>
     axiosInstance.post<ApiResponse<void>>('/auth/me/onboarding').then((r) => r.data),

@@ -11,8 +11,15 @@ public class ConductItemResponse {
     private UUID criteriaId;
     private String name;
     private String description;
+    /** % TRÊN TỔNG — dùng để cộng điểm. */
     private Double weight;
     private Integer position;
+    /** Nhóm (chụp lúc mở phiếu); null = không chia nhóm. */
+    private String groupName;
+    private Double groupWeight;
+    private Integer groupPosition;
+    /** % trong nhóm (cột "Tỷ trọng" khi phiếu chia nhóm). */
+    private Double weightInGroup;
 
     private Double selfScore;
     private String selfEvidence;

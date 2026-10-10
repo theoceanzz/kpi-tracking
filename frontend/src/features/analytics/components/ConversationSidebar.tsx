@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import type { ConversationResponse } from '../api/aiApi'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 interface Props {
   conversations: ConversationResponse[]
@@ -88,7 +89,7 @@ export default function ConversationSidebar({
   }
 
   return (
-    <aside className={cn(
+    <aside {...tourAnchor('ai.sidebar')} className={cn(
       'flex flex-col border-r border-[var(--color-border)] bg-[var(--color-card)] transition-[width,transform] duration-300',
       'fixed inset-y-0 left-0 z-40 w-[300px] md:static md:z-auto md:shrink-0',
       collapsed ? 'md:w-[64px]' : 'md:w-[300px]',
@@ -106,7 +107,7 @@ export default function ConversationSidebar({
             <TooltipContent side="right">{t('ConversationSidebar.newConversation')}</TooltipContent>
           </Tooltip>
         ) : (
-          <Button
+          <Button {...tourAnchor('ai.new')}
             onClick={onNew}
             className="h-11 flex-1 justify-center gap-2 bg-[var(--color-ai-soft)] text-[var(--color-ai)] hover:bg-[var(--color-ai-soft)] hover:brightness-95 dark:hover:brightness-125 shadow-none"
           >

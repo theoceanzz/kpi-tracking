@@ -270,7 +270,7 @@ class KpiSubmissionReviewGuardTest {
 
         assertThatCode(() -> service.bulkReview(bulkOf(s))).doesNotThrowAnyException();
         verify(submissionRepository).save(any());
-        // Điểm của người chấm này vào sổ riêng, để cấp sau chấm không đè mất (V37).
+        // Điểm của người chấm này vào sổ riêng, để cấp sau chấm không đè mất (V41).
         verify(scoreLedger).record(s, reviewer);
     }
 

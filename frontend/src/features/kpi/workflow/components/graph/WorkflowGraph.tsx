@@ -19,6 +19,7 @@ import StageNode from './StageNode'
 import EndNode from './EndNode'
 import OrthogonalEdge from './OrthogonalEdge'
 import { buildWorkflowGraph, columnsForWidth, MIN_COLUMNS, type WorkflowFlowNode } from './workflowGraphModel'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const nodeTypes: NodeTypes = { stage: StageNode, end: EndNode }
 const edgeTypes: EdgeTypes = { orthogonal: OrthogonalEdge }
@@ -99,7 +100,7 @@ export default function WorkflowGraph({ stages, selected, onSelect, warnings, re
   }, [built, setNodes, setEdges])
 
   return (
-    <div className={cn('relative w-full overflow-hidden bg-[var(--color-muted)]', className)}>
+    <div {...tourAnchor('workflow.graph')} className={cn('relative w-full overflow-hidden bg-[var(--color-muted)]', className)}>
       <style>{`
         .kpi-workflow-graph .react-flow__node { cursor: pointer; }
         .kpi-workflow-graph .react-flow__handle { pointer-events: none; }

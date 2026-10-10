@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 interface RolePermissionDrawerProps {
   role: RoleResponse | null
@@ -180,7 +182,7 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
   }
 
   const handleSave = async () => {
-    if (!role) return
+    if (!role || blockedByTour()) return
     await updateMutation.mutateAsync({
       roleId: role.id,
       permissionIds: Array.from(selectedIds)
@@ -240,7 +242,7 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
 
   return (
     <>
-    <Drawer
+    <Drawer {...tourAnchor('roleperm.drawer')}
       open={isOpen}
       onClose={onClose}
       size="lg"
@@ -249,7 +251,7 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
       title={t('RolePermissionDrawer.permissionSetup')}
       description={<>{t('RolePermissionDrawer.role')} <span className="font-medium text-[var(--color-foreground)]">{role?.name}</span></>}
       headerExtra={
-        <Button variant="outline" size="sm" onClick={handleApplyDefaults} className="shrink-0">
+        <Button {...tourAnchor('roleperm.defaults')} variant="outline" size="sm" onClick={handleApplyDefaults} className="shrink-0">
           <Zap aria-hidden="true" />
           <span className="hidden sm:inline">{t('RolePermissionDrawer.applyDefaultPermissions')}</span>
           <span className="sm:hidden">{t('RolePermissionDrawer.default')}</span>
@@ -260,7 +262,7 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
           note={<>{t('RolePermissionDrawer.selected')} <span className="font-medium text-[var(--color-foreground)] tabular-nums">{selectedIds.size}</span> {t('RolePermissionDrawer.permissions')}</>}
           secondary={<Button variant="outline" onClick={onClose} disabled={updateMutation.isPending}>{t('RolePermissionDrawer.cancel')}</Button>}
           primary={
-            <Button onClick={handleSave} disabled={updateMutation.isPending}>
+            <Button {...tourAnchor('roleperm.save')} onClick={handleSave} disabled={updateMutation.isPending}>
               {updateMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}
               {t('RolePermissionDrawer.savePermissions')}
             </Button>
@@ -271,7 +273,7 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
       <div className="flex h-full min-h-0 flex-col">
         {/* Search */}
         <div className="shrink-0 border-b border-[var(--color-border)] bg-[var(--color-card)] px-5 py-3">
-          <div className="relative">
+          <div {...tourAnchor('roleperm.search')} className="relative">
             <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" aria-hidden="true" />
             <input
               type="text"
@@ -298,7 +300,7 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
               const isAllSelected = selectedCount === allIds.length
 
               return (
-                <div key={resource} className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)] transition-all">
+                <div {...tourAnchor('roleperm.group')} key={resource} className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)] transition-all">
                   <div className="p-6 border-b bg-[var(--color-muted)] flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <Lock className="w-4 h-4 text-[var(--color-subtle-foreground)]" />
@@ -307,14 +309,14 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
                         {selectedCount}/{allIds.length}
                       </span>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => toggleResource(resource, permissions)}>
+                    <Button {...tourAnchor('roleperm.group-toggle')} variant="ghost" size="sm" onClick={() => toggleResource(resource, permissions)}>
                       {isAllSelected ? t('RolePermissionDrawer.deselectAll') : t('RolePermissionDrawer.selectAll')}
                     </Button>
                   </div>
                   <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {permissions.map(p => (
                       <PermissionTooltip key={p.id} text={p.description || PERMISSION_DESCRIPTIONS()[p.code] || t('RolePermissionDrawer.permissionToPerformTheActionOn', { action: p.action, resource: p.resource })}>
-                        <button
+                        <button {...tourAnchor('roleperm.item')}
                           onClick={() => togglePermission(p.id)}
                           className={cn(
                             "w-full flex items-center space-x-3 px-4 py-3 rounded-card border transition-all text-left",

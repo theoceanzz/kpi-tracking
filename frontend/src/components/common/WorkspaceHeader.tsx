@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWorkspaceTabs } from './WorkspaceTabs'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 export interface WorkspaceStat {
   label: string
@@ -77,6 +78,7 @@ export default function WorkspaceHeader({
       // khối này, nên có một id ổn định ở đây là mỗi mục tự có điểm bám mà không phải
       // sửa từng file. Trang nào cần neo riêng thì truyền `id` như cũ và ghi đè.
       id={id ?? 'tour-workspace-card'}
+      {...tourAnchor('ws.header')}
       className={cn(
         'overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]',
         className
@@ -85,6 +87,7 @@ export default function WorkspaceHeader({
       {showTabs && (
         <nav
           id="tour-workspace-tabs"
+          {...tourAnchor('ws.tabs')}
           aria-label={t('WorkspaceHeader.subSections')}
           className="flex items-stretch px-2 border-b border-[var(--color-border)] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
@@ -95,6 +98,7 @@ export default function WorkspaceHeader({
               <button
                 key={tab.key}
                 type="button"
+                {...tourAnchor(`ws.tab.${tab.key}`)}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => ctx?.setActiveTab(tab.key)}
                 className={cn(
@@ -121,7 +125,7 @@ export default function WorkspaceHeader({
         <div className="p-5 space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             {(title || description) && (
-              <div className="min-w-0">
+              <div {...tourAnchor('ws.title')} className="min-w-0">
                 {title && (
                   <h1 className="text-page-title">{title}</h1>
                 )}
@@ -141,11 +145,11 @@ export default function WorkspaceHeader({
             {(ctx || stats?.length || actions) && (
               <div className="flex flex-wrap items-center gap-3 lg:ml-auto lg:justify-end">
                 {!!stats?.length && (
-                  <dl id="tour-workspace-stats" className="custom-scrollbar flex max-w-full items-stretch divide-x divide-[var(--color-border)] overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
-                    {stats.map(stat => {
+                  <dl id="tour-workspace-stats" {...tourAnchor('ws.stats')} className="custom-scrollbar flex max-w-full items-stretch divide-x divide-[var(--color-border)] overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
+                    {stats.map((stat, i) => {
                       const Icon = stat.icon
                       return (
-                        <div key={stat.label} className="shrink-0 px-3 py-2 text-center sm:px-4">
+                        <div key={stat.label} {...tourAnchor(`ws.stat.${i}`)} className="shrink-0 px-3 py-2 text-center sm:px-4">
                           <dd className="flex items-center justify-center gap-1.5 text-lg font-semibold tabular-nums text-[var(--color-foreground)]">
                             {Icon && <Icon size={15} className="text-[var(--color-primary)]" />}
                             {stat.value}

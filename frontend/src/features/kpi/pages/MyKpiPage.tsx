@@ -30,6 +30,7 @@ import { useEvaluations } from '@/features/evaluations/hooks/useEvaluations'
 import { useSearchParams } from 'react-router-dom'
 import { WORKFLOW_PARAMS } from '../workflow/hooks/useWorkflowNavigator'
 import KpiDetailModal from '../components/KpiDetailModal'
+import ApprovalStepHint from '../components/ApprovalStepHint'
 import KpiAdjustmentModal from '../components/KpiAdjustmentModal'
 import KpiDelegationModal from '../components/KpiDelegationModal'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
@@ -43,6 +44,8 @@ import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 import { LockedBadge } from '../components/CycleLockHint'
 import { kpiLockReason, periodLockReason } from '../utils/cycleLockReason'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourAction } from '@/components/common/tours/actions'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -72,6 +75,7 @@ export default function MyKpiPage() {
   // mục đó gác bằng EVALUATION:VIEW_MY mà trưởng đơn vị không có, đi sang là rơi về
   // lưới thẻ của trang Của tôi và form không bao giờ mở.
   const [selfEvalPeriodId, setSelfEvalPeriodId] = useState<string | null>(null)
+  useTourAction('mykpi.modals.close', () => { setAdjustKpi(null); setSelfEvalPeriodId(null) })
 
   const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
   // Luôn xem theo MỘT đợt, mở sẵn đợt hiện tại — cùng quy tắc với trang "Đánh giá đợt" và với số
@@ -219,7 +223,7 @@ export default function MyKpiPage() {
     else if (isPeriodEnded) main = <Badge variant="destructive">{t('MyKpiPage.overdue')}</Badge>
     else if (enableWaterfall && isUserLeader) main = <Badge variant="info">{t('MyKpiPage.tracking')}</Badge>
     else main = (
-      <Button asChild size="sm">
+      <Button {...tourAnchor('mykpi.submit')} asChild size="sm">
         <Link
           to={`/submissions/new?kpiId=${kpi.id}`}
           title={resubmit ? t('MyKpiPage.returnedHint', { reason: kpi.returnReason ?? '', deadline: formatDateTime(kpi.resubmitDeadline) }) : undefined}
@@ -232,7 +236,7 @@ export default function MyKpiPage() {
   return (
       <div className="flex items-center justify-end gap-1">
         {remaining && !isPeriodEnded && !lockReason && (
-          <Button variant="ghost" size="icon-sm" onClick={() => setAdjustKpi(kpi)} aria-label={t('MyKpiPage.requestAdjustment')} title={t('MyKpiPage.requestAdjustment')}><Settings2 aria-hidden="true" /></Button>
+          <Button {...tourAnchor('mykpi.adjust')} variant="ghost" size="icon-sm" onClick={() => setAdjustKpi(kpi)} aria-label={t('MyKpiPage.requestAdjustment')} title={t('MyKpiPage.requestAdjustment')}><Settings2 aria-hidden="true" /></Button>
         )}
         {isUserLeader && enableWaterfall && !lockReason && (
           <Button variant="ghost" size="icon-sm" onClick={() => setEditKpi(kpi)} aria-label={isDelegated ? t('MyKpiPage.assignedAdjust') : t('MyKpiPage.assignToEmployees')} title={isDelegated ? t('MyKpiPage.assignedClickToAdjust') : t('MyKpiPage.assignToEmployees')} className={cn(isDelegated && 'text-[var(--color-success)]')}>
@@ -344,7 +348,7 @@ export default function MyKpiPage() {
           <p className="text-caption tabular-nums">{fmtDate(period?.startDate)} – {fmtDate(period?.endDate)} · {periodKpis.length} {t('MyKpiPage.kpis')}</p>
         </div>
         {isPeriodDone && !hasEvaluation && !periodLockReason(period) && (
-          <Button size="sm" onClick={() => setSelfEvalPeriodId(periodId)}><Star aria-hidden="true" /> {t('MyKpiPage.selfAssessThisPeriod')}</Button>
+          <Button {...tourAnchor('mykpi.self-eval')} size="sm" onClick={() => setSelfEvalPeriodId(periodId)}><Star aria-hidden="true" /> {t('MyKpiPage.selfAssessThisPeriod')}</Button>
         )}
         {isPeriodDone && hasEvaluation && <Badge variant="success"><CheckCircle2 size={12} aria-hidden="true" /> {t('MyKpiPage.selfAssessed')}</Badge>}
       </div>
@@ -365,7 +369,7 @@ export default function MyKpiPage() {
           { label: t('MyKpiPage.toSubmit'), value: headerStats.toSubmit, icon: Clock },
           { label: t('MyKpiPage.overdue'), value: headerStats.overdue, icon: AlertCircle },
         ]}
-        actions={<AiShortcutButton prompt={aiShortcuts.myKpisAndScore()} title={t('MyKpiPage.kAiSummarizesThisCyclesKpis')} />}
+        actions={<AiShortcutButton {...tourAnchor('mykpi.ai')} prompt={aiShortcuts.myKpisAndScore()} title={t('MyKpiPage.kAiSummarizesThisCyclesKpis')} />}
       />
 
       <FilterBar
@@ -402,7 +406,7 @@ export default function MyKpiPage() {
             )}
       </FilterBar>
 
-      <div id="tour-my-kpi-table" className="space-y-4">
+      <div {...tourAnchor('mykpi.table')} id="tour-my-kpi-table" className="space-y-4">
         {isLoading ? (
           <LoadingSkeleton type="table" rows={6} />
         ) : filteredKpis.length === 0 ? (
@@ -452,7 +456,7 @@ export default function MyKpiPage() {
                             <td className="px-4 py-3 text-right whitespace-nowrap">{weightCell(kpi)}</td>
                             <td className="px-4 py-3 whitespace-nowrap">{progressCell(kpi, childKpis)}</td>
                             <td className="px-4 py-3 whitespace-nowrap">{deadlineCell(kpi)}</td>
-                            <td className="px-4 py-3"><StatusBadge status={kpi.status} />{returnedNote(kpi)}</td>
+                            <td className="px-4 py-3"><StatusBadge status={kpi.status} /><ApprovalStepHint kpi={kpi} />{returnedNote(kpi)}</td>
                             <td className="px-3 py-2 text-right whitespace-nowrap">{rowActions(kpi, childKpis)}</td>
                           </tr>
                         )
@@ -474,6 +478,7 @@ export default function MyKpiPage() {
                       </div>
                         <StatusBadge status={kpi.status} />
                   </div>
+                      <ApprovalStepHint kpi={kpi} />
                       {returnedNote(kpi)}
                       {enableOkr && kpi.objectiveName && <p className="mt-2 truncate text-caption">OKR: {kpi.objectiveName}</p>}
                       <dl className="mt-3 grid grid-cols-3 gap-2 text-sm">

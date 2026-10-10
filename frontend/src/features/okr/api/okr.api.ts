@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse } from '@/types/api'
 import { ObjectiveResponse, ObjectiveRequest, KeyResultResponse, KeyResultRequest } from '../types'
 
@@ -30,8 +31,6 @@ export const okrApi = {
   importOkrs: (organizationId: string, file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    return axiosInstance.post<ApiResponse<any>>(`/okr/organization/${organizationId}/import`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }).then(r => r.data.data)
+    return sendMultipart<ApiResponse<any>>(`/okr/organization/${organizationId}/import`, formData).then(r => r.data.data)
   }
 }

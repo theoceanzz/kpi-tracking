@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 export const REDEMPTION_STATUS_STYLE = perLanguage((): Record<
   RedemptionStatus,
@@ -76,13 +77,13 @@ export default function MyRedemptionsTable({ data }: MyRedemptionsTableProps) {
               <span className="font-semibold">−{row.pointsSpent.toLocaleString(intlLocale())} {t('MyRedemptionsTable.points')}</span>
             </div>
             {!!row.vouchers?.length && (
-              <Button className="w-full" onClick={() => setViewing(row)}>
+              <Button {...tourAnchor('myredeem.view')} className="w-full" onClick={() => setViewing(row)}>
                 <Ticket aria-hidden="true" />
                 {t('MyRedemptionsTable.viewGiftCode')}
               </Button>
             )}
             {row.status === RedemptionStatus.PENDING && (
-              <Button variant="outline" className="w-full" onClick={() => setCancelling(row)}>
+              <Button {...tourAnchor('myredeem.cancel')} variant="outline" className="w-full" onClick={() => setCancelling(row)}>
                 {t('MyRedemptionsTable.cancelRequest')}
               </Button>
             )}
@@ -165,13 +166,13 @@ export default function MyRedemptionsTable({ data }: MyRedemptionsTableProps) {
             render: (row) => (
               <div className="flex justify-end gap-1.5">
                 {!!row.vouchers?.length && (
-                  <Button variant="ghost" size="sm" className="whitespace-nowrap" onClick={() => setViewing(row)}>
+                  <Button {...tourAnchor('myredeem.view')} variant="ghost" size="sm" className="whitespace-nowrap" onClick={() => setViewing(row)}>
                     <Ticket aria-hidden="true" />
                     {t('MyRedemptionsTable.viewCode')}
                   </Button>
                 )}
                 {row.status === RedemptionStatus.PENDING && (
-                  <Button variant="outline" size="sm" onClick={() => setCancelling(row)}>
+                  <Button {...tourAnchor('myredeem.cancel')} variant="outline" size="sm" onClick={() => setCancelling(row)}>
                     {t('MyRedemptionsTable.cancel')}
                   </Button>
                 )}

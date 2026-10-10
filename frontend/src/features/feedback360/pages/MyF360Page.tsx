@@ -16,6 +16,7 @@ import { fmtDate, fmtScore } from '../utils/f360Format'
 import { ApprovalsSection, MyNominationsSection } from '../components/NominationPanels'
 import TrendCard from '../components/TrendCard'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 const isTodo = (t: F360Task) => t.status === 'PENDING' || t.status === 'IN_PROGRESS'
 
@@ -84,7 +85,7 @@ export default function MyF360Page() {
       <MyNominationsSection />
 
       {/* ── Đang chờ bạn ── */}
-      <section className="space-y-3">
+      <section {...tourAnchor('myf360.waiting')} className="space-y-3">
         <SectionTitle title={tr('MyF360Page.waitingOnYou')} count={todoCount} />
         {isLoading && <LoadingSkeleton rows={3} />}
         {!isLoading && active.length === 0 && (
@@ -103,14 +104,14 @@ export default function MyF360Page() {
 
       {/* ── Đã hoàn thành: mỗi chiến dịch một dòng, mở ra khi cần xem lại ── */}
       {finished.length > 0 && (
-        <section className="space-y-3">
+        <section {...tourAnchor('myf360.done')} className="space-y-3">
           <SectionTitle title={tr('MyF360Page.completed')} count={finished.length} unit={tr('MyF360Page.campaigns')} />
           {finished.map(g => <CampaignCard key={g.id} group={g} now={now} />)}
         </section>
       )}
 
       {canSeeReports && (
-        <section className="space-y-3">
+        <section {...tourAnchor('myf360.reports')} className="space-y-3">
           <SectionTitle title={tr('MyF360Page.my360Reports')} count={reports.length} />
           <TrendCard reports={reports} />
           {reports.length === 0 ? (

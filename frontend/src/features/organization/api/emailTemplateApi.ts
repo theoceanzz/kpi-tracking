@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import type { Language } from '@/i18n/languages'
 import type { ApiResponse } from '@/types/api'
 
@@ -63,12 +64,7 @@ export const emailTemplateApi = {
   uploadImage: (file: File) => {
     const form = new FormData()
     form.append('file', file)
-    // Phải khai multipart thủ công: axiosInstance đặt mặc định Content-Type là
-    // application/json cho mọi request, đè lên header mà axios tự sinh cho FormData.
-    return axiosInstance
-      .post<ApiResponse<{ url: string }>>('/email-templates/images', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+    return sendMultipart<ApiResponse<{ url: string }>>('/email-templates/images', form)
       .then(r => r.data.data.url)
   },
 

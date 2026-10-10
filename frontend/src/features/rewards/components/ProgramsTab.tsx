@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 const SCOPE_LABEL = perLanguage((): Record<RewardProgramScope, string> => ({
   [RewardProgramScope.CYCLE]: i18n.t('rewards:ProgramsTab.byCycle'),
@@ -44,6 +46,7 @@ export default function ProgramsTab() {
   const { t } = useTranslation('rewards')
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<RewardProgram | null>(null)
+  useTourModal('rewards.program', () => { setEditing(null); setFormOpen(true) }, () => setFormOpen(false))
   const [running, setRunning] = useState<RewardProgram | null>(null)
   const [viewingRuns, setViewingRuns] = useState<RewardProgram | null>(null)
   const [deleting, setDeleting] = useState<RewardProgram | null>(null)
@@ -52,7 +55,7 @@ export default function ProgramsTab() {
 
   return (
     <div id="tour-programs-root">
-      <div id="tour-programs-note" className="mb-4 flex items-start gap-2.5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
+      <div {...tourAnchor('programs.note')} id="tour-programs-note" className="mb-4 flex items-start gap-2.5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
         <Info size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-muted-foreground)]" />
         <p className="text-[var(--color-muted-foreground)]">
           {t('ProgramsTab.programs')} <b>{t('ProgramsTab.doesNotRunByItself')}</b>{t('ProgramsTab.modeClick')} <b>{t('ProgramsTab.run')}</b> {t('ProgramsTab.toChooseAPeriodCycleEdit')}
@@ -65,7 +68,7 @@ export default function ProgramsTab() {
           {(data ?? []).length > 0 && t('ProgramsTab.programs2', { count: (data ?? []).length })}
         </span>
         <WorkspaceHeaderActions>
-          <Button onClick={() => {
+          <Button {...tourAnchor('programs.add')} onClick={() => {
               setEditing(null)
               setFormOpen(true)
             }}>
@@ -78,7 +81,7 @@ export default function ProgramsTab() {
       {isLoading ? (
         <LoadingSkeleton type="table" rows={3} />
       ) : (data ?? []).length === 0 ? (
-        <div className="rounded-card border border-dashed border-[var(--color-border)]">
+        <div {...tourAnchor('data.table')} className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
             title={t('ProgramsTab.noAutomaticRewardProgramsYet')}
             description={t('ProgramsTab.insteadOfPickingPeopleByHand')}
@@ -227,7 +230,7 @@ export default function ProgramsTab() {
               header: '',
               render: (row) => (
                 <div className="flex justify-end gap-1">
-                  <Button variant="ghost" size="icon-sm" aria-label={
+                  <Button {...tourAnchor('programs.run')} variant="ghost" size="icon-sm" aria-label={
                       row.enabled
                         ? t('ProgramsTab.runChooseTheCyclePeriodEdit')
                         : t('ProgramsTab.theProgramIsOff')

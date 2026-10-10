@@ -1,534 +1,163 @@
 import type { TourKey } from '@/store/tourStore'
 import type { TourDef } from './registry'
-import i18n from 'i18next'
+import { tourKit, tourTarget } from './kit'
 import { perLanguage } from '@/i18n/perLanguage'
+import { DELEGATIONS_FORM, ORG_FORM, RANKS_EDIT, ROLES_FORM, USERS_FORM } from './forms-company'
 
 /**
- * Hướng dẫn cho "Thiết lập công ty" — dòng sidebar và chín mục bên trong.
+ * Hướng dẫn cho "Thiết lập công ty" — trang gộp và từng mục bên trong.
  *
- * Trước đây trang này chỉ có một bước giới thiệu lưới thẻ, cộng ba mục còn sót lại từ
- * hồi chúng là ba dòng sidebar riêng (vai trò, cơ cấu, nhân viên). Sáu mục còn lại —
- * gồm cả bốn mục hệ thống mà khách hàng ít khi tự tìm ra — không có gì.
- *
- * Về các neo dùng ở đây, xem ghi chú đầu file `setup-tools.tsx`.
+ * Bản 2 viết lại theo khuôn từng bước nhỏ (xem `kit.tsx`): mỗi bước một phần tử, một–hai câu.
+ * Bản 1 chỉ vào cả khối lớn và có bước trỏ vào phần tử đã bỏ (`#tour-roles-stats`). Ba mục Ủy
+ * quyền, Tài liệu AI, Quy trình KPI trước đây chưa có bài — nay có, bản 1.
  */
 
-const note = (text: string) => (
-  <p className="text-xs bg-[var(--color-primary-soft)] p-2 rounded-control text-[var(--color-primary)] font-medium italic">
-    💡 {text}
-  </p>
-)
-
-const warn = (text: string) => (
-  <p className="text-xs bg-[var(--color-warning-bg)] p-2 rounded-control text-[var(--color-warning)] font-medium italic border-l-4 border-[var(--color-warning-border)]">
-    ⚠️ {text}
-  </p>
-)
-
-const danger = (text: string) => (
-  <p className="text-xs bg-[var(--color-error-bg)] p-2 rounded-control text-[var(--color-error)] font-medium italic border-l-4 border-[var(--color-error-border)]">
-    ⛔ {text}
-  </p>
-)
+const V = 2
+/** Bản 3: mục có modal nối thêm bài đi qua từng ô của modal (xem `forms-company.tsx`). */
+const V3 = 3
+const { s, sectionCards } = tourKit('tourSetupCompany')
 
 const setupCompanyTours = perLanguage((): Record<TourKey, TourDef> => ({
-  /* ══════════ Cấp trang ══════════ */
-  'setup-company': {
-    steps: [
-      {
-        target: '#tour-settings-nav',
-        title: i18n.t('shared:setup_company.threeGroupsThreeQuestions'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              <strong>{i18n.t('shared:setup_company.organization')}</strong> {i18n.t('shared:setup_company.whoThisCompanyIsAndHow')}{' '}
-              <strong>{i18n.t('shared:setup_company.people')}</strong> {i18n.t('shared:setup_company.whoWorksWhereAndWhatThey')}{' '}
-              <strong>{i18n.t('shared:setup_company.system')}</strong> {i18n.t('shared:setup_company.howTheAppTalksToEmployees')}
-            </p>
-            <p className="text-caption">
-              {i18n.t('shared:setup_company.clickACardToOpenIt')}
-            </p>
-          </div>
-        ),
-        placement: 'top',
-      },
-      {
-        target: '#tour-card-info',
-        title: i18n.t('shared:setup_company.n1BasicDeclarations'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.nameBusinessCodeThen')} <strong>{i18n.t('shared:setup_company.companyLevels')}</strong> {i18n.t('shared:setup_company.howManyTiersTheCompanyHas')}
-            </p>
-            {warn(i18n.t('shared:setup_company.levelsDecideTheShapeOfThe'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-card-roles',
-        title: i18n.t('shared:setup_company.n2RolesStructureEmployees'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.thePeopleGroupHasTheRight')} <strong>{i18n.t('shared:setup_company.roles')}</strong> {i18n.t('shared:setup_company.firstBuildThe')}{' '}
-              <strong>{i18n.t('shared:setup_company.unitTree')}</strong> {i18n.t('shared:setup_company.nextAndOnlyThen')} <strong>{i18n.t('shared:setup_company.addEmployees')}</strong> {i18n.t('shared:setup_company.andAssignThemToThoseTwo')}
-            </p>
-            {note(i18n.t('shared:setup_company.doItInTheWrongOrder'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-card-sidebar',
-        title: i18n.t('shared:setup_company.n3TheGroupFewPeopleNotice'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.theFourSystemSectionsLetYou')} <strong>{i18n.t('shared:setup_company.renameEveryMenuItem')}</strong> {i18n.t('shared:setup_company.inYourCompanysOwnTermsChoose')}
-            </p>
-            <p className="text-caption">
-              {i18n.t('shared:setup_company.notRequiredToRunButIt')}
-            </p>
-          </div>
-        ),
-        placement: 'bottom',
-      },
-    ],
-  },
+  'setup-company': { version: V, steps: sectionCards('setup-company') },
 
-  /* ══════════ Cụm Tổ chức ══════════ */
   'setup-company/info': {
+    version: V,
     steps: [
-      {
-        target: '#tour-company-hero',
-        title: i18n.t('shared:setup_company.businessProfile'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.theBusinessNameAndCodeAppear')} <strong>{i18n.t('shared:setup_company.editProfile')}</strong> {i18n.t('shared:setup_company.inTheRightCornerToEdit')}
-            </p>
-            {note(i18n.t('shared:setup_company.theLogoAndCoverImageAre'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-company-hero',
-        title: i18n.t('shared:setup_company.listOfEnabledFeatures'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.theLastCardListsTheModules')} <strong>{i18n.t('shared:setup_company.view')}</strong>{' '}
-              {i18n.t('shared:setup_company.toTurnThemOnOffGo')}
-            </p>
-            {note(i18n.t('shared:setup_company.someItemDisappearedFromTheMenu'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
+      s('info.cover', tourTarget('company.cover'), 'left'),
+      s('info.logo', tourTarget('company.logo'), 'right'),
+      s('info.edit', tourTarget('company.edit'), 'left'),
+      s('info.profile', tourTarget('company.profile'), 'top'),
+      s('info.features', tourTarget('company.features'), 'top'),
+      s('info.featuresManage', tourTarget('company.features-manage'), 'left'),
     ],
   },
 
   'setup-company/ranks': {
+    version: V3,
+    next: RANKS_EDIT,
     steps: [
-      {
-        target: '#tour-company-hierarchy',
-        title: i18n.t('shared:setup_company.howManyTiersYourCompanyHas'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.eachRowIsATierIn')}
-            </p>
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-company-hierarchy',
-        title: i18n.t('shared:setup_company.useYourCompanysOwnNames'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.theNamesYouSetHereAre')}
-            </p>
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-company-hierarchy',
-        title: i18n.t('shared:setup_company.setEarlyChangeLate'),
-        content: (
-          <div className="space-y-2">
-            <p>{i18n.t('shared:setup_company.addingOrRemovingATierAffects')}</p>
-            {warn(i18n.t('shared:setup_company.finalizeTheLevelStructureAsSoon'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
+      s('ranks.list', tourTarget('ranks.list'), 'top'),
+      s('ranks.edit', tourTarget('ranks.edit'), 'left'),
     ],
   },
 
-  /* ══════════ Cụm Con người ══════════ */
   'setup-company/roles': {
+    version: V3,
+    next: ROLES_FORM,
     steps: [
-      {
-        target: '#tour-roles-header',
-        title: i18n.t('shared:setup_company.rolesAndPermissions'),
-        content: (
-          <div className="space-y-2">
-            <p>{i18n.t('shared:setup_company.aRoleIsBothAStandardized')}</p>
-            <p className="text-caption">
-              {i18n.t('shared:setup_company.assign')} <strong>{i18n.t('shared:setup_company.permissions')}</strong> {i18n.t('shared:setup_company.toRolesThenAssignRolesTo')}
-            </p>
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-roles-hierarchy-btn',
-        title: i18n.t('shared:setup_company.hierarchyChart'),
-        content: (
-          <p>
-            {i18n.t('shared:setup_company.openTheChartToSeeThe')}
-          </p>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-roles-stats',
-        title: i18n.t('shared:setup_company.whoHoldsWhichRole'),
-        content: <p>{i18n.t('shared:setup_company.theNumberOfPeopleAssignedTo')}</p>,
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-roles-table',
-        title: i18n.t('shared:setup_company.beCarefulWithPowerfulPermissions'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.permissionsOfThe')} <strong>{i18n.t('shared:setup_company.administration')}</strong> {i18n.t('shared:setup_company.and')} <strong>{i18n.t('shared:setup_company.approval')}</strong> {i18n.t('shared:setup_company.typeAllowInterferingWithOtherPeoples')}
-            </p>
-            {danger(i18n.t('shared:setup_company.doNotGrantTheFullAdministration'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
+      s('roles.stats', tourTarget('ws.stats'), 'bottom'),
+      s('roles.add', tourTarget('roles.add'), 'left'),
+      s('roles.hierarchy', tourTarget('roles.hierarchy'), 'left'),
+      s('roles.search', tourTarget('roles.search'), 'bottom'),
+      s('roles.table', tourTarget('roles.table'), 'top'),
+      s('roles.rowMenu', tourTarget('roles.row-menu'), 'left'),
     ],
   },
 
   'setup-company/org-structure': {
+    version: V3,
+    next: ORG_FORM,
     steps: [
-      {
-        target: '#tour-org-view-mode',
-        title: i18n.t('shared:setup_company.twoWaysToViewTheSame'),
-        content: (
-          <div className="space-y-2">
-            <p>{i18n.t('shared:setup_company.sameDataTwoViewsDependingOn')}</p>
-            <ul className="text-xs space-y-1 list-disc pl-4 text-[var(--color-muted-foreground)]">
-              <li><strong>{i18n.t('shared:setup_company.chart')}</strong> {i18n.t('shared:setup_company.seeTheOverallManagementFlowAnd')}</li>
-              <li><strong>{i18n.t('shared:setup_company.list')}</strong> {i18n.t('shared:setup_company.findQuicklyAndEditInBulk')}</li>
-            </ul>
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-org-content',
-        title: i18n.t('shared:setup_company.buildTheOrganization'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.createAUnitPlaceItUnder')} <strong>{i18n.t('shared:setup_company.thePersonInCharge')}</strong>{i18n.t('shared:setup_company.theNumberOfTiersYouMay')}
-            </p>
-            {warn(i18n.t('shared:setup_company.aUnitWithoutAPersonIn'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-org-content',
-        title: i18n.t('shared:setup_company.thisTreeDecidesALot'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.thisIsNotJustAChart')}
-            </p>
-            {note(i18n.t('shared:setup_company.importALargeUnitTreeFrom'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
+      s('org.viewMode', tourTarget('org.view-mode'), 'bottom'),
+      s('org.content', tourTarget('org.content'), 'top'),
+      s('org.createRoot', tourTarget('org.create-root'), 'bottom'),
+      s('org.import', tourTarget('org.import'), 'bottom'),
+      s('org.export', tourTarget('org.export'), 'bottom'),
     ],
   },
 
   'setup-company/users': {
+    version: V3,
+    next: USERS_FORM,
     steps: [
-      {
-        target: '#tour-users-header',
-        title: i18n.t('shared:setup_company.allAccounts'),
-        content: <p>{i18n.t('shared:setup_company.theCentralPlaceToManageEvery')}</p>,
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-users-import',
-        title: i18n.t('shared:setup_company.importFromExcel'),
-        content: (
-          <p>
-            {i18n.t('shared:setup_company.forLargeStaffListsUse')} <strong>{i18n.t('shared:setup_company.importFromExcel2')}</strong> {i18n.t('shared:setup_company.insteadOfCreatingByHandDownload')}
-          </p>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-users-add',
-        title: i18n.t('shared:setup_company.addOneAtATime'),
-        content: <p>{i18n.t('shared:setup_company.forPeopleWhoJoinAfterThe')}</p>,
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-users-filters',
-        title: i18n.t('shared:setup_company.searchAndFilter'),
-        content: (
-          <div className="space-y-2">
-            <p>{i18n.t('shared:setup_company.filterByUnitRoleOrAccount')}</p>
-            <p className="text-caption italic">
-              {i18n.t('shared:setup_company.tipFilterByStatusToReview')}
-            </p>
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-users-table',
-        title: i18n.t('shared:setup_company.notAssignedMeansNotUsableYet'),
-        content: (
-          <div className="space-y-2">
-            <p>{i18n.t('shared:setup_company.clickEachPersonToCompleteTheir')}</p>
-            <ul className="text-xs space-y-1 list-disc pl-4 text-[var(--color-muted-foreground)]">
-              <li>{i18n.t('shared:setup_company.assignTo')} <strong>{i18n.t('shared:setup_company.unit')}</strong> {i18n.t('shared:setup_company.inTheOrganizationTree')}</li>
-              <li>{i18n.t('shared:setup_company.grant')} <strong>{i18n.t('shared:setup_company.roles')}</strong> {i18n.t('shared:setup_company.thatMatchesTheirWork')}</li>
-            </ul>
-            {warn(i18n.t('shared:setup_company.missingEitherOfTheseThePerson'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
+      s('users.add', tourTarget('users.add'), 'left'),
+      s('users.import', tourTarget('users.import'), 'left'),
+      s('users.search', tourTarget('filter.search'), 'bottom'),
+      s('users.roleFilter', tourTarget('users.role-filter'), 'bottom'),
+      s('users.unitFilter', tourTarget('users.unit-filter'), 'bottom'),
+      s('users.table', tourTarget('users.table'), 'top'),
+      s('users.rowMenu', tourTarget('users.row-menu'), 'left'),
     ],
   },
 
-  /* ══════════ Cụm Hệ thống ══════════ */
-  'setup-company/sidebar': {
+  'setup-company/delegations': {
+    version: 2,
+    next: DELEGATIONS_FORM,
     steps: [
-      {
-        target: '#tour-sidebar-header',
-        title: i18n.t('shared:setup_company.callEverythingByYourNames'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.renameAnyItemOnTheMenu')}
-            </p>
-            {note(i18n.t('shared:setup_company.theSubtitleRightUnderTheHeading'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-sidebar-header',
-        title: i18n.t('shared:setup_company.searchBeforeEditingAndRememberTo'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.theCard')} <strong>{i18n.t('shared:setup_company.searchItems')}</strong> {i18n.t('shared:setup_company.filtersByBothTheDefaultLabels')}
-              <strong> {i18n.t('shared:setup_company.saveChanges')}</strong> {i18n.t('shared:setup_company.rightNextToItAllFields')}
-            </p>
-            {warn(i18n.t('shared:setup_company.leavingTheScreenWithoutSavingLoses'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-sidebar-note',
-        title: i18n.t('shared:setup_company.groupedByWhereTheItemAppears'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.theTableIsSplitIntoBlocks')} <strong>{i18n.t('shared:setup_company.navigationBar')}</strong> {i18n.t('shared:setup_company.isTheSidebarRowsAndEach')}
-            </p>
-            {note(i18n.t('shared:setup_company.itIsSplitThisWayBecause'))}
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-sidebar-scope-sidebar',
-        title: i18n.t('shared:setup_company.renamingDoesNotChangeFunction'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.eachRowShowsTheDefaultLabel')}
-            </p>
-            {note(i18n.t('shared:setup_company.clearingAFieldReturnsThatItem'))}
-          </div>
-        ),
-        placement: 'top',
-      },
+      s('delegations.add', tourTarget('delegations.add'), 'left'),
+      s('delegations.note', tourTarget('delegations.note'), 'bottom'),
+      s('delegations.list', tourTarget('delegations.list'), 'top'),
+      s('delegations.revoke', tourTarget('delegations.revoke'), 'left'),
+    ],
+  },
+
+  'setup-company/sidebar': {
+    version: V,
+    steps: [
+      s('sidebar.header', tourTarget('sidebar.header'), 'bottom'),
+      s('sidebar.search', tourTarget('sidebar.search'), 'bottom'),
+      s('sidebar.note', tourTarget('sidebar.note'), 'bottom'),
+      s('sidebar.scope', tourTarget('sidebar.scope'), 'top'),
+      s('sidebar.resetItem', tourTarget('sidebar.reset-item'), 'left'),
+      s('sidebar.save', tourTarget('sidebar.save'), 'left'),
     ],
   },
 
   'setup-company/notifications': {
+    version: V,
     steps: [
-      {
-        target: '#tour-notif-header',
-        title: i18n.t('shared:setup_company.defaultsForTheWholeOrganization'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.settingsHereApplyAsThe')} <strong>{i18n.t('shared:setup_company.default')}</strong> {i18n.t('shared:setup_company.forEveryEmployeeAfterEditingRemember')}
-              <strong> {i18n.t('shared:setup_company.saveSettings')}</strong> {i18n.t('shared:setup_company.inTheRightCornerOfThis')}
-            </p>
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-notif-events',
-        title: i18n.t('shared:setup_company.twoChannelsToggledIndependently'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.eachRowIsAnEventA')} <strong>Email</strong> {i18n.t('shared:setup_company.mailToTheInboxAnd')} <strong>{i18n.t('shared:setup_company.system')}</strong> {i18n.t('shared:setup_company.theInAppBellEachTurned')}
-            </p>
-            {note(i18n.t('shared:setup_company.turnOnBothForUrgentMatters'))}
-          </div>
-        ),
-        placement: 'top',
-      },
-      {
-        target: '#tour-notif-events',
-        title: i18n.t('shared:setup_company.mailContentIsInAnotherSection'),
-        content: (
-          <p>
-            {i18n.t('shared:setup_company.thisDecides')} <strong>{i18n.t('shared:setup_company.whetherToSend')}</strong>{i18n.t('shared:setup_company.asFor')} <strong>{i18n.t('shared:setup_company.whatToSend')}</strong> {i18n.t('shared:setup_company.theMailSubjectAndContentThat')}
-          </p>
-        ),
-        placement: 'top',
-      },
+      s('notif.events', tourTarget('notif.events'), 'top'),
+      s('notif.save', tourTarget('notif.save'), 'left'),
+      s('notif.deadline', tourTarget('notif.deadline'), 'top'),
     ],
   },
 
   'setup-company/email': {
+    version: V,
     steps: [
-      {
-        target: '#tour-email-list',
-        title: i18n.t('shared:setup_company.mailCatalogGrouped'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.theLeftColumnListsEveryType')}
-            </p>
-          </div>
-        ),
-        placement: 'right',
-      },
-      {
-        target: '#tour-email-subject',
-        title: i18n.t('shared:setup_company.automaticallyFilledVariables'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.theSubjectAndContentUse')} <strong>{i18n.t('shared:setup_company.variables')}</strong> {i18n.t('shared:setup_company.thatAreReplacedWhenSendingThe')}
-            </p>
-            {warn(i18n.t('shared:setup_company.someVariablesAreRequiredWithoutThem'))}
-          </div>
-        ),
-        placement: 'top',
-      },
-      {
-        target: '#tour-email-editor',
-        title: i18n.t('shared:setup_company.visualEditingOrHtmlEditing'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.switchBetweenTheVisualEditorAnd')}
-            </p>
-            {note(i18n.t('shared:setup_company.inHtmlModeScriptAndIframe'))}
-          </div>
-        ),
-        placement: 'top',
-      },
-      {
-        target: '#tour-email-actions',
-        title: i18n.t('shared:setup_company.previewSaveOrResetToDefault'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              <strong>{i18n.t('shared:setup_company.preview')}</strong> {i18n.t('shared:setup_company.rendersATrialMailWithSample')} <strong>{i18n.t('shared:setup_company.restoreDefault')}</strong>
-              {i18n.t('shared:setup_company.returnsTheTemplateToTheOriginal')}
-            </p>
-            {warn(i18n.t('shared:setup_company.alwaysPreviewBeforeSavingSentMail'))}
-          </div>
-        ),
-        placement: 'top',
-      },
+      s('email.language', tourTarget('email.language'), 'right'),
+      s('email.list', tourTarget('email.list'), 'right'),
+      s('email.template', tourTarget('email.template'), 'right'),
+      s('email.enabled', tourTarget('email.enabled'), 'left'),
+      s('email.notifLink', tourTarget('email.notif-link'), 'left'),
+      s('email.subject', tourTarget('email.subject'), 'bottom'),
+      s('email.advanced', tourTarget('email.advanced'), 'left'),
+      s('email.preview', tourTarget('email.preview'), 'top'),
+      s('email.reset', tourTarget('email.reset'), 'top'),
+      s('email.save', tourTarget('email.save'), 'top'),
     ],
   },
 
   'setup-company/api': {
+    version: V,
     steps: [
-      {
-        target: '#tour-lark-status',
-        title: i18n.t('shared:setup_company.connectToLark'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.theTopStripShowsTheStatus')}
-            </p>
-          </div>
-        ),
-        placement: 'bottom',
-      },
-      {
-        target: '#tour-lark-credentials',
-        title: i18n.t('shared:setup_company.followTheStepsInOrder'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.theStepsAreNumberedAndUnlock')} <strong>App ID</strong> {i18n.t('shared:setup_company.and')}
-              <strong> App Secret</strong> {i18n.t('shared:setup_company.hereClick')} <strong>{i18n.t('shared:setup_company.checkConnection')}</strong>.
-            </p>
-            {note(i18n.t('shared:setup_company.thereIsAButtonInThe'))}
-          </div>
-        ),
-        placement: 'top',
-      },
-      {
-        target: '#tour-lark-connect',
-        title: i18n.t('shared:setup_company.linkWithYourOwnAccount'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.click')} <strong>{i18n.t('shared:setup_company.connectToLark2')}</strong>{i18n.t('shared:setup_company.signInOnceAndTheSystem')}
-            </p>
-            {warn(i18n.t('shared:setup_company.permissionsJustAddedOnLarkOnly'))}
-          </div>
-        ),
-        placement: 'top',
-      },
-      {
-        target: '#tour-lark-defaults',
-        title: i18n.t('shared:setup_company.unitAndRoleForNewPeople'),
-        content: (
-          <div className="space-y-2">
-            <p>
-              {i18n.t('shared:setup_company.peopleSigningInFromLarkFor')}
-            </p>
-            {warn(i18n.t('shared:setup_company.aDefaultThatIsTooBroad'))}
-          </div>
-        ),
-        placement: 'top',
-      },
+      s('lark.status', tourTarget('lark.status'), 'bottom'),
+      s('lark.createApp', tourTarget('lark.create-app'), 'top'),
+      s('lark.configure', tourTarget('lark.configure'), 'top'),
+      s('lark.credentials', tourTarget('lark.credentials'), 'top'),
+      s('lark.test', tourTarget('lark.test'), 'top'),
+      s('lark.connect', tourTarget('lark.connect'), 'top'),
+      s('lark.defaults', tourTarget('lark.defaults'), 'top'),
+      s('lark.enable', tourTarget('lark.enable'), 'top'),
+    ],
+  },
+
+  'setup-company/ai-docs': {
+    steps: [
+      s('aidocs.card', tourTarget('aidocs.card'), 'bottom'),
+      s('aidocs.open', tourTarget('aidocs.open'), 'left'),
+    ],
+  },
+
+  'setup-company/kpi-workflow': {
+    steps: [
+      s('workflow.org', tourTarget('workflow.org'), 'bottom'),
+      s('workflow.graph', tourTarget('workflow.graph'), 'top'),
+      s('workflow.reset', tourTarget('workflow.reset'), 'bottom'),
+      s('workflow.save', tourTarget('workflow.save'), 'bottom'),
+      s('workflow.fullscreen', tourTarget('workflow.fullscreen'), 'left'),
+      s('workflow.mine', tourTarget('workflow.mine'), 'top'),
+      s('workflow.mineToggle', tourTarget('workflow.mine-toggle'), 'left'),
     ],
   },
 }))

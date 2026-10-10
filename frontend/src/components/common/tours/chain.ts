@@ -1,5 +1,5 @@
 import { tourKeyOf, type TourKey, type TourScope } from '@/store/tourStore'
-import { hasTour } from './registry'
+import { getTour, hasTour } from './registry'
 
 /**
  * Các bài hướng dẫn ứng với MÀN HÌNH ĐANG HIỆN, từ ngoài vào trong.
@@ -19,6 +19,22 @@ function tourChainOf(scope: TourScope): TourKey[] {
   const chain = [tourKeyOf(scope.navId, scope.sectionId)]
   if (scope.tabKey) chain.push(tourKeyOf(scope.navId, scope.sectionId, scope.tabKey))
   return chain
+}
+
+/**
+ * Chuỗi màn hình cộng các bài nối tiếp của nó (`TourDef.next`), theo đúng thứ tự — để menu
+ * "Xem lại hướng dẫn" mở thẳng được bài 2/3 của một luồng. Bài nối không tự chạy.
+ */
+export function withContinuations(keys: TourKey[]): TourKey[] {
+  const out: TourKey[] = []
+  for (const key of keys) {
+    let cur: TourKey | undefined = key
+    while (cur && hasTour(cur) && !out.includes(cur)) {
+      out.push(cur)
+      cur = getTour(cur)?.next
+    }
+  }
+  return out
 }
 
 /** Chuỗi trên, chỉ giữ những khoá thực sự có bài viết sẵn. */

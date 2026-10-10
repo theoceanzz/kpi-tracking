@@ -144,7 +144,8 @@ public class AuthController {
 
     @PostMapping(value = "/me/avatar", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload user avatar")
-    public ResponseEntity<ApiResponse<UserInfoResponse>> uploadAvatar(@RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+    public ResponseEntity<ApiResponse<UserInfoResponse>> uploadAvatar(@RequestParam("file") org.springframework.web.multipart.MultipartFile file)
+            throws java.io.IOException {
         UserInfoResponse response = authService.uploadAvatar(file);
         return ResponseEntity.ok(ApiResponse.success("Avatar uploaded successfully", response));
     }

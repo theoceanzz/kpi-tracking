@@ -6,8 +6,7 @@ import { Placeholder } from '@tiptap/extensions'
 import TextAlign from '@tiptap/extension-text-align'
 import DragHandle from '@tiptap/extension-drag-handle-react'
 import type { LucideIcon } from 'lucide-react'
-import { toast } from 'sonner'
-import { getApiErrorMessage } from '@/lib/apiError'
+import { toastUploadError } from '@/lib/upload'
 import { cn } from '@/lib/utils'
 import { emailNodeExtensions } from './emailNodes'
 import { emailTemplateApi } from '../api/emailTemplateApi'
@@ -136,7 +135,10 @@ export default function EmailEditor({
     // Xoá value ngay để chọn lại đúng file vừa rồi vẫn kích hoạt onChange.
     e.target.value = ''
     if (!file) return
+    await insertUploadedImage(file)
+  }
 
+  const insertUploadedImage = async (file: File) => {
     setUploading(true)
     try {
       const url = await emailTemplateApi.uploadImage(file)
@@ -145,9 +147,7 @@ export default function EmailEditor({
         attrs: { src: url, alt: '', width: 300, align: 'center' },
       }).run()
     } catch (err) {
-      toast.error(
-        getApiErrorMessage(err, t('EmailEditor.imageUploadFailed')),
-      )
+      toastUploadError(err, () => void insertUploadedImage(file), t('EmailEditor.imageUploadFailed'))
     } finally {
       setUploading(false)
     }

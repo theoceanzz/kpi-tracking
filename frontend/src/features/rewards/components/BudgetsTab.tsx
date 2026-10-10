@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString(intlDateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -40,6 +42,7 @@ const PHASE_BADGE = perLanguage((): Record<ReturnType<typeof budgetPhase>, { lab
 export default function BudgetsTab() {
   const { t } = useTranslation('rewards')
   const [formOpen, setFormOpen] = useState(false)
+  useTourModal('rewards.budget', () => { setEditing(null); setFormOpen(true) }, () => setFormOpen(false))
   const [editing, setEditing] = useState<RewardBudget | null>(null)
   const [deleting, setDeleting] = useState<RewardBudget | null>(null)
 
@@ -49,7 +52,7 @@ export default function BudgetsTab() {
     <div id="tour-budgets-root">
       {/* Câu giải thích tách thành khối riêng, không chen cùng hàng với nút — đặt cạnh
           nhau thì chữ dài bị ép sát vào nút, đọc rất khó chịu. */}
-      <div id="tour-budgets-note" className="mb-4 flex items-start gap-2.5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
+      <div {...tourAnchor('budgets.note')} id="tour-budgets-note" className="mb-4 flex items-start gap-2.5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
         <Info size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-muted-foreground)]" />
         <p className="text-[var(--color-muted-foreground)]">
           {t('BudgetsTab.peopleWithABudgetCanReward')}
@@ -69,7 +72,7 @@ export default function BudgetsTab() {
             })()}
         </span>
         <WorkspaceHeaderActions>
-          <Button onClick={() => {
+          <Button {...tourAnchor('budgets.add')} onClick={() => {
               setEditing(null)
               setFormOpen(true)
             }}>
@@ -82,7 +85,7 @@ export default function BudgetsTab() {
       {isLoading ? (
         <LoadingSkeleton type="table" rows={4} />
       ) : (data ?? []).length === 0 ? (
-        <div className="rounded-card border border-dashed border-[var(--color-border)]">
+        <div {...tourAnchor('data.table')} className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
             title={t('BudgetsTab.noBudgetsGrantedYet')}
             description={t('BudgetsTab.withoutABudgetEveryManagerReward')}

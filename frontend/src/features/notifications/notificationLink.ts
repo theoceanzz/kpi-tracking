@@ -74,6 +74,17 @@ export function notificationLink(n: Pick<Notification, 'type' | 'referenceId'>):
       return n.referenceId ? `/documents?doc=${encodeURIComponent(n.referenceId)}` : '/documents'
     case 'DOCUMENT_PROMOTION_REQUEST':
       return '/documents?tab=requests'
+
+    // Thảo luận: referenceId là id bình luận — trang /discussions/c/:id tra ra KPI / công việc rồi cuộn tới đúng chỗ.
+    case 'DISCUSSION':
+      return n.referenceId ? `/discussions/c/${encodeURIComponent(n.referenceId)}` : null
+    // Công việc: được giao, theo dõi, nhắc hạn, quá hạn, có thay đổi — mở đúng việc trong trang Công việc.
+    case 'TASK':
+    case 'TASK_CHANGED':
+      return n.referenceId ? `/tasks?task=${encodeURIComponent(n.referenceId)}` : '/tasks'
+    // KPI cũ đã được thay: mở KPI mới ở tab Công việc, nơi có hộp "chuyển việc sang KPI mới".
+    case 'TASK_KPI_REPLACED':
+      return n.referenceId ? `/kpi/${encodeURIComponent(n.referenceId)}?tab=tasks` : '/tasks'
     default:
       return null
   }

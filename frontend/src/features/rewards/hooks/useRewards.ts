@@ -173,7 +173,8 @@ export const useRewardGrants = (params: {
 export const useMyBudget = (enabled = true) =>
   useQuery({
     queryKey: ['rewardBudget', 'me'],
-    queryFn: () => rewardApi.getMyBudget(),
+    // Chưa được cấp hạn mức thì API trả rỗng; React Query không nhận `undefined` làm dữ liệu.
+    queryFn: async () => (await rewardApi.getMyBudget()) ?? null,
     enabled,
   })
 

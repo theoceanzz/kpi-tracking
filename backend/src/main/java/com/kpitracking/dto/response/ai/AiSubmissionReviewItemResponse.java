@@ -55,7 +55,7 @@ public class AiSubmissionReviewItemResponse {
     private String selfLevel;
     /** Định tính: mức gần nhất với điểm AI gợi ý trên thang hành vi. */
     private String suggestedLevel;
-    /** Mức tin cậy RIÊNG của chỉ tiêu (CAO | TRUNG_BINH | THAP), mã nguồn tính; {@code null} với lượt trước V39. */
+    /** Mức tin cậy RIÊNG của chỉ tiêu (CAO | TRUNG_BINH | THAP), mã nguồn tính; {@code null} với lượt trước V43. */
     private String confidence;
     /** Mã lý do của mức tin cậy ({@code ReviewResultValidator.REASON_*}) — giao diện dịch. */
     private List<String> confidenceReasons;

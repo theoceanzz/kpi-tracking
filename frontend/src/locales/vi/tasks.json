@@ -1,0 +1,317 @@
+{
+  "page": {
+    "title": "Công việc"
+  },
+  "sidebar": {
+    "label": "Chế độ xem công việc",
+    "mine": "Của tôi",
+    "team": "Đơn vị",
+    "byKpi": "Theo KPI",
+    "noKpis": "Không có KPI nào trong đợt đang diễn ra"
+  },
+  "view": {
+    "ASSIGNED": "Tôi phụ trách",
+    "FOLLOWING": "Tôi theo dõi",
+    "CREATED": "Tôi tạo",
+    "DELEGATED": "Tôi giao cho người khác",
+    "DONE": "Đã hoàn thành",
+    "ALL": "Tất cả",
+    "TEAM": "Việc của đơn vị"
+  },
+  "mode": {
+    "list": "Danh sách",
+    "kanban": "Kanban",
+    "calendar": "Lịch"
+  },
+  "toolbar": {
+    "groupBy": "Nhóm theo",
+    "sort": "Sắp xếp",
+    "filter": "Lọc",
+    "create": "Tạo việc",
+    "createHint": "Phím tắt: N"
+  },
+  "groupBy": {
+    "due": "Hạn",
+    "kpi": "KPI",
+    "status": "Trạng thái",
+    "owner": "Người phụ trách",
+    "priority": "Ưu tiên",
+    "none": "Không nhóm"
+  },
+  "sort": {
+    "due": "Hạn",
+    "priority": "Ưu tiên",
+    "created": "Ngày tạo",
+    "manual": "Thủ công (kéo thả)"
+  },
+  "filter": {
+    "search": "Tìm theo tên việc",
+    "status": "Trạng thái",
+    "due": "Hạn",
+    "period": "Đợt",
+    "owner": "Người phụ trách",
+    "allPeriods": "Tất cả các đợt",
+    "allPriorities": "Mọi mức ưu tiên",
+    "allOwners": "Mọi người phụ trách",
+    "remove": "Bỏ bộ lọc",
+    "clearAll": "Bỏ tất cả",
+    "allKpis": "Mọi KPI",
+    "kpi": "KPI"
+  },
+  "dueFilter": {
+    "OVERDUE": "Quá hạn",
+    "TODAY": "Hôm nay",
+    "TOMORROW": "Ngày mai",
+    "WEEK": "Tuần này",
+    "LATER": "Sau này",
+    "NONE": "Không có hạn"
+  },
+  "bucket": {
+    "OVERDUE": "Quá hạn",
+    "TODAY": "Hôm nay",
+    "TOMORROW": "Ngày mai",
+    "THIS_WEEK": "Tuần này",
+    "LATER": "Sau này",
+    "NONE": "Không có hạn"
+  },
+  "group": {
+    "all": "Tất cả việc",
+    "completed": "Đã hoàn thành"
+  },
+  "status": {
+    "TODO": "Chưa làm",
+    "IN_PROGRESS": "Đang làm",
+    "DONE": "Hoàn thành",
+    "CANCELLED": "Huỷ"
+  },
+  "priority": {
+    "LOW": "Thấp",
+    "MEDIUM": "Trung bình",
+    "HIGH": "Cao"
+  },
+  "visibility": {
+    "KPI_SCOPE": "Công khai trong phạm vi KPI",
+    "PRIVATE": "Riêng tư (người phụ trách, người tạo, người theo dõi)"
+  },
+  "due": {
+    "today": "Hôm nay",
+    "tomorrow": "Ngày mai",
+    "yesterday": "Hôm qua",
+    "overdue": "quá hạn",
+    "pick": "Chọn hạn",
+    "endOfWorkWeek": "Thứ 6 tuần này",
+    "done": "Xong",
+    "hour": "Giờ",
+    "minute": "Phút",
+    "setTime": "Đặt giờ"
+  },
+  "row": {
+    "markDone": "Đánh dấu hoàn thành",
+    "markTodo": "Đánh dấu chưa làm",
+    "kpiDeleted": "KPI đã xoá: {{name}}",
+    "completed": "Đã hoàn thành \"{{title}}\"",
+    "undo": "Hoàn tác",
+    "subtasks": "Việc con",
+    "recurring": "Việc lặp lại",
+    "openSubtasksTitle": "Còn việc con chưa xong",
+    "completeAnyway": "Vẫn hoàn thành"
+  },
+  "quickAdd": {
+    "label": "Thêm việc",
+    "placeholder": "Tên việc, nhấn Enter để tạo",
+    "kpiPlaceholder": "Chọn KPI",
+    "pickKpi": "Hãy chọn KPI cho việc này"
+  },
+  "list": {
+    "empty": "Không có việc nào.",
+    "cannotDrop": "Không thả vào nhóm này được (không xác định được giá trị của nhóm)",
+    "subtaskKpiFixed": "Việc con luôn ở KPI của việc cha"
+  },
+  "progress": {
+    "label": "{{done}}/{{total}} việc hoàn thành",
+    "overdue": "{{count}} quá hạn"
+  },
+  "kpiTab": {
+    "openInTasks": "Mở trong trang Công việc"
+  },
+  "replacement": {
+    "message": "Bạn còn {{count}} việc chưa xong ở KPI cũ \"{{name}}\" (đã được thay bằng KPI này).",
+    "move": "Chuyển sang KPI này",
+    "moved": "Đã chuyển {{count}} việc"
+  },
+  "readOnly": {
+    "NOT_OWNER": "Bạn chỉ xem được việc này (chỉ người phụ trách và người tạo sửa được).",
+    "CYCLE_LOCKED": "Kỳ KPI đã khoá — công việc chỉ đọc.",
+    "KPI_DELETED": "KPI của việc này đã bị xoá — chỉ chuyển sang KPI khác hoặc xoá được."
+  },
+  "detail": {
+    "title": "Chi tiết công việc",
+    "tab": {
+      "comments": "Bình luận",
+      "activity": "Hoạt động"
+    },
+    "owner": "Người phụ trách",
+    "assignedBy": "giao bởi {{name}}",
+    "followers": "Người theo dõi",
+    "addFollower": "Thêm người theo dõi",
+    "removeFollower": "Bỏ người theo dõi",
+    "noFollowerCandidates": "Không còn ai xem được KPI này để thêm.",
+    "follow": "Theo dõi",
+    "unfollow": "Bỏ theo dõi",
+    "dueDate": "Hạn",
+    "dueTime": "Giờ hạn",
+    "clearDue": "Xoá hạn",
+    "reminder": "Nhắc",
+    "repeat": "Lặp lại",
+    "priority": "Ưu tiên",
+    "kpi": "KPI",
+    "status": "Trạng thái",
+    "visibility": "Ai xem được",
+    "description": "Mô tả",
+    "descriptionPlaceholder": "Thêm mô tả…",
+    "bold": "Đậm",
+    "italic": "Nghiêng",
+    "bulletList": "Danh sách",
+    "orderedList": "Danh sách đánh số",
+    "link": "Chèn link",
+    "subtasks": "Việc con",
+    "addSubtask": "Thêm việc con, nhấn Enter",
+    "checklist": "Checklist",
+    "addItem": "Thêm bước, nhấn Enter",
+    "removeItem": "Xoá bước",
+    "attachments": "Tệp đính kèm",
+    "attach": "Đính kèm",
+    "dropFiles": "Kéo thả tệp vào đây để đính kèm",
+    "removeFile": "Xoá tệp",
+    "fileTooLarge": "Tệp \"{{name}}\" vượt quá 10 MB",
+    "fileNotSupported": "Tệp \"{{name}}\" không được hỗ trợ",
+    "tooManyFiles": "Mỗi công việc đính kèm tối đa {{max}} tệp",
+    "copyLink": "Sao chép link",
+    "linkCopied": "Đã sao chép link công việc",
+    "more": "Thao tác khác",
+    "duplicate": "Nhân bản",
+    "duplicated": "Đã nhân bản công việc",
+    "moveKpi": "Chuyển sang KPI khác",
+    "delete": "Xoá việc",
+    "deleteTitle": "Xoá công việc?",
+    "deleteDescription": "Công việc cùng việc con, checklist và tệp đính kèm sẽ bị xoá.",
+    "backToParent": "Việc cha",
+    "close": "Đóng",
+    "removeLink": "Bỏ link",
+    "applyLink": "Áp dụng"
+  },
+  "scope": {
+    "title": "Sửa việc lặp lại",
+    "description": "Áp thay đổi cho lần nào?",
+    "hint": "\"Lần này và các lần sau\" đổi luôn các lần chưa hoàn thành phía sau; các lần đã hoàn thành giữ nguyên.",
+    "this": "Chỉ lần này",
+    "following": "Lần này và các lần sau"
+  },
+  "reminder": {
+    "none": "Không nhắc",
+    "atDue": "Đúng hạn",
+    "before15": "Trước 15 phút",
+    "before60": "Trước 1 giờ",
+    "before1440": "Trước 1 ngày",
+    "beforeMinutes": "Trước {{count}} phút",
+    "custom": "Giờ tuỳ chọn",
+    "add": "Thêm",
+    "remove": "Bỏ mốc nhắc",
+    "needDue": "Đặt hạn để nhắc theo hạn."
+  },
+  "repeat": {
+    "none": "Không lặp",
+    "daily": "Hằng ngày",
+    "weekly": "Hằng tuần",
+    "monthly": "Hằng tháng",
+    "every": "Mỗi",
+    "unit": {
+      "DAILY": "ngày",
+      "WEEKLY": "tuần",
+      "MONTHLY": "tháng"
+    },
+    "onDay": "Vào ngày",
+    "endDate": "Ngày kết thúc (tuỳ chọn)",
+    "hint": "Hoàn thành lần này thì tự tạo lần kế tiếp. Dừng khi tới ngày kết thúc, hết đợt KPI hoặc KPI không còn nhận việc.",
+    "apply": "Áp dụng",
+    "needDue": "Việc lặp lại cần có hạn.",
+    "summaryDaily": "Mỗi {{count}} ngày",
+    "summaryWeekly": "Mỗi {{count}} tuần: {{days}}",
+    "summaryMonthly": "Mỗi {{count}} tháng, ngày {{day}}"
+  },
+  "weekday": {
+    "1": "T2",
+    "2": "T3",
+    "3": "T4",
+    "4": "T5",
+    "5": "T6",
+    "6": "T7",
+    "7": "CN"
+  },
+  "calendar": {
+    "month": "Tháng",
+    "week": "Tuần",
+    "today": "Hôm nay",
+    "prev": "Trước",
+    "next": "Sau",
+    "weekOf": "Tuần từ",
+    "noDue": "Chưa có hạn",
+    "noDueHint": "Kéo vào lịch để đặt hạn; kéo việc ra đây để xoá hạn.",
+    "clickToCreate": "Bấm vào ô trống để tạo việc vào ngày này"
+  },
+  "assign": {
+    "title": "Giao việc",
+    "moveKpiTitle": "Chuyển sang KPI khác",
+    "searchPeople": "Tìm người",
+    "noPeople": "Không tìm thấy người bạn được giao việc.",
+    "kpiOfOwner": "KPI của người được giao",
+    "pickKpi": "Chọn KPI",
+    "loadingKpis": "Đang tải KPI…",
+    "noKpis": "Người này chưa có KPI nào mà bạn được giao việc trên.",
+    "subtaskKpi": "Việc con luôn ở KPI của việc cha: \"{{name}}\".",
+    "confirm": "Xác nhận",
+    "done": "Đã cập nhật người phụ trách / KPI"
+  },
+  "new": {
+    "title": "Tạo việc",
+    "titlePlaceholder": "Tên việc",
+    "create": "Tạo",
+    "kpiPlaceholder": "Chọn KPI",
+    "noKpi": "Người này chưa có KPI nào nhận thêm việc.",
+    "me": "{{name}} (tôi)",
+    "moreDetails": "Thêm chi tiết",
+    "checklistLines": "Checklist (mỗi dòng một bước)",
+    "checklistPlaceholder": "Bước 1\nBước 2"
+  },
+  "history": {
+    "CREATED": "đã tạo công việc",
+    "UPDATED": "đã sửa mô tả",
+    "TITLE_CHANGED": "đổi tên: {{from}} → {{to}}",
+    "STATUS_CHANGED": "đổi trạng thái: {{from}} → {{to}}",
+    "DUE_CHANGED": "đổi hạn: {{from}} → {{to}}",
+    "PRIORITY_CHANGED": "đổi ưu tiên: {{from}} → {{to}}",
+    "VISIBILITY_CHANGED": "đổi phạm vi xem",
+    "KPI_MOVED": "chuyển sang KPI khác",
+    "ASSIGNED": "giao cho {{to}}",
+    "REASSIGNED": "giao lại: {{from}} → {{to}}",
+    "FOLLOWER_ADDED": "thêm người theo dõi {{to}}",
+    "FOLLOWER_REMOVED": "bỏ người theo dõi {{from}}",
+    "SUBTASK_ADDED": "thêm việc con \"{{to}}\"",
+    "RECURRENCE_CHANGED": "đổi lặp lại",
+    "RECURRED": "tạo lần lặp thứ {{to}}",
+    "REMINDERS_CHANGED": "đổi nhắc việc",
+    "DUPLICATED": "nhân bản từ một việc khác",
+    "DELETED": "đã xoá công việc"
+  },
+  "picker": {
+    "pickPerson": "Chọn người",
+    "searchPerson": "Tìm theo tên hoặc email",
+    "searchKpi": "Tìm KPI hoặc đợt",
+    "currentPeriod": "Đợt hiện tại",
+    "morePeriods": "Hiện thêm các đợt khác ({{count}} KPI)",
+    "showMore": "Hiện thêm ({{count}})",
+    "noGroup": "Khác",
+    "empty": "Không có kết quả",
+    "latestPeriod": "Đợt gần nhất"
+  }
+}

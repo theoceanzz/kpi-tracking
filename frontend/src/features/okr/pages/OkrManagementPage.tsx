@@ -25,6 +25,8 @@ import OkrExcelPreviewModal from '../components/OkrExcelPreviewModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 
 
@@ -104,6 +106,14 @@ export default function OkrManagementPage() {
     setExpandedObjectives(prev => ({ ...prev, [id]: !prev[id] }))
   }
 
+  // Bài hướng dẫn: form mục tiêu trống, rồi form kết quả then chốt của mục tiêu ĐẦU danh sách.
+  useTourModal('okr.objective', () => { setIsKeyResultModalOpen(false); handleAddObjective() }, () => setIsObjectiveModalOpen(false))
+  useTourModal('okr.kr', () => {
+    setIsObjectiveModalOpen(false)
+    const first = objectives?.[0]
+    if (first) handleAddKeyResult(first)
+  }, () => setIsKeyResultModalOpen(false))
+
   const handleAddObjective = () => {
     setSelectedObjective(undefined)
     setIsObjectiveModalOpen(true)
@@ -154,10 +164,10 @@ export default function OkrManagementPage() {
               accept=".xlsx"
               onChange={handleImport}
             />
-            <Button variant="outline" className="flex-1 md:flex-none" onClick={() => setIsImportModalOpen(true)}>
+            <Button {...tourAnchor('okr.import')} variant="outline" className="flex-1 md:flex-none" onClick={() => setIsImportModalOpen(true)}>
               <FileUp aria-hidden="true" /> {t('OkrManagementPage.excelImport')}
             </Button>
-            <Button id="tour-okr-add-btn" className="flex-1 md:flex-none" onClick={handleAddObjective}>
+            <Button {...tourAnchor('okr.add')} id="tour-okr-add-btn" className="flex-1 md:flex-none" onClick={handleAddObjective}>
               <Plus aria-hidden="true" /> {t('OkrManagementPage.newTarget')}
             </Button>
           </div>
@@ -176,7 +186,7 @@ export default function OkrManagementPage() {
         <OrgTimeFilterControls filters={filters} />
       </div>
 
-      <div id="tour-okr-list" className="grid gap-4">
+      <div {...tourAnchor('okr.list')} id="tour-okr-list" className="grid gap-4">
         {(objectives?.length ?? 0) > 0 && visibleObjectives.length === 0 && (
           <div className="rounded-card border border-dashed border-[var(--color-border)] px-6 py-8 text-center">
             <p className="text-sm text-[var(--color-muted-foreground)]">{t('OkrManagementPage.noObjectiveMatches')}</p>
@@ -368,7 +378,7 @@ function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAd
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon-sm" onClick={(e) => { e.stopPropagation(); onEdit() }} aria-label={t('OkrManagementPage.editObjective')} title={t('OkrManagementPage.edit')}><Edit2 aria-hidden="true" /></Button>
+                  <Button {...tourAnchor('okr.edit')} variant="ghost" size="icon-sm" onClick={(e) => { e.stopPropagation(); onEdit() }} aria-label={t('OkrManagementPage.editObjective')} title={t('OkrManagementPage.edit')}><Edit2 aria-hidden="true" /></Button>
                   <Button variant="ghost" size="icon-sm" onClick={(e) => { e.stopPropagation(); onDelete() }} aria-label={t('OkrManagementPage.deleteObjective2')} title={t('OkrManagementPage.delete2')} className="text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /></Button>
                 </div>
               </div>
@@ -388,7 +398,7 @@ function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAd
           <div className="ml-0 md:ml-9 space-y-4">
             <div className="flex items-center justify-between gap-2">
               <h4 className="text-eyebrow">{t('OkrManagementPage.keyResult')}</h4>
-              <Button variant="ghost" size="sm" onClick={onAddKR} className="text-[var(--color-primary)] hover:text-[var(--color-primary)]">
+              <Button {...tourAnchor('okr.add-kr')} variant="ghost" size="sm" onClick={onAddKR} className="text-[var(--color-primary)] hover:text-[var(--color-primary)]">
                 <PlusCircle aria-hidden="true" /> {t('OkrManagementPage.addResult')}
               </Button>
             </div>

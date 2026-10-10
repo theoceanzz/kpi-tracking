@@ -1,8 +1,7 @@
 package com.kpitracking.service.document;
 
-import com.cloudinary.Cloudinary;
-import com.cloudinary.utils.ObjectUtils;
 import com.kpitracking.enums.StorageProvider;
+import com.kpitracking.service.CloudinaryStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -24,6 +23,9 @@ import java.util.UUID;
  * dùng, nên link ký cũng không bao giờ ra tới trình duyệt.
  *
  * <p>{@code resource_type = raw} cho mọi tệp: PDF/DOCX không phải ảnh, và {@code destroy} không nhận "auto".
+ *
+ * <p>Gửi / xoá đi qua {@link CloudinaryStorageService} (cổng duy nhất tới Cloudinary) để có cùng
+ * timeout và thử lại như mọi chỗ tải tệp khác.
  */
 @Component
 @ConditionalOnProperty(name = "app.documents.storage", havingValue = "cloudinary")
@@ -35,7 +37,7 @@ public class CloudinaryDocumentStorage implements DocumentStorage {
     private static final String RESOURCE_TYPE = "raw";
     private static final Duration LINK_TTL = Duration.ofMinutes(5);
 
-    private final Cloudinary cloudinary;
+    private final CloudinaryStorageService cloudinary;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
     @Override
@@ -45,25 +47,20 @@ public class CloudinaryDocumentStorage implements DocumentStorage {
 
     @Override
     public String store(byte[] bytes, String fileName, String folder) throws IOException {
-        try {
-            // Giữ đuôi trong public_id: với tệp raw, đuôi là một phần của khoá.
-            String publicId = UUID.randomUUID() + DocumentStorage.extensionOf(fileName);
-            @SuppressWarnings("unchecked")
-            Map<String, Object> res = cloudinary.uploader().upload(bytes, ObjectUtils.asMap(
-                    "public_id", publicId,
-                    "folder", folder,
-                    "resource_type", RESOURCE_TYPE,
-                    "type", TYPE));
-            return String.valueOf(res.get("public_id"));
-        } catch (Exception e) {
-            throw new IOException("Tải tài liệu lên kho riêng tư thất bại: " + e.getMessage(), e);
-        }
+        // Giữ đuôi trong public_id: với tệp raw, đuôi là một phần của khoá.
+        String publicId = UUID.randomUUID() + DocumentStorage.extensionOf(fileName);
+        Map<String, Object> res = cloudinary.upload(bytes, CloudinaryStorageService.options(
+                "public_id", publicId,
+                "folder", folder,
+                "resource_type", RESOURCE_TYPE,
+                "type", TYPE), fileName);
+        return String.valueOf(res.get("public_id"));
     }
 
     @Override
     public byte[] read(String key) throws IOException {
         try {
-            String url = cloudinary.privateDownload(key, "", ObjectUtils.asMap(
+            String url = cloudinary.privateDownloadUrl(key, CloudinaryStorageService.options(
                     "resource_type", RESOURCE_TYPE,
                     "type", TYPE,
                     "expires_at", Instant.now().plus(LINK_TTL).getEpochSecond()));
@@ -86,10 +83,6 @@ public class CloudinaryDocumentStorage implements DocumentStorage {
 
     @Override
     public void delete(String key) throws IOException {
-        try {
-            cloudinary.uploader().destroy(key, ObjectUtils.asMap("resource_type", RESOURCE_TYPE, "type", TYPE));
-        } catch (Exception e) {
-            throw new IOException("Xoá tài liệu trên kho riêng tư thất bại: " + e.getMessage(), e);
-        }
+        cloudinary.destroy(key, CloudinaryStorageService.options("resource_type", RESOURCE_TYPE, "type", TYPE));
     }
 }

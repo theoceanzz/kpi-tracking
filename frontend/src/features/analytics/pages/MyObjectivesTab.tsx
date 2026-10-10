@@ -40,6 +40,7 @@ import { format } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 type SortField = 'progress' | 'period'
 type SortDir = 'asc' | 'desc'
@@ -321,7 +322,7 @@ export default function MyObjectivesTab() {
       {/* Tiêu đề + nút Tuỳ chỉnh */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-[var(--color-foreground)]">{t('MyObjectivesTab.myObjectives2')}</h2>
-        <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
+        <div id="tour-analytics-customize" {...tourAnchor('analytics.toolbar')} className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>
       </div>

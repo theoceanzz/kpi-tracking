@@ -60,7 +60,7 @@ class ActionToolPermissionTest {
                 mock(EscapeHatchTool.class), mock(EvidenceRequestTool.class),
                 mock(AttachFilesTool.class), mock(KpiFormFillTool.class),
                 mock(SubmissionFormFillTool.class), mock(EvaluationFormFillTool.class),
-                mock(KpiAdjustmentFormFillTool.class), mock(OrgUnitFormFillTool.class),
+                mock(KpiAdjustmentFormFillTool.class),
                 mock(OrgUnitDrawerFormFillTool.class), permissionChecker);
     }
 

@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { createInlineEvaluationSchema, type InlineEvaluationFormData } from '../schemas/evaluationSchema'
-import { useSubmissions } from '@/features/submissions/hooks/useSubmissions'
+import { useEvaluationSubmissions } from '@/features/submissions/hooks/useSubmissions'
 import { useEvaluations } from '../hooks/useEvaluations'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -342,10 +342,13 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
     enabled: !!evaluation?.kpiPeriodId && !!evaluation?.userId,
   })
 
-  const { data: mySubmissions } = useSubmissions({ 
-    page: 0, size: 500,
-    submittedById: evaluation?.userId,
-    kpiPeriodId: evaluation?.kpiPeriodId
+  // Chỉ tải khi modal mở (trang Đánh giá gắn sẵn modal này — trước đây nó gọi /submissions ngay khi vào
+  // trang, kể cả nhân viên, và ăn 403). Phiếu của chính mình đọc /submissions/my.
+  const { data: mySubmissions } = useEvaluationSubmissions({
+    evaluationUserId: evaluation?.userId,
+    myUserId: user?.id,
+    kpiPeriodId: evaluation?.kpiPeriodId,
+    enabled: open,
   })
 
   // Phiếu hạnh kiểm của đợt, để dòng thời gian nói được điểm hạnh kiểm THẬT (vd 3/4) chứ

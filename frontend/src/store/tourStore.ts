@@ -16,7 +16,7 @@ import { persist } from 'zustand/middleware'
  */
 export type TourKey = string
 
-export type TourLevel = 'page' | 'section' | 'tab'
+export type TourLevel = 'page' | 'section' | 'tab' | 'series'
 
 /** Ghép khoá từ ba mảnh. Thiếu mảnh nào thì dừng ở tầng đó. */
 export function tourKeyOf(navId: string, sectionId?: string | null, tabKey?: string | null): TourKey {
@@ -26,6 +26,8 @@ export function tourKeyOf(navId: string, sectionId?: string | null, tabKey?: str
 }
 
 export function tourLevelOf(key: TourKey): TourLevel {
+  // Bài nối tiếp của một luồng dài (xem `TourDef.next`).
+  if (key.includes('+')) return 'series'
   if (key.includes('#')) return 'tab'
   if (key.includes('/')) return 'section'
   return 'page'
@@ -57,9 +59,39 @@ export interface TourScope {
 
 const EMPTY_SCOPE: TourScope = { navId: null, sectionId: null, tabKey: null }
 
+/**
+ * Giá trị "đã xem" của một bài: số phiên bản đã xem. `true` là dữ liệu cũ từ trước khi bài có
+ * phiên bản, tương đương bản 1 — không cần migrate kho.
+ */
+export type SeenValue = boolean | number
+
+export const seenVersionOf = (value: SeenValue | undefined): number =>
+  value === true ? 1 : typeof value === 'number' ? value : 0
+
+/**
+ * - `unseen`: chưa xem bản nào → tự chạy.
+ * - `outdated`: đã xem bản cũ, bài vừa được viết lại → KHÔNG tự chạy, chỉ hiện chấm "mới".
+ * - `current`: đã xem bản hiện tại.
+ */
+export type TourSeenStatus = 'unseen' | 'outdated' | 'current'
+
+export function tourSeenStatus(value: SeenValue | undefined, version: number): TourSeenStatus {
+  const seen = seenVersionOf(value)
+  if (seen === 0) return 'unseen'
+  return seen < version ? 'outdated' : 'current'
+}
+
+/** Học dở tới đâu: khoá ổn định của bước (`ArmedStep.id`) và phiên bản bài lúc đó. */
+export interface TourProgress {
+  stepId: string
+  version: number
+}
+
 interface TourState {
-  /** userId → (khoá hướng dẫn → đã xem chưa) */
-  seenToursByUser: Record<string, Record<string, boolean>>
+  /** userId → (khoá hướng dẫn → phiên bản đã xem) */
+  seenToursByUser: Record<string, Record<string, SeenValue>>
+  /** userId → (khoá hướng dẫn → bước đang dở). Lưu xuống đĩa để đóng tab rồi vẫn học tiếp được. */
+  progressByUser: Record<string, Record<string, TourProgress>>
   /** Khoá đang chạy, `null` khi không có bài nào chạy. */
   activeTour: TourKey | null
   /** Vị trí hiện tại, không lưu xuống đĩa. */
@@ -70,7 +102,9 @@ interface TourState {
   /** Khung tab báo lên tab nào đang mở trong mục hiện tại. */
   setTabScope: (tabKey: string | null) => void
 
-  markSeen: (key: TourKey, userId: string) => void
+  markSeen: (key: TourKey, userId: string, version?: number) => void
+  saveProgress: (key: TourKey, userId: string, progress: TourProgress) => void
+  clearProgress: (key: TourKey, userId: string) => void
   startTour: (key: TourKey) => void
   stopTour: () => void
   hasSeen: (key: TourKey, userId: string) => boolean
@@ -107,10 +141,10 @@ const LEGACY_KEY_MAP: Record<string, TourKey> = {
   'okr-management': 'setup-tools/okr',
 }
 
-function migrateSeenMap(seen: Record<string, Record<string, boolean>>) {
-  const out: Record<string, Record<string, boolean>> = {}
+function migrateSeenMap(seen: Record<string, Record<string, SeenValue>>) {
+  const out: Record<string, Record<string, SeenValue>> = {}
   for (const [userId, keys] of Object.entries(seen ?? {})) {
-    const migrated: Record<string, boolean> = {}
+    const migrated: Record<string, SeenValue> = {}
     for (const [key, value] of Object.entries(keys ?? {})) {
       migrated[LEGACY_KEY_MAP[key] ?? key] = value
     }
@@ -123,6 +157,7 @@ export const useTourStore = create<TourState>()(
   persist(
     (set, get) => ({
       seenToursByUser: {},
+      progressByUser: {},
       activeTour: null,
       scope: EMPTY_SCOPE,
 
@@ -139,16 +174,34 @@ export const useTourStore = create<TourState>()(
       setTabScope: (tabKey) =>
         set((state) => (state.scope.tabKey === tabKey ? state : { scope: { ...state.scope, tabKey } })),
 
-      markSeen: (key, userId) =>
+      markSeen: (key, userId, version = 1) =>
         set((state) => {
           const userSeen = state.seenToursByUser[userId] || {}
+          // Không hạ phiên bản: bấm "Bỏ qua" cả chuỗi không được xoá dấu đã xem bản mới hơn.
+          const next = Math.max(version, seenVersionOf(userSeen[key]))
           return {
             seenToursByUser: {
               ...state.seenToursByUser,
-              [userId]: { ...userSeen, [key]: true },
+              [userId]: { ...userSeen, [key]: next },
             },
             activeTour: state.activeTour === key ? null : state.activeTour,
           }
+        }),
+
+      saveProgress: (key, userId, progress) =>
+        set((state) => ({
+          progressByUser: {
+            ...state.progressByUser,
+            [userId]: { ...(state.progressByUser[userId] || {}), [key]: progress },
+          },
+        })),
+
+      clearProgress: (key, userId) =>
+        set((state) => {
+          if (!state.progressByUser[userId]?.[key]) return state
+          const userProgress = { ...state.progressByUser[userId] }
+          delete userProgress[key]
+          return { progressByUser: { ...state.progressByUser, [userId]: userProgress } }
         }),
 
       startTour: (key) => set({ activeTour: key }),
@@ -164,20 +217,31 @@ export const useTourStore = create<TourState>()(
         set((state) => {
           const userSeen = { ...(state.seenToursByUser[userId] || {}) }
           delete userSeen[key]
-          return { seenToursByUser: { ...state.seenToursByUser, [userId]: userSeen } }
+          const userProgress = { ...(state.progressByUser[userId] || {}) }
+          delete userProgress[key]
+          return {
+            seenToursByUser: { ...state.seenToursByUser, [userId]: userSeen },
+            progressByUser: { ...state.progressByUser, [userId]: userProgress },
+          }
         }),
 
-      resetAll: () => set({ seenToursByUser: {}, activeTour: null }),
+      resetAll: () => set({ seenToursByUser: {}, progressByUser: {}, activeTour: null }),
     }),
     {
       name: 'tour-storage',
       version: 2,
-      partialize: (state) => ({ seenToursByUser: state.seenToursByUser }),
+      partialize: (state) => ({ seenToursByUser: state.seenToursByUser, progressByUser: state.progressByUser }),
       migrate: (persisted, version) => {
-        const state = (persisted ?? {}) as { seenToursByUser?: Record<string, Record<string, boolean>> }
+        const state = (persisted ?? {}) as { seenToursByUser?: Record<string, Record<string, SeenValue>> }
         if (version >= 2) return state as never
         return { seenToursByUser: migrateSeenMap(state.seenToursByUser ?? {}) } as never
       },
     }
   )
 )
+
+/**
+ * Có bài hướng dẫn đang chạy không. Đọc thẳng store (không phải hook) để những chỗ GHI dữ liệu —
+ * tự lưu bố cục, ghi nháp form — hỏi được ngay tại chỗ: đang có bài thì đứng ngoài.
+ */
+export const isTourRunning = () => useTourStore.getState().activeTour !== null

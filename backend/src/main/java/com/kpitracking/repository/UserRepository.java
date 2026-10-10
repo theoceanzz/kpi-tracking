@@ -96,4 +96,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             @Param("positionName") String positionName,
             @Param("keyword") String keyword,
             Pageable pageable);
+
+    /** Quản trị nền tảng đang hoạt động — người nhận mặc định của cảnh báo bảo mật (ForbiddenBurstAlerter). */
+    java.util.List<User> findByIsPlatformAdminTrueAndStatus(com.kpitracking.enums.UserStatus status);
 }

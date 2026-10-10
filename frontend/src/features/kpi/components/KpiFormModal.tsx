@@ -44,6 +44,9 @@ import { useCreatePeriodCycleOption } from '@/components/common/CreatePeriodCycl
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourAction } from '@/components/common/tours/actions'
+import { isTourRunning } from '@/store/tourStore'
 
 interface KpiFormModalProps {
   open: boolean
@@ -387,10 +390,15 @@ export default function KpiFormModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contextKey])
 
-  const afterCreate = (created: KpiCriteria | KpiCriteria[]) => {
+  /** Danh sách KPI (kể cả hộp "chờ tôi duyệt" — cùng tiền tố 'kpi-criteria') và số liệu BSC theo trọng số. */
+  const invalidateKpiData = () => {
     qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
     qc.invalidateQueries({ queryKey: ['bsc-kpi-plan'] })
     qc.invalidateQueries({ queryKey: ['bsc-unit-result'] })
+  }
+
+  const afterCreate = (created: KpiCriteria | KpiCriteria[]) => {
+    invalidateKpiData()
     // Giữ lại BỐI CẢNH (đợt, đơn vị, tần suất), dọn nội dung — chế độ thêm liên tục không bắt
     // chọn lại đợt/đơn vị cho từng chỉ tiêu. Không giữ người thực hiện: trường đổi nhiều nhất.
     reset({
@@ -424,7 +432,7 @@ export default function KpiFormModal({
 
   const updateMutation = useMutation({
     mutationFn: (data: KpiFormData) => kpiApi.update(editKpi!.id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['kpi-criteria'] }); toast.success(tr('KpiFormModal.updatedSuccessfully')); onClose() },
+    onSuccess: () => { invalidateKpiData(); toast.success(tr('KpiFormModal.updatedSuccessfully')); onClose() },
     onError: (err) => toast.error(getApiErrorMessage(err, tr('KpiFormModal.failedToUpdateKpi'))),
   })
 
@@ -661,6 +669,15 @@ export default function KpiFormModal({
     if (next === 'FREE') prefilledRef.current = {}
   }
 
+  // Bài "Tạo KPI 2/3" chuyển nguồn để chỉ ô chọn hạng mục BSC / KR (chỉ là trạng thái giao diện,
+  // form mới mở chưa có gì để mất). Tổ chức không bật nguồn đó thì bỏ qua — bước tự rơi vì thiếu neo.
+  useTourAction('kpi.form.source', (value) => {
+    const next = value as Source
+    if (next === 'BSC' && !enableBsc) return
+    if (next === 'OKR' && !enableOkr) return
+    changeSource(next)
+  })
+
   // ── Cảnh báo lệch số nguồn (không chặn) ──────────────────────────────────
   const watchedTarget = watch('targetValue')
   const watchedUnit = watch('unit')
@@ -765,6 +782,7 @@ export default function KpiFormModal({
 
   const submitSplit = () => {
     if (!selectedPerspRow) return
+    if (isTourRunning()) { toast.info(tr('KpiFormModal.tourDoesNotSubmit')); return }
     const chosen = splitRows.filter(r => r.selected)
     if (chosen.length === 0) { toast.error(tr('KpiFormModal.chooseAtLeastOnePeriodTo')); return }
     for (const r of chosen) {
@@ -793,6 +811,8 @@ export default function KpiFormModal({
   }
 
   const onSubmit = (data: KpiFormData) => {
+    // Đang học: không bao giờ tạo chỉ tiêu thật, kể cả lỡ nhấn Enter trong một ô.
+    if (isTourRunning()) { toast.info(tr('KpiFormModal.tourDoesNotSubmit')); return }
     const payload = { ...data }
     if (payload.kpiType === 'QUALITATIVE') {
       delete payload.targetValue; delete payload.minimumValue; delete payload.unit
@@ -850,12 +870,13 @@ export default function KpiFormModal({
   const formBody = (
     <form
       id="kpi-form"
+      {...tourAnchor('kpi.form')}
       noValidate
       onSubmit={splitMode ? (e => { e.preventDefault(); submitSplit() }) : handleSubmit(onSubmit, (err) => console.error('KPI Form Errors:', err))}
       className="flex flex-col gap-6"
     >
       {showTypeTabs && (
-        <div className="grid grid-cols-2 gap-1 rounded-control bg-[var(--color-muted)] p-1">
+        <div {...tourAnchor('kpi.form.type')} className="grid grid-cols-2 gap-1 rounded-control bg-[var(--color-muted)] p-1">
           <ChoiceChip selected={!isQualitative} variant="segment" className="h-9" onClick={() => setValue('kpiType', 'QUANTITATIVE')}>
             <BarChart3 /> {tr('KpiFormModal.quantitative')}
           </ChoiceChip>
@@ -891,6 +912,7 @@ export default function KpiFormModal({
                 </div>
               </Field>
             ) : (
+              <div {...tourAnchor('kpi.form.period')}>
               <Field label={tr('KpiFormModal.evaluationPeriods')} required error={errors.kpiPeriodId?.message}>
                 <Controller name="kpiPeriodId" control={control}
                   render={({ field }) => (
@@ -908,7 +930,9 @@ export default function KpiFormModal({
                   )}
                 />
               </Field>
+              </div>
             )}
+            <div {...tourAnchor('kpi.form.frequency')}>
             <Field label={tr('KpiFormModal.closingFrequency')} required>
               <Controller name="frequency" control={control}
                 render={({ field }) => (
@@ -921,6 +945,8 @@ export default function KpiFormModal({
                 )}
               />
             </Field>
+            </div>
+            <div {...tourAnchor('kpi.form.deadline')}>
             <Field label={tr('KpiFormModal.deadline')} hint={selectedPeriod ? tr('KpiFormModal.emptyEndOfPeriod', { endDate: formatDateTime(selectedPeriod.endDate) }) : tr('KpiFormModal.chooseAPeriodFirst')}>
               <Controller name="deadline" control={control}
                 render={({ field }) => (
@@ -929,11 +955,12 @@ export default function KpiFormModal({
                 )}
               />
             </Field>
+            </div>
           </div>
 
           {/* Đơn vị thực hiện */}
           {flatOrgUnits.length > 0 && (
-            <div className="space-y-2">
+            <div {...tourAnchor('kpi.form.units')} className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-label flex items-center gap-2">
                   <LayoutGrid size={15} className="text-[var(--color-primary)]" aria-hidden="true" /> {tr('KpiFormModal.implementingUnit')}
@@ -976,7 +1003,7 @@ export default function KpiFormModal({
           )}
 
           {/* Giao thực hiện */}
-          <div className="space-y-2">
+          <div {...tourAnchor('kpi.form.assignees')} className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-label flex items-center gap-2">
                 <Users size={15} className="text-[var(--color-primary)]" aria-hidden="true" /> {tr('KpiFormModal.assignTo')}
@@ -996,7 +1023,7 @@ export default function KpiFormModal({
               </div>
             ) : formOrgUnitIds.length > 0 ? (
               <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-                <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] p-2">
+                <div {...tourAnchor('kpi.form.assignee-filter')} className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] p-2">
                   <Input size="sm" placeholder={tr('KpiFormModal.searchByNameOrEmail')} value={userSearch} onChange={e => setUserSearch(e.target.value)} className="w-56" />
                   <ChoiceChip selected={selectedRole === 'ALL'} size="sm" onClick={() => setSelectedRole('ALL')}>{tr('KpiFormModal.all')}</ChoiceChip>
                   {availableRolesForFilter.map(role => (
@@ -1039,7 +1066,7 @@ export default function KpiFormModal({
       {canPickSource && (
         <Section title={tr('KpiFormModal.kpiSource')} hint={tr('KpiFormModal.chooseTheSourceFirstTargetUnit')}>
           {/* KR đã gắn thì không gỡ được khi sửa (luật cũ của ô KR) — khoá luôn việc đổi nguồn. */}
-          <div className="flex flex-wrap gap-2" title={krLocked ? tr('KpiFormModal.theKpiIsLinkedToA') : undefined}>
+          <div {...tourAnchor('kpi.form.source')} className="flex flex-wrap gap-2" title={krLocked ? tr('KpiFormModal.theKpiIsLinkedToA') : undefined}>
             <ChoiceChip selected={source === 'FREE'} onClick={() => changeSource('FREE')} disabled={krLocked}><Unlink /> {tr('KpiFormModal.freeForm')}</ChoiceChip>
             {enableBsc && <ChoiceChip selected={source === 'BSC'} onClick={() => changeSource('BSC')} disabled={krLocked}><LayoutGrid /> {tr('KpiFormModal.bscItem')}</ChoiceChip>}
             {enableOkr && (
@@ -1053,7 +1080,7 @@ export default function KpiFormModal({
           )}
 
           {source === 'BSC' && (
-            <div className="space-y-3">
+            <div {...tourAnchor('kpi.form.source.bsc')} className="space-y-3">
               <Controller name="perspectiveId" control={control}
                 render={({ field }) => (
                   <Select key={`${field.value ?? 'NONE'}-${(perspectives || []).length}`} onValueChange={field.onChange} value={field.value || 'NONE'}>
@@ -1120,7 +1147,7 @@ export default function KpiFormModal({
           )}
 
           {source === 'OKR' && (
-            <div className="space-y-3">
+            <div {...tourAnchor('kpi.form.source.okr')} className="space-y-3">
               <Controller name="keyResultId" control={control}
                 render={({ field }) => (
                   <Select onValueChange={field.onChange} value={field.value || 'NONE'} disabled={isEdit && !!editKpi?.keyResultId}>
@@ -1165,25 +1192,31 @@ export default function KpiFormModal({
           <div className="flex flex-wrap gap-2">
             {!isQualitative && (
               <Controller name="isReverseKpi" control={control} render={({ field }) => (
+                <div {...tourAnchor('kpi.form.reverse')} className="flex min-w-[240px] flex-1">
                 <ToggleCard on={!!field.value} onToggle={() => field.onChange(!field.value)} tone="warning"
                   title={tr('KpiFormModal.inverseKpi')} desc={tr('KpiFormModal.lowerIsBetterErrorRateCost')} />
+                </div>
               )} />
             )}
             {!parentKpi && (
               <Controller name="isBonusKpi" control={control} render={({ field }) => (
+                <div {...tourAnchor('kpi.form.bonus')} className="flex min-w-[240px] flex-1">
                 <ToggleCard on={!!field.value} onToggle={() => field.onChange(!field.value)} tone="success"
                   title={tr('KpiFormModal.bonusKpi')} desc={tr('KpiFormModal.optionalNotPartOfThe100')} />
+                </div>
               )} />
             )}
           </div>
         )}
 
+        <div {...tourAnchor('kpi.form.name')}>
         <Field label={tr('KpiFormModal.kpiName')} required error={errors.name?.message}
           trailing={(canManageOrg || canReview) && !isEdit && (
             /* Gợi ý đi qua K.AI (22/09/2026): bấm là khung chat mở và tự hỏi; agent tra số liệu +
                tài liệu tổ chức rồi gọi tool điền form -> thẻ "Đề xuất điền form", bấm Điền là vào
                biểu mẫu này (form đã đăng ký ở formAssistStore). Khung "GỢI Ý AI" tự dựng trong form
                đã bỏ — một đường, một cách nhận. */
+            <span {...tourAnchor('kpi.form.ai')} className="inline-flex">
             <AiShortcutButton
               size="sm"
               label={tr('KpiFormModal.aiSuggestion')}
@@ -1191,33 +1224,44 @@ export default function KpiFormModal({
               focusUnitId={aiUnitId}
               title={tr('KpiFormModal.kAiReadsTheUnitsFigures')}
             />
+            </span>
           )}>
           <Input {...register('name')} invalid={!!errors.name} placeholder={tr('KpiFormModal.eGOctoberRevenue')} />
         </Field>
+        </div>
 
+        <div {...tourAnchor('kpi.form.description')}>
         <Field label={tr('KpiFormModal.detailedDescription')}>
           <Textarea {...register('description')} rows={2} placeholder={tr('KpiFormModal.provideContextAndHowItIs')} />
         </Field>
+        </div>
 
         {isQualitative ? (
           <Hint tone="success">{tr('KpiFormModal.qualitativeKpisHaveNoNumericTarget')}</Hint>
         ) : !splitMode && (
           <div className="grid gap-4 sm:grid-cols-3">
+            <div {...tourAnchor('kpi.form.target')}>
             <Field label={targetLabel} required error={errors.targetValue?.message} prefilled={prefilledRef.current.targetValue !== undefined && watchedTarget === prefilledRef.current.targetValue}>
               <Input {...register('targetValue', { setValueAs: numOrUndef })} type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()} invalid={!!errors.targetValue} placeholder="1000"
                 suffix={<span className="text-xs">{watchedUnit}</span>} />
             </Field>
+            </div>
+            <div {...tourAnchor('kpi.form.minimum')}>
             <Field label={minLabel} required error={errors.minimumValue?.message}>
               <Input {...register('minimumValue', { setValueAs: numOrUndef })} type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()} invalid={!!errors.minimumValue} placeholder="800"
                 suffix={<span className="text-xs">{watchedUnit}</span>} />
             </Field>
+            </div>
+            <div {...tourAnchor('kpi.form.unit')}>
             <Field label={tr('KpiFormModal.unitOfMeasure')} required error={errors.unit?.message} prefilled={!!sourceUnitLabel && watchedUnit === sourceUnitLabel}>
               <Input {...register('unit')} invalid={!!errors.unit} placeholder={tr('KpiFormModal.vndKpi')} />
             </Field>
+            </div>
           </div>
         )}
 
         {!splitMode && (
+          <div {...tourAnchor('kpi.form.weight')}>
           <Field
             label={isBonus ? tr('KpiFormModal.bonusPoints') : tr('KpiFormModal.weight')} required error={errors.weight?.message ?? overFullWeightMessage}
             hint={isBonus ? tr('KpiFormModal.bonusKpiThisFigureIsAn')
@@ -1233,6 +1277,7 @@ export default function KpiFormModal({
               )}
             </div>
           </Field>
+          </div>
         )}
 
         {sourceWarnings.map((w, i) => (
@@ -1268,7 +1313,7 @@ export default function KpiFormModal({
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>{tr('KpiFormModal.cancel')}</Button>}
           primary={
-            <Button type="submit" form="kpi-form" disabled={isPending}>
+            <Button {...tourAnchor('kpi.form.submit')} type="submit" form="kpi-form" disabled={isPending}>
               {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
               {submitLabel ?? (isEdit ? tr('KpiFormModal.saveChanges') : splitMode ? tr('KpiFormModal.createPeriodKpis', { count: splitRows.filter(r => r.selected).length }) : tr('KpiFormModal.createKpi'))}
             </Button>

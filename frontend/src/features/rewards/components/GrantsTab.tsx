@@ -20,6 +20,8 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 const STATUS_STYLE = perLanguage((): Record<RewardGrantStatus, { label: string; className: string }> => ({
   [RewardGrantStatus.PENDING_APPROVAL]: {
@@ -46,6 +48,7 @@ export default function GrantsTab() {
   const [page, setPage] = useState(0)
   const [status, setStatus] = useState<RewardGrantStatus | ''>('')
   const [awardOpen, setAwardOpen] = useState(false)
+  useTourModal('rewards.award', () => { if (canGrant) setAwardOpen(true) }, () => setAwardOpen(false))
   const [revoking, setRevoking] = useState<RewardGrant | null>(null)
   const [certifying, setCertifying] = useState<RewardGrant | null>(null)
   const size = 20
@@ -72,7 +75,7 @@ export default function GrantsTab() {
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {/* Xuống dòng chứ KHÔNG cuộn ngang: chip nằm ngoài khung nhìn thì người dùng
             không biết là có, tệ hơn hẳn so với việc vùng lọc cao thêm một dòng. */}
-        <div id="tour-grants-filters" className="flex flex-wrap gap-1.5">
+        <div {...tourAnchor('grants.filters')} id="tour-grants-filters" className="flex flex-wrap gap-1.5">
           {([['', t('GrantsTab.all')], ...Object.entries(STATUS_STYLE()).map(([k, v]) => [k, v.label])] as [
             string,
             string,
@@ -89,14 +92,14 @@ export default function GrantsTab() {
         {(canGrant || canApprove) && (
           <WorkspaceHeaderActions>
             {canApprove && (
-              <AiShortcutButton
+              <AiShortcutButton {...tourAnchor('grants.ai')}
                 label={t('GrantsTab.approveWithKAi')}
                 prompt={aiShortcuts.reviewRewardGrants()}
                 title={t('GrantsTab.kAiListsThePendingReward')}
               />
             )}
             {canGrant && (
-              <Button onClick={() => setAwardOpen(true)}>
+              <Button {...tourAnchor('grants.award')} onClick={() => setAwardOpen(true)}>
                 <Gift aria-hidden="true" />
                 {t('GrantsTab.rewardPoints')}
               </Button>

@@ -310,6 +310,11 @@ export interface KpiCriteria {
   lastReturnedAt?: string | null
   /** Vị trí trong chuỗi duyệt (tính cho người đang xem); null khi không đang chờ duyệt. */
   approval?: import('./approvalChain').ApprovalSummary | null
+  /** Số bình luận chưa đọc của người xem trong khung thảo luận. */
+  unreadComments?: number
+  commentCount?: number
+  /** Tiến độ công việc gắn KPI mà người xem thấy được ("x/y việc"; total không tính việc đã huỷ). */
+  taskProgress?: { done: number; total: number; overdue: number } | null
 }
 
 // Matches BE: CreateKpiCriteriaRequest

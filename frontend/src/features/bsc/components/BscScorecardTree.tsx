@@ -34,6 +34,7 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 interface BscScorecardTreeProps {
   organizationId?: string
@@ -264,7 +265,7 @@ function TreeNode(props: TreeNodeProps) {
 
   return (
     <div>
-      <div className={cn(
+      <div {...(isRoot ? tourAnchor('bsc.card') : {})} className={cn(
         isRoot && 'tour-bsc-scorecard-card',
         'rounded-card border bg-[var(--color-card)] transition-all',
         isDetailOpen

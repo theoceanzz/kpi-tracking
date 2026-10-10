@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse, PageResponse } from '@/types/api'
 import type { KpiCriteria, CreateKpiRequest, UpdateKpiRequest, RejectKpiRequest, ImportKpiResult, ReplaceKpiRequest, BatchUpdateWeightRequest, KpiType } from '@/types/kpi'
 import type { KpiStatus } from '@/types/kpi'
@@ -68,9 +69,7 @@ export const kpiApi = {
     if (kpiType) params.append('kpiType', kpiType)
     if (params.toString()) url += `?${params.toString()}`
 
-    return axiosInstance.post<ApiResponse<ImportKpiResult>>(url, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }).then((r) => r.data.data)
+    return sendMultipart<ApiResponse<ImportKpiResult>>(url, formData).then((r) => r.data.data)
   },
 
 

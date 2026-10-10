@@ -21,6 +21,8 @@ interface FileDropzoneProps {
   /** Dòng tiêu đề của vùng kéo thả. Không đặt thì dùng câu cho minh chứng bài nộp. */
   label?: string
   className?: string
+  /** Neo của bài hướng dẫn, gắn lên khung ngoài cùng. */
+  'data-tour'?: string
 }
 
 /** Đổi mã lỗi của react-dropzone thành câu người dùng đọc được, có nêu cách sửa. */
@@ -40,7 +42,7 @@ function rejectionReason(rejection: FileRejection, maxSize?: number): string {
   return i18n.t('shared:FileDropzone.couldNotAccept', { name: rejection.file.name })
 }
 
-export default function FileDropzone({ onFilesSelected, files, onRemove, accept, maxFiles = 5, maxSize, hint, label, className }: FileDropzoneProps) {
+export default function FileDropzone({ onFilesSelected, files, onRemove, accept, maxFiles = 5, maxSize, hint, label, className, 'data-tour': dataTour }: FileDropzoneProps) {
   const { t } = useTranslation('shared')
   const [previewFile, setPreviewFile] = useState<{ url: string, name: string, type: string } | null>(null)
   
@@ -65,7 +67,7 @@ export default function FileDropzone({ onFilesSelected, files, onRemove, accept,
   })
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn("space-y-4", className)} data-tour={dataTour}>
       <div
         {...getRootProps()}
         className={cn(

@@ -30,6 +30,8 @@ import {
 import { groupByPerson, groupByUnitThenPerson, personGroupKey, type UnitGroup } from '@/lib/personGrouping'
 import { usePersonGroupCollapse } from '@/hooks/usePersonGroupCollapse'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 /** Số nhóm (đơn vị, hoặc người khi chỉ có một đơn vị) hiển thị mỗi trang. */
 const GROUP_PAGE_SIZE = 10
@@ -73,6 +75,7 @@ export default function EvaluationsPage() {
 
   // Modal states
   const [showForm, setShowForm] = useState(false)
+  useTourModal('eval.form', () => { if (canCreate) setShowForm(true) }, () => setShowForm(false))
   const [detailEval, setDetailEval] = useState<Evaluation | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [preSelectedPeriodId, setPreSelectedPeriodId] = useState<string | undefined>()
@@ -275,7 +278,7 @@ export default function EvaluationsPage() {
       <td className="px-4 py-3">{scoreChip(ev.score)}</td>
       <td className="px-4 py-3 whitespace-nowrap text-sm tabular-nums text-[var(--color-muted-foreground)]">{formatDateTime(ev.createdAt).split(' ')[0]}</td>
       <td className="px-3 py-2 text-right">
-        <Button variant="ghost" size="icon-sm" aria-label={t('EvaluationsPage.viewDetails')} title={t('EvaluationsPage.viewDetails')} onClick={e => { e.stopPropagation(); setDetailEval(ev) }}><Eye aria-hidden="true" /></Button>
+        <Button {...tourAnchor('eval.view')} variant="ghost" size="icon-sm" aria-label={t('EvaluationsPage.viewDetails')} title={t('EvaluationsPage.viewDetails')} onClick={e => { e.stopPropagation(); setDetailEval(ev) }}><Eye aria-hidden="true" /></Button>
       </td>
     </tr>
   )
@@ -328,7 +331,7 @@ export default function EvaluationsPage() {
           { label: t('EvaluationsPage.evaluations2'), value: stats.total, icon: ClipboardCheck },
           { label: t('EvaluationsPage.averageScore'), value: stats.avgScore, icon: TrendingUp },
         ]}
-        actions={canCreate ? <Button onClick={() => setShowForm(true)}><Plus aria-hidden="true" /> {t('EvaluationsPage.selfAssessment')}</Button> : undefined}
+        actions={canCreate ? <Button {...tourAnchor('eval.add')} onClick={() => setShowForm(true)}><Plus aria-hidden="true" /> {t('EvaluationsPage.selfAssessment')}</Button> : undefined}
       />
       
       {/* Nhắc hạn: chỉ khi sắp hết hạn, có KPI trong đợt và chưa tự đánh giá */}
@@ -342,7 +345,7 @@ export default function EvaluationsPage() {
               {!isPeriodCompleted && <span className="text-[var(--color-muted-foreground)]"> {t('EvaluationsPage.submitAllReportsOfThePeriod')}</span>}
           </p>
         </div>
-          <Button size="sm" onClick={() => setShowForm(true)} disabled={!isPeriodCompleted}>
+          <Button {...tourAnchor('eval.self-now')} size="sm" onClick={() => setShowForm(true)} disabled={!isPeriodCompleted}>
             <Star aria-hidden="true" /> {isPeriodCompleted ? t('EvaluationsPage.selfAssessNow') : t('EvaluationsPage.notEligibleYet')}
           </Button>
         </div>
@@ -350,7 +353,7 @@ export default function EvaluationsPage() {
 
       <FilterBar id="tour-eval-filters">
         <Select value={selectedKpiPeriodId} onValueChange={val => { setSelectedKpiPeriodId(val); setPage(0); resetGroups() }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label={t('EvaluationsPage.evaluationPeriods')}><SelectValue placeholder={t('EvaluationsPage.evaluationPeriods')} /></SelectTrigger>
+          <SelectTrigger {...tourAnchor('eval.period')} className="w-full sm:w-auto sm:min-w-52" aria-label={t('EvaluationsPage.evaluationPeriods')}><SelectValue placeholder={t('EvaluationsPage.evaluationPeriods')} /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">{t('EvaluationsPage.allPeriods')}</SelectItem>
             {periods.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -385,7 +388,7 @@ export default function EvaluationsPage() {
         </div>
       ) : (
         <>
-          <div id="tour-eval-table" className="hidden overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] md:block">
+          <div {...tourAnchor('eval.table')} id="tour-eval-table" className="hidden overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] md:block">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">

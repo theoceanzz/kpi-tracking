@@ -3,6 +3,7 @@ import { orgUnitApi } from '../api/org-unit.api'
 import type { CreateOrgUnitRequest, UpdateOrgUnitRequest } from '../types/org-unit'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { toastUploadError } from '@/lib/upload'
 import { useTranslation } from 'react-i18next'
 
 export function useOrgUnitTree(orgId: string | undefined) {
@@ -106,7 +107,7 @@ export function useUploadLogo() {
   const { t } = useTranslation('organization')
   const queryClient = useQueryClient()
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: ({ orgId, unitId, file }: { orgId: string; unitId: string; file: File }) => 
       orgUnitApi.uploadLogo(orgId, unitId, file),
     onSuccess: (_, variables) => {
@@ -114,10 +115,11 @@ export function useUploadLogo() {
       queryClient.invalidateQueries({ queryKey: ['orgUnits', 'detail', variables.orgId, variables.unitId] })
       toast.success(t('useOrganizationStructure.logoUploadedSuccessfully'))
     },
-    onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, t('useOrganizationStructure.anErrorOccurredWhileUploadingThe')))
+    onError: (error, variables) => {
+      toastUploadError(error, () => mutation.mutate(variables), t('useOrganizationStructure.anErrorOccurredWhileUploadingThe'))
     }
   })
+  return mutation
 }
 
 export function useDeleteOrgUnit() {

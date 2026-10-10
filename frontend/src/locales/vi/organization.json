@@ -586,7 +586,17 @@
     "actions": "Thao tác",
     "addChild": "Thêm con",
     "delete": "Xoá",
-    "edit": "Sửa"
+    "edit": "Sửa",
+    "legendTitle": "Chú thích",
+    "relation": {
+      "DIRECT": "Trực tuyến",
+      "ADVISORY": "Tham mưu – tư vấn",
+      "SUPERVISORY": "Giám sát độc lập"
+    },
+    "nodeLabel": {
+      "ADVISORY": "Tham mưu – tư vấn",
+      "SUPERVISORY": "Giám sát"
+    }
   },
   "OrgUnitDetailPage": {
     "active": "Hoạt động",
@@ -620,12 +630,14 @@
     "belongsTo": "Trực thuộc",
     "cancel": "Hủy",
     "changeLogo": "Thay đổi logo",
-    "chooseDistrict": "Chọn Quận/Huyện",
+    "chooseDistrict": "Chọn Phường/Xã",
+    "noResultsFound": "Không tìm thấy kết quả",
+    "searchPlaceholder": "Tìm kiếm…",
     "chooseProvinceCity": "Chọn Tỉnh/Thành",
     "contactInformation": "Thông tin liên hệ",
     "custom": "Tùy chỉnh",
     "detailedAddress": "Địa chỉ chi tiết",
-    "district": "Quận/Huyện",
+    "district": "Phường/Xã",
     "editUnit": "Chỉnh sửa thành phần",
     "eGCompanyDepartment": "VD: Công ty, Phòng ban...",
     "eGEngineeringDepartmentHanoiBranch": "VD: Phòng Kỹ thuật, Chi nhánh Hà Nội...",
@@ -654,7 +666,19 @@
     "trialNew": "DÙNG THỬ (MỚI)",
     "unitCode": "Mã thành phần",
     "unitName": "Tên thành phần",
-    "unitType": "Loại thành phần"
+    "unitType": "Loại thành phần",
+    "parentRelation": "Quan hệ với đơn vị cấp trên",
+    "parentRelationOption": {
+      "DIRECT": "Trực tuyến",
+      "ADVISORY": "Tham mưu – tư vấn",
+      "SUPERVISORY": "Giám sát độc lập"
+    },
+    "parentRelationHelp": {
+      "DIRECT": "Cấp trên chỉ đạo trực tiếp. Sơ đồ vẽ nét liền.",
+      "ADVISORY": "Tham mưu, tư vấn cho cấp trên, không nhận chỉ đạo trực tiếp. Sơ đồ vẽ nét đứt.",
+      "SUPERVISORY": "Giám sát độc lập, không nhận chỉ đạo trực tiếp. Sơ đồ vẽ nét đứt màu khác."
+    },
+    "parentRelationNote": "Chỉ thay đổi cách vẽ sơ đồ. Chuỗi duyệt KPI và quyền xem vẫn theo đơn vị cấp trên."
   },
   "RoleManagementPage": {
     "addRole": "Thêm vai trò",
@@ -876,7 +900,16 @@
     "whenSomeoneSharesADocumentWithYou": "Khi có người chia sẻ tài liệu cho bạn hoặc cho đơn vị của bạn",
     "whenSomeoneProposesADocumentForYourScope": "Khi có người đề xuất đưa tài liệu lên đơn vị / công ty mà bạn quản lý tài liệu",
     "whenYourDocumentProposalIsDecided": "Khi đề xuất đưa tài liệu lên của bạn được duyệt hoặc bị từ chối",
-    "whenADocumentIsDueForReview": "Khi tài liệu bạn quản lý tới ngày rà soát hoặc sắp hết hiệu lực"
+    "whenADocumentIsDueForReview": "Khi tài liệu bạn quản lý tới ngày rà soát hoặc sắp hết hiệu lực",
+    "whenSomeoneCommentsOnYourKpi": "Khi có bình luận mới trên KPI / công việc của bạn (gộp nhiều bình luận liên tiếp, chỉ chuông)",
+    "whenSomeoneRepliesToYourComment": "Khi có người trả lời bình luận của bạn",
+    "whenSomeoneMentionsYou": "Khi bạn được nhắc tên (@) trong thảo luận",
+    "whenATaskIsDueTomorrow": "Khi công việc của bạn đến hạn vào ngày mai",
+    "whenATaskIsOverdue": "Khi công việc của bạn đã quá hạn",
+    "whenTheKpiOfYourTasksIsReplaced": "Khi KPI có công việc của bạn được thay bằng KPI khác (chỉ chuông)",
+    "whenYouAreAssignedATask": "Khi bạn được giao việc hoặc việc của bạn được giao lại cho người khác",
+    "whenYouAreAddedAsTaskFollower": "Khi bạn được thêm làm người theo dõi một công việc (chỉ chuông)",
+    "whenATaskYouFollowChanges": "Khi công việc bạn phụ trách / tạo / theo dõi đổi hạn, đổi trạng thái hoặc hoàn thành (gộp, chỉ chuông)"
   },
   "useAiQuota": {
     "couldNotUpdate": "Không cập nhật được",

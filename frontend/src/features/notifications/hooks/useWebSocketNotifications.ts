@@ -4,12 +4,15 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { useAuthStore } from '@/store/authStore'
+import { resetSession, useAuthStore } from '@/store/authStore'
 import type { Notification } from '@/types/notification'
 import type { CursorPageResponse } from '@/types/api'
 import { notificationApi } from '../api/notificationApi'
 import { notificationLink } from '../notificationLink'
 import { playNotificationSound, primeNotificationSound, showDesktopNotification } from '../notificationAlert'
+import { createReconnectPolicy, RECONNECT_DELAYS_MS } from '../realtimeReconnect'
+import { refreshSession } from '@/lib/axios'
+import { attachRealtimeClient, detachRealtimeClient } from '@/lib/realtime'
 
 /**
  * Dữ liệu cần tải lại khi một thông báo loại tương ứng về tới.
@@ -64,6 +67,17 @@ const REFRESH_ON_NOTIFICATION: Record<string, string[]> = {
 
   // Có tiền về mà chưa ghi có được: hàng đợi đối soát và huy hiệu đếm trên tab.
   WALLET_RECONCILE: ['sepayEvents', 'walletReconcile', 'cashWallet', 'cashTransactions'],
+
+  // Chuỗi duyệt chỉ tiêu: KPI vừa được gửi lên / chuyển tới bước của mình, hoặc KPI của mình vừa
+  // được duyệt, trả lại, hoàn duyệt. 'kpi-criteria' bao cả hộp "chờ tôi duyệt" và KPI của tôi.
+  KPI_SUBMITTED: ['kpi-criteria', 'kpi-approval-chain'],
+  KPI_APPROVED: ['kpi-criteria', 'kpi-approval-chain'],
+  KPI_REJECTED: ['kpi-criteria', 'kpi-approval-chain'],
+  KPI_APPROVAL_REVERTED: ['kpi-criteria', 'kpi-approval-chain'],
+  KPI_ASSIGNED: ['kpi-criteria'],
+  // Yêu cầu điều chỉnh: hộp chờ điều chỉnh, chấm đếm, và KPI được áp bản điều chỉnh.
+  ADJUSTMENT_REQUEST: ['kpi-adjustments', 'kpi-approval-chain'],
+  ADJUSTMENT_DECIDED: ['kpi-adjustments', 'my-kpi-adjustments', 'kpi-criteria', 'kpi-approval-chain'],
 }
 
 /** Popup giữ lâu hơn toast thường (4s): người dùng có thể đang đọc chỗ khác khi nó hiện lên. */
@@ -104,27 +118,44 @@ export function useWebSocketNotifications() {
 
     // Không gửi Authorization: token nằm trong cookie HttpOnly, trình duyệt tự đính kèm vào
     // handshake (cùng origin) và backend đọc nó ở HandshakeInterceptor.
+    // Kết nối lại có làm mới phiên + chờ tăng dần (realtimeReconnect.ts) — không còn CONNECT mỗi 5s vô hạn
+    // khi phiên đã hết như log prod 2026-10-06.
+    const policy = createReconnectPolicy({
+      refresh: refreshSession,
+      onSessionOver: () => {
+        resetSession()
+        navigateRef.current('/login')
+      },
+    })
     const client = new Client({
       brokerURL,
-      reconnectDelay: 5000,
+      reconnectDelay: RECONNECT_DELAYS_MS[0],
+      beforeConnect: (c: Client) => policy.beforeConnect(c),
       onConnect: () => {
+        policy.onConnected(client)
+        // Các màn khác (khung thảo luận) đăng ký kênh riêng trên CHÍNH kết nối này.
+        attachRealtimeClient(client)
         client.subscribe('/user/queue/notifications', (frame) => {
           const notification: Notification = JSON.parse(frame.body)
 
-          // Prepend to all paginated notification caches
+          // Thông báo GỘP (nhiều bình luận liên tiếp) về lại với cùng id: thay bản cũ lên đầu, không đếm thêm
+          // chưa đọc — nó vẫn là một thông báo chưa đọc như trước.
+          let alreadyListed = false
           qc.setQueriesData<CursorPageResponse<Notification>>(
             { queryKey: ['notifications', 'list'] },
             (old) => {
               if (!old || typeof old !== 'object' || !('content' in old)) return old
-              return { ...old, content: [notification, ...old.content] }
+              if (old.content.some((n) => n.id === notification.id)) alreadyListed = true
+              return { ...old, content: [notification, ...old.content.filter((n) => n.id !== notification.id)] }
             }
           )
 
-          // Increment unread count separately
-          qc.setQueryData<number>(
-            ['notifications', 'unread-count'],
-            (old) => (old ?? 0) + 1
-          )
+          if (!alreadyListed) {
+            qc.setQueryData<number>(
+              ['notifications', 'unread-count'],
+              (old) => (old ?? 0) + 1
+            )
+          }
 
           // Làm mới dữ liệu mà sự kiện này vừa thay đổi. Chỉ đánh dấu cũ (invalidate) chứ không
           // tự tải lại tất cả: React Query chỉ gọi API cho những truy vấn đang thực sự hiển thị,
@@ -146,9 +177,16 @@ export function useWebSocketNotifications() {
             duration: POPUP_DURATION_MS,
             action: link ? { label: tRef.current('NotificationPopup.view'), onClick: open } : undefined,
           })
-          playNotificationSound()
-          showDesktopNotification({ id: notification.id, title: notification.title, body: notification.message, onClick: open })
+          // Bản cập nhật của thông báo gộp: chỉ thay nội dung popup, không kêu "ting" lại.
+          if (!alreadyListed) {
+            playNotificationSound()
+            showDesktopNotification({ id: notification.id, title: notification.title, body: notification.message, onClick: open })
+          }
         })
+      },
+      onWebSocketClose: () => {
+        detachRealtimeClient()
+        policy.onClosed(client)
       },
       onStompError: (frame) => {
         console.error('WebSocket STOMP error:', frame.headers['message'])
@@ -159,6 +197,7 @@ export function useWebSocketNotifications() {
     clientRef.current = client
 
     return () => {
+      detachRealtimeClient()
       client.deactivate()
       clientRef.current = null
     }

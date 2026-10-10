@@ -47,6 +47,8 @@ import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
 import { useStateDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 /** Số nhóm (đơn vị, hoặc người khi chỉ có một đơn vị) hiển thị mỗi trang. */
 const GROUP_PAGE_SIZE = 10
@@ -143,11 +145,11 @@ function RowActions({ request, onView, onApprove, onReject, busy, canAct }: {
   const approveLabel = approveButtonLabel(request.approval)
   return (
     <div className="flex items-center justify-end gap-0.5">
-      <Button variant="ghost" size="icon-sm" onClick={onView} aria-label={t('KpiAdjustmentApprovalPage.viewDetails')} title={t('KpiAdjustmentApprovalPage.viewDetails')}><Eye aria-hidden="true" /></Button>
+      <Button {...tourAnchor('adj.view')} variant="ghost" size="icon-sm" onClick={onView} aria-label={t('KpiAdjustmentApprovalPage.viewDetails')} title={t('KpiAdjustmentApprovalPage.viewDetails')}><Eye aria-hidden="true" /></Button>
       {pending && (
         <>
-          <Button variant="ghost" size="icon-sm" onClick={onApprove} disabled={busy} aria-label={approveLabel} title={approveLabel} className="text-[var(--color-success)] hover:bg-[var(--color-success-bg)]"><CheckCircle aria-hidden="true" /></Button>
-          <Button variant="ghost" size="icon-sm" onClick={onReject} disabled={busy} aria-label={t('KpiAdjustmentApprovalPage.rejected')} title={t('KpiAdjustmentApprovalPage.rejected')} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]"><XCircle aria-hidden="true" /></Button>
+          <Button {...tourAnchor('adj.approve')} variant="ghost" size="icon-sm" onClick={onApprove} disabled={busy} aria-label={approveLabel} title={approveLabel} className="text-[var(--color-success)] hover:bg-[var(--color-success-bg)]"><CheckCircle aria-hidden="true" /></Button>
+          <Button {...tourAnchor('adj.reject')} variant="ghost" size="icon-sm" onClick={onReject} disabled={busy} aria-label={t('KpiAdjustmentApprovalPage.rejected')} title={t('KpiAdjustmentApprovalPage.rejected')} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]"><XCircle aria-hidden="true" /></Button>
         </>
       )}
     </div>
@@ -445,6 +447,7 @@ export default function KpiAdjustmentApprovalPage() {
   const bulkNoteDraft = useStateDraft(bulkNote, setBulkNote, { key: 'adjustment-bulk-reject', enabled: bulkRejectOpen })
   const busy = bulkReviewMutation.isPending
   const openReview = (r: KpiAdjustmentRequest, mode: 'view' | 'approve' | 'reject' = 'view') => { setReviewMode(mode); setReviewAdjustment(r) }
+  useTourModal('adj.review', () => { const first = items[0]; if (first) openReview(first) }, () => setReviewAdjustment(null))
   const approveOne = (id: string) => {
     // Chuỗi duyệt: duyệt từng yêu cầu kèm bước đang thấy, để BE trả 409 nếu chuỗi đã đi tiếp.
     const req = items.find(i => i.id === id)
@@ -565,7 +568,7 @@ export default function KpiAdjustmentApprovalPage() {
           { label: t('KpiAdjustmentApprovalPage.declined'), value: stats.rejected, icon: Undo2 },
         ]}
         actions={hasPermission('KPI:APPROVE_ADJUSTMENT') && (
-          <AiShortcutButton
+          <AiShortcutButton {...tourAnchor('adj.ai')}
             label={t('KpiAdjustmentApprovalPage.approveWithKAi')}
             prompt={aiShortcuts.reviewAdjustments()}
             title={t('KpiAdjustmentApprovalPage.kAiListsThePendingAdjustment')}
@@ -579,7 +582,7 @@ export default function KpiAdjustmentApprovalPage() {
         trailing={<>{groupToggle}{viewToggle}</>}
       >
         <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0); resetGroups() }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label={t('KpiAdjustmentApprovalPage.evaluationPeriods')}><SelectValue placeholder={t('KpiAdjustmentApprovalPage.evaluationPeriods')} /></SelectTrigger>
+          <SelectTrigger {...tourAnchor('adj.period')} className="w-full sm:w-auto sm:min-w-52" aria-label={t('KpiAdjustmentApprovalPage.evaluationPeriods')}><SelectValue placeholder={t('KpiAdjustmentApprovalPage.evaluationPeriods')} /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">{t('KpiAdjustmentApprovalPage.allPeriods')}</SelectItem>
             {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -605,7 +608,7 @@ export default function KpiAdjustmentApprovalPage() {
         )}
       </FilterBar>
 
-      <div id="tour-adj-tabs" className="flex items-center justify-between gap-3">
+      <div {...tourAnchor('adj.tabs')} id="tour-adj-tabs" className="flex items-center justify-between gap-3">
         <SegmentedControl
           ariaLabel={t('KpiAdjustmentApprovalPage.filterByStatus')}
           value={activeTab}
@@ -635,12 +638,12 @@ export default function KpiAdjustmentApprovalPage() {
       {isLoading ? (
         <LoadingSkeleton type="table" rows={8} />
       ) : items.length === 0 ? (
-        <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
+        <div {...tourAnchor('adj.table')} className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
           <EmptyState icon={Inbox} title={emptyTitle} description={emptyDesc} />
         </div>
       ) : viewMode === 'list' ? (
         <div className="hidden overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] md:block">
-          <table className="w-full">
+          <table {...tourAnchor('adj.table')} className="w-full">
             <thead>
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
                 <th scope="col" className="w-10 px-3 py-2.5">
@@ -697,7 +700,7 @@ export default function KpiAdjustmentApprovalPage() {
         <Button variant="outline" onClick={() => setBulkRejectOpen(true)} disabled={busy} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]">
           <XCircle aria-hidden="true" /> {t('KpiAdjustmentApprovalPage.reject')}
         </Button>
-        <Button onClick={() => handleBulkReview('APPROVED')} disabled={busy}>
+        <Button {...tourAnchor('adj.bulk')} onClick={() => handleBulkReview('APPROVED')} disabled={busy}>
           {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <CheckCircle aria-hidden="true" />}
           {t('KpiAdjustmentApprovalPage.approve2')} {selectedIds.length} {t('KpiAdjustmentApprovalPage.requests')}
         </Button>

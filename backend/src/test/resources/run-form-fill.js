@@ -50,11 +50,7 @@ const KPI_FORM = 'kpi_form';
 const SUBMISSION_FORM = 'submission_form';
 const EVALUATION_FORM = 'evaluation_form';
 const KPI_ADJUSTMENT_FORM = 'kpi_adjustment_form';
-const ORG_UNIT_FORM = 'org_unit_form';
 const ORG_UNIT_DRAWER_FORM = 'org_unit_drawer_form';
-
-/** Cấp bậc "Phòng ban" của tổ chức mẫu. */
-const LEVEL_PHONG_BAN = '22222222-2222-2222-2222-222222222222';
 
 /** KPI "API hoàn thành" của riêng kỳ Tháng 6/2026 — mọi KPI đều lặp qua 3 kỳ nên phải nêu kỳ. */
 const KPI_API_T6 = '3daf855a-72f5-4941-aa42-37d13a1440f1';
@@ -66,12 +62,11 @@ const TOOL_OF = {
   [SUBMISSION_FORM]: 'suggest_submission_form',
   [EVALUATION_FORM]: 'suggest_evaluation_form',
   [KPI_ADJUSTMENT_FORM]: 'suggest_kpi_adjustment_form',
-  [ORG_UNIT_FORM]: 'suggest_org_unit_form',
   [ORG_UNIT_DRAWER_FORM]: 'suggest_org_unit_drawer_form',
 };
 
 /**
- * Các ca kiểm cho sáu form.
+ * Các ca kiểm cho năm form.
  *
  * Ca `mustHavePatch: false` là các PHÉP SO NGƯỢC và chúng quan trọng hơn các ca thuận: một tính
  * năng điền form quá sốt sắng sẽ ghi bừa vào form người dùng, và đó là hỏng nặng hơn nhiều so
@@ -244,25 +239,6 @@ const CASES = [
     // Phải truyền đạt việc lý do CHƯA ĐẠT, không chỉ nhắc tới chữ "lý do" — chữ đó có trong hầu
     // hết mọi câu trả lời của ca này nên nhận nó là biến phép kiểm thành vô nghĩa.
     expectText: /10 ký tự|ít nhất 10|quá ngắn|lý do.{0,40}(ngắn|ít nhất|chi tiết|đầy đủ|bổ sung)/i,
-  },
-  {
-    id: 'U01',
-    why: 'ĐƠN VỊ — tra cấp bậc theo tên ra UUID thật',
-    message: 'Tạo đơn vị tên Phòng Marketing, mã MKT, cấp bậc Phòng ban',
-    formId: ORG_UNIT_FORM,
-    values: {},
-    mustHavePatch: true,
-    expectFields: { name: /Marketing/i, code: /MKT/i, orgHierarchyId: LEVEL_PHONG_BAN },
-    expectDisplay: { orgHierarchyId: /Phòng ban/i },
-  },
-  {
-    id: 'U02',
-    why: 'NGƯỢC — cấp bậc không có thật thì không được bịa id',
-    message: 'Tạo đơn vị tên Phòng Marketing, mã MKT, cấp bậc Chi nhánh vùng',
-    formId: ORG_UNIT_FORM,
-    values: {},
-    mustHavePatch: false,
-    mustCallTool: true,
   },
   {
     id: 'D01',

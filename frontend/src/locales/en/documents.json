@@ -405,7 +405,10 @@
     "loadFailed": "Could not load the document file, please try again",
     "emptyTitle": "No documents yet",
     "emptyDescription": "Documents you upload or can view on the Documents page will appear here.",
-    "typeNotAccepted": "{{name}} — this file type is not accepted here"
+    "typeNotAccepted": "{{name}} — this file type is not accepted here",
+    "fromLibrary": "From the library: {{title}}",
+    "fromLibraryUntitled": "From the library",
+    "openLatest": "Open latest version"
   },
   "promotion": {
     "propose": "Propose to a unit / the company",

@@ -14,6 +14,8 @@ public class OrgUnitExcelResponse {
     private String name;
     private String code;
     private String parentCode;
+    /** DIRECT / ADVISORY / SUPERVISORY — cột ParentRelation, nhập lại được. */
+    private String parentRelation;
     private String email;
     private String phone;
     private String address;

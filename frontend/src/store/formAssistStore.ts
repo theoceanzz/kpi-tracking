@@ -43,7 +43,6 @@ export type AssistFormId =
   | 'submission_form'
   | 'evaluation_form'
   | 'kpi_adjustment_form'
-  | 'org_unit_form'
   | 'org_unit_drawer_form'
 
 export interface RegisteredForm {

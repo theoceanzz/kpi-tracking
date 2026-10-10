@@ -1,7 +1,7 @@
 import { LocaleNumberInput } from '@/components/ui/number-input'
 import i18n from 'i18next'
 import {
-  useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState,
+  Fragment, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState,
   type ReactNode, type Ref,
 } from 'react'
 import {
@@ -13,6 +13,7 @@ import { conductLockMessage, type ConductScoreInput, type ConductSheet, type Con
 import { exportConductSheetToExcel } from '../utils/conductSheetExport'
 import { useConductSheet } from '../hooks/useConduct'
 import { CONDUCT_MIN_SCORE, fmt, num, useConductDraft, weighted } from '../hooks/useConductDraft'
+import { groupConductItems, groupLetter, groupScore } from '../utils/conductGroups'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 
@@ -143,6 +144,14 @@ function InlineSheet({
   const dual = sheet.canScoreSelf && sheet.canScoreManager
   /** Phía người đang mở phiếu chấm — quyết định khối nào có ô nhập, khối nào chỉ để xem. */
   const side: Side = sheet.canScoreManager ? 'manager' : 'self'
+  // Phiếu chia nhóm (bộ → nhóm → tiêu chí): số thứ tự dạng 1.2 như phiếu giấy.
+  const groups = groupConductItems(sheet.items)
+  const labelOf = (position: number, idx: number) => {
+    if (!groups) return String(idx + 1)
+    const gi = groups.findIndex(g => g.items.some(x => x.position === position))
+    const ii = groups[gi]?.items.findIndex(x => x.position === position) ?? idx
+    return `${gi + 1}.${ii + 1}`
+  }
   const editable = sheet.canScoreSelf || sheet.canScoreManager
 
   // Tiến độ tính trên đúng phía người này phải chấm: "2/5" là thứ họ cần biết còn mấy ô
@@ -233,20 +242,38 @@ function InlineSheet({
 
           {sheet.items.map((item, idx) => {
             const d = rowOf(item.position)
+            // Phiếu chia nhóm: tiêu đề nhóm đứng trước tiêu chí đầu tiên của nhóm, kèm điểm nhóm.
+            const group = groups?.find(g => g.items[0]?.position === item.position)
+            const groupIndex = group ? groups!.indexOf(group) : -1
             return (
+              <Fragment key={item.position}>
+              {group && (
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-1 pt-2">
+                  <p className="text-sm font-semibold text-[var(--color-foreground)]">
+                    <span className="text-[var(--color-info)]">{groupLetter(groupIndex)}.</span> {group.name}
+                    <span className="ml-1.5 text-caption tabular-nums">{fmt(group.weight)}%</span>
+                  </p>
+                  <p className="text-caption tabular-nums">
+                    {t('ConductInlineSheet.groupScore')}{' '}
+                    {(dual || side === 'self' || !sheet.canScoreManager) && <>{t('ConductInlineSheet.self')} {fmt(groupScore(group.items, i => num(rowOf(i.position).selfScore)))}</>}
+                    {(dual || side === 'manager' || groupScore(group.items, i => num(rowOf(i.position).managerScore)) != null) && (
+                      <> · QLTT {fmt(groupScore(group.items, i => num(rowOf(i.position).managerScore)))}</>
+                    )}
+                  </p>
+                </div>
+              )}
               <div
-                key={item.position}
                 className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-3.5"
               >
                 <div className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-control bg-[var(--color-muted)] text-caption font-semibold flex items-center justify-center shrink-0 mt-0.5">
-                    {idx + 1}
+                    {labelOf(item.position, idx)}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-semibold text-[var(--color-foreground)] leading-snug">{item.name}</p>
                       <span className="shrink-0 px-2 py-0.5 rounded-control bg-[var(--color-muted)] text-caption tabular-nums">
-                        {fmt(item.weight)}%
+                        {fmt(item.weightInGroup ?? item.weight)}%
                       </span>
                     </div>
                     <Expectations text={item.description} />
@@ -299,6 +326,7 @@ function InlineSheet({
                   )}
                 </div>
               </div>
+              </Fragment>
             )
           })}
 

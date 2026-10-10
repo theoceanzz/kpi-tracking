@@ -17,6 +17,7 @@ import {
   type F360AssignmentStatus,
   type F360CampaignStatus,
 } from '../api/feedback360Api'
+import { useApiAllowed } from '@/hooks/useApiAllowed'
 import { useTranslation } from 'react-i18next'
 
 type BadgeVariant = 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'info'
@@ -64,10 +65,12 @@ export function UserSearchPicker({
   const { t } = useTranslation('feedback360')
   const [keyword, setKeyword] = useState('')
   const debounced = useDebounce(keyword.trim(), 300)
+  const canSearchUsers = useApiAllowed('GET', '/users')
   const { data, isFetching } = useQuery({
     queryKey: ['feedback360', 'user-search', debounced],
     queryFn: () => userApi.getAll({ page: 0, size: 8, keyword: debounced || undefined }),
     staleTime: 30_000,
+    enabled: canSearchUsers,
   })
   const selectedIds = new Set(selected.map(u => u.id))
   const results = (data?.content ?? []).filter(u => !excludeIds.includes(u.id))

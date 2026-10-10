@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 interface FilterBarProps {
   /** Các bộ lọc chính, theo thứ tự cố định của nhóm pattern (đợt → đơn vị → trạng thái…). */
@@ -32,12 +33,12 @@ export default function FilterBar({ children, search, overflow, overflowActiveCo
   const { t } = useTranslation('shared')
   const [open, setOpen] = useState(false)
   return (
-    <div id={id} className={cn('flex flex-wrap items-center gap-2', className)}>
+    <div id={id} {...tourAnchor('filter.bar')} className={cn('flex flex-wrap items-center gap-2', className)}>
       {children}
       {overflow && (
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" aria-expanded={open}>
+            <Button variant="outline" aria-expanded={open} {...tourAnchor('filter.more')}>
               <SlidersHorizontal aria-hidden="true" />
               {t('FilterBar.filters')}
               {overflowActiveCount > 0 && (
@@ -56,6 +57,7 @@ export default function FilterBar({ children, search, overflow, overflowActiveCo
         // Ô nhập chuẩn (focus một lớp); nút xoá chỉ hiện khi có chữ — không thì placeholder bị cắt oan.
         <Input
           type="search"
+          {...tourAnchor('filter.search')}
           value={search.value}
           onChange={e => search.onChange(e.target.value)}
           placeholder={search.placeholder ?? t('FilterBar.search')}
@@ -76,7 +78,7 @@ export default function FilterBar({ children, search, overflow, overflowActiveCo
           inputClassName="[&::-webkit-search-cancel-button]:appearance-none"
         />
       )}
-      {trailing && <div className={cn('flex items-center gap-1', !search && 'ml-auto')}>{trailing}</div>}
+      {trailing && <div {...tourAnchor('filter.trailing')} className={cn('flex items-center gap-1', !search && 'ml-auto')}>{trailing}</div>}
     </div>
   )
 }

@@ -21,6 +21,8 @@ import { approveButtonLabel } from '../utils/approvalChainLabels'
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { blockedByTour } from '@/components/common/tours/guard'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 interface KpiAdjustmentReviewModalProps {
   open: boolean
@@ -106,7 +108,7 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request, initi
           note={t('KpiAdjustmentReviewModal.theRequesterWillBeNotifiedWith')}
           secondary={<Button variant="outline" onClick={() => setReviewMode('view')} disabled={isPending}>{t('KpiAdjustmentReviewModal.back')}</Button>}
           primary={
-            <Button variant={reviewMode === 'approve' ? 'default' : 'destructive'} onClick={handleSubmit(d => reviewMutation.mutate(d))} disabled={isPending}>
+            <Button variant={reviewMode === 'approve' ? 'default' : 'destructive'} onClick={handleSubmit(d => { if (!blockedByTour()) reviewMutation.mutate(d) })} disabled={isPending}>
               {isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : reviewMode === 'approve' ? <CheckCircle aria-hidden="true" /> : <XCircle aria-hidden="true" />}
               {reviewMode === 'approve' ? approveLabel : t('KpiAdjustmentReviewModal.rejected')}
             </Button>
@@ -115,18 +117,18 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request, initi
       ) : (
         <DialogFooter
           destructive={
-            <Button variant="outline" onClick={() => setReviewMode('reject')} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]">
+            <Button {...tourAnchor('adjreview.reject')} variant="outline" onClick={() => setReviewMode('reject')} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]">
               <XCircle aria-hidden="true" /> {t('KpiAdjustmentReviewModal.rejected')}
             </Button>
           }
           secondary={<Button variant="outline" onClick={close}>{t('KpiAdjustmentReviewModal.close')}</Button>}
-          primary={<Button onClick={() => setReviewMode('approve')}><CheckCircle aria-hidden="true" /> {approveLabel}</Button>}
+          primary={<Button {...tourAnchor('adjreview.approve')} onClick={() => setReviewMode('approve')}><CheckCircle aria-hidden="true" /> {approveLabel}</Button>}
         />
       )
     : <DialogFooter primary={<Button variant="outline" onClick={close}>{t('KpiAdjustmentReviewModal.close')}</Button>} />
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('adjreview.dialog')}
       open={open}
       onClose={close}
       size="lg"
@@ -149,13 +151,13 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request, initi
           )}
         </div>
 
-        <section>
+        <section {...tourAnchor('adjreview.reason')}>
           <h3 className="text-eyebrow mb-1">{t('KpiAdjustmentReviewModal.adjustmentReason')}</h3>
           <p className="text-sm leading-5 text-[var(--color-foreground)]">{request.reason}</p>
         </section>
           
         {/* Hiện tại → đề xuất: một bảng ba cột để mắt so theo hàng, không phải hai cột thẻ rời */}
-        <section className="overflow-hidden rounded-card border border-[var(--color-border)]">
+        <section {...tourAnchor('adjreview.compare')} className="overflow-hidden rounded-card border border-[var(--color-border)]">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">

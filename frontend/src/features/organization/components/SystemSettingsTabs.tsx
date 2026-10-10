@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 /**
  * Hai khối cấu hình hệ thống, tách khỏi trang cũ để gắn vào menu trong trang
@@ -124,7 +125,7 @@ export function SidebarSettingsTab() {
 
   return (
     <div className="space-y-4">
-      <div id="tour-sidebar-header" className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div {...tourAnchor('sidebar.header')} id="tour-sidebar-header" className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="min-w-0">
             <h3 className="text-section-title">{t('SystemSettingsTabs.customizeNavigationLabels')}</h3>
             <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
@@ -136,7 +137,7 @@ export function SidebarSettingsTab() {
         <div className="flex flex-col md:flex-row md:items-center gap-3 shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" size={16} />
-            <input
+            <input {...tourAnchor('sidebar.search')}
               type="text"
               placeholder={t('SystemSettingsTabs.searchItems')}
               value={searchTerm}
@@ -144,14 +145,14 @@ export function SidebarSettingsTab() {
               className="pl-10 pr-4 py-2 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm focus:ring-2 focus:ring-[var(--color-ring)] outline-none w-full md:w-56"
             />
           </div>
-          <Button className="w-full md:w-auto" onClick={handleSave} disabled={updateMutation.isPending}>
+          <Button {...tourAnchor('sidebar.save')} className="w-full md:w-auto" onClick={handleSave} disabled={updateMutation.isPending}>
             {updateMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
             {t('SystemSettingsTabs.saveChanges')}
           </Button>
         </div>
       </div>
 
-      <div id="tour-sidebar-note" className="p-4 rounded-card bg-[var(--color-info-bg)] border border-[var(--color-info-border)] flex items-start gap-3">
+      <div {...tourAnchor('sidebar.note')} id="tour-sidebar-note" className="p-4 rounded-card bg-[var(--color-info-bg)] border border-[var(--color-info-border)] flex items-start gap-3">
         <Info size={18} className="text-[var(--color-info)] shrink-0 mt-0.5" />
         <p className="text-xs text-[var(--color-info)] font-medium leading-relaxed">
           {t('SystemSettingsTabs.mostScreensAreNow')} <b>{t('SystemSettingsTabs.itemsInsideAPage')}</b> {t('SystemSettingsTabs.ratherThanSeparateRowsOnThe')}
@@ -163,7 +164,7 @@ export function SidebarSettingsTab() {
         return (
           <div
             key={scope.id}
-            id={isSidebar ? 'tour-sidebar-scope-sidebar' : undefined}
+            id={isSidebar ? 'tour-sidebar-scope-sidebar' : undefined} {...tourAnchor('sidebar.scope')}
             className="tour-sidebar-scope overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]"
           >
             <div className="px-6 py-4 border-b border-[var(--color-border)] flex items-center gap-3">
@@ -214,7 +215,7 @@ export function SidebarSettingsTab() {
                             : 'border-[var(--color-border)]'
                         )}
                       />
-                      <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label={t('SystemSettingsTabs.backToDefaultName')} type="button" onClick={() => handleChange(entry, '')} disabled={!value} title={t('SystemSettingsTabs.backToDefaultName')}>
+                      <Button {...tourAnchor('sidebar.reset-item')} variant="ghost" size="icon-sm" className="shrink-0" aria-label={t('SystemSettingsTabs.backToDefaultName')} type="button" onClick={() => handleChange(entry, '')} disabled={!value} title={t('SystemSettingsTabs.backToDefaultName')}>
                         <RotateCcw aria-hidden="true" />
                       </Button>
                     </div>
@@ -284,6 +285,15 @@ const EVENT_LABELS = perLanguage((): Record<string, string> => ({
   wallet_topup_expired: i18n.t('organization:SystemSettingsTabs.whenATopUpOrderExpires'),
   wallet_topup_unmatched: i18n.t('organization:SystemSettingsTabs.whenMoneyArrivesThatMatchesNo'),
   wallet_converted: i18n.t('organization:SystemSettingsTabs.whenConvertingWalletCashBalanceInto'),
+  discussion_comment: i18n.t('organization:SystemSettingsTabs.whenSomeoneCommentsOnYourKpi'),
+  discussion_reply: i18n.t('organization:SystemSettingsTabs.whenSomeoneRepliesToYourComment'),
+  discussion_mention: i18n.t('organization:SystemSettingsTabs.whenSomeoneMentionsYou'),
+  task_due_soon: i18n.t('organization:SystemSettingsTabs.whenATaskIsDueTomorrow'),
+  task_overdue: i18n.t('organization:SystemSettingsTabs.whenATaskIsOverdue'),
+  task_kpi_replaced: i18n.t('organization:SystemSettingsTabs.whenTheKpiOfYourTasksIsReplaced'),
+  task_assigned: i18n.t('organization:SystemSettingsTabs.whenYouAreAssignedATask'),
+  task_follower_added: i18n.t('organization:SystemSettingsTabs.whenYouAreAddedAsTaskFollower'),
+  task_changed: i18n.t('organization:SystemSettingsTabs.whenATaskYouFollowChanges'),
 }))
 
 const DEFAULT_SETTINGS = perLanguage((): NotificationConfigItem[] => (Object.keys(EVENT_LABELS()).map(code => ({
@@ -334,7 +344,7 @@ export function NotificationSettingsTab() {
               <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">{t('SystemSettingsTabs.setUpHowTheOrganizationReceives')}</p>
           </div>
 
-          <Button className="shrink-0" onClick={() => saveConfig()} disabled={isSaving}>
+          <Button {...tourAnchor('notif.save')} className="shrink-0" onClick={() => saveConfig()} disabled={isSaving}>
             {isSaving ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
             {t('SystemSettingsTabs.saveSettings')}
           </Button>
@@ -353,7 +363,7 @@ export function NotificationSettingsTab() {
               <Loader2 size={24} className="animate-spin text-[var(--color-primary)]" />
             </div>
           ) : (
-            <div id="tour-notif-events" className="divide-y divide-[var(--color-border)]">
+            <div {...tourAnchor('notif.events')} id="tour-notif-events" className="divide-y divide-[var(--color-border)]">
               {settings.map((item) => (
                 <div key={item.eventCode} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
@@ -424,7 +434,7 @@ function EvaluationReminderCard() {
           <Bell size={20} />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-section-title">{t('SystemSettingsTabs.periodCycleEvaluationDeadlineReminders')}</h3>
+          <h3 {...tourAnchor('notif.deadline')} className="text-section-title">{t('SystemSettingsTabs.periodCycleEvaluationDeadlineReminders')}</h3>
           <p className="text-xs font-medium text-[var(--color-muted-foreground)] leading-relaxed">
             {t('SystemSettingsTabs.remindUnitHeadsBeforeAPeriod')}
           </p>

@@ -17,6 +17,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { useTranslation } from 'react-i18next'
 import { useStateDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { blockedByTour } from '@/components/common/tours/guard'
 
 /**
  * Bước 4 — KHOÁ KẾT QUẢ đánh giá kỳ của phòng ban.
@@ -64,6 +66,7 @@ export default function FinalizeUnitDialog({
   const cycleReady = !locksCycle || (!!preview && allDecided)
 
   const confirm = async () => {
+    if (blockedByTour()) return
     setBusy(true)
     try {
       await onFinalize({
@@ -84,7 +87,7 @@ export default function FinalizeUnitDialog({
   }
 
   return (
-    <Dialog
+    <Dialog {...tourAnchor('finalize.dialog')}
       open
       onClose={onClose}
       size={locksCycle && unfinished.length > 0 ? 'lg' : 'md'}
@@ -95,7 +98,7 @@ export default function FinalizeUnitDialog({
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={busy}>{t('FinalizeUnitDialog.cancel')}</Button>}
           primary={
-            <Button onClick={confirm} disabled={busy || blocked || !cycleReady}
+            <Button {...tourAnchor('finalize.confirm')} onClick={confirm} disabled={busy || blocked || !cycleReady}
               title={blocked ? t('FinalizeUnitDialog.someLevelsAreAboveTheCeiling') : !cycleReady ? t('FinalizeUnitDialog.chooseHowToHandleEveryUnfinished') : undefined}>
               {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Lock aria-hidden="true" />}
               {busy ? t('FinalizeUnitDialog.locking') : locksCycle ? t('FinalizeUnitDialog.lockResultsAndLockTheCycle') : t('FinalizeUnitDialog.confirmLock')}
@@ -106,7 +109,7 @@ export default function FinalizeUnitDialog({
     >
       <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-4">
-        <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-4">
+        <div {...tourAnchor('finalize.summary')} className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-eyebrow mb-1">{t('FinalizeUnitDialog.unitScoreToBeLocked')}</p>
@@ -172,7 +175,7 @@ export default function FinalizeUnitDialog({
           )
         )}
 
-        <div>
+        <div {...tourAnchor('finalize.comment')}>
           <label htmlFor="finalize-unit-comment" className="text-label">{t('FinalizeUnitDialog.commentsOptional')}</label>
           <Textarea
             id="finalize-unit-comment"
@@ -183,7 +186,7 @@ export default function FinalizeUnitDialog({
         </div>
 
         {locksCycle && (
-          <section className="space-y-3 rounded-card border border-[var(--color-border)] p-4">
+          <section {...tourAnchor('finalize.unfinished')} className="space-y-3 rounded-card border border-[var(--color-border)] p-4">
             <div>
               <p className="text-sm font-semibold text-[var(--color-foreground)]">{t('FinalizeUnitDialog.alsoLockCycle')}{summary.cycleName}"</p>
               <p className="text-caption">{summary.orgUnitName} {t('FinalizeUnitDialog.isTheRootUnitSoLocking')}</p>

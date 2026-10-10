@@ -15,7 +15,13 @@ import { perLanguage } from '@/i18n/perLanguage'
 export interface ConductExportRow {
   name: string
   description?: string | null
+  /** % trên tổng. */
   weight: number
+  /** Phiếu chia nhóm (null = không nhóm): tên, % nhóm, thứ tự nhóm và % trong nhóm. */
+  groupName?: string | null
+  groupWeight?: number | null
+  groupPosition?: number | null
+  weightInGroup?: number | null
   selfScore: number | null
   selfEvidence: string
   managerScore: number | null
@@ -117,8 +123,44 @@ export async function exportConductSheetToExcel(
     }
   })
 
-  // 4. Các dòng tiêu chí
+  // 4. Các dòng tiêu chí — phiếu chia nhóm thì thêm dòng tiêu đề nhóm và dòng "Tổng nhóm" như phiếu giấy.
+  const grouped = rows.some(r => r.groupName != null)
+  const groupKey = (r: ConductExportRow) => `${r.groupPosition ?? 0}:${r.groupName ?? ''}`
+  const groupKeys = grouped ? [...new Set(rows.map(groupKey))] : []
+  const styleRow = (row: ExcelJS.Row, fill: string) => {
+    for (let c = 1; c <= 9; c++) {
+      const cur = row.getCell(c)
+      cur.font = { name: 'Arial', size: 10, bold: true }
+      cur.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } }
+      cur.alignment = { vertical: 'middle', horizontal: c === 1 || c >= 3 ? 'center' : 'left', wrapText: true }
+      cur.border = thin
+    }
+  }
+  const groupScoreOf = (items: ConductExportRow[], side: 'self' | 'manager') => {
+    let sum = 0
+    let any = false
+    for (const r of items) {
+      const s = side === 'self' ? r.selfScore : r.managerScore
+      if (s == null) continue
+      any = true
+      sum += (s * (r.weightInGroup ?? r.weight)) / 100
+    }
+    return any ? Math.round(sum * 100) / 100 : null
+  }
+  const sumOf = (items: ConductExportRow[], pick: (r: ConductExportRow) => number | null) => {
+    const vals = items.map(pick).filter((v): v is number => v != null)
+    return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) * 100) / 100 : null
+  }
+  let lastGroup: string | null = null
+
   rows.forEach((r, i) => {
+    if (grouped && groupKey(r) !== lastGroup) {
+      lastGroup = groupKey(r)
+      const head = ws.addRow([groupKeys.indexOf(lastGroup) + 1, `${r.groupName ?? ''} — ${r.groupWeight ?? 0}%`])
+      ws.mergeCells(`B${head.number}:I${head.number}`)
+      styleRow(head, 'FFDBEAFE')
+    }
+    const inGroup = grouped ? rows.filter(x => groupKey(x) === groupKey(r)) : []
     // Mô tả gộp vào ô tiêu chí, mỗi biểu hiện một dòng có gạch đầu dòng — giống trên màn hình.
     const bullets = (r.description ?? '')
       .split('\n')
@@ -128,9 +170,9 @@ export async function exportConductSheetToExcel(
       .join('\n')
 
     const row = ws.addRow([
-      i + 1,
+      grouped ? `${groupKeys.indexOf(groupKey(r)) + 1}.${inGroup.indexOf(r) + 1}` : i + 1,
       bullets ? `${r.name}\n${bullets}` : r.name,
-      `${r.weight}%`,
+      `${Number((grouped ? (r.weightInGroup ?? r.weight) : r.weight).toFixed(2))}%`,
       cell(r.selfScore),
       r.selfEvidence || '',
       cell(r.managerScore),
@@ -147,6 +189,20 @@ export async function exportConductSheetToExcel(
       }
       cur.border = thin
     })
+
+    // Hết nhóm ⇒ dòng "Tổng nhóm": điểm nhóm trên thang ở hai cột điểm, đóng góp vào tổng ở hai cột cuối.
+    const next = rows[i + 1]
+    if (grouped && (!next || groupKey(next) !== groupKey(r))) {
+      const gi = groupKeys.indexOf(groupKey(r))
+      const sub = ws.addRow([
+        i18n.t('conduct:conductSheetExport.groupTotal', { name: r.groupName ?? '', letter: String.fromCharCode(97 + gi) }), '',
+        '100%', cell(groupScoreOf(inGroup, 'self')), '', cell(groupScoreOf(inGroup, 'manager')), '',
+        cell(sumOf(inGroup, x => x.selfWeighted)), cell(sumOf(inGroup, x => x.managerWeighted)),
+      ])
+      ws.mergeCells(`A${sub.number}:B${sub.number}`)
+      styleRow(sub, 'FFFCE7DB')
+      sub.getCell(1).alignment = { vertical: 'middle', horizontal: 'right' }
+    }
   })
 
   // 5. Hàng cộng điểm

@@ -1,5 +1,5 @@
-import { X, Target, Building2, Users, BarChart3, Award, Calendar, Clock, CheckCircle2, ListTree, Layers } from 'lucide-react'
-import { useMemo } from 'react'
+import { X, Target, Building2, Users, BarChart3, Award, Calendar, Clock, CheckCircle2, ListTree, Layers, Info, MessagesSquare, ListTodo } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { formatNumber, formatDateTime, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 import { useKpiChildren } from '../hooks/useKpiChildren'
@@ -13,19 +13,35 @@ import { Button } from '@/components/ui/button'
 import ApprovalChainPanel from './ApprovalChainPanel'
 import { useKpiApprovalChain } from '../hooks/useKpiApprovalChain'
 import { useTranslation } from 'react-i18next'
+import DiscussionPanel from '@/features/discussion/components/DiscussionPanel'
+import KpiTasksTab from '@/features/tasks/components/KpiTasksTab'
 
 
 
 
+
+export type KpiDetailTab = 'info' | 'discussion' | 'tasks'
 
 interface KpiDetailModalProps {
   open: boolean
   onClose: () => void
   kpi: KpiCriteria | null
+  /** Tab mở sẵn (vd. từ thông báo bình luận). */
+  initialTab?: KpiDetailTab
+  /** Bình luận cần cuộn tới trong tab Thảo luận. */
+  focusCommentId?: string | null
 }
 
-export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalProps) {
+export default function KpiDetailModal({ open, onClose, kpi, initialTab = 'info', focusCommentId }: KpiDetailModalProps) {
   const { t } = useTranslation('kpi')
+  const [tab, setTab] = useState<KpiDetailTab>(initialTab)
+  // Mở lại / đổi KPI ⇒ về tab được yêu cầu (chỉnh state ngay trong render thay vì effect, theo khuyến nghị của React).
+  const resetKey = `${open}:${kpi?.id}:${initialTab}`
+  const [lastResetKey, setLastResetKey] = useState(resetKey)
+  if (lastResetKey !== resetKey) {
+    setLastResetKey(resetKey)
+    setTab(initialTab)
+  }
   const { data: children } = useKpiChildren(open && kpi?.hasChildren ? kpi.id : undefined)
   // Người tạo luôn xem được KPI của mình đang ở bước nào, ai đang giữ, và lịch sử duyệt.
   const { data: approvalChain, isLoading: chainLoading } = useKpiApprovalChain(open ? kpi?.id : undefined)
@@ -73,7 +89,7 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
     <div className="fixed inset-x-0 top-0 h-screen z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 transition-opacity" onClick={onClose} />
       
-      <div className="relative bg-[var(--color-card)] rounded-card w-full max-w-2xl mx-4 animate-in zoom-in-95 fade-in duration-300 max-h-[90vh] overflow-hidden border border-[var(--color-border)] flex flex-col">
+      <div className="relative bg-[var(--color-card)] rounded-card w-full max-w-3xl mx-4 animate-in zoom-in-95 fade-in duration-300 max-h-[90vh] overflow-hidden border border-[var(--color-border)] flex flex-col">
         
         {/* Header Section */}
         <div className="px-8 py-6 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
@@ -96,7 +112,46 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
           </button>
         </div>
 
+        {/* Tabs: Thông tin / Thảo luận / Công việc */}
+        <div className="flex shrink-0 gap-1 border-b border-[var(--color-border)] px-6">
+          {([
+            { key: 'info', icon: Info, label: t('KpiDetailModal.tabInfo'), badge: null },
+            { key: 'discussion', icon: MessagesSquare, label: t('KpiDetailModal.tabDiscussion'), badge: kpi.unreadComments || null },
+            { key: 'tasks', icon: ListTodo, label: t('KpiDetailModal.tabTasks'),
+              badge: kpi.taskProgress ? `${kpi.taskProgress.done}/${kpi.taskProgress.total}` : null },
+          ] as const).map(({ key, icon: Icon, label, badge }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className={cn(
+                '-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm',
+                tab === key ? 'border-[var(--color-primary)] font-medium text-[var(--color-primary)]' : 'border-transparent text-[var(--color-subtle-foreground)] hover:text-[var(--color-foreground)]',
+              )}
+            >
+              <Icon size={14} /> {label}
+              {badge != null && (
+                <span className={cn('rounded-full px-1.5 text-[10px]', key === 'discussion'
+                  ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
+                  : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]')}>{badge}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'discussion' && (
+          <div className="flex h-[65vh] min-h-0 flex-col">
+            <DiscussionPanel targetType="KPI" targetId={kpi.id} focusCommentId={focusCommentId} />
+          </div>
+        )}
+        {tab === 'tasks' && (
+          <div className="flex-1 overflow-y-auto">
+            <KpiTasksTab kpi={kpi} />
+          </div>
+        )}
+
         {/* Content Section */}
+        {tab === 'info' && (
         <div className="flex-1 overflow-y-auto p-8 space-y-8">
           
           {/* Overview & Description */}
@@ -297,6 +352,13 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
           )}
 
           {approvalChain?.chainMode && <ApprovalChainPanel chain={approvalChain} loading={chainLoading} />}
+          {/* Yêu cầu điều chỉnh đang chờ: hiện riêng chuỗi của nó để người gửi biết đang đợi ai duyệt. */}
+          {approvalChain?.chainMode && (() => {
+            const runningAdj = approvalChain.flows.find(f => f.subjectType === 'ADJUSTMENT' && f.status === 'IN_PROGRESS')
+            return runningAdj?.adjustmentRequestId
+              ? <ApprovalChainPanel chain={approvalChain} adjustmentId={runningAdj.adjustmentRequestId} title={t('KpiDetailModal.adjustmentApprovalChain')} />
+              : null
+          })()}
 
           {/* Audit Trail */}
           <div className="pt-8 border-t border-[var(--color-border)] flex flex-wrap gap-x-8 gap-y-4">
@@ -312,13 +374,16 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
              )}
           </div>
         </div>
+        )}
 
         {/* Footer Section */}
+        {tab !== 'discussion' && (
         <div className="px-8 py-6 bg-[var(--color-muted)] border-t border-[var(--color-border)] flex justify-end shrink-0">
           <Button variant="outline" onClick={onClose}>
             {t('KpiDetailModal.close')}
           </Button>
         </div>
+        )}
       </div>
     </div>
   )

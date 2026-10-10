@@ -13,10 +13,13 @@ import { useUrboxStatus } from '../hooks/useUrbox'
 import { GiftItemStatus, type GiftItem } from '../types'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
+import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourModal } from '@/components/common/tours/actions'
 
 export default function GiftsTab() {
   const { t } = useTranslation('rewards')
   const [formOpen, setFormOpen] = useState(false)
+  useTourModal('rewards.gift', () => { setEditing(null); setFormOpen(true) }, () => setFormOpen(false))
   const [urboxOpen, setUrboxOpen] = useState(false)
   const [editing, setEditing] = useState<GiftItem | null>(null)
   const [deleting, setDeleting] = useState<GiftItem | null>(null)
@@ -45,12 +48,12 @@ export default function GiftsTab() {
         </span>
         <WorkspaceHeaderActions>
           {urbox?.enabled && (
-            <Button variant="outline" onClick={() => setUrboxOpen(true)}>
+            <Button {...tourAnchor('gifts.urbox')} variant="outline" onClick={() => setUrboxOpen(true)}>
               <Store aria-hidden="true" />
               {t('GiftsTab.urboxGiftCatalog')}
             </Button>
           )}
-          <Button onClick={() => {
+          <Button {...tourAnchor('gifts.add')} onClick={() => {
               setEditing(null)
               setFormOpen(true)
             }}>
@@ -63,7 +66,7 @@ export default function GiftsTab() {
       {isLoading ? (
         <LoadingSkeleton type="table" rows={4} />
       ) : (data ?? []).length === 0 ? (
-        <div className="rounded-card border border-dashed border-[var(--color-border)]">
+        <div {...tourAnchor('data.table')} className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
             title={t('GiftsTab.theGiftCatalogIsEmpty')}
             description={t('GiftsTab.employeesEarnPointsButHaveNothing')}

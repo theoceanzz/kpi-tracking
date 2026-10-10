@@ -9,6 +9,7 @@
     "conduct": "reviewed",
     "dashboard": "reviewed",
     "datasources": "reviewed",
+    "discussion": "reviewed",
     "documents": "reviewed",
     "errors": "reviewed",
     "evaluations": "reviewed",
@@ -27,6 +28,7 @@
     "rewards": "reviewed",
     "shared": "reviewed",
     "submissions": "reviewed",
+    "tasks": "reviewed",
     "users": "reviewed",
     "wallet": "reviewed"
   }

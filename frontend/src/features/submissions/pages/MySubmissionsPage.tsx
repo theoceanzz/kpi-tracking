@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
+import { tourAnchor } from '@/components/common/tours/anchors'
 
 type TabKey = SubmissionStatus | ''
 const TABS = perLanguage((): { key: TabKey; label: string }[] => ([
@@ -161,10 +162,10 @@ export default function MySubmissionsPage() {
     <div className="flex items-center justify-end gap-1">
       {sub.status === 'DRAFT' ? (
         <>
-          <Button asChild variant="ghost" size="icon-sm" aria-label={tr('MySubmissionsPage.editDraft')} title={tr('MySubmissionsPage.editDraft')}>
+          <Button {...tourAnchor('mysub.edit')} asChild variant="ghost" size="icon-sm" aria-label={tr('MySubmissionsPage.editDraft')} title={tr('MySubmissionsPage.editDraft')}>
             <Link to={`/submissions/edit/${sub.id}`}><Pencil aria-hidden="true" /></Link>
           </Button>
-          <Button size="sm" onClick={() => { setPendingId(sub.id); setShowConfirm(true) }} disabled={submitMutation.isPending && submitMutation.variables === sub.id}>
+          <Button {...tourAnchor('mysub.send')} size="sm" onClick={() => { setPendingId(sub.id); setShowConfirm(true) }} disabled={submitMutation.isPending && submitMutation.variables === sub.id}>
             {submitMutation.isPending && submitMutation.variables === sub.id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />} {tr('MySubmissionsPage.submitForApproval')}
           </Button>
         </>
@@ -191,7 +192,7 @@ export default function MySubmissionsPage() {
           { label: tr('MySubmissionsPage.approved'), value: stats.approved, icon: CheckCircle2 },
         ]}
         actions={
-          <Button asChild>
+          <Button {...tourAnchor('mysub.add')} asChild>
             <Link to="/submissions/new"><Plus aria-hidden="true" /> {tr('MySubmissionsPage.submitReport')}</Link>
           </Button>
         }
@@ -223,7 +224,7 @@ export default function MySubmissionsPage() {
         </Select>
       </FilterBar>
 
-      <div id="tour-my-sub-tabs" className="flex items-center justify-between gap-3">
+      <div {...tourAnchor('mysub.tabs')} id="tour-my-sub-tabs" className="flex items-center justify-between gap-3">
         <SegmentedControl
           ariaLabel={tr('MySubmissionsPage.filterByStatus')}
           value={activeTab}
@@ -231,13 +232,13 @@ export default function MySubmissionsPage() {
           options={TABS().map(t => ({ value: t.key, label: <>{t.label}<span className="text-[var(--color-muted-foreground)] tabular-nums">{countOf(t.key)}</span></> }))}
         />
         {draftCount > 0 && activeTab !== 'DRAFT' && (
-          <Button variant="ghost" type="button" onClick={() => { setActiveTab('DRAFT'); setPage(0) }}>
+          <Button {...tourAnchor('mysub.drafts')} variant="ghost" type="button" onClick={() => { setActiveTab('DRAFT'); setPage(0) }}>
             {draftCount} {tr('MySubmissionsPage.unsentDrafts')}
                 </Button>
               )}
             </div>
 
-      <div id="tour-my-sub-list">
+      <div {...tourAnchor('mysub.list')} id="tour-my-sub-list">
         {isLoading ? (
           <LoadingSkeleton type="table" rows={6} />
         ) : filteredItems.length === 0 ? (

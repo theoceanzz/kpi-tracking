@@ -3,6 +3,7 @@ import { useTabParam } from '@/hooks/useTabParam'
 import { WorkspaceTabsProvider } from '@/components/common/WorkspaceTabs'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import { useHasPermission } from '@/components/auth/PermissionGate'
+import { useApiAllowed } from '@/hooks/useApiAllowed'
 import GrantsTab from '../components/GrantsTab'
 import BudgetsTab from '../components/BudgetsTab'
 import GiftsTab from '../components/GiftsTab'
@@ -28,12 +29,15 @@ export default function RewardManagementPage() {
   })
   const pendingCount = pendingPage?.totalElements ?? 0
 
+  // Số trên tab "Yêu cầu đổi quà" chỉ hỏi server khi được gọi API đó — trước đây trang gọi với
+  // mọi người vào được (trưởng đơn vị không có GIFT:FULFILL) rồi nuốt 403.
   const canFulfill = hasPermission('GIFT:FULFILL')
+  const canListRedemptions = useApiAllowed('GET', '/reward-redemptions')
   const { data: pendingRedemptionPage } = useRedemptions({
     status: RedemptionStatus.PENDING,
     size: 1,
-  })
-  const pendingRedemptionCount = canFulfill ? (pendingRedemptionPage?.totalElements ?? 0) : 0
+  }, { enabled: canListRedemptions })
+  const pendingRedemptionCount = canListRedemptions ? (pendingRedemptionPage?.totalElements ?? 0) : 0
 
   // Tab chỉ hiện khi người dùng có quyền tương ứng — router đã cho vào trang bằng
   // phép OR nhiều quyền, nên bên trong vẫn phải lọc lại từng tab.

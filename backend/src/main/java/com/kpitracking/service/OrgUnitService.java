@@ -8,6 +8,7 @@ import com.kpitracking.dto.request.orgunit.UpdateOrgUnitRequest;
 import com.kpitracking.dto.response.orgunit.OrgUnitResponse;
 import com.kpitracking.dto.response.orgunit.OrgUnitTreeResponse;
 import com.kpitracking.entity.*;
+import com.kpitracking.enums.OrgUnitRelationType;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.DuplicateResourceException;
 import com.kpitracking.exception.ResourceNotFoundException;
@@ -123,6 +124,7 @@ public class OrgUnitService {
         if (parent != null) {
             orgUnit.setParent(parent);
         }
+        orgUnit.setParentRelation(OrgUnitRelationType.forUnit(parent != null, request.getParentRelation()));
 
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
             if (orgUnitRepository.existsByEmailAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(request.getEmail(), orgId)) {
@@ -236,6 +238,10 @@ public class OrgUnitService {
             orgUnit.setAllowedRoles(newAllowedRoles);
         }
         
+        if (request.getParentRelation() != null) {
+            orgUnit.setParentRelation(OrgUnitRelationType.forUnit(orgUnit.getParent() != null, request.getParentRelation()));
+        }
+
         if (request.getStatus() != null) {
             try {
                 orgUnit.setStatus(com.kpitracking.enums.OrgUnitStatus.valueOf(request.getStatus().toUpperCase()));
@@ -288,6 +294,7 @@ public class OrgUnitService {
             orgUnit.setParent(newParent);
         } else {
             orgUnit.setParent(null);
+            orgUnit.setParentRelation(OrgUnitRelationType.DIRECT); // thành đơn vị gốc: không còn cấp trên
         }
 
         orgUnit = orgUnitRepository.save(orgUnit);
@@ -383,17 +390,18 @@ public class OrgUnitService {
         return buildTree(subtreeUnits);
     }
 
-    @Transactional
+    /** Ảnh đi lên NGOÀI transaction — khuôn chung {@link CloudinaryStorageService#uploadThenSave}. */
     public OrgUnitResponse uploadLogo(UUID orgId, UUID unitId, MultipartFile file) throws IOException {
-        OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", unitId));
-
-        String logoUrl = cloudinaryStorageService.uploadFile(file, "org-logos").get("url");
-        orgUnit.setLogoUrl(logoUrl);
-        orgUnit = orgUnitRepository.save(orgUnit);
-        OrgUnitResponse response = orgUnitMapper.toResponse(orgUnit);
-        populateExtraFields(orgUnit, response);
-        return response;
+        return cloudinaryStorageService.uploadThenSave(new MultipartFile[]{file}, "org-logos",
+                () -> orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
+                        .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", unitId)),
+                (orgUnit, stored) -> {
+                    orgUnit.setLogoUrl(stored.get(0).url());
+                    OrgUnit saved = orgUnitRepository.save(orgUnit);
+                    OrgUnitResponse response = orgUnitMapper.toResponse(saved);
+                    populateExtraFields(saved, response);
+                    return response;
+                });
     }
 
     private List<OrgUnitTreeResponse> buildTree(List<OrgUnit> units) {
@@ -451,6 +459,7 @@ public class OrgUnitService {
                         .name(unit.getName())
                         .code(unit.getCode())
                         .parentCode(unit.getParent() != null ? unit.getParent().getCode() : null)
+                        .parentRelation(unit.getParentRelation().name())
                         .email(unit.getEmail())
                         .phone(unit.getPhone())
                         .address(unit.getAddress())
@@ -485,7 +494,8 @@ public class OrgUnitService {
                                     csvRecord.isMapped("Email") ? csvRecord.get("Email") : null,
                                     csvRecord.isMapped("Phone") ? csvRecord.get("Phone") : null,
                                     csvRecord.isMapped("Address") ? csvRecord.get("Address") : null,
-                                    csvRecord.isMapped("RoleIds") ? csvRecord.get("RoleIds") : null);
+                                    csvRecord.isMapped("RoleIds") ? csvRecord.get("RoleIds") : null,
+                                    csvRecord.isMapped("ParentRelation") ? csvRecord.get("ParentRelation") : null);
                             successfulImports++;
                         } catch (Exception e) {
                             errors.add(ErrorMessages.text("import.rowError", "", totalRows, e.getMessage()));
@@ -499,7 +509,7 @@ public class OrgUnitService {
 
                     if (headerRow == null) throw new BusinessException(ErrorCode.EXCEL_FILE_EMPTY);
 
-                    int nameIdx = -1, codeIdx = -1, parentCodeIdx = -1, emailIdx = -1, phoneIdx = -1, addrIdx = -1, roleIdsIdx = -1;
+                    int nameIdx = -1, codeIdx = -1, parentCodeIdx = -1, emailIdx = -1, phoneIdx = -1, addrIdx = -1, roleIdsIdx = -1, relationIdx = -1;
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                         String header = headerRow.getCell(i).getStringCellValue().trim();
                         if (header.equalsIgnoreCase("Name")) nameIdx = i;
@@ -509,6 +519,7 @@ public class OrgUnitService {
                         else if (header.equalsIgnoreCase("Phone")) phoneIdx = i;
                         else if (header.equalsIgnoreCase("Address")) addrIdx = i;
                         else if (header.equalsIgnoreCase("RoleIds")) roleIdsIdx = i;
+                        else if (header.equalsIgnoreCase("ParentRelation")) relationIdx = i;
                     }
 
                     if (nameIdx == -1 || codeIdx == -1) {
@@ -528,7 +539,8 @@ public class OrgUnitService {
                                     emailIdx != -1 ? getCellValueAsString(row.getCell(emailIdx)) : null,
                                     phoneIdx != -1 ? getCellValueAsString(row.getCell(phoneIdx)) : null,
                                     addrIdx != -1 ? getCellValueAsString(row.getCell(addrIdx)) : null,
-                                    roleIdsIdx != -1 ? getCellValueAsString(row.getCell(roleIdsIdx)) : null);
+                                    roleIdsIdx != -1 ? getCellValueAsString(row.getCell(roleIdsIdx)) : null,
+                                    relationIdx != -1 ? getCellValueAsString(row.getCell(relationIdx)) : null);
                             successfulImports++;
                         } catch (Exception e) {
                             errors.add(ErrorMessages.text("import.rowError", "", totalRows, e.getMessage()));
@@ -555,7 +567,7 @@ public class OrgUnitService {
         return cell.getStringCellValue().trim();
     }
 
-    private void processOrgUnitRow(UUID orgId, String name, String code, String parentCode, String email, String phone, String address, String roleIds) {
+    private void processOrgUnitRow(UUID orgId, String name, String code, String parentCode, String email, String phone, String address, String roleIds, String parentRelation) {
         if (name == null || name.isBlank()) throw new BusinessException(ErrorCode.UNIT_NAME_REQUIRED);
         if (code == null || code.isBlank()) throw new BusinessException(ErrorCode.UNIT_CODE_REQUIRED);
 
@@ -604,6 +616,18 @@ public class OrgUnitService {
         }
 
         orgUnit.setParent(parent);
+        // Cột ParentRelation trống/thiếu: đơn vị đã có giữ nguyên loại cũ, đơn vị mới là DIRECT.
+        if (parentRelation != null && !parentRelation.isBlank()) {
+            OrgUnitRelationType relation;
+            try {
+                relation = OrgUnitRelationType.valueOf(parentRelation.trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException(ErrorCode.ORG_UNIT_PARENT_RELATION_INVALID, parentRelation);
+            }
+            orgUnit.setParentRelation(OrgUnitRelationType.forUnit(parent != null, relation));
+        } else if (parent == null) {
+            orgUnit.setParentRelation(OrgUnitRelationType.DIRECT);
+        }
         orgUnit.setEmail(email);
         orgUnit.setPhone(phone);
         orgUnit.setAddress(address);
