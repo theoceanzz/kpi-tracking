@@ -25,16 +25,16 @@ public interface KpiTaskReminderRepository extends JpaRepository<KpiTaskReminder
 
     /**
      * Mốc nhắc tới giờ, chưa gửi, trong cửa sổ {@code since..now} (mốc quá cũ — vd. máy chủ tắt nhiều ngày — thì bỏ,
-     * không dội nhắc muộn). Chỉ task chưa xong, KPI còn, kỳ chưa khoá, người phụ trách còn hoạt động.
+     * không dội nhắc muộn). Chỉ task chưa xong; không KPI, hoặc KPI còn và kỳ chưa khoá. Người nhận (người thực hiện còn hoạt động) lọc ở job.
      */
     @Query(value = "SELECT r.* FROM kpi_task_reminders r " +
             "JOIN kpi_tasks t ON t.id = r.task_id AND t.deleted_at IS NULL AND t.status IN ('TODO', 'IN_PROGRESS') " +
-            "JOIN users u ON u.id = t.owner_id AND u.deleted_at IS NULL AND u.status = 'ACTIVE' " +
-            "JOIN kpi_criteria k ON k.id = t.kpi_criteria_id AND k.deleted_at IS NULL AND k.status <> 'CLOSED_BY_LOCK' " +
+            "LEFT JOIN kpi_criteria k ON k.id = t.kpi_criteria_id AND k.deleted_at IS NULL " +
             "LEFT JOIN kpi_periods p ON p.id = k.kpi_period_id " +
             "LEFT JOIN kpi_cycles c ON c.id = p.kpi_cycle_id " +
             "WHERE r.sent_at IS NULL AND r.remind_at <= :now AND r.remind_at > :since " +
-            "  AND (c.status IS NULL OR c.status <> 'LOCKED') " +
+            "  AND (t.kpi_criteria_id IS NULL OR (k.id IS NOT NULL AND k.status <> 'CLOSED_BY_LOCK' " +
+            "       AND (c.status IS NULL OR c.status <> 'LOCKED'))) " +
             "ORDER BY r.remind_at LIMIT :lim", nativeQuery = true)
     List<KpiTaskReminder> findDue(@Param("now") Instant now, @Param("since") Instant since, @Param("lim") int limit);
 

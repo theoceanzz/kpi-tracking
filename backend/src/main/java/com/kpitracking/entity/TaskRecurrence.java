@@ -18,11 +18,15 @@ import java.util.List;
  *
  * <ul>
  *   <li>{@code DAILY}: mỗi {@code interval} ngày;</li>
- *   <li>{@code WEEKLY}: các thứ trong {@code byWeekday} (1 = thứ 2 … 7 = CN), mỗi {@code interval} tuần;</li>
- *   <li>{@code MONTHLY}: ngày {@code byMonthDay} (tháng thiếu ngày thì lấy ngày cuối tháng), mỗi {@code interval} tháng.</li>
+ *   <li>{@code WEEKLY}: các thứ trong {@code byWeekday} (1 = thứ 2 … 7 = CN), mỗi {@code interval} tuần — "ngày làm việc"
+ *       = WEEKLY T2–T6;</li>
+ *   <li>{@code MONTHLY}: ngày {@code byMonthDay} (tháng thiếu ngày thì lấy ngày cuối tháng), HOẶC "thứ X tuần thứ n"
+ *       ({@code byWeekday} một ngày + {@code bySetPos} 1..4, -1 = tuần cuối), mỗi {@code interval} tháng;</li>
+ *   <li>{@code YEARLY}: tháng {@code byMonth} ngày {@code byMonthDay} (mặc định theo hạn hiện tại), mỗi {@code interval} năm.</li>
  * </ul>
- * "Tuỳ chỉnh" của giao diện chính là {@code interval} &gt; 1. {@link #template} là giá trị mà các lần SAU sẽ chép
- * (sửa "chỉ lần này" không đổi nó; sửa "lần này và các lần sau" đổi cả nó).
+ * {@code count}: tổng số lần (lần đầu là lần 1) — đủ thì dừng, như "ngày kết thúc". "Tuỳ chỉnh" của giao diện chính là
+ * {@code interval} &gt; 1. {@link #template} là giá trị mà các lần SAU sẽ chép (sửa "chỉ lần này" không đổi nó; sửa "lần
+ * này và các lần sau" đổi cả nó).
  */
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 @EqualsAndHashCode // Hibernate so cột JSON bằng equals — thiếu thì mỗi lần flush đều tưởng đã đổi và tăng version.
@@ -30,13 +34,19 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TaskRecurrence implements Serializable {
 
-    public enum Freq { DAILY, WEEKLY, MONTHLY }
+    public enum Freq { DAILY, WEEKLY, MONTHLY, YEARLY }
 
     private Freq freq;
     @Builder.Default
     private Integer interval = 1;
     private List<Integer> byWeekday;
     private Integer byMonthDay;
+    /** MONTHLY: tuần thứ mấy của tháng (1..4, -1 = cuối) — dùng cùng một ngày trong {@link #byWeekday}. */
+    private Integer bySetPos;
+    /** YEARLY: tháng (1..12). */
+    private Integer byMonth;
+    /** Tổng số lần lặp (kể cả lần đầu); null = không giới hạn. */
+    private Integer count;
     private Template template;
 
     @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
@@ -62,12 +72,30 @@ public class TaskRecurrence implements Serializable {
         return switch (freq == null ? Freq.DAILY : freq) {
             case DAILY -> due.plusDays(n);
             case WEEKLY -> nextWeekly(due, n);
-            case MONTHLY -> {
-                LocalDate base = due.plusMonths(n);
-                int day = byMonthDay != null ? byMonthDay : due.getDayOfMonth();
-                yield base.withDayOfMonth(Math.min(Math.max(day, 1), base.lengthOfMonth()));
+            case MONTHLY -> nthWeekdayMode() ? nthWeekday(due.plusMonths(n)) : clampDay(due.plusMonths(n),
+                    byMonthDay != null ? byMonthDay : due.getDayOfMonth());
+            case YEARLY -> {
+                LocalDate base = due.plusYears(n);
+                if (byMonth != null && byMonth >= 1 && byMonth <= 12) base = base.withDayOfMonth(1).withMonth(byMonth);
+                yield clampDay(base, byMonthDay != null ? byMonthDay : due.getDayOfMonth());
             }
         };
+    }
+
+    private boolean nthWeekdayMode() {
+        return bySetPos != null && byWeekday != null && byWeekday.size() == 1;
+    }
+
+    /** "Thứ X tuần thứ n" của tháng chứa {@code monthAnchor}. */
+    private LocalDate nthWeekday(LocalDate monthAnchor) {
+        DayOfWeek dow = DayOfWeek.of(Math.min(Math.max(byWeekday.get(0), 1), 7));
+        if (bySetPos < 0) return monthAnchor.with(TemporalAdjusters.lastInMonth(dow));
+        int pos = Math.min(Math.max(bySetPos, 1), 4);
+        return monthAnchor.with(TemporalAdjusters.dayOfWeekInMonth(pos, dow));
+    }
+
+    private static LocalDate clampDay(LocalDate base, int day) {
+        return base.withDayOfMonth(Math.min(Math.max(day, 1), base.lengthOfMonth()));
     }
 
     private LocalDate nextWeekly(LocalDate due, int n) {

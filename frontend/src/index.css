@@ -501,7 +501,9 @@ textarea:not(:disabled, [readonly], :focus, .no-edit-hint) {
   padding-right: 1.875rem;
 }
 textarea:not(:disabled, [readonly], :focus, .no-edit-hint) {
-  background-position: right 0.625rem top 0.625rem;
+  /* Lùi khỏi mép phải đủ bề rộng thanh cuộn: mô tả dài làm hiện thanh cuộn ngay trên bút chì. */
+  background-position: right 1.125rem top 0.625rem;
+  padding-right: 2.5rem;
 }
 
 /* react-grid-layout required styles */

@@ -150,6 +150,46 @@ export interface DocumentShare {
   createdAt: string
 }
 
+/** Một lần gửi tài liệu qua email — link công khai đi kèm (người nhận mở không cần tài khoản). */
+export interface DocumentPublicLink {
+  id: string
+  recipients: string[]
+  subject: string
+  senderName: string
+  createdAt: string
+  expiresAt: string
+  revokedAt: string | null
+  viewCount: number
+  lastViewedAt: string | null
+  /** Chưa thu hồi, chưa hết hạn. */
+  active: boolean
+}
+
+export interface SendDocumentEmailInput {
+  to: string[]
+  cc: string[]
+  subject: string
+  /** Chữ thuần của thân thư. */
+  message: string
+  /** JSON của trình soạn — máy chủ tự dựng HTML từ đây (không gửi HTML). */
+  messageDoc: string | null
+  expiresInDays: number
+}
+
+/** Tài liệu mở qua link công khai — trang `/s/d/:token`. */
+export interface PublicDocument {
+  title: string
+  fileName: string
+  contentType: string
+  fileSize: number
+  /** Xem trực tiếp được nội dung (trực tuyến / Markdown / chữ thuần); null = chỉ tải về hoặc xem PDF. */
+  format: OnlineFormat | null
+  senderName: string
+  organizationName: string
+  updatedAt: string
+  expiresAt: string
+}
+
 /** Đơn vị trong cây chọn chia sẻ (đơn vị gốc không có — chia sẻ cho cả công ty thì đề xuất lên Công ty). */
 export interface ShareUnit {
   id: string

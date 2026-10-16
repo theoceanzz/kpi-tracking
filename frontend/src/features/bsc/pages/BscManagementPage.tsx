@@ -116,7 +116,7 @@ export default function BscManagementPage() {
         description={t('BscManagementPage.companyDepartmentBscTreeOpenA')}
         actions={
           <>
-            <input type="file" className="hidden" ref={scorecardFileInputRef} accept=".xlsx" onChange={handleScorecardFileSelect} />
+            <input type="file" className="hidden" ref={scorecardFileInputRef} accept=".xlsx,.csv" onChange={handleScorecardFileSelect} />
             {/* MỘT nút import duy nhất: tệp bộ tiêu chí giờ tạo luôn hạng mục còn thiếu, nên không
                 còn lý do bắt người dùng chọn "import loại nào" rồi phải nhớ đúng thứ tự hai lần.
                 Import ghi đè bộ tiêu chí của NHIỀU đơn vị theo mã trong tệp, không gác theo phạm vi

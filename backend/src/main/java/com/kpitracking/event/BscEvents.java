@@ -16,11 +16,17 @@ public final class BscEvents {
 
     private BscEvents() {}
 
-    /** Đơn vị nhận một chỉ tiêu được giao xuống trong một lần phân rã. */
+    /**
+     * Đơn vị nhận một chỉ tiêu được giao xuống trong một lần phân rã.
+     *
+     * @param updated đơn vị ĐÃ nhận chỉ tiêu này từ trước, lần này chỉ đổi con số/vai trò — thông báo
+     *                "đã cập nhật" thay vì "được giao mới" (sửa 3 lần không phải giao 3 chỉ tiêu)
+     */
     public record CascadeAssignment(UUID orgUnitId,
                                     UUID childScorecardId,
                                     Double contributionValue,
-                                    String unit) {}
+                                    String unit,
+                                    boolean updated) {}
 
     public record ScorecardSubmitted(UUID scorecardId, UUID actorId) {}
 
@@ -44,6 +50,9 @@ public final class BscEvents {
                                     List<CascadeAssignment> assignments) {}
 
     public record UnitResultFinalized(UUID scorecardId, UUID kpiPeriodId, UUID actorId) {}
+
+    /** Cấp trên thu hồi MỘT chỉ tiêu đã phân rã khỏi bộ tiêu chí của một đơn vị. */
+    public record CascadeRevoked(UUID orgUnitId, UUID childScorecardId, UUID actorId, String itemName) {}
 
     /** {@code cleared = true} là huỷ ghi đè, điểm quay về con số hệ thống tính. */
     public record EvaluationScoreOverridden(UUID evaluationId, UUID actorId, Double score, boolean cleared) {}

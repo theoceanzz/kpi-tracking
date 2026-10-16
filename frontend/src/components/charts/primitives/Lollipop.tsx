@@ -46,6 +46,7 @@ export default function Lollipop({ data, unit = '', valueLabel, reference, heigh
   // Cao theo số mục để nhãn không chồng nhau; sàn 180px cho danh sách rất ngắn.
   const chartHeight = height ?? Math.max(180, data.length * 28 + 40)
   const max = domainMax ?? Math.max(...data.map(d => d.value), reference?.value ?? 0, 1)
+  const { axisMax, ticks } = niceAxis(max * 1.05)
 
   return (
     <ResponsiveContainer width="100%" height={chartHeight}>
@@ -54,7 +55,8 @@ export default function Lollipop({ data, unit = '', valueLabel, reference, heigh
         <CartesianGrid stroke="var(--color-border)" horizontal={false} />
         <XAxis
           type="number"
-          domain={[0, Math.ceil(max * 1.05)]}
+          domain={[0, axisMax]}
+          ticks={ticks}
           axisLine={false}
           tickLine={false}
           tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
@@ -91,6 +93,20 @@ export default function Lollipop({ data, unit = '', valueLabel, reference, heigh
       </BarChart>
     </ResponsiveContainer>
   )
+}
+
+/**
+ * Trục bắt đầu từ 0, chia ~4–5 vạch theo bước tròn (1 / 2 / 2,5 / 5 × 10ⁿ). Trước đây trục đặt max =
+ * max × 1,05 rồi để Recharts tự chia nên ra vạch 0 · 35 · 70 · 105 · 126 — khó đọc.
+ */
+function niceAxis(raw: number): { axisMax: number; ticks: number[] } {
+  const target = Math.max(raw, 1) / 5
+  const magnitude = 10 ** Math.floor(Math.log10(target))
+  const step = ([1, 2, 2.5, 5, 10].find(m => m * magnitude >= target) ?? 10) * magnitude
+  const axisMax = Math.ceil(Math.max(raw, 1) / step) * step
+  const ticks: number[] = []
+  for (let v = 0; v <= axisMax + step / 1000; v += step) ticks.push(Math.round(v * 1000) / 1000)
+  return { axisMax, ticks }
 }
 
 interface ShapeProps {

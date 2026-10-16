@@ -21,7 +21,10 @@ public class CascadeRequest {
     @NotNull
     private UUID scorecardPerspectiveId;
 
-    /** Quan hệ với chỉ tiêu cha. Mặc định SUM (cộng dồn) nếu bỏ trống. */
+    /**
+     * Quan hệ với chỉ tiêu cha cho các đơn vị không tự khai {@link CascadeTargetRequest#getLinkType()}.
+     * Mặc định SUM (cộng dồn) nếu bỏ trống.
+     */
     private BscLinkType linkType;
 
     @NotNull

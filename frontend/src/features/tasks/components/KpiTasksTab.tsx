@@ -8,10 +8,13 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import type { KpiCriteria } from '@/types/kpi'
 import { useKpiTasks, useTaskMutations, useTaskRealtime, useTaskReplacements } from '../hooks/useTasks'
 import { isClosed } from '../taskUtils'
+import { taskApi } from '../api/taskApi'
 import AssignDialog from './AssignDialog'
+import { useFollowerRemovalConfirm } from '../hooks/useFollowerRemovalConfirm'
 import TaskDetailPanel from './TaskDetailPanel'
 import TaskListView from './TaskListView'
 import type { KpiTask } from '../types'
+import type { TaskColumnKey } from '../hooks/useTaskColumns'
 
 /** Trạng thái KPI còn nhận việc mới — khớp KpiTaskService.TASKABLE. */
 const TASKABLE = ['DRAFT', 'PENDING_APPROVAL', 'EDIT', 'EDITED', 'APPROVED', 'REJECTED']
@@ -20,11 +23,17 @@ const TASKABLE = ['DRAFT', 'PENDING_APPROVAL', 'EDIT', 'EDITED', 'APPROVED', 'RE
  * Tab "Công việc" trong chi tiết KPI: cùng danh sách và bảng chi tiết với trang Công việc, lọc sẵn theo KPI này (nhóm
  * theo hạn, thêm nhanh gắn KPI này). KPI vừa thay cho KPI cũ mà tôi còn việc dở ⇒ hỏi có chuyển sang không.
  */
+/** Tab Công việc của KPI: mặc định chỉ Hạn và Ưu tiên (bảng hẹp trong khung KPI); cấu hình cột lưu riêng với trang Công việc. */
+const KPI_TAB_COLUMNS: TaskColumnKey[] = ['due', 'priority']
+
 export default function KpiTasksTab({ kpi }: { kpi: KpiCriteria }) {
   const { t } = useTranslation('tasks')
   const { data: tasks = [], isLoading } = useKpiTasks(kpi.id)
   const { data: replacements = [] } = useTaskReplacements(kpi.id)
   const { move } = useTaskMutations()
+  // Chuyển việc sang KPI này có thể gỡ người theo dõi không xem được nó — hỏi lại trước.
+  const removal = useFollowerRemovalConfirm()
+  const moving = move.isPending || removal.busy
   const [openId, setOpenId] = useState<string | null>(null)
   const [assignFor, setAssignFor] = useState<{ task: KpiTask; ownerId: string } | null>(null)
   const close = useCallback(() => setOpenId(null), [])
@@ -41,12 +50,14 @@ export default function KpiTasksTab({ kpi }: { kpi: KpiCriteria }) {
         <div key={r.oldKpiId} className="flex flex-wrap items-center gap-3 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm">
           <ArrowRightLeft size={16} className="text-[var(--color-warning)]" />
           <span className="flex-1 text-[var(--color-foreground)]">{t('replacement.message', { count: r.openTaskCount, name: r.oldKpiName })}</span>
-          <Button size="sm" disabled={move.isPending}
-            onClick={() => move.mutate({ fromKpiId: r.oldKpiId, toKpiId: kpi.id }, {
+          <Button size="sm" disabled={moving}
+            onClick={() => void removal.start({
+              preview: () => taskApi.moveImpact({ fromKpiId: r.oldKpiId, toKpiId: kpi.id }),
+              commit: (confirmed) => move.mutateAsync({ fromKpiId: r.oldKpiId, toKpiId: kpi.id, confirmedFollowerRemovals: confirmed }),
               onSuccess: (res) => toast.success(t('replacement.moved', { count: res.moved })),
               onError: (e) => toast.error(getApiErrorMessage(e)),
             })}>
-            {move.isPending && <Loader2 className="animate-spin" />} {t('replacement.move')}
+            {moving && <Loader2 className="animate-spin" />} {t('replacement.move')}
           </Button>
         </div>
       ))}
@@ -70,13 +81,14 @@ export default function KpiTasksTab({ kpi }: { kpi: KpiCriteria }) {
         <div className="flex justify-center py-8"><Loader2 className="animate-spin text-[var(--color-subtle-foreground)]" /></div>
       ) : (
         <TaskListView tasks={tasks} groupBy="due" sort="due" activeTaskId={openId} onOpen={(x) => setOpenId(x.id)}
-          defaultKpiId={kpi.id} showKpi={false} allowQuickAdd={canAdd}
+          defaultKpiId={kpi.id} showKpi={false} allowQuickAdd={canAdd} columnsContext="kpi-tab" defaultColumns={KPI_TAB_COLUMNS}
           onRequestAssign={(task, ownerId) => setAssignFor({ task, ownerId })} />
       )}
 
       {/* Nổi trên modal chi tiết KPI (z-[200]). */}
       <TaskDetailPanel taskId={openId} onClose={close} onNavigate={setOpenId} zClass="z-[260]" />
       <AssignDialog task={assignFor?.task ?? null} open={!!assignFor} initialOwnerId={assignFor?.ownerId} onClose={() => setAssignFor(null)} />
+      {removal.dialog}
     </div>
   )
 }

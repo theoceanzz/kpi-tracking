@@ -6,3 +6,32 @@
   --bn-colors-editor-background: transparent;
   --bn-colors-editor-text: var(--color-foreground);
 }
+
+/* Ô soạn email (MailBodyEditor): không có tay kéo khối nên bỏ lề trái rộng của tài liệu, chữ cỡ thư. */
+.bn-root.bn-shadcn.kg-mail-editor .bn-editor {
+  padding-inline: 16px;
+  font-size: 14px;
+}
+
+/* Cột nút bên trái khối (DocSideMenu): × đỏ khi rê vào, tay kéo hiện con trỏ "nắm". */
+.bn-root .bn-side-menu .kg-side-remove:hover {
+  color: var(--color-error);
+  background-color: var(--color-error-bg);
+}
+.bn-root .bn-side-menu .kg-side-drag {
+  cursor: grab;
+}
+.bn-root .bn-side-menu .kg-side-drag:active {
+  cursor: grabbing;
+}
+
+/* Cỡ tiêu đề trong bài theo thứ bậc của Lark: tên tài liệu (36px) > Tiêu đề 1 (26px) > 2 (22px) > 3 (19px) > chữ thường.
+   Mặc định của BlockNote là 3em / 2em (48px / 32px) — to hơn cả tên tài liệu, trang trông mất cân. */
+.bn-root.kg-doc-editor [data-content-type="heading"] { --level: 1.625em; }
+.bn-root.kg-doc-editor [data-content-type="heading"][data-level="2"] { --level: 1.375em; }
+.bn-root.kg-doc-editor [data-content-type="heading"][data-level="3"] { --level: 1.1875em; }
+.bn-root.kg-doc-editor [data-content-type="heading"][data-level="4"] { --level: 1.0625em; }
+.bn-root.kg-doc-editor [data-prev-level="1"] { --prev-level: 1.625em; }
+.bn-root.kg-doc-editor [data-prev-level="2"] { --prev-level: 1.375em; }
+.bn-root.kg-doc-editor [data-prev-level="3"] { --prev-level: 1.1875em; }
+.bn-root.kg-doc-editor [data-prev-level="4"] { --prev-level: 1.0625em; }

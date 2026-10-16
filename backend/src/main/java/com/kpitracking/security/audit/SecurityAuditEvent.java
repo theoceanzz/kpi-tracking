@@ -34,6 +34,9 @@ public enum SecurityAuditEvent {
     DOCUMENT_PURGED,
     /** Chia sẻ quyền xem, gỡ chia sẻ, khôi phục từ thùng rác, xoá vĩnh viễn, khôi phục phiên bản cũ. */
     DOCUMENT_SHARED,
+    /** Gửi tài liệu qua email kèm link công khai cho người ngoài / thu hồi link đó. */
+    DOCUMENT_EMAILED,
+    DOCUMENT_LINK_REVOKED,
     DOCUMENT_UNSHARED,
     DOCUMENT_RESTORED,
     DOCUMENT_DELETED_PERMANENTLY,

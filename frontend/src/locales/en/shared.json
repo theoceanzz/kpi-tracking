@@ -28,7 +28,8 @@
     "toHaveAQuotaToCompare": "to have a quota to compare against.",
     "ceiling": " (ceiling {{maxCount}})",
     "floor": " (floor {{minCount}})",
-    "curveLabel": "Curve:"
+    "curveLabel": "Curve:",
+    "projectedFrame": "Projected frame (BSC not finalized): {{value}}%"
   },
   "Boxplot": {
     "highest": "Highest",
@@ -1117,7 +1118,7 @@
       },
       "card": {
         "t": "A scorecard",
-        "b": "Click to open its items, cascade coverage and period results. The card's menu switches between parallel and official scoring."
+        "b": "Click the name to open its items, cascade coverage and period results. The button on the right is the next step (submit, approve…); the ⋯ menu has edit, cascade, attach to tree, switch to official scoring and delete."
       },
       "add": {
         "t": "New scorecard",
@@ -2107,39 +2108,63 @@
     "tasks": {
       "intro": {
         "t": "Tasks",
-        "b": "To-dos tied to KPIs: ones you own, follow or assign. Click a task to open details, comments and subtasks."
+        "b": "Things to do: your own, ones you assign, grouped in project lists or linked to a KPI. Click a task to open its details, comments and subtasks."
       },
       "views": {
-        "t": "Lists",
-        "b": "Assigned to me, Following, Created by me, Delegated, Done, and tasks per KPI."
+        "t": "My tasks",
+        "b": "Owned, Subscribed; \"Quick access\" has All tasks, Created, Assigned, Completed and Without KPI."
       },
       "create": {
-        "t": "Create task",
-        "b": "Create a task with an owner, due date and linked KPI. Shortcut: N."
+        "t": "New task",
+        "b": "Opens the new-task dialog (shortcut N). The ▾ arrow next to it: new group, import from Excel."
       },
       "mode": {
-        "t": "List, Kanban, Calendar",
-        "b": "Switch views: list to review, Kanban to drag by status, Calendar to see due dates."
+        "t": "Views",
+        "b": "List, Kanban, Calendar (month / week with an hour grid), Gantt; inside a list also Dashboard and the list’s Activities."
       },
       "group": {
         "t": "Group by",
-        "b": "Group tasks by status, due date, owner or KPI."
+        "b": "Group by due date, status, person, KPI, tag or \"My sections\"; inside a list also by section or custom field. Drag a group header to reorder."
       },
       "sort": {
-        "t": "Order",
-        "b": "Change the order of the list."
+        "t": "Sort",
+        "b": "By due date, start date, priority… or Custom to drag tasks by hand."
       },
       "filter": {
         "t": "Filter",
-        "b": "Filter by status, due date, priority or period."
-      },
-      "search": {
-        "t": "Search tasks",
-        "b": "Type a task name to find it quickly."
+        "b": "Filter by due date, priority, period, KPI, person, tag; the number next to Filter is how many conditions are on."
       },
       "quickAdd": {
-        "t": "Quick add",
-        "b": "Type a task name and press Enter to create it right in the list."
+        "t": "New task",
+        "b": "Type a title and press Enter. Add \"@name\", \"tomorrow\", \"3pm\", \"!high\", \"#tag\" to assign, set a due date, priority, tag."
+      },
+      "lists": {
+        "t": "Task lists",
+        "b": "Group tasks by project: invite people, add sections, custom fields, a dashboard and automations. Click + for a new list or folder."
+      },
+      "saveView": {
+        "t": "Save view",
+        "b": "Save the current grouping, sorting and filters to reopen with one click from the left column."
+      },
+      "row": {
+        "t": "A task row",
+        "b": "Click to open details, double-click the title to rename, right-click (or …) to copy the link, duplicate, add to a list or delete (with Undo). Click a cell to edit dates, people, priority."
+      },
+      "columns": {
+        "t": "Customize",
+        "b": "Show or hide fields with the eye icon, drag ⋮⋮ to reorder; drag a column header edge to resize."
+      },
+      "activity": {
+        "t": "Activities",
+        "b": "A timeline of every change on tasks you created, own or follow — click a line to open the task."
+      },
+      "status": {
+        "t": "Ongoing",
+        "b": "Shows unfinished tasks by default; switch to Completed or All tasks."
+      },
+      "more": {
+        "t": "More",
+        "b": "Select several tasks to act on at once, or export the tasks shown to Excel."
       }
     },
     "docs": {
@@ -2149,11 +2174,11 @@
       },
       "new": {
         "t": "New",
-        "b": "Write a document or spreadsheet online, upload files, or create a folder."
+        "b": "Create an online doc, sheet or folder. Inside a folder it is created right there. The card next to it uploads files."
       },
       "nav": {
-        "t": "Navigation",
-        "b": "Home has recent and pinned documents; the Drive group is split by scope."
+        "t": "Sidebar",
+        "b": "Search finds every document you can see. Home has Recent, Owned, Shared and Favorites; the Drive group is split by scope; pinned documents appear below."
       },
       "mine": {
         "t": "Mine",
@@ -2173,11 +2198,15 @@
       },
       "trash": {
         "t": "Trash",
-        "b": "Deleted documents stay here for a while before they are gone for good; they can be restored."
+        "b": "Deleted documents stay here for a while before they are gone for good; use ⋯ to restore them to where they were."
       },
       "main": {
         "t": "Content",
-        "b": "Folders and documents of the selected item. Click a document to view, share or see versions."
+        "b": "Click a document to open it; ⋯ at the end of a row to share, copy the link, move, rename or delete. In Drive, hover a row to tick several."
+      },
+      "storage": {
+        "t": "Storage",
+        "b": "How much space you and the company use, and how many passages the K.AI store holds."
       }
     }
   },
@@ -2944,15 +2973,15 @@
       },
       "items": {
         "t": "Items and weights",
-        "b": "Tick items to include them; the ticked weights must add up to 100%."
+        "b": "Tick items to include them. A draft can be saved before the total is right; to submit or apply it, the ticked weights must add up to 100%."
       },
       "split": {
         "t": "Split evenly",
         "b": "Spreads the weight evenly across the ticked items."
       },
       "area": {
-        "t": "Perspective",
-        "b": "Items are grouped by the four BSC perspectives (financial, customer…). The pencil renames or recolors a perspective."
+        "t": "Area",
+        "b": "Items are grouped by the four BSC areas (financial, customer…). The pencil renames or recolors an area."
       },
       "addItem": {
         "t": "Add item",
@@ -2961,6 +2990,10 @@
       "rowToggle": {
         "t": "Include item",
         "b": "Click to add the item to the scorecard or remove it. Items assigned from above are locked."
+      },
+      "rowTarget": {
+        "t": "Row settings",
+        "b": "This item's own target in the scorecard (minimum, unit) and gate item. The figure source is automatic: cascaded → summed from child units, KPIs linked → summed from KPIs, otherwise entered manually in the Period results tab."
       },
       "rowWeight": {
         "t": "Item weight",
@@ -3165,20 +3198,20 @@
         "b": "This button opens the new-task dialog. Click it or press Next to see it."
       },
       "form": {
-        "t": "New-task dialog",
-        "b": "Every task belongs to one of the owner's KPIs, so its progress sits next to the target it serves."
+        "t": "New task form",
+        "b": "A task can stand alone, live in a list, or be linked to a KPI so its progress sits next to the target it serves."
       },
       "name": {
         "t": "Task name",
         "b": "Type a name, then Ctrl + Enter to create it quickly."
       },
       "owner": {
-        "t": "Owner",
-        "b": "Defaults to you. Assigning to someone else needs the assign permission, and only people in units you manage can be picked."
+        "t": "Assignees",
+        "b": "You by default. You can assign several people; the first one is the primary assignee. KPI-linked tasks can only go to people on that KPI."
       },
       "kpi": {
         "t": "KPI",
-        "b": "Required. Only the owner's KPIs that you can see are listed; changing the owner clears it."
+        "b": "Optional. A linked task counts toward the KPI’s progress and follows the KPI’s visibility rules."
       },
       "due": {
         "t": "Due",
@@ -3190,7 +3223,7 @@
       },
       "more": {
         "t": "More details",
-        "b": "Opens: who can see it (public within the KPI scope or private), description, and a checklist with one step per line."
+        "b": "Opens start date, the completion rule when several people work on it, visibility, tags, description and checklist."
       },
       "submit": {
         "t": "Create",
@@ -3251,6 +3284,199 @@
         "t": "Create",
         "b": "Creates the folder."
       }
+    },
+    "docsEmail": {
+      "title": "Send a document by email",
+      "to": {
+        "t": "Recipients",
+        "b": "Type an email and press Enter — people outside the company too. Type a name to get colleague suggestions. Click + Cc to copy others."
+      },
+      "message": {
+        "t": "Subject and message",
+        "b": "Write it like a normal email. When recipients hit Reply, it goes straight to your inbox."
+      },
+      "attachment": {
+        "t": "Attached document",
+        "b": "The document goes along as a link that opens without an account until the expiry you pick here. Revoke it any time from the Share tab."
+      },
+      "submit": {
+        "t": "Send",
+        "b": "Sends right away. Each email gets its own link — the Share tab shows who opened it and how often."
+      }
+    },
+    "taskListForm": {
+      "title": "New list, field by field",
+      "add": {
+        "t": "New list",
+        "b": "The + next to Lists opens the form. Click it or press Next to see it."
+      },
+      "form": {
+        "t": "New list form",
+        "b": "A list groups the tasks of one project or team, with its own members and settings."
+      },
+      "name": {
+        "t": "Name and color",
+        "b": "Give it a name and a color so you can spot it in the left column."
+      },
+      "template": {
+        "t": "Start from a template",
+        "b": "Pick a built-in template (project, event, recruiting, recurring work) or one from your organization to get sections, fields, rules and sample tasks."
+      },
+      "submit": {
+        "t": "Create",
+        "b": "Creates the list with you as owner. Invite people and adjust sections and fields in Settings."
+      }
+    },
+    "taskListSettings": {
+      "title": "List settings, part by part",
+      "open": {
+        "t": "List settings",
+        "b": "Click ⋯ next to the list name, then \"List settings\". Click ⋯ or press Next."
+      },
+      "tabs": {
+        "t": "Settings sections",
+        "b": "General, Members, Sections, Fields, Automations. Only list owners can change them; others can view."
+      },
+      "general": {
+        "t": "General",
+        "b": "Rename, recolor or describe the list; save it as a template to create similar lists; archive or delete it."
+      },
+      "members": {
+        "t": "Members",
+        "b": "Invite people or a whole unit as Owner, Editor or Viewer. A list never grants access to KPI-linked tasks."
+      },
+      "sections": {
+        "t": "Sections",
+        "b": "Split the list into sections (Kanban columns), rename and reorder them. Deleting a section moves its tasks to \"No section\"."
+      },
+      "fields": {
+        "t": "Custom fields",
+        "b": "Add list-specific columns: text, number, single or multi select, person, date, checkbox. You can group, filter and sort by them."
+      },
+      "automations": {
+        "t": "Automations",
+        "b": "\"When … then …\" rules: e.g. when a task enters Done set it to Completed, when a task is added assign it to someone."
+      },
+      "needList": {
+        "t": "You need a list",
+        "b": "Settings belong to a list, and you have no list yet. Create one with the + next to \"Lists\" in the left column (the \"Create a list\" walkthrough), then run this again."
+      }
+    },
+    "taskListImport": {
+      "title": "Import tasks from Excel",
+      "open": {
+        "t": "Import from Excel",
+        "b": "Click ⋯ next to the list name, then \"Import from Excel\" to add many tasks at once. Click ⋯ or press Next."
+      },
+      "form": {
+        "t": "Import form",
+        "b": "One task per row. The file is read and previewed first; rows with errors are highlighted and skipped."
+      },
+      "template": {
+        "t": "Template",
+        "b": "Download a template with the right columns: title, description, assignee emails, start date, due date, priority, status, section, tags."
+      },
+      "drop": {
+        "t": "Choose a file",
+        "b": "Drop an .xlsx file here. Missing sections and tags are created; imported tasks are not linked to a KPI."
+      },
+      "needList": {
+        "t": "You need a list you can edit",
+        "b": "Imported tasks go into a list you own or can edit. You have no such list yet: create one with the + next to \"Lists\" in the left column, then run this again."
+      }
     }
+  },
+  "EditorToolbar": {
+    "label": "Formatting toolbar",
+    "undo": "Undo",
+    "redo": "Redo",
+    "style": "Paragraph style",
+    "styles": {
+      "paragraph": "Normal text",
+      "heading-1": "Heading 1",
+      "heading-2": "Heading 2",
+      "heading-3": "Heading 3",
+      "quote": "Quote",
+      "codeBlock": "Code block"
+    },
+    "bold": "Bold",
+    "italic": "Italic",
+    "underline": "Underline",
+    "strike": "Strikethrough",
+    "code": "Inline code",
+    "textColor": "Text color",
+    "highlight": "Highlight color",
+    "colors": {
+      "default": "Default",
+      "gray": "Gray",
+      "brown": "Brown",
+      "red": "Red",
+      "orange": "Orange",
+      "yellow": "Yellow",
+      "green": "Green",
+      "blue": "Blue",
+      "purple": "Purple",
+      "pink": "Pink"
+    },
+    "link": "Insert link",
+    "linkHint": "Select some text first, then paste the link — or leave nothing selected to insert it at the cursor.",
+    "removeLink": "Remove link",
+    "applyLink": "Apply",
+    "insert": "Insert",
+    "insertTable": "Table",
+    "insertDivider": "Horizontal line",
+    "align": "Alignment",
+    "aligns": {
+      "left": "Align left",
+      "center": "Align center",
+      "right": "Align right",
+      "justify": "Justify"
+    },
+    "checkList": "Checklist",
+    "bulletList": "Bulleted list",
+    "numberedList": "Numbered list",
+    "outdent": "Decrease indent",
+    "indent": "Increase indent",
+    "clear": "Clear formatting",
+    "print": "Print",
+    "zoom": "Zoom",
+    "font": "Font",
+    "defaultFont": "Default",
+    "fontSize": "Font size",
+    "fontSizeDown": "Decrease font size",
+    "fontSizeUp": "Increase font size",
+    "insertToggle": "Toggle list",
+    "insertCode": "Code block",
+    "tableSize": "{{rows}} × {{cols}}",
+    "tablePick": "Hover to pick rows × columns",
+    "more": "More tools",
+    "deleteBlock": "Delete this block",
+    "dragBlock": "Drag to move this block",
+    "image": "Insert image from computer",
+    "emoji": "Insert emoji",
+    "emojiSearch": "Search emoji…",
+    "imagePasteHint": "or paste / drop an image",
+    "imageUploading_one": "Uploading {{count}} image…",
+    "imageUploading_other": "Uploading {{count}} images…",
+    "imageType": "Only PNG, JPG, GIF or WebP images can be inserted",
+    "imageTooLarge": "Images can be at most 5 MB",
+    "imageFailed": "Could not upload the image",
+    "sizes": {
+      "small": "Small",
+      "normal": "Normal",
+      "large": "Large",
+      "huge": "Huge"
+    }
+  },
+  "BscFrameNote": {
+    "band": {
+      "EXCEED": "Above target",
+      "MEET": "On target",
+      "BELOW": "Below target"
+    },
+    "applied": "\"{{band}}\" frame from the unit's BSC",
+    "finalized": "Unit BSC {{percent}}% (finalized)",
+    "projected": "Projected frame: \"{{band}}\" — unit BSC {{percent}}%, not finalized. Checks still use the default frame; it switches once the BSC is finalized.",
+    "thresholds": "Above ≥ {{exceed}}% · On target {{meet}}–below {{exceed}}% · Below < {{meet}}% (unit BSC score after cap)"
   }
 }

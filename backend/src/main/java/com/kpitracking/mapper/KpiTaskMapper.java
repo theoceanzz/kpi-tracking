@@ -49,6 +49,18 @@ public interface KpiTaskMapper {
     @Mapping(target = "canReassign", ignore = true)
     @Mapping(target = "canDelete", ignore = true)
     @Mapping(target = "canManageFollowers", ignore = true)
+    @Mapping(target = "kpiState", ignore = true)
+    @Mapping(target = "assignees", ignore = true)
+    @Mapping(target = "myPartDone", ignore = true)
+    @Mapping(target = "lists", ignore = true)
+    @Mapping(target = "tags", ignore = true)
+    @Mapping(target = "fieldValues", ignore = true)
+    @Mapping(target = "openBlockers", ignore = true)
+    @Mapping(target = "blockedByIds", ignore = true)
+    @Mapping(target = "dependencies", ignore = true)
+    @Mapping(target = "canDecline", ignore = true)
+    @Mapping(target = "canSetKpi", ignore = true)
+    @Mapping(target = "depth", expression = "java(task.getDepth() == null ? 0 : task.getDepth().intValue())")
     KpiTaskResponse toResponse(KpiTask task);
 
     KpiTaskResponse.Reminder toReminder(com.kpitracking.entity.KpiTaskReminder reminder);

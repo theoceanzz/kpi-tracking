@@ -83,6 +83,13 @@ public class BscScorecardPerspective {
     @Column(name = "contribution_percent")
     private Double contributionPercent;
 
+    /**
+     * Dòng sinh ra từ "giao cả bộ": trọng số X% cấp trên đặt cho CẢ BỘ chỉ tiêu ở đơn vị này (trọng số
+     * dòng = trọng số dòng nguồn × X / 100). Null = phân rã từng chỉ tiêu hoặc dòng tự có.
+     */
+    @Column(name = "whole_share_percent")
+    private Double wholeSharePercent;
+
     // ── Quyền biên tập (QĐ-3) ──────────────────────────
 
     /**

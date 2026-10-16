@@ -48,16 +48,11 @@ export const createPerspectiveSchema = (
       .optional(),
     name: z.string().min(1, i18n.t('bsc:perspectiveSchema.pleaseEnterTheItemName')),
     description: z.string().optional(),
-    // BẮT BUỘC: thiếu một trong ba thì dòng chỉ tiêu của đơn vị không quy ra %đạt được — nó chỉ
-    // rơi về trung bình tỉ lệ đạt của các KPI con, và người xem kết quả không biết "80" là 80 gì.
-    targetValue: z.number({ message: i18n.t('bsc:perspectiveSchema.pleaseEnterTheDesiredTarget') })
-      .min(0, i18n.t('bsc:perspectiveSchema.theDesiredTargetCannotBeNegative')),
-    minimumValue: z.number({ message: i18n.t('bsc:perspectiveSchema.pleaseEnterTheMinimumResult') })
-      .min(0, i18n.t('bsc:perspectiveSchema.theMinimumResultCannotBeNegative')),
-    unit: z.string({ message: i18n.t('bsc:perspectiveSchema.pleaseEnterTheUnitOfMeasure') })
-      .trim()
-      .min(1, i18n.t('bsc:perspectiveSchema.pleaseEnterTheUnitOfMeasure'))
-      .max(50, i18n.t('bsc:perspectiveSchema.unitOfMeasureCanBeAt')),
+    // Một cách chấm: theo mục tiêu — bắt buộc mục tiêu > 0, tối thiểu, đơn vị (thiếu thì người xem kết
+    // quả không biết "80" là 80 gì). Kiểm ở superRefine.
+    targetValue: z.number().min(0, i18n.t('bsc:perspectiveSchema.theDesiredTargetCannotBeNegative')).nullable().optional(),
+    minimumValue: z.number().min(0, i18n.t('bsc:perspectiveSchema.theMinimumResultCannotBeNegative')).nullable().optional(),
+    unit: z.string().trim().max(50, i18n.t('bsc:perspectiveSchema.unitOfMeasureCanBeAt')).optional(),
     color: z.string().min(1, i18n.t('bsc:perspectiveSchema.pleaseChooseAColor')).regex(HEX_COLOR, i18n.t('bsc:perspectiveSchema.invalidColor')),
     icon: z.string().optional(),
     // Không còn là ô nhập — form cấp lúc gửi (thứ tự đổi bằng kéo thả trong bộ tiêu chí).
@@ -72,6 +67,15 @@ export const createPerspectiveSchema = (
   }).superRefine((data, ctx) => {
     if (requireCode && !data.code?.trim()) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['code'], message: i18n.t('bsc:perspectiveSchema.pleaseEnterACode') })
+    }
+    if (data.targetValue == null || !(data.targetValue > 0)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['targetValue'], message: i18n.t('bsc:perspectiveSchema.pleaseEnterTheDesiredTarget') })
+    }
+    if (data.minimumValue == null) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['minimumValue'], message: i18n.t('bsc:perspectiveSchema.pleaseEnterTheMinimumResult') })
+    }
+    if (!data.unit?.trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['unit'], message: i18n.t('bsc:perspectiveSchema.pleaseEnterTheUnitOfMeasure') })
     }
     // Tối thiểu là SÀN nên không được vượt mục tiêu; hạng mục không có cờ "KPI ngược".
     if (data.minimumValue != null && data.targetValue != null && data.minimumValue > data.targetValue) {

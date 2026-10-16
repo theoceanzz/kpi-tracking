@@ -656,10 +656,21 @@ public class KpiCriteriaService {
             kpi.setOrgUnit(orgUnit);
         }
 
-        if (request.getAssignedToIds() != null) {
+        java.util.Set<UUID> currentAssigneeIds = kpi.getAssignees() == null ? java.util.Set.of()
+                : kpi.getAssignees().stream().map(User::getId).collect(java.util.stream.Collectors.toSet());
+        // Form sửa KPI luôn gửi lại danh sách người thực hiện, kể cả khi chỉ đổi tên. Không đổi gì thì
+        // giữ nguyên — nhánh "giao xuống" bên dưới từng chạy cả lúc đó: gỡ trưởng đơn vị khỏi KPI và
+        // sinh thêm một KPI con trùng tên (không mang hạng mục BSC).
+        boolean assigneesChanged = request.getAssignedToIds() != null
+                && !currentAssigneeIds.equals(new java.util.HashSet<>(request.getAssignedToIds()));
+        // "Giao xuống" (thác nước) là trưởng đơn vị chia KPI CỦA CHÍNH MÌNH cho nhân viên — chỉ khi người
+        // sửa đang là người thực hiện KPI này. Cấp trên sửa KPI của trưởng đơn vị thì đi luồng thường.
+        boolean editorOwnsKpi = currentAssigneeIds.contains(currentUser.getId());
+
+        if (request.getAssignedToIds() != null && assigneesChanged) {
             java.util.List<UUID> assigneeIds = new java.util.ArrayList<>(request.getAssignedToIds());
             
-            if (enableWaterfall && canApprove) {
+            if (enableWaterfall && canApprove && editorOwnsKpi) {
                 // WATERFALL LOGIC: Create child KPIs for each assignee instead of just adding to the same record
                 // 1. Remove the delegated staff from the parent's assignees (keep only the leader if they were there)
                 java.util.List<User> parentAssignees = new java.util.ArrayList<>();
@@ -720,11 +731,12 @@ public class KpiCriteriaService {
                 kpi.setAssignees(assignees);
                 validateWaterfallAssignment(currentUser, kpi.getOrgUnit(), assignees);
             }
-        } else if (request.getAssignedToId() != null) {
-            // Legacy single ID handling
+        } else if (request.getAssignedToIds() == null && request.getAssignedToId() != null) {
+            // Legacy single ID handling. Danh sách phải sửa được: Hibernate thay phần tử của collection
+            // lúc flush, List.of bất biến làm request rơi xuống 500.
             User assignee = userRepository.findById(request.getAssignedToId())
                     .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", request.getAssignedToId()));
-            kpi.setAssignees(java.util.List.of(assignee));
+            kpi.setAssignees(new java.util.ArrayList<>(java.util.List.of(assignee)));
         }
 
         if (request.getKeyResultId() != null) {

@@ -64,8 +64,8 @@ export default function AppLayout() {
             <Button variant="secondary" size="icon" onClick={() => setIsMobileMenuOpen(true)} aria-label={t('AppLayout.openMenu')}>
               <Menu aria-hidden="true" />
             </Button>
-            <Link to="/" className="flex items-center" aria-label="KeyGo">
-              <BrandLogo variant="icon" className="h-7 rounded-control sm:hidden" />
+            {/* Màn hẹp bỏ logo (đã có nút menu) để chừa chỗ cho nút hướng dẫn. */}
+            <Link to="/" className="hidden sm:flex items-center" aria-label="KeyGo">
               <BrandLogo className="hidden h-7 sm:block dark:sm:hidden" />
               <BrandLogo variant="white" className="hidden h-7 dark:sm:block" />
             </Link>
@@ -82,12 +82,15 @@ export default function AppLayout() {
           <div className="ml-auto flex items-center gap-1">
             {/* Cụm tuỳ chỉnh widget của trang chủ bắn vào đây — xem DashboardToolbarSlot. */}
             <DashboardToolbarSlot />
+            {/* Màn hẹp (< sm) không đủ chỗ cho cả cụm: bỏ nút đăng xuất (vẫn còn trong menu người dùng ở
+                thanh bên) và logo bên trái, nếu không chúng đè lên nút Quay lại của đường dẫn phân cấp. Nút
+                hướng dẫn thì giữ — đó là đường duy nhất để mở lại bài hướng dẫn. */}
             <TourHelpButton />
             <NotificationBell />
             <LanguageSwitcher />
             <ThemeCustomizer />
 
-            <Button variant="ghost" size="icon" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={logout} aria-label={t('AppLayout.signOut')} title={t('AppLayout.signOut')}>
+            <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={logout} aria-label={t('AppLayout.signOut')} title={t('AppLayout.signOut')}>
               <LogOut aria-hidden="true" />
             </Button>
           </div>

@@ -11,6 +11,7 @@ import {
   bellTargets, defaultBellCurve, maxQuota, minQuota, r1, roundTo100, sumTargets,
 } from '../utils/bellCurve'
 import { Button } from '@/components/ui/button'
+import BscBandsEditor from './BscBandsEditor'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
@@ -67,9 +68,11 @@ function CurveTooltip({ active, payload, headcount }: {
  * đúng như tên gọi; bảng thang mức phía trên vẫn liệt kê cao → thấp như cũ.
  */
 export default function BellCurveEditor({
-  value, levels, onChange,
+  value, levels, onChange, bscEnabled = false,
 }: {
   value: UnitClassBellCurve | undefined
+  /** Tổ chức bật module BSC — tắt thì không hiện phần "đổi khung theo BSC" (backend cũng bỏ qua). */
+  bscEnabled?: boolean
   /** Mức thành viên, CAO → THẤP. */
   levels: { name: string; color: string }[]
   onChange: (next: UnitClassBellCurve | undefined) => void
@@ -289,6 +292,8 @@ export default function BellCurveEditor({
           </Select>
         </label>
       </div>
+
+      {bscEnabled && <BscBandsEditor value={bc?.bsc} levels={levels} mainTargets={targets} onChange={bsc => patch({ bsc })} />}
 
       <p className="text-xs leading-relaxed text-[var(--color-subtle-foreground)]">
         {tr('BellCurveEditor.theQuotaIsComputedOnThe')} <b>{tr('BellCurveEditor.totalHeadcount')}</b> {tr('BellCurveEditor.ofTheUnitIncludingChildUnits')} <b>{tr('BellCurveEditor.block')}</b> {tr('BellCurveEditor.modeOnlyBlocksTheLevelJust')}

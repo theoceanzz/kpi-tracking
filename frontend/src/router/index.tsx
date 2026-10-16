@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom'
 import RedirectToSection from './RedirectToSection'
+import BscLegacyRedirect from './BscLegacyRedirect'
 import AuthLayout from '@/layouts/AuthLayout'
 import AppLayout from '@/layouts/AppLayout'
 import ProtectedRoute from './ProtectedRoute'
@@ -42,6 +43,7 @@ import AnalyticsPage from '@/features/analytics/pages/AnalyticsPage'
 import AiAssistantPage from '@/features/analytics/pages/AiAssistantPage'
 import DocumentsPage from '@/features/documents/DocumentsPage'
 import DocumentEditorPage from '@/features/documents/LazyDocumentEditorPage'
+import PublicDocumentPage from '@/features/documents/public/LazyPublicDocumentPage'
 import ToolSettingsPage from '@/features/orgunits/pages/ToolSettingsPage'
 
 import DashboardPage from '@/features/dashboard/pages/DashboardPage'
@@ -66,6 +68,11 @@ export const router = createBrowserRouter([
       { path: '/reset-password', element: <ResetPasswordPage /> },
       { path: '/auth/lark/select-company', element: <LarkSelectCompanyPage /> },
     ],
+  },
+  {
+    // Link tài liệu gửi qua email: ai có link đều mở được, đã đăng nhập hay chưa — nên đứng ngoài mọi lớp bảo vệ.
+    path: '/s/d/:token',
+    element: <PublicDocumentPage />,
   },
   {
     // Ngoài AuthLayout: luồng kết nối Lark chạy khi quản trị viên đang đăng nhập,
@@ -173,10 +180,6 @@ export const router = createBrowserRouter([
               { path: '/okr', element: <RedirectToSection to="/settings/tools" params={{ section: 'okr' }} /> },
               { path: '/rewards', element: <RedirectToSection to="/settings/tools" params={{ section: 'rewards' }} /> },
               { path: '/wallet', element: <RedirectToSection to="/settings/tools" params={{ section: 'wallet' }} /> },
-              { path: '/bsc', element: <RedirectToSection to="/settings/tools" params={{ section: 'bsc' }} /> },
-              // Hai màn Dashboard và Bản đồ chiến lược đã bỏ; link cũ về thẳng mục BSC.
-              { path: '/bsc/dashboard', element: <RedirectToSection to="/settings/tools" params={{ section: 'bsc' }} /> },
-              { path: '/bsc/strategy-map', element: <RedirectToSection to="/settings/tools" params={{ section: 'bsc' }} /> },
               { path: '/settings/modules', element: <RedirectToSection to="/settings/tools" params={{ section: 'modules' }} /> },
               { path: '/settings/scoring', element: <RedirectToSection to="/settings/tools" params={{ section: 'scoring' }} /> },
             ],
@@ -216,6 +219,11 @@ export const router = createBrowserRouter([
           // các tab thay vì văng thẳng ra khỏi trang. Đoạn tuỳ chọn `?` cho phép `/analytics` trống
           // khớp cùng một route — tách thành hai mục sẽ làm trang gắn lại ở lần chuyển hướng đầu.
           { path: '/analytics/:tab?', element: <AnalyticsPage /> },
+          // Link cũ của BSC (Dashboard và Bản đồ chiến lược đã bỏ). Đứng ngoài nhóm Thiết lập công cụ:
+          // người chỉ có quyền xem BSC được đưa về "BSC của tôi" thay vì trang 403.
+          { path: '/bsc', element: <BscLegacyRedirect /> },
+          { path: '/bsc/dashboard', element: <BscLegacyRedirect /> },
+          { path: '/bsc/strategy-map', element: <BscLegacyRedirect /> },
           { path: '/ai-assistant', element: <AiAssistantPage /> },
           // Quyền theo từng tài liệu do backend quyết (DocumentAccess) — không gác ở route.
           { path: '/documents', element: <DocumentsPage /> },

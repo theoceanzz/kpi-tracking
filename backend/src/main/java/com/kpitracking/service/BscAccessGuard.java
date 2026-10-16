@@ -66,6 +66,22 @@ public class BscAccessGuard {
     }
 
     /**
+     * Chặn SỬA NỘI DUNG / XOÁ bộ tiêu chí đã rời trạng thái nháp, với người không phải quản trị BSC.
+     *
+     * <p>Đã trình thì người duyệt đang xem đúng nội dung đó; đã duyệt thì thẻ đang chấm điểm. Để trưởng
+     * đơn vị tự đổi trọng số/mục tiêu lúc này là biến bước duyệt thành hình thức (người duyệt duyệt
+     * một bản, đơn vị chạy một bản khác). Muốn đổi thì cấp trên trả lại về nháp, hoặc quản trị BSC sửa.
+     * Không chặn tính kết quả / nhập số tay — đó là cập nhật số liệu, không phải sửa bộ tiêu chí.
+     */
+    public void assertCanEditContent(BscScorecard scorecard) {
+        assertCanEdit(scorecard);
+        if (canManageAll()) return;
+        if (scorecard.getStatus() != null && scorecard.getStatus() != com.kpitracking.enums.BscScorecardStatus.DRAFT) {
+            throw new BusinessException(ErrorCode.SCORECARD_LOCKED_FOR_UNIT, scorecard.getName());
+        }
+    }
+
+    /**
      * Chặn theo danh sách đơn vị của bộ tiêu chí.
      *
      * <p>Bộ tiêu chí KHÔNG gắn đơn vị nào là bộ tiêu chí toàn tổ chức: chỉ người quản trị BSC lập

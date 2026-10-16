@@ -5,7 +5,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { formatNumber } from '@/i18n/format'
 import { cn } from '@/lib/utils'
 import { useStorageStats } from '../hooks/useDocuments'
-import type { DocumentScope } from '../types'
+import type { DocumentScope, DocumentUsage } from '../types'
 import { formatBytes } from '../utils'
 
 const SCOPE_ICON: Record<DocumentScope, typeof User> = { PERSONAL: User, UNIT: Layers, COMPANY: Building2 }
@@ -17,6 +17,30 @@ function UsageBar({ used, quota, label }: { used: number; quota: number; label: 
   return (
     <div role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-muted)]">
       <div className={cn('h-full rounded-full', tone)} style={{ width: `${pct}%` }} />
+    </div>
+  )
+}
+
+/**
+ * Phần đầu mục "Dung lượng" (như "Manage Storage" của Lark) — ai cũng thấy: kho cá nhân của mình, kho công ty, số đoạn
+ * trong kho K.AI. Trước đây nằm ở đầu trang Tài liệu; Lark để ở nút đáy thanh bên.
+ */
+export function UsageSummary({ usage, personal }: { usage: DocumentUsage; personal: boolean }) {
+  const { t } = useTranslation('documents')
+  const rows = [
+    ...(personal ? [{ key: 'p', label: t('stats.personalUsage'), used: usage.personalUsed, quota: usage.personalQuota, text: `${formatBytes(usage.personalUsed)} / ${formatBytes(usage.personalQuota)}` }] : []),
+    { key: 'c', label: t('stats.companyUsage'), used: usage.companyUsed, quota: usage.companyQuota, text: `${formatBytes(usage.companyUsed)} / ${formatBytes(usage.companyQuota)}` },
+    { key: 'a', label: t('stats.aiChunks'), used: usage.orgChunks, quota: usage.orgChunkQuota, text: `${formatNumber(usage.orgChunks)} / ${formatNumber(usage.orgChunkQuota)}` },
+  ]
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      {rows.map(r => (
+        <div key={r.key} className="space-y-2 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+          <p className="text-caption">{r.label}</p>
+          <p className="text-lg font-semibold tabular-nums text-[var(--color-foreground)]">{r.text}</p>
+          <UsageBar used={r.used} quota={r.quota} label={r.label} />
+        </div>
+      ))}
     </div>
   )
 }

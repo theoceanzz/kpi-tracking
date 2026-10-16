@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react'
-import { useNotifications, useMarkAllRead, useMarkAsRead } from '../hooks/useNotifications'
+import { useEffect, useRef, useState } from 'react'
+import { useMarkAllRead, useMarkAsRead, useNotificationFeed, useUnreadCount } from '../hooks/useNotifications'
 import { formatDateTime } from '@/lib/utils'
+import { formatDate } from '@/i18n/format'
+import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
@@ -49,8 +51,10 @@ export default function NotificationsPage() {
   // KHÔNG mở kết nối WebSocket ở đây: NotificationBell trong AppLayout đã mở sẵn một cái và
   // luôn có mặt trên mọi trang. Gọi thêm lần nữa sẽ có hai kết nối, và mỗi thông báo về được
   // thêm hai lần vào danh sách kèm huy hiệu chưa đọc cộng hai.
-  // Trang đầu 50 thông báo mới nhất (keyset, không cursor). Trang kế = useNotifications(50, data.nextCursor).
-  const { data, isLoading } = useNotifications(50)
+  // Tải dần theo con trỏ: 30 thông báo mỗi lần, cuộn tới cuối danh sách thì tự tải tiếp (trước đây chỉ có 50 cái đầu,
+  // thông báo cũ hơn không xem được).
+  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useNotificationFeed(30)
+  const unreadTotal = useUnreadCount().data ?? 0
   const markAllRead = useMarkAllRead()
   const markRead = useMarkAsRead()
   const navigate = useNavigate()
@@ -63,26 +67,58 @@ export default function NotificationsPage() {
   
   const [filter, setFilter] = useState<'ALL' | 'UNREAD'>('ALL')
 
-  const notifications = data?.content || []
+  const notifications = data?.pages.flatMap(p => p.content) ?? []
   const filteredNotifs = filter === 'UNREAD' ? notifications.filter(n => !n.isRead) : notifications
-  const unreadCount = notifications.filter(n => !n.isRead).length
+  // Đếm chưa đọc lấy từ máy chủ (mọi thông báo), không chỉ những cái đã tải.
+  const unreadCount = unreadTotal
+
+  // Cuộn tới cuối danh sách thì tải trang kế (nút "Tải thêm" vẫn có cho bàn phím / khi trình duyệt không đo được).
+  const sentinel = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = sentinel.current
+    if (!el || !hasNextPage) return
+    const io = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting) && !isFetchingNextPage) void fetchNextPage()
+    }, { rootMargin: '400px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   // Chưa đọc lên đầu — đúng thứ mà con số đỏ trên chuông đang đếm, khỏi phải cuộn đi tìm.
   // Chốt danh sách chưa đọc ở LẦN TẢI ĐẦU chứ không bám `isRead` hiện tại: bấm vào một
   // thông báo là nó thành đã đọc, xếp lại ngay thì dòng vừa bấm rơi xuống cuối và cả danh
   // sách trượt đi dưới con trỏ. Sort ổn định nên trong từng nhóm vẫn là mới nhất trước.
-  const firstUnreadIds = useRef<Set<string> | null>(null)
-  if (firstUnreadIds.current === null && !isLoading && data) {
-    firstUnreadIds.current = new Set(notifications.filter(n => !n.isRead).map(n => n.id))
+  const [firstUnreadIds, setFirstUnreadIds] = useState<Set<string> | null>(null)
+  if (firstUnreadIds === null && !isLoading && data) {
+    setFirstUnreadIds(new Set(notifications.filter(n => !n.isRead).map(n => n.id)))
   }
   // Thông báo mới đến qua websocket khi đang mở trang cũng lên đầu, dù không có trong
   // ảnh chụp lúc vào trang.
   const isTopGroup = (n: { id: string; isRead: boolean }) =>
-    (firstUnreadIds.current?.has(n.id) ?? false) || !n.isRead
-  const orderedNotifs = [...filteredNotifs].sort((a, b) => Number(isTopGroup(b)) - Number(isTopGroup(a)))
+    (firstUnreadIds?.has(n.id) ?? false) || !n.isRead
+  // Chưa đọc một nhóm ở đầu; phần còn lại chia theo ngày (Hôm nay / Hôm qua / ngày cụ thể) để lướt nhanh khi nhiều.
+  const dayKey = (iso: string) => new Date(iso).toLocaleDateString('en-CA')
+  // Mốc "hôm nay" chốt lúc mở trang (đọc đồng hồ một lần, không mỗi lần vẽ).
+  const [{ todayKey, yesterdayKey }] = useState(() => {
+    const now = Date.now()
+    return { todayKey: dayKey(new Date(now).toISOString()), yesterdayKey: dayKey(new Date(now - 86_400_000).toISOString()) }
+  })
+  const groups: { key: string; label: string; items: typeof notifications }[] = []
+  const unreadGroup = filteredNotifs.filter(isTopGroup)
+  if (unreadGroup.length) groups.push({ key: 'unread', label: t('NotificationsPage.unread'), items: unreadGroup })
+  for (const n of filteredNotifs.filter(x => !isTopGroup(x))) {
+    const k = dayKey(n.createdAt)
+    const last = groups[groups.length - 1]
+    if (last && last.key === k) { last.items.push(n); continue }
+    groups.push({
+      key: k,
+      label: k === todayKey ? t('NotificationsPage.today') : k === yesterdayKey ? t('NotificationsPage.yesterday') : formatDate(n.createdAt),
+      items: [n],
+    })
+  }
 
   const filters = [
-    { key: 'ALL' as const, label: t('NotificationsPage.all'), count: notifications.length },
+    { key: 'ALL' as const, label: t('NotificationsPage.all'), count: null },
     { key: 'UNREAD' as const, label: t('NotificationsPage.unread'), count: unreadCount },
   ]
 
@@ -123,7 +159,9 @@ export default function NotificationsPage() {
                 )}
               >
                 {f.label}
-                <span className={cn('tabular-nums', active ? 'text-[var(--color-muted-foreground)]' : 'text-[var(--color-subtle-foreground)]')}>{f.count}</span>
+                {f.count != null && (
+                  <span className={cn('tabular-nums', active ? 'text-[var(--color-muted-foreground)]' : 'text-[var(--color-subtle-foreground)]')}>{f.count}</span>
+                )}
               </button>
             )
           })}
@@ -146,22 +184,27 @@ export default function NotificationsPage() {
             />
           </div>
         ) : (
-        <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-            {orderedNotifs.map((n) => {
+        <div className="space-y-4">
+          {groups.map(g => (
+            <section key={g.key}>
+              <h2 className="mb-1.5 px-1 text-eyebrow">{g.label}</h2>
+              <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+            {g.items.map((n) => {
             const config = typeConfig()[n.type] || DEFAULT_TYPE()
               const Icon = config.icon
               
               return (
                 <div 
                   key={n.id}
-                role={n.isRead ? undefined : 'button'}
-                tabIndex={n.isRead ? undefined : 0}
+                role="button"
+                tabIndex={0}
                   onClick={() => openNotification(n)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNotification(n) } }}
                   className={cn(
                   'flex gap-4 border-l-2 px-5 py-4 transition-colors',
-                    n.isRead 
-                    ? 'border-transparent'
+                    // Đã đọc vẫn bấm được: mở lại màn liên quan (trước đây chỉ thông báo chưa đọc mới bấm được).
+                    n.isRead
+                    ? 'cursor-pointer border-transparent hover:bg-[var(--color-muted)]'
                     : 'cursor-pointer border-[var(--color-primary)] bg-[var(--color-primary-soft)] hover:bg-[var(--color-muted)]'
                   )}
                 >
@@ -200,7 +243,19 @@ export default function NotificationsPage() {
                 </div>
               )
             })}
-          </div>
+              </div>
+            </section>
+          ))}
+          <div ref={sentinel} />
+          {hasNextPage ? (
+            <Button variant="ghost" className="w-full" onClick={() => void fetchNextPage()} disabled={isFetchingNextPage}>
+              {isFetchingNextPage && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {isFetchingNextPage ? t('NotificationsPage.loadingMore') : t('NotificationsPage.loadMore')}
+            </Button>
+          ) : notifications.length > 0 && (
+            <p className="py-2 text-center text-caption">{t('NotificationsPage.endOfList')}</p>
+          )}
+        </div>
         )}
       </div>
   )

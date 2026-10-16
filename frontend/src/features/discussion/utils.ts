@@ -1,5 +1,5 @@
-import { formatDistanceToNow } from 'date-fns'
-import { dateFnsLocale } from '@/i18n/format'
+import { format, isSameDay } from 'date-fns'
+import { formatDateTime } from '@/i18n/format'
 import type { DiscussionReactionType } from './types'
 
 export const REACTIONS: { type: DiscussionReactionType; emoji: string }[] = [
@@ -10,7 +10,8 @@ export const REACTIONS: { type: DiscussionReactionType; emoji: string }[] = [
   { type: 'QUESTION', emoji: '❓' },
 ]
 
-/** "5 phút trước" theo ngôn ngữ đang chọn. */
-export function timeAgo(iso: string) {
-  return formatDistanceToNow(new Date(iso), { addSuffix: true, locale: dateFnsLocale() })
+/** Giờ đăng bình luận: trong ngày chỉ hiện giờ ("10:04"), ngày khác hiện cả ngày theo ngôn ngữ đang chọn. */
+export function commentTime(iso: string) {
+  const d = new Date(iso)
+  return isSameDay(d, new Date()) ? format(d, 'HH:mm') : formatDateTime(d)
 }

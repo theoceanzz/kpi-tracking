@@ -70,6 +70,9 @@ public class BscService {
     private final OrgCodeRuleService orgCodeRuleService;
     private final BscAccessGuard accessGuard;
     private final com.kpitracking.repository.BscUnitResultRepository unitResultRepository;
+    private final com.kpitracking.repository.EvaluationRepository evaluationRepository;
+    private final BscCycleLockGuard cycleLockGuard;
+    private final BscTreeService treeService;
 
     // ============================================================
     // Perspectives (lĩnh vực) — danh mục cấu hình theo org
@@ -127,6 +130,13 @@ public class BscService {
             fp.setColor(request.getColor());
         }
         if (request.getDisplayOrder() != null) {
+            // Form đã chặn thứ tự trùng; chặn cả ở đây để gọi thẳng API không làm hai lĩnh vực cùng
+            // một vị trí (thứ tự hiển thị trên thẻ, BSC của tôi, thống kê sẽ nhảy lung tung).
+            boolean taken = fixedPerspectiveRepository.findByOrganizationIdOrderByDisplayOrderAsc(organizationId).stream()
+                    .anyMatch(o -> !o.getCode().equals(code) && request.getDisplayOrder().equals(o.getDisplayOrder()));
+            if (taken) {
+                throw new BusinessException(ErrorCode.FIXED_AREA_ORDER_TAKEN, String.valueOf(request.getDisplayOrder()));
+            }
             fp.setDisplayOrder(request.getDisplayOrder());
         }
         com.kpitracking.entity.BscFixedPerspectiveEntity saved = fixedPerspectiveRepository.save(fp);
@@ -301,8 +311,15 @@ public class BscService {
         ScopeSelection scope = resolveScopeSelection(organizationId, request);
         List<OrgUnit> orgUnits = resolveRequestOrgUnits(organizationId, request.getOrgUnitIds());
         accessGuard.assertCanEdit(orgUnits);
+        assertScopeWritable(scope);
         validateNoScopeClash(organizationId, orgUnits, scope, null);
         validateWeights(request.getPerspectives());
+        BscScorecardStatus initialStatus = accessGuard.canApprove() && request.getStatus() != null
+                ? request.getStatus() : BscScorecardStatus.DRAFT;
+        if (initialStatus != BscScorecardStatus.DRAFT && request.getPerspectives() != null) {
+            assertTotalIs100(request.getPerspectives().stream()
+                    .mapToDouble(i -> i.getWeightPercentage() != null ? i.getWeightPercentage() : 0.0).sum());
+        }
 
         BscScorecard scorecard = BscScorecard.builder()
                 .organization(organization)
@@ -316,8 +333,7 @@ public class BscService {
                 .vision(request.getVision())
                 // Trạng thái KHÔNG nhận từ client trừ khi người tạo có quyền duyệt: bộ tiêu chí mới
                 // phải bắt đầu ở NHÁP rồi đi qua trình – duyệt, không thì luồng duyệt vô nghĩa.
-                .status(accessGuard.canApprove() && request.getStatus() != null
-                        ? request.getStatus() : BscScorecardStatus.DRAFT)
+                .status(initialStatus)
                 .scoringMode(request.getScoringMode() != null ? request.getScoringMode() : BscScoringMode.SHADOW)
                 .emptyPerspectivePolicy(request.getEmptyPerspectivePolicy() != null
                         ? request.getEmptyPerspectivePolicy()
@@ -342,6 +358,9 @@ public class BscService {
                 applyRowConfig(sp, item, false);
                 sp.setCreatedBy(currentUser);
                 scorecardPerspectiveRepository.save(sp);
+                // Đưa vào collection của thẻ: thẻ vừa tạo nằm sẵn trong phiên với collection rỗng, nên
+                // findById bên dưới trả lại đúng object đó — thiếu dòng này thì response báo 0 dòng, 0%.
+                scorecard.getScorecardPerspectives().add(sp);
                 logWeightChange(scorecard, perspective, null, sp.getWeightPercentage(), currentUser, item.getReason());
             }
         }
@@ -352,7 +371,9 @@ public class BscService {
     public ScorecardResponse updateScorecard(UUID scorecardId, ScorecardRequest request) {
         BscScorecard scorecard = scorecardRepository.findById(scorecardId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.scorecard")));
-        accessGuard.assertCanEdit(scorecard);
+        accessGuard.assertCanEditContent(scorecard);
+        // Kỳ đã khoá: không sửa thẻ của kỳ đó, cũng không chuyển thẻ khác sang đợt của kỳ đó.
+        cycleLockGuard.assertWritable(scorecard);
         validateWeights(request.getPerspectives());
 
         // Phạm vi thời gian (đợt/kỳ) sửa được; phạm vi phòng ban thì không. Bỏ qua nếu client
@@ -362,6 +383,7 @@ public class BscService {
                 || (request.getKpiPeriodIds() != null && !request.getKpiPeriodIds().isEmpty())) {
             UUID orgId = scorecard.getOrganization().getId();
             ScopeSelection scope = resolveScopeSelection(orgId, request);
+            assertScopeWritable(scope);
             validateNoScopeClash(orgId, scorecard.getOrgUnits(), scope, scorecardId);
             scorecard.setApplyScope(scope.applyScope());
             scorecard.setKpiCycle(scope.cycle());
@@ -453,8 +475,18 @@ public class BscService {
             }
             // Ghi xuống ngay để lần đọc lại collection khi dựng response không nạp lại dòng đã xoá.
             scorecardPerspectiveRepository.flush();
+            // Tổng đủ 100% kiểm trên SỐ THẬT sau khi lưu, không trên số client gửi: dòng khoá (cấp trên
+            // giao) bị bỏ qua khi người sửa không có quyền, nên tổng client gửi có thể đủ 100 trong khi
+            // thẻ lưu ra 90. Nháp thì cho lệch — đủ 100% mới trình được (chốt ở submit).
+            if (scorecard.getStatus() != BscScorecardStatus.DRAFT) {
+                assertTotalIs100(scorecardPerspectiveRepository.findByScorecardIdOrderByDisplayOrderAsc(scorecardId).stream()
+                        .mapToDouble(x -> x.getWeightPercentage() != null ? x.getWeightPercentage() : 0.0).sum());
+            }
         }
         scorecardRepository.save(scorecard);
+        // Thẻ này đang được giao cả bộ xuống đơn vị nào thì đơn vị đó nhận đúng bộ chỉ tiêu mới
+        // (thêm / bớt dòng, trọng số theo tỉ lệ mới) — nếu không, công ty và đơn vị lệch nhau âm thầm.
+        treeService.syncWholeRecipients(scorecardId);
         return mapToScorecardResponse(scorecardRepository.findById(scorecardId).orElseThrow());
     }
 
@@ -462,9 +494,12 @@ public class BscService {
     public void deleteScorecard(UUID scorecardId) {
         BscScorecard scorecard = scorecardRepository.findById(scorecardId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.scorecard")));
-        accessGuard.assertCanEdit(scorecard);
+        accessGuard.assertCanEditContent(scorecard);
         BusinessException blocked = deleteBlocker(scorecard);
         if (blocked != null) throw blocked;
+        // deleteBlocker chỉ đọc trạng thái kỳ trên entity (dùng chung với delete-check chỉ đọc);
+        // lúc xoá thật phải khoá hàng kỳ như mọi thao tác ghi khác.
+        cycleLockGuard.assertWritable(scorecard);
         scorecard.setDeletedAt(Instant.now());
         scorecardRepository.save(scorecard);
     }
@@ -478,6 +513,9 @@ public class BscService {
         BscScorecard scorecard = scorecardRepository.findById(scorecardId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.scorecard")));
         BusinessException blocked = deleteBlocker(scorecard);
+        if (blocked == null && !accessGuard.canManageAll() && scorecard.getStatus() != BscScorecardStatus.DRAFT) {
+            blocked = new BusinessException(ErrorCode.SCORECARD_LOCKED_FOR_UNIT, scorecard.getName());
+        }
         return new com.kpitracking.dto.response.bsc.DeleteCheckResponse(
                 blocked == null, blocked != null ? blocked.getMessage() : null);
     }
@@ -488,6 +526,11 @@ public class BscService {
      */
     private BusinessException deleteBlocker(BscScorecard scorecard) {
         UUID scorecardId = scorecard.getId();
+        // Kỳ đã khoá thì thẻ của kỳ đó là hồ sơ của kỳ — không xoá.
+        String lockedCycle = cycleLockGuard.lockedCycleName(scorecard);
+        if (lockedCycle != null) {
+            return com.kpitracking.service.kpi.CycleStatusGuard.lockedError(lockedCycle);
+        }
         // Kết quả đợt đã chốt là số đã công bố — xoá thẻ là mất gốc của nó. Giữ ở "Đã đóng" để tra cứu.
         String finalizedPeriods = unitResultRepository.findByScorecardIdOrderByCreatedAtDesc(scorecardId).stream()
                 .filter(r -> r.getStatus() != com.kpitracking.enums.BscUnitResultStatus.DRAFT)
@@ -524,9 +567,32 @@ public class BscService {
     public ScorecardResponse updateScoringMode(UUID scorecardId, BscScoringMode mode) {
         BscScorecard scorecard = scorecardRepository.findById(scorecardId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.scorecard")));
+        if (mode != null && mode != scorecard.getScoringMode()) {
+            cycleLockGuard.assertWritable(scorecard);
+            assertNoPublishedScores(scorecard);
+        }
         scorecard.setScoringMode(mode);
         scorecardRepository.save(scorecard);
         return mapToScorecardResponse(scorecard);
+    }
+
+    /**
+     * Điểm chính thức của phiếu đã chốt được quyết lúc ĐỌC theo chế độ của thẻ ({@code resolveOfficialScore}),
+     * nên đổi Song song ↔ Chính thức sau khi quản lý đã chốt là đổi điểm đã công bố sau lưng người được
+     * chấm (100 thành 88 mà không ai báo). Chặn khi bất kỳ đợt nào của thẻ đã có phiếu của quản lý; muốn
+     * đổi thì xoá / mở lại các phiếu đó trước, hoặc đổi chế độ ngay từ đầu đợt.
+     */
+    private void assertNoPublishedScores(BscScorecard scorecard) {
+        List<UUID> unitIds = scorecard.getOrgUnits() == null ? List.of()
+                : scorecard.getOrgUnits().stream().map(OrgUnit::getId).collect(Collectors.toList());
+        // Thẻ không gắn đơn vị không chấm ai (luật "chấm theo đúng đơn vị") ⇒ không có điểm nào để đổi.
+        if (unitIds.isEmpty()) return;
+        List<UUID> periodIds = effectivePeriodsOf(scorecard).stream().map(KpiPeriod::getId).collect(Collectors.toList());
+        if (periodIds.isEmpty()) return;
+        List<String> periods = evaluationRepository.findManagerEvaluatedPeriodNames(periodIds, unitIds);
+        if (!periods.isEmpty()) {
+            throw new BusinessException(ErrorCode.SCORING_MODE_LOCKED_BY_EVALUATIONS, String.join(", ", periods));
+        }
     }
 
     /**
@@ -545,6 +611,11 @@ public class BscService {
     private ScopeSelection resolveScopeSelection(UUID organizationId, ScorecardRequest request) {
         BscScorecardApplyScope mode = request.getApplyScope() != null
                 ? request.getApplyScope() : BscScorecardApplyScope.PERIOD;
+        // Gửi cả hai thì không biết người dùng định chọn cái nào — báo lỗi thay vì âm thầm lấy một.
+        if (request.getKpiCycleId() != null && request.getKpiPeriodIds() != null
+                && request.getKpiPeriodIds().stream().anyMatch(java.util.Objects::nonNull)) {
+            throw new BusinessException(ErrorCode.APPLY_CYCLE_PERIOD_NOT_BOTH);
+        }
 
         if (mode == BscScorecardApplyScope.CYCLE) {
             if (request.getKpiCycleId() == null) {
@@ -625,6 +696,12 @@ public class BscService {
             return kpiPeriodRepository.findByKpiCycleIdOrderByStartDateAsc(s.getKpiCycle().getId());
         }
         return s.getKpiPeriods() == null ? List.of() : s.getKpiPeriods();
+    }
+
+    /** Phạm vi thời gian mới của thẻ không được rơi vào kỳ đã khoá. */
+    private void assertScopeWritable(ScopeSelection scope) {
+        if (scope.cycle() != null) cycleLockGuard.assertWritable(scope.cycle());
+        cycleLockGuard.assertWritable(scope.periods());
     }
 
     /** Nạp + kiểm tra danh sách phòng ban thuộc đúng tổ chức. RỖNG/null ⇒ bộ tiêu chí mặc định toàn org. */
@@ -725,17 +802,23 @@ public class BscService {
             sp.setUnit(trimToNull(item.getUnit()));
         }
         validatePerspectiveTargets(sp.getTargetValue(), sp.getMinimumValue(), perspective.getName());
+        // Dòng phải chấm được theo mục tiêu: mục tiêu riêng của dòng, không có thì của hạng mục, và > 0.
+        // (Dòng "Kết quả cấp trên" lấy điểm thẻ nguồn nên không có mục tiêu — bỏ qua.)
+        Double effective = BscCascadeService.effectiveTarget(sp);
+        if (perspective.getSourceScorecard() == null && (effective == null || effective <= 0)) {
+            throw new BusinessException(ErrorCode.ROW_TARGET_REQUIRED, perspective.getName());
+        }
     }
 
     /**
-     * Cấu hình nguồn số liệu và hạng mục chặn của một dòng.
+     * Cấu hình hạng mục chặn của một dòng. Cấu hình CHẶN của dòng được giao thì khoá — cấp trên đã
+     * coi là điều kiện bắt buộc.
      *
-     * <p>Tách khỏi {@link #applyRowTargets} vì đây KHÔNG phải phần bị khoá: đơn vị vẫn được đổi
-     * cách lấy số liệu cho chỉ tiêu cấp trên giao (tự cộng từ KPI hay nhập tay là việc nội bộ).
-     * Ngược lại, cấu hình CHẶN của dòng được giao thì khoá — cấp trên đã coi là điều kiện bắt buộc.
+     * <p>Nguồn số liệu ({@code measurementSource}) không còn nhận từ form: kết quả đơn vị tự nhận
+     * nguồn theo từng dòng (đã phân rã → đơn vị con, có KPI → KPI, còn lại → nhập tay), xem
+     * {@code BscCascadeService.recompute}. Client cũ có gửi thì bỏ qua.
      */
     private void applyRowConfig(BscScorecardPerspective sp, ScorecardPerspectiveWeightRequest item, boolean lockedRow) {
-        if (item.getMeasurementSource() != null) sp.setMeasurementSource(item.getMeasurementSource());
         if (lockedRow) return;
         if (item.getIsGate() != null) sp.setIsGate(item.getIsGate());
         if (item.getGateMinPercent() != null) sp.setGateMinPercent(item.getGateMinPercent());
@@ -762,11 +845,24 @@ public class BscService {
         return accessGuard.canManageAll();
     }
 
+    /**
+     * Trọng số TỪNG dòng phải trong 0–100%. Thiếu chốt này thì một cặp −20% / 120% vẫn "đủ 100" và
+     * hạng mục đạt cao lại kéo điểm xuống. Tổng 100% kiểm riêng ở {@link #assertTotalIs100}.
+     */
     private void validateWeights(List<ScorecardPerspectiveWeightRequest> items) {
         if (items == null || items.isEmpty()) return;
-        double total = items.stream().mapToDouble(i -> i.getWeightPercentage() != null ? i.getWeightPercentage() : 0.0).sum();
+        for (ScorecardPerspectiveWeightRequest i : items) {
+            double w = i.getWeightPercentage() != null ? i.getWeightPercentage() : 0.0;
+            if (w < 0 || w > 100) {
+                String name = perspectiveRepository.findById(i.getPerspectiveId()).map(BscPerspective::getName).orElse("?");
+                throw new BusinessException(ErrorCode.ROW_WEIGHT_OUT_OF_RANGE, name, String.valueOf(w));
+            }
+        }
+    }
+
+    private static void assertTotalIs100(double total) {
         if (Math.abs(total - 100.0) > 0.01) {
-            throw new BusinessException(ErrorCode.TOTAL_WEIGHT_ITEMS_MUST_100_PERCENT, String.valueOf(total));
+            throw new BusinessException(ErrorCode.TOTAL_WEIGHT_ITEMS_MUST_100_PERCENT, String.valueOf(Math.round(total * 10) / 10.0));
         }
     }
 
@@ -792,7 +888,8 @@ public class BscService {
 
     private ScorecardResponse mapToScorecardResponse(BscScorecard s) {
         List<ScorecardPeriodResponse> periods = effectivePeriodsOf(s).stream()
-                .map(p -> ScorecardPeriodResponse.builder().id(p.getId()).name(p.getName()).build())
+                .map(p -> ScorecardPeriodResponse.builder().id(p.getId()).name(p.getName())
+                        .startDate(p.getStartDate()).endDate(p.getEndDate()).build())
                 .collect(Collectors.toList());
         List<ScorecardOrgUnitResponse> orgUnits = s.getOrgUnits() == null ? List.of()
                 : s.getOrgUnits().stream()
@@ -823,6 +920,9 @@ public class BscService {
                                     ? sp.getParentItem().getPerspective().getName() : null)
                             .parentScorecardName(sp.getParentItem() != null
                                     ? sp.getParentItem().getScorecard().getName() : null)
+                            .parentScorecardId(sp.getParentItem() != null
+                                    ? sp.getParentItem().getScorecard().getId() : null)
+                            .wholeSharePercent(sp.getWholeSharePercent())
                             .linkType(sp.getLinkType())
                             .contributionValue(sp.getContributionValue())
                             .contributionPercent(sp.getContributionPercent())
@@ -971,17 +1071,14 @@ public class BscService {
                 String pCode = getCellString(row.getCell(pCodeIdx));
                 if (period.isBlank() && pCode.isBlank()) continue;
                 totalRows++;
+                ScorecardImportGroup g = null;
                 try {
                     if (period.isBlank()) throw new BusinessException(ErrorCode.MISSING_PERIOD);
-                    if (pCode.isBlank()) throw new BusinessException(ErrorCode.MISSING_PERSPECTIVECODE);
-                    String weightStr = getCellDecimalString(row.getCell(weightIdx));
-                    if (weightStr.isBlank()) throw new BusinessException(ErrorCode.MISSING_WEIGHT);
-                    double weight;
-                    try { weight = Double.parseDouble(weightStr); }
-                    catch (Exception e) { throw new BusinessException(ErrorCode.WEIGHT_MUST_NUMBER, String.valueOf(weightStr)); }
-
+                    // Thông tin của bộ tiêu chí (tên, tầm nhìn, đơn vị…) đọc TRƯỚC khi kiểm trọng số:
+                    // dòng đầu của nhóm thường mang tên thẻ, đọc sau thì một ô trọng số sai làm nhóm
+                    // báo thêm lỗi "Thiếu ScorecardName" vô lý.
                     String key = period.trim().replaceAll("\\s+", " ").toLowerCase();
-                    ScorecardImportGroup g = groups.computeIfAbsent(key, k -> new ScorecardImportGroup());
+                    g = groups.computeIfAbsent(key, k -> new ScorecardImportGroup());
                     g.periodName = period.trim();
                     if (g.name == null && nameIdx != -1) { String n = getCellString(row.getCell(nameIdx)); if (!n.isBlank()) g.name = n; }
                     if (g.vision == null && visionIdx != -1) { String v = getCellString(row.getCell(visionIdx)); if (!v.isBlank()) g.vision = v; }
@@ -989,6 +1086,13 @@ public class BscService {
                     if (g.modeStr == null && modeIdx != -1) g.modeStr = getCellString(row.getCell(modeIdx));
                     if (g.policyStr == null && policyIdx != -1) g.policyStr = getCellString(row.getCell(policyIdx));
                     if (g.orgUnitCodes == null && unitsIdx != -1) { String u = getCellString(row.getCell(unitsIdx)); if (!u.isBlank()) g.orgUnitCodes = u; }
+
+                    if (pCode.isBlank()) throw new BusinessException(ErrorCode.MISSING_PERSPECTIVECODE);
+                    String weightStr = getCellDecimalString(row.getCell(weightIdx));
+                    if (weightStr.isBlank()) throw new BusinessException(ErrorCode.MISSING_WEIGHT);
+                    double weight;
+                    try { weight = Double.parseDouble(weightStr); }
+                    catch (Exception e) { throw new BusinessException(ErrorCode.WEIGHT_MUST_NUMBER, String.valueOf(weightStr)); }
                     String codeKey = pCode.trim();
                     boolean dup = g.weights.keySet().stream().anyMatch(k -> k.equalsIgnoreCase(codeKey));
                     if (dup) throw new BusinessException(ErrorCode.ITEM_CODE_DUPLICATED_CYCLE, String.valueOf(codeKey), period.trim());
@@ -1006,6 +1110,9 @@ public class BscService {
                     if (spec.minimum == null && pMinimumIdx != -1) spec.minimum = readOptionalNumber(row, pMinimumIdx, ErrorMessages.text("import.bsc.minimumResult", ""));
                 } catch (Exception e) {
                     errors.add(ErrorMessages.text("import.rowError", "", (i + 1), e.getMessage()));
+                    // Nhóm có dòng lỗi thì không nhập: tổng trọng số thiếu dòng đó chắc chắn lệch, báo
+                    // thêm "tổng ≠ 100%" chỉ là lỗi hệ quả. Lỗi theo dòng ở trên đã đủ để sửa tệp.
+                    if (g != null) g.hasRowError = true;
                 }
             }
         } catch (BusinessException e) {
@@ -1014,8 +1121,13 @@ public class BscService {
             throw new BusinessException(ErrorCode.ERROR_READING_EXCEL_FILE, e.getMessage());
         }
 
+        if (totalRows == 0) {
+            throw new BusinessException(ErrorCode.EXCEL_FILE_EMPTY);
+        }
+
         User currentUser = getCurrentUserOrNull();
         for (ScorecardImportGroup g : groups.values()) {
+            if (g.hasRowError) continue;
             try {
                 if (g.name == null || g.name.isBlank()) throw new BusinessException(ErrorCode.MISSING_SCORECARDNAME);
                 double sum = g.weights.values().stream().mapToDouble(Double::doubleValue).sum();
@@ -1023,9 +1135,19 @@ public class BscService {
                     throw new BusinessException(ErrorCode.TOTAL_WEIGHT_MUST_100_PERCENT, String.valueOf(sum));
                 }
                 String clean = g.periodName.replaceAll("\\s+", " ");
+                // CHỈ tra trong tổ chức đang nhập. Từng có bước dự phòng tra theo tên không lọc tổ chức
+                // ⇒ tên đợt trùng với đợt của công ty khác thì thẻ bị gắn sang đợt của công ty đó.
                 KpiPeriod period = kpiPeriodRepository.findByNameSmart(clean, organizationId)
-                        .or(() -> kpiPeriodRepository.findByNameIgnoreCase(clean))
-                        .orElseThrow(() -> new BusinessException(ErrorCode.CYCLE_NOT_FOUND, String.valueOf(g.periodName)));
+                        .orElseThrow(() -> new BusinessException(ErrorCode.IMPORT_PERIOD_NOT_FOUND, String.valueOf(g.periodName)));
+                cycleLockGuard.assertWritable(period);
+
+                // Hạng mục giải quyết TRƯỚC khi đụng vào thẻ: mã mới thiếu tên / lĩnh vực sai phải báo
+                // lỗi khi thẻ cũ còn nguyên, chứ không phải sau khi đã xoá trọng số cũ.
+                java.util.LinkedHashMap<BscPerspective, Double> resolved = new java.util.LinkedHashMap<>();
+                for (java.util.Map.Entry<String, Double> w : g.weights.entrySet()) {
+                    resolved.put(upsertPerspectiveFromImport(organization, w.getKey(),
+                            perspectiveSpecs.get(w.getKey().toLowerCase())), w.getValue());
+                }
 
                 // Phòng ban áp dụng cho bộ tiêu chí của kỳ này (cột OrgUnits, phân tách dấu phẩy; RỖNG = toàn org).
                 List<OrgUnit> targetUnits = resolveUnitsByCodes(organizationId, g.orgUnitCodes);
@@ -1044,6 +1166,8 @@ public class BscService {
                     }
                     scorecard = overlap.isEmpty() ? null : overlap.get(0);
                 }
+                // Thẻ đang có có thể áp cả kỳ khác (đợt khác) đã khoá — ghi đè nó là sửa hồ sơ kỳ đó.
+                if (scorecard != null) cycleLockGuard.assertWritable(scorecard);
                 boolean isNew = scorecard == null;
                 if (isNew) {
                     scorecard = BscScorecard.builder().organization(organization).name(g.name)
@@ -1066,21 +1190,25 @@ public class BscService {
                 }
                 scorecard = scorecardRepository.save(scorecard);
 
-                // Xoá trọng số cũ, ghi lại theo file
+                // Xoá trọng số cũ, ghi lại theo file. Gỡ khỏi collection (cascade ALL) và ghi lệnh xoá
+                // xuống NGAY: Hibernate xếp INSERT trước DELETE, không flush thì dòng mới cùng hạng mục
+                // đụng ràng buộc (thẻ, hạng mục) và cả lần nhập rơi xuống 409 "dữ liệu đã tồn tại".
                 if (!isNew) {
-                    for (BscScorecardPerspective sp : scorecardPerspectiveRepository.findByScorecardIdOrderByDisplayOrderAsc(scorecard.getId())) {
+                    List<BscScorecardPerspective> old = scorecardPerspectiveRepository.findByScorecardIdOrderByDisplayOrderAsc(scorecard.getId());
+                    for (BscScorecardPerspective sp : old) {
+                        scorecard.getScorecardPerspectives().removeIf(x -> x.getId().equals(sp.getId()));
                         scorecardPerspectiveRepository.delete(sp);
                     }
+                    scorecardPerspectiveRepository.flush();
                 }
                 int order = 0;
-                for (java.util.Map.Entry<String, Double> w : g.weights.entrySet()) {
-                    BscPerspective perspective = upsertPerspectiveFromImport(
-                            organization, w.getKey(), perspectiveSpecs.get(w.getKey().toLowerCase()));
+                for (java.util.Map.Entry<BscPerspective, Double> w : resolved.entrySet()) {
                     BscScorecardPerspective sp = BscScorecardPerspective.builder()
-                            .scorecard(scorecard).perspective(perspective)
+                            .scorecard(scorecard).perspective(w.getKey())
                             .weightPercentage(w.getValue()).displayOrder(order++).build();
                     scorecardPerspectiveRepository.save(sp);
-                    logWeightChange(scorecard, perspective, null, w.getValue(), currentUser, "Import Excel");
+                    scorecard.getScorecardPerspectives().add(sp);
+                    logWeightChange(scorecard, w.getKey(), null, w.getValue(), currentUser, "Import Excel");
                 }
                 successfulImports++;
             } catch (Exception e) {
@@ -1176,6 +1304,8 @@ public class BscService {
         String modeStr;
         String policyStr;
         String orgUnitCodes;
+        /** Có dòng lỗi trong nhóm ⇒ bỏ cả nhóm (lỗi theo dòng đã báo). */
+        boolean hasRowError;
         final java.util.LinkedHashMap<String, Double> weights = new java.util.LinkedHashMap<>();
     }
 
@@ -1229,9 +1359,11 @@ public class BscService {
      * điền mục tiêu, chặn ở đó chỉ khiến người dùng bỏ luôn đường import.
      */
     private void requirePerspectiveMeasurement(PerspectiveRequest request) {
+        // MỘT cách chấm duy nhất: theo mục tiêu. Cách "trung bình % đạt KPI" (không mục tiêu) đã bỏ
+        // vì khó lượng hoá — mọi hạng mục phải có mục tiêu > 0, tối thiểu và đơn vị rõ ràng.
         String label = request.getName() != null && !request.getName().isBlank()
                 ? " '" + request.getName() + "'" : "";
-        if (request.getTargetValue() == null) {
+        if (request.getTargetValue() == null || request.getTargetValue() <= 0) {
             throw new BusinessException(ErrorCode.ITEM, String.valueOf(label));
         }
         if (request.getMinimumValue() == null) {

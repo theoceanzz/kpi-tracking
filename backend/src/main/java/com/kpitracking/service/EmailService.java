@@ -120,6 +120,31 @@ public class EmailService {
         }
     }
 
+    /**
+     * Thư người dùng tự soạn gửi nhiều người (To + Cc thấy nhau như thư thường) — VD gửi tài liệu cho đối tác. Tên người
+     * gửi hiện là "Tên (KeyGo)", địa chỉ vẫn là hộp thư hệ thống; Reply-To về người gửi thật. Đồng bộ, hỏng thì ném lỗi.
+     */
+    public void sendComposed(java.util.List<String> to, java.util.List<String> cc, String subject, String htmlBody,
+                             String replyTo, String senderName) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail, senderName == null || senderName.isBlank() ? "KeyGo System" : senderName + " (KeyGo)");
+            helper.setTo(to.toArray(String[]::new));
+            if (cc != null && !cc.isEmpty()) helper.setCc(cc.toArray(String[]::new));
+            helper.setSubject(subject);
+            helper.setText(htmlBody, true);
+            if (replyTo != null && !replyTo.isBlank()) {
+                helper.setReplyTo(replyTo, senderName == null || senderName.isBlank() ? replyTo : senderName);
+            }
+            mailSender.send(message);
+            log.info("Đã gửi thư người dùng soạn tới {} người nhận", to.size() + (cc == null ? 0 : cc.size()));
+        } catch (Exception e) {
+            log.error("Không gửi được thư người dùng soạn: {}", e.getMessage());
+            throw new BusinessException(ErrorCode.COULD_NOT_SEND_EMAIL, e.getMessage());
+        }
+    }
+
     private void sendEmailSync(String to, String subject, String htmlBody) throws Exception {
         sendEmailSync(to, subject, htmlBody, java.util.List.of());
     }

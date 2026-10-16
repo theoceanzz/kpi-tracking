@@ -326,6 +326,10 @@ public class BscScoringService {
     @Transactional
     public void persistBreakdown(Evaluation evaluation, BscUserScore score) {
         perspectiveScoreRepository.deleteByEvaluationId(evaluation.getId());
+        // Ghi lệnh xoá xuống NGAY: Hibernate xếp INSERT trước DELETE trong hàng đợi, không flush thì
+        // các dòng mới đụng uq_evaluation_perspective_scores — mọi lần lưu lại một phiếu đánh giá đã có
+        // breakdown (quản lý sửa điểm, nhân viên tự đánh giá lại) rơi xuống 409.
+        perspectiveScoreRepository.flush();
         if (score == null) return;
         for (PerspectiveScoreResponse p : score.getPerspectives()) {
             BscPerspective perspective = perspectiveRepository.findById(p.getPerspectiveId()).orElse(null);
@@ -408,9 +412,10 @@ public class BscScoringService {
      */
     private static BscScorecard mostSpecific(List<BscScorecard> matches) {
         if (matches == null || matches.isEmpty()) return null;
-        // Thẻ đã đóng thôi chấm điểm — người của đơn vị đó rơi về thẻ cấp trên như khi chưa có thẻ.
+        // Chỉ thẻ ĐÃ DUYỆT mới chấm điểm: nháp / chờ duyệt (kể cả thẻ phân rã tự sinh) và thẻ đã đóng
+        // đều coi như đơn vị chưa có thẻ — chưa áp dụng BSC.
         List<BscScorecard> live = matches.stream()
-                .filter(sc -> sc.getStatus() == null || !sc.getStatus().isRetired())
+                .filter(sc -> sc.getStatus() == null || sc.getStatus().isScoring())
                 .toList();
         if (live.isEmpty()) return null;
         return live.stream()
@@ -430,11 +435,32 @@ public class BscScoringService {
         return resolveScorecard(userOrgUnit(userId), organizationId, kpiPeriodId);
     }
 
-    /** Phòng ban của một nhân viên (lấy role đầu tiên) — null nếu không xác định được. */
+    /**
+     * Đơn vị dùng để chọn bộ tiêu chí BSC của một người: đơn vị SÂU NHẤT họ thuộc về; cùng độ sâu
+     * thì giữ thứ tự của {@code findByUserId} (vai trò cao hơn trước). Null nếu không có vai trò nào.
+     *
+     * <p>Trước đây lấy vai trò đầu tiên (sắp theo rank rồi path). Người vừa là thành viên công ty vừa
+     * thuộc một phòng thì kết quả phụ thuộc rank: trưởng phòng rơi vào phòng (thẻ phòng), còn nhân viên
+     * cùng rank ở cả hai nơi rơi vào gốc công ty vì path của gốc đứng trước — hai người cùng một KPI,
+     * cùng hạng mục bị chấm theo hai mục tiêu khác nhau (850 vs 1700).
+     */
     private OrgUnit userOrgUnit(UUID userId) {
         if (userId == null) return null;
-        List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(userId);
-        return roles.isEmpty() ? null : roles.get(0).getOrgUnit();
+        OrgUnit best = null;
+        for (UserRoleOrgUnit r : userRoleOrgUnitRepository.findByUserId(userId)) {
+            OrgUnit unit = r.getOrgUnit();
+            if (unit != null && (best == null || depth(unit) > depth(best))) best = unit;
+        }
+        return best;
+    }
+
+    /** Độ sâu theo path vật chất hoá ("/KPC/" = 1, "/KPC/{id}/" = 2). */
+    private static int depth(OrgUnit unit) {
+        String path = unit.getPath();
+        if (path == null) return 0;
+        int n = 0;
+        for (String seg : path.split("/")) if (!seg.isEmpty()) n++;
+        return n;
     }
 
     private static String fixedCode(BscPerspective p) {

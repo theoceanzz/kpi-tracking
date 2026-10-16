@@ -293,6 +293,11 @@ const EVENT_LABELS = perLanguage((): Record<string, string> => ({
   task_kpi_replaced: i18n.t('organization:SystemSettingsTabs.whenTheKpiOfYourTasksIsReplaced'),
   task_assigned: i18n.t('organization:SystemSettingsTabs.whenYouAreAssignedATask'),
   task_follower_added: i18n.t('organization:SystemSettingsTabs.whenYouAreAddedAsTaskFollower'),
+  task_follower_removed: i18n.t('organization:SystemSettingsTabs.whenYouAreRemovedAsTaskFollower'),
+  task_declined: i18n.t('organization:SystemSettingsTabs.whenSomeoneDeclinesYourTask'),
+  task_automation: i18n.t('organization:SystemSettingsTabs.whenATaskListRuleNotifiesYou'),
+  task_list_shared: i18n.t('organization:SystemSettingsTabs.whenYouAreAddedToATaskList'),
+  task_daily_digest: i18n.t('organization:SystemSettingsTabs.dailyTaskDigest'),
   task_changed: i18n.t('organization:SystemSettingsTabs.whenATaskYouFollowChanges'),
 }))
 

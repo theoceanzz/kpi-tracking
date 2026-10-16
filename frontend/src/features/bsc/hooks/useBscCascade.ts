@@ -105,6 +105,16 @@ export function useCascadeMutations() {
     onError: e => toast.error(errText(e, t('useBscCascade.failedToCascadeKpi'))),
   })
 
+  const revokeCascade = useMutation({
+    mutationFn: ({ scorecardId, scorecardPerspectiveId, orgUnitId }: { scorecardId: string; scorecardPerspectiveId: string; orgUnitId: string }) =>
+      bscApi.revokeCascade(scorecardId, scorecardPerspectiveId, orgUnitId),
+    onSuccess: () => {
+      invalidate()
+      toast.success(t('useBscCascade.kpiRevokedFromUnit'))
+    },
+    onError: e => toast.error(errText(e, t('useBscCascade.failedToRevokeKpi'))),
+  })
+
   const cascadeWhole = useMutation({
     mutationFn: ({ scorecardId, data }: { scorecardId: string; data: WholeCascadeRequest }) =>
       bscApi.cascadeWhole(scorecardId, data),
@@ -170,6 +180,7 @@ export function useCascadeMutations() {
 
   return {
     cascade,
+    revokeCascade,
     cascadeWhole,
     attachParent,
     submitScorecard,

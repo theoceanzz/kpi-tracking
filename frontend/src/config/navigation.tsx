@@ -235,10 +235,11 @@ export const navItems = perLanguage((): NavItem[] => ([
       { id: 'my-kpi', label: i18n.t('layout:navigation.myKpis'), icon: <ListChecks size={18} />, permission: 'KPI:VIEW_MY', legacyKeys: ['/my-kpi'], group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.yourAssignedKpisAndCurrentProgress') },
       // Hai mục "của tôi" cho OKR/BSC: cùng dữ liệu KPI của tôi nhưng xếp theo mục tiêu / hạng
       // mục, để ai cũng thấy mình đang góp vào đâu và còn phải nộp gì. Ẩn khi tổ chức tắt module.
-      // Cùng quyền với KPI của tôi: trang dành cho người NHẬN KPI; giám đốc/ban lãnh đạo xem OKR/BSC
-      // toàn công ty ở Phân tích và Thiết lập công cụ, không cần mục này.
-      { id: 'my-okr', label: i18n.t('layout:navigation.myOkrs'), icon: <Target size={18} />, permission: 'KPI:VIEW_MY', okrOnly: true, group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.objectivesAndKeyResultsYouContribute') },
-      { id: 'my-bsc', label: i18n.t('layout:navigation.myBsc'), icon: <LayoutGrid size={18} />, permission: 'KPI:VIEW_MY', bscOnly: true, group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.yourUnitsScorecardByPeriodAnd') },
+      // Gắn theo quyền XEM OKR/BSC chứ không theo KPI:VIEW_MY: giám đốc / phó giám đốc không nhận KPI
+      // cá nhân (không có KPI:VIEW_MY) nhưng vẫn cần xem OKR/BSC theo cấp của mình. Phần "KPI của tôi"
+      // trong hai trang tự ẩn khi thiếu KPI:VIEW_MY (useMyKpi kiểm `useApiAllowed`).
+      { id: 'my-okr', label: i18n.t('layout:navigation.myOkrs'), icon: <Target size={18} />, permission: 'OKR:VIEW', okrOnly: true, group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.objectivesAndKeyResultsYouContribute') },
+      { id: 'my-bsc', label: i18n.t('layout:navigation.myBsc'), icon: <LayoutGrid size={18} />, permission: 'BSC:VIEW', bscOnly: true, group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.yourUnitsScorecardByPeriodAnd') },
       { id: 'my-submissions', label: i18n.t('layout:navigation.myReports'), icon: <FileText size={18} />, permission: 'SUBMISSION:VIEW_MY', legacyKeys: ['/submissions'], group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.submissionsYouSentAndTheirApproval') },
       { id: 'evaluations', label: i18n.t('layout:navigation.myEvaluations'), icon: <Star size={18} />, permission: 'EVALUATION:VIEW_MY', legacyKeys: ['/evaluations'], group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.theScoresAndRatingsYouReceived') },
       { id: 'my-adjustments', label: i18n.t('layout:navigation.myAdjustments'), icon: <History size={18} />, permission: 'KPI:VIEW_MY', legacyKeys: ['/my-adjustments'], group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.kpiChangeRequestsYouSentAnd') },

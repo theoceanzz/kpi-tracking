@@ -49,7 +49,12 @@
     "aiScoringRules": "Quy chế chấm AI",
     "sharedDocuments": "Tài liệu được chia sẻ",
     "documentProposals": "Đề xuất tài liệu",
-    "documentReview": "Rà soát tài liệu"
+    "documentReview": "Rà soát tài liệu",
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua",
+    "loadMore": "Tải thêm thông báo cũ hơn",
+    "loadingMore": "Đang tải…",
+    "endOfList": "Đã hết thông báo"
   },
   "useNotifications": {
     "markedAllNotificationsAsRead": "Đã đánh dấu tất cả thông báo là đã đọc"

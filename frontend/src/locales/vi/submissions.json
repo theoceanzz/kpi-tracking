@@ -149,8 +149,10 @@
     "scoreRating": "Điểm · Xếp loại",
     "searchEmployees": "Tìm nhân viên…",
     "selfScore": "Tự chấm",
+    "selfAssess": "Tự đánh giá",
+    "selfAssessHint": "Đây là bạn — đợt của bạn do trưởng đơn vị cấp trên chấm, ở đây bạn chỉ tự đánh giá.",
     "theUnitHasNoMembersYet": "Đơn vị chưa có nhân sự",
-    "thisPeriodHasEndedPeopleWho": "Đợt này đã kết thúc — nhân sự chưa nộp được đánh dấu \"Chưa nộp\".",
+    "thisPeriodHasEndedPeopleWho": "Đợt này đã kết thúc — nhân sự chưa nộp được đánh dấu \"Chưa nộp\". Bạn chấm được cả người chưa nộp đủ, KPI chưa nộp tính 0 điểm.",
     "tryAnotherKeywordOrClearThe": "Thử từ khoá khác hoặc xoá tìm kiếm.",
     "unit": "Đơn vị",
     "viewEvaluation": "Xem đánh giá"
@@ -563,5 +565,13 @@
     "levelOf": "mức {{level}}",
     "selfLevel": "Tự đánh giá: {{level}}",
     "behaviorScale": "thang hành vi"
+  },
+  "ScoringReadiness": {
+    "submitted": "Đã nộp {{submitted}}/{{required}} KPI",
+    "noKpi": "Chưa có KPI trong đợt",
+    "selfEvalMissing": "Chưa tự đánh giá",
+    "missing": "Còn thiếu: {{names}}",
+    "rule": "Chấm được khi nhân viên đã nộp đủ KPI của đợt và tự đánh giá xong, hoặc sau khi đợt kết thúc (KPI chưa nộp tính 0 điểm).",
+    "title": "Chưa chấm được"
   }
 }

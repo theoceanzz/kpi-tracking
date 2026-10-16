@@ -398,6 +398,7 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
             <ProfileEditor
               key={selected._key}
               profile={selected}
+              bscEnabled={org.enableBsc ?? false}
               levels={levels}
               levelNames={levelNames}
               tree={tree ?? []}
@@ -441,10 +442,12 @@ function Block({ title, description, action, children, id }: {
 
 // ── Bộ soạn MỘT hồ sơ ───────────────────────────────────────────────────────
 function ProfileEditor({
-  profile: p, levels, levelNames, tree, unitNameById, cycles, cycleNameById,
+  profile: p, bscEnabled, levels, levelNames, tree, unitNameById, cycles, cycleNameById,
   takenBy, canDelete, autoPickUnits, onAutoPickDone, onAddUnitProfile, onPatch, onSetDefault, onApplyPreset, onRemove,
 }: {
   profile: EditProfile
+  /** Tổ chức bật module BSC — mới hiện phần "đổi khung theo BSC" trong khung bell curve. */
+  bscEnabled: boolean
   /** Vừa tạo từ "Thêm hồ sơ cho đơn vị": mở sẵn hộp chọn đơn vị. */
   autoPickUnits?: boolean
   onAutoPickDone?: () => void
@@ -608,7 +611,7 @@ function ProfileEditor({
         }
       >
         {p.bellCurve?.enabled
-          ? <BellCurveEditor value={p.bellCurve} levels={levels} onChange={bellCurve => onPatch({ bellCurve })} />
+          ? <BellCurveEditor value={p.bellCurve} levels={levels} bscEnabled={bscEnabled} onChange={bellCurve => onPatch({ bellCurve })} />
           : <p className="text-caption">{t('UnitClassificationConfigSection.turnOnToSetAQuota')}</p>}
       </Block>
     </div>

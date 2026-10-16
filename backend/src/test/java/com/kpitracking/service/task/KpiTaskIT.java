@@ -44,10 +44,14 @@ class KpiTaskIT extends CollabITSupport {
     }
 
     @Test
-    void test7_taskWithoutKpiOrOnSomeoneElsesKpiIsRejected() {
+    void test7_taskWithoutKpiIsAllowed_butSomeoneElsesKpiIsRejected() {
         loginAs(employee);
-        assertThatThrownBy(() -> taskService.create(CreateKpiTaskRequest.builder().title("Không có KPI").build()))
-                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.TASK_KPI_REQUIRED));
+        // V42: KPI là tuỳ chọn — việc không KPI tạo được, ở trạng thái NONE.
+        KpiTaskResponse free = taskService.create(CreateKpiTaskRequest.builder().title("Không có KPI").build());
+        assertThat(free.getKpiId()).isNull();
+        assertThat(free.getKpiState()).isEqualTo("NONE");
+        assertThat(free.isCanEdit()).isTrue();
+        jdbc.update("DELETE FROM kpi_tasks WHERE id = ?", free.getId());
 
         // KPI của đồng nghiệp: nhân viên này không tạo, không thực hiện.
         UUID othersKpi = newKpi("KPI của đồng nghiệp", "APPROVED", head, colleague);

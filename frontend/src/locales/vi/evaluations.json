@@ -44,7 +44,8 @@
     "seniorManager": "Quản lý cấp cao",
     "topManagementLevel": "Cấp quản lý cao nhất",
     "unitManager": "Quản lý đơn vị",
-    "shadow": "Song song"
+    "shadow": "Song song",
+    "bscPartialCoverage": "Điểm BSC {{score}} chỉ tính trên {{presentWeight}}% trọng số đã có số liệu ({{present}}/{{count}} hạng mục). Hạng mục chưa có số được bỏ qua, không tính 0 — nếu tính 0 thì chỉ được {{contribution}}/{{totalWeight}}."
   },
   "EvaluationFormModal": {
     "allKpisAreQualitativeWithNo": "KPI toàn định tính, không có phần định lượng để tính — hệ thống đề xuất trọn thang điểm.",
@@ -106,7 +107,11 @@
     "provisionalConfirmTitle": "Chốt theo số tạm tính?",
     "provisionalConfirmDescription": "Kết quả {{names}} chưa được chốt nên điểm dòng kết quả cấp trên vẫn là số tạm tính. Chốt bây giờ sẽ lưu đánh giá theo số tạm này và đánh dấu lại.",
     "provisionalConfirm": "Vẫn chốt",
-    "bscNotApplied": "Chưa áp dụng BSC — đơn vị chưa có bộ tiêu chí riêng cho đợt này."
+    "bscNotApplied": "Chưa áp dụng BSC — đơn vị chưa có bộ tiêu chí riêng cho đợt này.",
+    "contribution": "Đóng góp",
+    "bscTotal": "Điểm BSC (cộng cột Đóng góp)",
+    "bscTotalRenormalized": "Điểm BSC = {{contribution}} ÷ {{presentWeight}}% trọng số có số liệu",
+    "bscPartialCoverage": "Điểm BSC {{score}} chỉ tính trên {{presentWeight}}% trọng số đã có số liệu ({{present}}/{{count}} hạng mục). Hạng mục chưa có số được bỏ qua, không tính 0 — nếu tính 0 thì chỉ được {{contribution}}/{{totalWeight}}."
   },
   "evaluationSchema": {
     "minimumScoreIs0": "Điểm tối thiểu 0",

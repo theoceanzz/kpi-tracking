@@ -8,6 +8,7 @@ import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useMyUnitChain } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
+import { useApiAllowed } from '@/hooks/useApiAllowed'
 import { isMyActiveKpi, kpiWorkState } from '@/features/kpi/utils/myKpiStatus'
 import MyKpiMiniRow from '@/features/kpi/components/MyKpiMiniRow'
 import KpiDetailModal from '@/features/kpi/components/KpiDetailModal'
@@ -21,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { KpiCriteria } from '@/types/kpi'
 import { useFixedPerspectives, useScorecards } from '../hooks/useBsc'
 import { scorecardStatusMeta } from '../utils/scorecardStatus'
+import { isScoringScorecard } from '../utils/scorecardScope'
 import {
   BscScoringMode, BscScorecardApplyScope, BscScorecardStatus,
   type ScorecardPerspectiveResponse, type ScorecardResponse,
@@ -67,6 +69,9 @@ export default function MyBscPage() {
   const { data: chain, isLoading: loadingChain } = useMyUnitChain(myUnitId)
   const { data: periodsData } = useKpiPeriods({ organizationId })
   const { data: kpiPage, isLoading: loadingKpis } = useMyKpi({ size: 500 })
+  // Giám đốc / phó giám đốc không nhận KPI cá nhân (không có KPI:VIEW_MY): vẫn xem bộ tiêu chí theo
+  // cấp, chỉ bỏ phần "KPI của bạn" và các số liệu cá nhân — hiện toàn số 0 chỉ gây hiểu nhầm.
+  const canSeeMyKpis = useApiAllowed('GET', '/kpi-criteria/my')
   const [detailKpi, setDetailKpi] = useState<KpiCriteria | null>(null)
   const now = useMemo(() => new Date(), [])
 
@@ -91,8 +96,11 @@ export default function MyBscPage() {
   // Chỉ bộ của CHÍNH đơn vị tôi mới dùng để chấm điểm (cùng luật với backend): đơn vị chưa có bộ
   // riêng thì chưa áp dụng BSC, bộ của cấp trên / công ty chỉ để tham khảo.
   const myLevel = levels.find(l => l.isMine)
-  const myUnitHasBsc = (myLevel?.cards.length ?? 0) > 0
-  const scoringLevelId = myUnitHasBsc ? myLevel!.unitId : ''
+  // Chỉ bộ ĐÃ DUYỆT mới chấm điểm (backend `isScoring`). Đơn vị có bộ nhưng còn nháp / chờ duyệt thì
+  // vẫn mở được bộ đó để xem, chỉ không gắn nhãn "Đang chấm cho bạn".
+  const myUnitHasBsc = (myLevel?.cards ?? []).some(isScoringScorecard)
+  const myUnitPendingOnly = !myUnitHasBsc && (myLevel?.cards.length ?? 0) > 0
+  const scoringLevelId = (myLevel?.cards.length ?? 0) > 0 ? myLevel!.unitId : ''
   // Mở trang: đứng ở đơn vị tôi nếu có bộ; chưa có thì đứng ở cấp gần nhất có bộ để còn tham khảo.
   const defaultLevelId = scoringLevelId || levels.find(l => l.cards.length > 0)?.unitId || levels[0]?.unitId || ''
 
@@ -176,9 +184,11 @@ export default function MyBscPage() {
         description={t('MyBscPage.levelDescription', { value: myUnitName ?? t('MyBscPage.yourUnit') })}
         stats={[
           { label: t('MyBscPage.item'), value: stats.items, icon: Layers },
-          { label: t('MyBscPage.youContribute'), value: stats.contributed, icon: LayoutGrid },
-          { label: t('MyBscPage.bscLinkedKpis'), value: stats.linked, icon: ListChecks },
-          { label: t('MyBscPage.toSubmit'), value: stats.toSubmit, icon: Send },
+          ...(canSeeMyKpis ? [
+            { label: t('MyBscPage.youContribute'), value: stats.contributed, icon: LayoutGrid },
+            { label: t('MyBscPage.bscLinkedKpis'), value: stats.linked, icon: ListChecks },
+            { label: t('MyBscPage.toSubmit'), value: stats.toSubmit, icon: Send },
+          ] : []),
         ]}
       >
         {/* Nút phụ luôn ở hàng dưới, phải: hàng trên chỉ có số liệu để mọi vai trò nhìn cùng một bố cục. */}
@@ -229,7 +239,9 @@ export default function MyBscPage() {
           dưới rồi tưởng mình đang được chấm theo đó. */}
       {!loading && levels.length > 0 && !myUnitHasBsc && (
         <div className="rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm text-[var(--color-warning)]">
-          <b>{t('MyBscPage.notAppliedTitle')}</b> {t('MyBscPage.notAppliedHint', { name: myLevel?.name ?? '' })}
+          {myUnitPendingOnly
+            ? <><b>{t('MyBscPage.notApprovedTitle')}</b> {t('MyBscPage.notApprovedHint', { name: myLevel?.name ?? '' })}</>
+            : <><b>{t('MyBscPage.notAppliedTitle')}</b> {t('MyBscPage.notAppliedHint', { name: myLevel?.name ?? '' })}</>}
         </div>
       )}
 
@@ -254,9 +266,11 @@ export default function MyBscPage() {
               {scorecard.scoringMode === BscScoringMode.OFFICIAL
                 ? <Badge>{t('MyBscPage.officialScoring')}</Badge>
                 : <Badge variant="secondary">{t('MyBscPage.parallel')}</Badge>}
-              {showKpis
+              {showKpis && isScoringScorecard(scorecard)
                 ? <Badge variant="success">{t('MyBscPage.appliesToYou')}</Badge>
-                : <Badge variant="outline" title={t('MyBscPage.referenceOnlyHint')}>{t('MyBscPage.referenceOnly')}</Badge>}
+                : showKpis
+                  ? <Badge variant="outline" title={t('MyBscPage.notApprovedBadgeHint')}>{t('MyBscPage.notApprovedBadge')}</Badge>
+                  : <Badge variant="outline" title={t('MyBscPage.referenceOnlyHint')}>{t('MyBscPage.referenceOnly')}</Badge>}
               <span className="ml-auto text-caption">
                 {scopeLabel(scorecard)}{' · '}{t('MyBscPage.totalWeight')} {scorecard.totalWeight}%
               </span>
@@ -274,11 +288,11 @@ export default function MyBscPage() {
               <div className="flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-muted)] px-4 py-2">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: fp.color }} aria-hidden="true" />
                 <h4 className="text-label">{fp.name}</h4>
-                <span className="text-caption">{items.length} {t('MyBscPage.items')} {items.reduce((a, p) => a + (p.weightPercentage || 0), 0)}%</span>
+                <span className="text-caption">{t('MyBscPage.itemsCount', { count: items.length })} {items.reduce((a, p) => a + (p.weightPercentage || 0), 0)}%</span>
               </div>
               <div className="divide-y divide-[var(--color-border)]">
                 {items.map(item => (
-                  <ItemBlock key={item.id} item={item} showKpis={showKpis}
+                  <ItemBlock key={item.id} item={item} showKpis={showKpis && canSeeMyKpis}
                     kpis={kpisByPerspective.get(item.perspectiveId) ?? []} onOpenKpi={setDetailKpi} now={now} />
                 ))}
               </div>
@@ -301,9 +315,10 @@ function ItemBlock({ item, kpis, showKpis, onOpenKpi, now }: {
   now: Date
 }) {
   const { t } = useTranslation('bsc')
-  const target = item.targetValue != null
+  // Chỉ còn một cách chấm (theo mục tiêu). Dòng cũ chưa có mục tiêu > 0 thì ghi rõ là chưa có.
+  const target = item.targetValue != null && item.targetValue > 0
     ? t('MyBscPage.target', { targetValue: item.targetValue, value: item.unit ? ` ${item.unit}` : '', value2: item.minimumValue != null ? t('MyBscPage.minimum', { minimumValue: item.minimumValue }) : '' })
-    : null
+    : !item.sourceScorecardName ? t('MyBscPage.noTargetYet') : null
   return (
     <div className="px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

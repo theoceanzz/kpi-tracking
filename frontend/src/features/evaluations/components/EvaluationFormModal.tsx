@@ -12,7 +12,7 @@ import { evidenceKey } from '@/features/evidence/evidenceApi'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import { MicButton } from '@/components/common/MicButton'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { getScoringFunctions, SCORING_POOL, describePerspectiveScore } from '@/lib/scoring'
+import { getScoringFunctions, SCORING_POOL, describePerspectiveScore, bscCoverage } from '@/lib/scoring'
 import { Loader2, Zap, CheckCircle2, MessageSquare, Lock, Layers, AlertTriangle } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -523,6 +523,7 @@ function MeasurementPanel({
   readOnly: boolean
 }) {
   const { t } = useTranslation('evaluations')
+  const coverage = bscCoverage(bscPerspectives, bscScore)
   const basis = isBscOfficial
     ? t('EvaluationFormModal.thisCycleIsOfficiallyScoredBy')
     : noQuantScore
@@ -562,6 +563,15 @@ function MeasurementPanel({
           <b>BSC:</b> {t('EvaluationFormModal.bscNotApplied')}
         </p>
       )}
+      {coverage.renormalized && (
+        <p className="text-caption flex items-start gap-1.5">
+          <Layers size={13} className="mt-0.5 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
+          <span>{t('EvaluationFormModal.bscPartialCoverage', {
+            score: trim(bscScore!), presentWeight: coverage.presentWeight, totalWeight: coverage.totalWeight,
+            present: coverage.present, count: coverage.count, contribution: coverage.contribution,
+          })}</span>
+        </p>
+      )}
 
       <p className="text-caption flex items-start gap-1.5">
         {isBscOfficial
@@ -594,6 +604,7 @@ function MeasurementPanel({
               <span className="flex-1">{t('EvaluationFormModal.item')}</span>
               <span className="w-12 text-right">{t('EvaluationFormModal.meets')}</span>
               <span className="w-14 text-right">{t('EvaluationFormModal.weight')}</span>
+              <span className="w-14 text-right">{t('EvaluationFormModal.contribution')}</span>
             </div>
             {bscPerspectives.map(p => {
               const color = p.color || '#8b5cf6'
@@ -637,9 +648,23 @@ function MeasurementPanel({
                   <span className="w-14 text-right text-xs font-medium tabular-nums text-[var(--color-subtle-foreground)]">
                     ×{p.weightPercentage}%
                   </span>
+                  <span className="w-14 text-right text-xs font-semibold tabular-nums text-[var(--color-foreground)]">
+                    {p.weightedScore != null ? trim(p.weightedScore) : '—'}
+                  </span>
                 </div>
               )
             })}
+            {/* Cộng cột Đóng góp phải ra đúng điểm BSC — nếu không (bỏ qua hạng mục rỗng) thì ghi phép quy đổi. */}
+            {bscScore != null && (
+              <div className="flex items-center gap-2 border-t border-[var(--color-border)] pt-1.5 text-xs">
+                <span className="flex-1 font-medium text-[var(--color-muted-foreground)]">
+                  {coverage.renormalized
+                    ? t('EvaluationFormModal.bscTotalRenormalized', { contribution: coverage.contribution, presentWeight: coverage.presentWeight })
+                    : t('EvaluationFormModal.bscTotal')}
+                </span>
+                <span className="w-14 text-right font-semibold tabular-nums text-[var(--color-primary)]">{trim(bscScore)}</span>
+              </div>
+            )}
           </div>
         </Collapsible>
       )}

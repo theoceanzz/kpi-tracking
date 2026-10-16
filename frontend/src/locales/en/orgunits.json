@@ -503,5 +503,18 @@
   "useOrganization": {
     "anErrorOccurredWhileUpdating": "An error occurred while updating",
     "companyInformationUpdatedSuccessfully": "Company information updated successfully"
+  },
+  "BscBandsEditor": {
+    "title": "Switch the frame by the unit's BSC result",
+    "hint": "Units with a strong BSC get more high-rating slots, weak units get fewer. Based on the unit's cycle BSC score after cap.",
+    "exceedAt": "Above when ≥",
+    "meetAt": "On target when ≥",
+    "thresholdOrder": "The \"On target\" threshold must be below the \"Above\" threshold.",
+    "level": "Level",
+    "exceedFrame": "Above (≥ {{value}}%)",
+    "meetFrame": "On target (main frame)",
+    "belowFrame": "Below (< {{value}}%)",
+    "total": "Total",
+    "finalizedOnly": "The frame only switches once the unit's BSC is FINALIZED in every period of the cycle. Until then the cycle evaluation shows the projected frame for reference, and checks still use the main frame."
   }
 }

@@ -77,6 +77,82 @@ public class KpiTaskResponse {
     private boolean canDelete;
     private boolean canManageFollowers;
 
+    // ── V42 ───────────────────────────────────────────────────────────────────────────────────
+    /** NONE | DELETED | ACTIVE — xem {@code TaskKpiLinks}. */
+    private String kpiState;
+    private LocalDate startDate;
+    private LocalTime startTime;
+    private com.kpitracking.enums.TaskCompletionMode completionMode;
+    private UUID rootTaskId;
+    private int depth;
+    /** Việc mốc (Lark "Mark as Milestone"). */
+    private boolean milestone;
+    /** Mọi người thực hiện (người chính đứng đầu), kèm phần đã xong. */
+    private List<Assignee> assignees;
+    /** Người xem là người thực hiện và đã tích phần mình. */
+    private boolean myPartDone;
+    private List<ListRef> lists;
+    private List<Tag> tags;
+    /** Nhóm riêng của người xem trong "Việc của tôi" (null = chưa xếp). */
+    private UUID mySectionId;
+    /** Giá trị trường tuỳ chỉnh — chỉ của các danh sách người xem là thành viên. */
+    private List<FieldValue> fieldValues;
+    /** Số việc đứng trước chưa xong (phụ thuộc FS). */
+    private int openBlockers;
+    /** Id các việc đứng trước (mọi trạng thái) — Gantt vẽ mũi tên. */
+    private List<UUID> blockedByIds;
+    /** Chỉ ở màn chi tiết. */
+    private List<DependencyRef> dependencies;
+    private com.kpitracking.entity.TaskSourceRef sourceRef;
+    private boolean canDecline;
+    /** Gắn / đổi / gỡ KPI (việc gốc, người giao lại được). */
+    private boolean canSetKpi;
+
+    @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class Assignee {
+        private UUID id;
+        private String fullName;
+        private String avatarUrl;
+        private boolean primary;
+        private Instant completedAt;
+    }
+
+    @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ListRef {
+        private UUID listId;
+        private String listName;
+        private String color;
+        private UUID sectionId;
+        private String sectionName;
+        private Double sortOrder;
+    }
+
+    @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class Tag {
+        private UUID id;
+        private String name;
+        private String color;
+    }
+
+    @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class FieldValue {
+        private UUID fieldId;
+        private UUID listId;
+        private Object value;
+    }
+
+    /** Một phụ thuộc: {@code BLOCKED_BY} = việc này chờ việc kia; {@code BLOCKING} = việc kia chờ việc này. */
+    @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class DependencyRef {
+        private UUID id;
+        private String direction;
+        private UUID taskId;
+        private String title;
+        private KpiTaskStatus status;
+        private LocalDate dueDate;
+        private boolean accessible;
+    }
+
     @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
     public static class Person {
         private UUID id;

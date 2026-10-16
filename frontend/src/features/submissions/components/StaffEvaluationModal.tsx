@@ -39,6 +39,7 @@ import RewardPrompt from '@/features/rewards/components/RewardPrompt'
 import { useCanPromptReward } from '@/features/rewards/hooks/useCanPromptReward'
 import ConductInlineSheet, { type ConductSheetHandle } from '@/features/conduct/components/ConductInlineSheet'
 import { useTranslation } from 'react-i18next'
+import { scoringBlockReasons } from '../utils/scoringReadiness'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
 import { blockedByTour } from '@/components/common/tours/guard'
@@ -228,9 +229,14 @@ export default function StaffEvaluationModal({
   // the 0..100 scale (matching the backend evaluation system score, which is normalized).
   // Per-submission autoScore/managerScore stay on the raw weight scale in the DB; we only
   // scale them by normFactor for display/inputs here, and de-normalize again on save.
-  const quantWeight = useMemo(() =>
+  //
+  // Quy đổi trên trọng số của MỌI KPI định lượng được giao (backend trả về), không chỉ các bài đã
+  // nộp — nếu không, người mới nộp 35% trọng số vẫn ra 100 điểm, trong khi điểm hệ thống ở backend
+  // tính KPI chưa nộp là 0. Lấy max để không bao giờ nhỏ hơn phần đã nộp (vd. KPI thưởng).
+  const submittedQuantWeight = useMemo(() =>
     submissionList.filter(s => s.kpiType !== 'QUALITATIVE').reduce((acc, s) => acc + (s.weight ?? 0), 0),
   [submissionList])
+  const quantWeight = Math.max(scorePreview?.quantitativeWeight ?? 0, submittedQuantWeight)
   const normFactor = quantWeight > 0 ? 100 / quantWeight : 1
 
   // Initialize individual scores when data loaded
@@ -245,7 +251,7 @@ export default function StaffEvaluationModal({
       setIndividualScores(scores)
       setIndividualLevels(levels)
     }
-  }, [submissions])
+  }, [submissions, normFactor])
 
   // Nhận xét chỉ lấy từ bản CỦA MÌNH. Điểm cuối: bản của mình, không có thì lấy bản mới
   // nhất của cấp dưới làm điểm xuất phát (giữ hành vi cũ), người chấm vẫn kéo lại được.
@@ -340,6 +346,12 @@ export default function StaffEvaluationModal({
       toast.error(getApiErrorMessage(error, t('StaffEvaluationModal.failedToSaveTheEvaluation')))
     }
   })
+
+  // Chưa đủ điều kiện chấm (nhân viên chưa nộp đủ KPI / chưa tự đánh giá, đợt chưa hết) — luật ở
+  // backend (EvaluationReadinessService), backend cũng chặn khi chốt. Sửa lại bản mình đã chấm thì không chặn.
+  const readiness = scorePreview?.scoringReadiness ?? null
+  const blockReasons = !readOnly && !myEval ? scoringBlockReasons(readiness, t) : []
+  const scoringBlocked = blockReasons.length > 0
 
   const [justEvaluated, setJustEvaluated] = useState(false)
   const [showAllApproved, setShowAllApproved] = useState(false)
@@ -468,10 +480,10 @@ export default function StaffEvaluationModal({
           primary={!justEvaluated && (
             <Button {...tourAnchor('staffeval.submit')}
               onClick={handleSubmit(data => { if (!blockedByTour()) submitMutation.mutate(data) })}
-              disabled={submitMutation.isPending || (submissionList.length === 0 && !periodEnded) || awaitingResubmission.length > 0}
+              disabled={submitMutation.isPending || (submissionList.length === 0 && !periodEnded) || awaitingResubmission.length > 0 || scoringBlocked}
               title={awaitingResubmission.length > 0
                 ? t('StaffEvaluationModal.finalizeBlockedAwaitingResubmission', { count: awaitingResubmission.length })
-                : undefined}
+                : scoringBlocked ? t('ScoringReadiness.rule') : undefined}
             >
               {submitMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <CheckCircle aria-hidden="true" />}
               {t('StaffEvaluationModal.approveFinalizeEvaluation')}
@@ -481,6 +493,18 @@ export default function StaffEvaluationModal({
       )}
     >
       <DraftNotice draft={draft} className="mb-4" />
+      {scoringBlocked && (
+        <div role="status" className="mb-4 flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
+          <AlertCircle size={16} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden="true" />
+          <div className="space-y-1 text-sm text-[var(--color-foreground)]">
+            <p className="font-semibold">{t('ScoringReadiness.title')}: {blockReasons.join(' · ')}</p>
+            {(readiness?.missingKpiNames.length ?? 0) > 0 && (
+              <p>{t('ScoringReadiness.missing', { names: readiness!.missingKpiNames.join(', ') })}</p>
+            )}
+            <p className="text-caption">{t('ScoringReadiness.rule')}</p>
+          </div>
+        </div>
+      )}
       {!readOnly && awaitingResubmission.length > 0 && (
         <div role="status" className="mb-4 flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
           <AlertCircle size={16} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden="true" />

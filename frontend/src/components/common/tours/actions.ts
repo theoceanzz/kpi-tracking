@@ -58,3 +58,20 @@ export function useTourModal(name: string, open: () => void, close: () => void) 
   useTourAction(`${name}.open`, open)
   useTourAction(`${name}.close`, close)
 }
+
+const facts = new Map<string, boolean>()
+
+/**
+ * Điều bài hướng dẫn cần biết về màn hình lúc bắt đầu mà không đọc được từ DOM (vd. "người dùng đã có danh sách công việc
+ * nào chưa") — dùng trong `requires` của bước để chọn nhánh. Trang khai bằng `useTourFact`; rời trang thì sự thật mất.
+ */
+export function tourFact(name: string): boolean {
+  return facts.get(name) ?? false
+}
+
+export function useTourFact(name: string, value: boolean) {
+  useEffect(() => {
+    facts.set(name, value)
+    return () => { facts.delete(name) }
+  }, [name, value])
+}

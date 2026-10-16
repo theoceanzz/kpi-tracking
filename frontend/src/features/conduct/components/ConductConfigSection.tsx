@@ -40,6 +40,8 @@ import { tourAnchor } from '@/components/common/tours/anchors'
  */
 
 interface DraftCriteria {
+  /** Có id = tiêu chí đang có trên server ⇒ lưu là sửa tại chỗ, không sinh dòng mới. */
+  id?: string
   name: string
   description: string
   weight: string
@@ -47,6 +49,7 @@ interface DraftCriteria {
 
 /** Nhóm tiêu chí (bộ → nhóm → tiêu chí): trọng số nhóm trên tổng, tiêu chí mang % TRONG nhóm. */
 interface DraftGroup {
+  id?: string
   name: string
   weight: string
   criteria: DraftCriteria[]
@@ -64,7 +67,8 @@ interface DraftSet {
   groups: DraftGroup[]
 }
 
-const toDraftCriteria = (c: { name: string; description?: string | null; weight: number }): DraftCriteria => ({
+const toDraftCriteria = (c: { id: string; name: string; description?: string | null; weight: number }): DraftCriteria => ({
+  id: c.id,
   name: c.name,
   description: c.description ?? '',
   weight: String(c.weight),
@@ -78,6 +82,7 @@ const toDraft = (s: ConductSet): DraftSet => ({
   kpiCycleIds: [...(s.kpiCycleIds ?? [])],
   criteria: s.groups?.length ? [] : (s.criteria ?? []).map(toDraftCriteria),
   groups: (s.groups ?? []).map(g => ({
+    id: g.id,
     name: g.name,
     weight: String(g.weight),
     criteria: g.criteria.map(toDraftCriteria),
@@ -240,6 +245,7 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
     return true
   }
   const toPayloadCriteria = (rows: DraftCriteria[]) => rows.map(c => ({
+    id: c.id ?? null,
     name: c.name.trim(),
     description: c.description.trim() || null,
     weight: Number(c.weight),
@@ -280,7 +286,7 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
         ...(grouped
           ? {
               criteria: null,
-              groups: draft.groups.map(g => ({ name: g.name.trim(), weight: Number(g.weight), criteria: toPayloadCriteria(g.criteria) })),
+              groups: draft.groups.map(g => ({ id: g.id ?? null, name: g.name.trim(), weight: Number(g.weight), criteria: toPayloadCriteria(g.criteria) })),
             }
           : { criteria: toPayloadCriteria(draft.criteria), groups: [] }),
       },

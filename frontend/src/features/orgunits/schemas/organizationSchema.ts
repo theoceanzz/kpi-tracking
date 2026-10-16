@@ -110,6 +110,14 @@ const unitBellCurveSchema = z.object({
   minMembers: z.number(),
   tolerance: z.number(),
   targets: z.array(z.object({ level: z.string(), percent: z.number() })),
+  // Thiếu khối này trong schema thì zod gạt mất lúc lưu.
+  bsc: z.object({
+    enabled: z.boolean(),
+    exceedAt: z.number(),
+    meetAt: z.number(),
+    exceed: z.array(z.number()),
+    below: z.array(z.number()),
+  }).optional(),
 })
 
 const unitClassProfileSchema = z.object({

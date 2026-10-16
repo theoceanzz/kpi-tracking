@@ -6,26 +6,23 @@ import com.kpitracking.dto.response.task.*;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.*;
 import com.kpitracking.event.TaskEvents;
+import com.kpitracking.event.TaskListEvents;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.exception.StaleStateException;
 import com.kpitracking.i18n.Terms;
-import com.kpitracking.mapper.KpiTaskMapper;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.CloudinaryStorageService;
 import com.kpitracking.service.discussion.AttachmentLibrarySources;
 import com.kpitracking.service.discussion.CollabAttachmentPolicy;
-import com.kpitracking.service.discussion.DiscussionService;
 import com.kpitracking.service.kpi.CycleStatusGuard;
 import com.kpitracking.service.kpi.KpiAccessPolicy;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,18 +30,19 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.*;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Công việc gắn KPI kiểu Lark Tasks: giao việc + người theo dõi, việc con 1 cấp, lặp lại, hạn có giờ, nhắc theo task,
- * mô tả có định dạng. Chỉ để theo dõi, không đổi kết quả KPI.
+ * Công việc kiểu Lark (docs/TASKS_DESIGN.md): KPI TUỲ CHỌN, nhiều người thực hiện, việc con nhiều cấp, lặp lại, hạn có
+ * giờ, ngày bắt đầu, nhắc theo việc, mô tả có định dạng, danh sách, nhãn, phụ thuộc. Chỉ để theo dõi — không đổi kết quả KPI.
  *
- * <p>Luật giữ nguyên từ bản đầu: task bắt buộc gắn MỘT KPI — KPI của người phụ trách (người đó tạo hoặc thực hiện), ở
- * trạng thái còn nhận việc ({@link #TASKABLE}); kỳ đã khoá ⇒ mọi thao tác ghi bị chặn qua {@link CycleStatusGuard}; KPI
- * đã xoá ⇒ chỉ chuyển KPI hoặc xoá; sửa có {@code version}. Vai trò và quyền: {@link KpiTaskAccess}.
+ * <p>Việc CÓ KPI giữ nguyên luật cũ: mọi người thực hiện là người tạo / thực hiện của KPI, KPI ở trạng thái nhận việc
+ * ({@link #TASKABLE}), kỳ đã khoá ⇒ mọi thao tác ghi bị chặn; KPI đã xoá ⇒ chỉ chuyển KPI hoặc xoá. Ba trạng thái KPI chỉ
+ * đọc qua {@link TaskKpiLinks}; quyền qua {@link KpiTaskAccess}. Sửa có {@code version}.
  */
 @Service
 @RequiredArgsConstructor
@@ -54,31 +52,51 @@ public class KpiTaskService {
     public static final Set<KpiStatus> TASKABLE = EnumSet.of(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL,
             KpiStatus.EDIT, KpiStatus.EDITED, KpiStatus.APPROVED, KpiStatus.REJECTED);
     public static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    /** {@code new_value} của dòng lịch sử FOLLOWER_REMOVED khi bị gỡ tự động do đổi KPI — gỡ tay thì null. */
+    public static final String FOLLOWER_REMOVED_KPI_CHANGED = "KPI_CHANGED";
+    /** Độ sâu tối đa của việc con: 0 = gốc … 4 ⇒ 5 cấp. */
+    public static final int MAX_DEPTH = 4;
+    public static final int MAX_ASSIGNEES = 20;
     private static final int MAX_PAGE = 500;
     private static final int MAX_DESCRIPTION_DOC = 200_000;
     private static final List<KpiTaskStatus> ALL_STATUSES = List.of(KpiTaskStatus.values());
-    private static final Set<String> VIEWS = Set.of("ASSIGNED", "FOLLOWING", "CREATED", "DELEGATED", "INVOLVED", "TEAM", "DONE", "ALL");
 
     private final KpiTaskRepository taskRepository;
     private final KpiTaskChecklistItemRepository checklistRepository;
     private final KpiTaskAttachmentRepository attachmentRepository;
     private final KpiTaskEventRepository eventRepository;
     private final KpiTaskFollowerRepository followerRepository;
+    private final KpiTaskAssigneeRepository assigneeRepository;
     private final KpiTaskReminderRepository reminderRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final TaskListRepository listRepository;
+    private final TaskListUserPrefRepository listPrefRepository;
+    private final TaskListItemRepository listItemRepository;
+    private final TaskListSectionRepository sectionRepository;
+    private final TaskListFieldRepository fieldRepository;
+    private final TaskFieldValueRepository fieldValueRepository;
+    private final TaskTagRepository tagRepository;
+    private final TaskTagLinkRepository tagLinkRepository;
+    private final TaskDependencyRepository dependencyRepository;
     private final KpiTaskAccess access;
+    private final TaskListAccess listAccess;
+    private final TaskKpiLinks kpiLinks;
+    private final TaskSearch search;
+    private final TaskResponseAssembler assembler;
     private final KpiAccessPolicy kpiAccessPolicy;
     private final PermissionChecker permissionChecker;
     private final CycleStatusGuard cycleStatusGuard;
     private final CollabAttachmentPolicy attachmentPolicy;
     private final AttachmentLibrarySources librarySources;
     private final CloudinaryStorageService storage;
-    private final DiscussionService discussionService;
     private final KpiTaskReminderPlanner reminderPlanner;
-    private final KpiTaskMapper mapper;
     private final ApplicationEventPublisher events;
+
+    /** Cờ bật / tắt nhiều người thực hiện (docs/TASKS_DESIGN.md §3). */
+    @Value("${app.tasks.multi-assignee:true}")
+    private boolean multiAssignee = true;
 
     public static LocalDate today() {
         return LocalDate.now(ZONE);
@@ -89,23 +107,37 @@ public class KpiTaskService {
         return d.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
     }
 
+    public boolean multiAssigneeEnabled() {
+        return multiAssignee;
+    }
+
     // ══ Đọc ══════════════════════════════════════════════════════════════════════════════════════
 
     /** Tham số danh sách: chế độ xem + bộ lọc + sắp xếp. */
     public record ListQuery(String view, UUID kpiId, UUID periodId, UUID ownerId, List<KpiTaskStatus> statuses,
                             KpiTaskPriority priority, String due, LocalDate dueFrom, LocalDate dueTo, String keyword,
-                            String sort, boolean topLevel, int page, int size) {}
+                            String sort, boolean topLevel, int page, int size,
+                            UUID listId, UUID sectionId, boolean noSection, Boolean hasKpi, List<UUID> tagIds,
+                            List<TaskSearch.FieldFilter> fieldFilters, UUID sortFieldId, LocalDate rangeFrom, LocalDate rangeTo) {
+
+        /** Bản rút gọn (tương thích code cũ / test). */
+        public ListQuery(String view, UUID kpiId, UUID periodId, UUID ownerId, List<KpiTaskStatus> statuses,
+                         KpiTaskPriority priority, String due, LocalDate dueFrom, LocalDate dueTo, String keyword,
+                         String sort, boolean topLevel, int page, int size) {
+            this(view, kpiId, periodId, ownerId, statuses, priority, due, dueFrom, dueTo, keyword, sort, topLevel, page, size,
+                    null, null, false, null, null, null, null, null, null);
+        }
+    }
 
     /**
-     * Danh sách theo chế độ xem (cột trái): ASSIGNED, FOLLOWING, CREATED, DELEGATED, ALL, DONE, TEAM. {@code due}:
-     * OVERDUE | TODAY | TOMORROW | WEEK | LATER | NONE. {@code dueFrom/dueTo}: khoảng ngày (chế độ Lịch).
+     * Danh sách theo chế độ xem (cột trái): ASSIGNED, FOLLOWING, CREATED, DELEGATED, ALL, DONE, TEAM, LIST (cần listId),
+     * SEARCH (mọi việc mình xem được). {@code due}: OVERDUE | TODAY | TOMORROW | WEEK | LATER | NONE.
      */
     @Transactional(readOnly = true)
     public PageResponse<KpiTaskResponse> list(ListQuery q) {
         User me = currentUser();
         requireOwnPermission(me);
         String view = q.view() == null ? "ASSIGNED" : q.view().toUpperCase(Locale.ROOT);
-        if (!VIEWS.contains(view)) view = "ASSIGNED";
         List<KpiTaskStatus> statuses = q.statuses() == null || q.statuses().isEmpty() ? ALL_STATUSES : q.statuses();
         if ("DONE".equals(view)) {
             statuses = List.of(KpiTaskStatus.DONE);
@@ -113,14 +145,27 @@ public class KpiTaskService {
         } else if ("ALL".equals(view)) {
             view = "INVOLVED";
         }
-        List<UUID> managerUnits = List.of(new UUID(0, 0));
-        if ("TEAM".equals(view)) {
-            if (!permissionChecker.hasPermission(me.getId(), KpiTaskAccess.VIEW_TEAM)) {
-                throw new ForbiddenException(ErrorCode.TASK_NO_PERMISSION_VIEW);
-            }
-            managerUnits = kpiAccessPolicy.viewer(me.getId(), null).managerUnitIdsForQuery();
+        if (!TaskSearch.VIEWS.contains(view)) view = "ASSIGNED";
+        if ("TEAM".equals(view) && !permissionChecker.hasPermission(me.getId(), KpiTaskAccess.VIEW_TEAM)) {
+            throw new ForbiddenException(ErrorCode.TASK_NO_PERMISSION_VIEW);
         }
-        return page(me, view, false, managerUnits, statuses, q);
+        TaskFieldType sortType = null;
+        List<TaskSearch.FieldFilter> filters = List.of();
+        if ("LIST".equals(view)) {
+            if (q.listId() == null) throw new BusinessException(ErrorCode.TASK_LIST_NOT_FOUND);
+            TaskList list = listRepository.findById(q.listId()).orElseThrow(() -> new BusinessException(ErrorCode.TASK_LIST_NOT_FOUND));
+            listAccess.require(me.getId(), list, TaskListRole.VIEWER);
+            // Trường tuỳ chỉnh chỉ nhóm / lọc / sắp xếp được trong MỘT danh sách — trường lạ bị bỏ qua.
+            Map<UUID, TaskListField> fields = fieldRepository.findByListIdOrderBySortOrderAscCreatedAtAsc(list.getId()).stream()
+                    .collect(Collectors.toMap(TaskListField::getId, Function.identity()));
+            if (q.sortFieldId() != null && fields.containsKey(q.sortFieldId())) sortType = fields.get(q.sortFieldId()).getType();
+            if (q.fieldFilters() != null) {
+                filters = q.fieldFilters().stream().filter(f -> f.fieldId() != null && fields.containsKey(f.fieldId()))
+                        .map(f -> new TaskSearch.FieldFilter(f.fieldId(), fields.get(f.fieldId()).getType(), f.op(), f.value()))
+                        .toList();
+            }
+        }
+        return page(me, view, false, statuses, q, sortType, filters);
     }
 
     /** Tab "Công việc" trong chi tiết KPI: việc cấp cao nhất trên KPI mà tôi thấy được. */
@@ -132,11 +177,11 @@ public class KpiTaskService {
         kpiAccessPolicy.assertCanView(me.getId(), kpi);
         boolean team = access.canViewTeamTasksOf(me.getId(), kpi);
         ListQuery q = new ListQuery("KPI", kpiId, null, null, null, null, null, null, null, null, "manual", true, 0, MAX_PAGE);
-        return page(me, "KPI", team, List.of(new UUID(0, 0)), ALL_STATUSES, q).getContent();
+        return page(me, "KPI", team, ALL_STATUSES, q, null, List.of()).getContent();
     }
 
-    private PageResponse<KpiTaskResponse> page(User me, String view, boolean team, List<UUID> managerUnits,
-                                               List<KpiTaskStatus> statuses, ListQuery q) {
+    private PageResponse<KpiTaskResponse> page(User me, String view, boolean kpiTeam, List<KpiTaskStatus> statuses, ListQuery q,
+                                               TaskFieldType sortFieldType, List<TaskSearch.FieldFilter> fieldFilters) {
         LocalDate today = today();
         LocalDate from = q.dueFrom(), to = q.dueTo();
         boolean noDue = false, overdue = false;
@@ -151,40 +196,35 @@ public class KpiTaskService {
                 default -> { }
             }
         }
-        Page<KpiTask> result = taskRepository.findView(view, me.getId(), team, managerUnits, statuses,
-                q.kpiId(), q.periodId(), q.ownerId(), q.priority(), q.topLevel(), noDue, from, to, overdue,
-                today, LocalTime.now(ZONE).withNano(0),
-                q.keyword() == null || q.keyword().isBlank() ? null : q.keyword().trim(),
-                PageRequest.of(Math.max(q.page(), 0), Math.min(Math.max(q.size(), 1), MAX_PAGE), sortOf(q.sort())));
-        List<KpiTask> content = result.getContent();
-        if ("priority".equalsIgnoreCase(q.sort())) {
-            content = content.stream().sorted(Comparator.comparingInt((KpiTask t) -> switch (t.getPriority()) {
-                case HIGH -> 0;
-                case MEDIUM -> 1;
-                case LOW -> 2;
-            })).toList();
-        }
+        UUID orgId = organizationOf(me);
+        boolean needsScope = "TEAM".equals(view) || "LIST".equals(view) || "SEARCH".equals(view);
+        KpiAccessPolicy.Viewer viewer = needsScope ? kpiAccessPolicy.viewer(me.getId(), orgId) : null;
+        boolean viewTeam = needsScope && permissionChecker.hasPermission(me.getId(), KpiTaskAccess.VIEW_TEAM);
+        Collection<UUID> myLists = "LIST".equals(view) || "SEARCH".equals(view) ? listAccess.rolesOf(me.getId()).keySet() : List.of();
+        int size = Math.min(Math.max(q.size(), 1), MAX_PAGE);
+        TaskSearch.Result result = search.search(new TaskSearch.Criteria(
+                view, me.getId(), orgId,
+                q.listId(), q.sectionId(), q.noSection(),
+                q.kpiId(), q.hasKpi(), q.periodId(), q.ownerId(),
+                statuses, q.priority(),
+                noDue, from, to, overdue,
+                q.rangeFrom(), q.rangeTo(),
+                q.keyword(), q.tagIds(), fieldFilters,
+                q.sort(), sortFieldType != null ? q.sortFieldId() : null, sortFieldType, q.topLevel(),
+                myLists, viewTeam, viewer != null ? viewer.managerUnitPaths() : List.of(), viewer != null && viewer.admin(), kpiTeam,
+                today, LocalTime.now(ZONE).withNano(0), q.page(), size));
+        Map<UUID, KpiTask> byId = taskRepository.findAllById(result.ids()).stream()
+                .collect(Collectors.toMap(KpiTask::getId, Function.identity()));
+        List<KpiTask> content = result.ids().stream().map(byId::get).filter(Objects::nonNull).toList();
+        int pages = (int) Math.ceil(result.total() / (double) size);
         return PageResponse.<KpiTaskResponse>builder()
-                .content(toResponses(me, content, false))
-                .page(result.getNumber())
-                .size(result.getSize())
-                .totalElements(result.getTotalElements())
-                .totalPages(result.getTotalPages())
-                .last(result.isLast())
+                .content(assembler.toResponses(me, content, false))
+                .page(Math.max(q.page(), 0))
+                .size(size)
+                .totalElements(result.total())
+                .totalPages(pages)
+                .last(q.page() + 1 >= pages)
                 .build();
-    }
-
-    private static Sort sortOf(String sort) {
-        String s = sort == null ? "due" : sort.toLowerCase(Locale.ROOT);
-        return switch (s) {
-            case "manual" -> Sort.by(Sort.Order.asc("sortOrder"), Sort.Order.asc("createdAt"));
-            case "created" -> Sort.by(Sort.Order.desc("createdAt"));
-            // Ưu tiên: truy vấn theo hạn rồi xếp lại trong {@link #page} (Spring Data gắn bí danh vào biểu thức CASE
-            // của JpaSort.unsafe và sinh JPQL sai). Trang tối đa 500 việc nên xếp trong bộ nhớ không đáng kể.
-            case "priority" -> Sort.by(Sort.Order.asc("dueDate").nullsLast(), Sort.Order.asc("sortOrder"));
-            default -> Sort.by(Sort.Order.asc("dueDate").nullsLast(), Sort.Order.asc("dueTime").nullsLast(),
-                    Sort.Order.asc("sortOrder"));
-        };
     }
 
     @Transactional(readOnly = true)
@@ -192,7 +232,7 @@ public class KpiTaskService {
         User me = currentUser();
         KpiTask task = findTask(taskId);
         if (!access.canView(me.getId(), task)) throw new ForbiddenException(ErrorCode.TASK_NO_PERMISSION_VIEW);
-        return detail(me, task);
+        return assembler.detail(me, task);
     }
 
     @Transactional(readOnly = true)
@@ -210,11 +250,9 @@ public class KpiTaskService {
         Map<UUID, String> names = userRepository.findAllById(userIds).stream()
                 .collect(Collectors.toMap(User::getId, User::getFullName));
         return list.stream().map(e -> {
-            KpiTaskEventResponse r = mapper.toEventResponse(e);
-            r.setActorName(names.get(e.getActorId()));
-            // Giao việc / người theo dõi lưu id người — trả tên để hiển thị.
-            r.setOldValue(nameOr(names, e.getOldValue()));
-            r.setNewValue(nameOr(names, e.getNewValue()));
+            KpiTaskEventResponse r = KpiTaskEventResponse.builder().id(e.getId()).action(e.getAction())
+                    .oldValue(nameOr(names, e.getOldValue())).newValue(nameOr(names, e.getNewValue()))
+                    .actorId(e.getActorId()).actorName(names.get(e.getActorId())).createdAt(e.getCreatedAt()).build();
             return r;
         }).toList();
     }
@@ -242,7 +280,7 @@ public class KpiTaskService {
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", newKpiId));
         List<TaskReplacementResponse> out = new ArrayList<>();
         for (KpiCriteria old : kpiCriteriaRepository.findByReplacedById(newKpiId)) {
-            int open = taskRepository.findOpenByOwnerAndKpi(me.getId(), old.getId()).size();
+            int open = (int) taskRepository.findOpenByOwnerAndKpi(me.getId(), old.getId()).stream().filter(KpiTask::isRoot).count();
             if (open > 0) {
                 out.add(TaskReplacementResponse.builder().oldKpiId(old.getId()).oldKpiName(old.getName())
                         .newKpiId(newKpiId).newKpiName(newKpi.getName()).openTaskCount(open).build());
@@ -251,7 +289,7 @@ public class KpiTaskService {
         return out;
     }
 
-    /** Cột trái: số việc chưa xong theo chế độ xem, theo KPI của đợt đang diễn ra, huy hiệu. */
+    /** Cột trái: số việc chưa xong theo chế độ xem, danh sách của tôi, KPI của đợt đang diễn ra, huy hiệu. */
     @Transactional(readOnly = true)
     public TaskSidebarResponse sidebar() {
         User me = currentUser();
@@ -259,12 +297,34 @@ public class KpiTaskService {
         List<TaskSidebarResponse.KpiCount> kpis = taskRepository.myCurrentKpis(me.getId(), Instant.now()).stream()
                 .map(r -> TaskSidebarResponse.KpiCount.builder().kpiId(uuid(r[0])).kpiName((String) r[1]).open(num(r[2])).build())
                 .toList();
+        Map<UUID, TaskListRole> roles = listAccess.rolesOf(me.getId());
+        Map<UUID, Long> openByList = new HashMap<>();
+        if (!roles.isEmpty()) {
+            for (Object[] r : listRepository.openCounts(roles.keySet(), me.getId())) openByList.put(uuid(r[0]), num(r[1]));
+        }
+        Map<UUID, TaskListUserPref> prefs = roles.isEmpty() ? Map.of() : listPrefRepository.findByUserId(me.getId()).stream()
+                .collect(Collectors.toMap(TaskListUserPref::getListId, Function.identity()));
+        List<TaskSidebarResponse.ListCount> lists = roles.isEmpty() ? List.of() : listRepository.findAllById(roles.keySet()).stream()
+                .sorted(Comparator.comparing((TaskList l) -> l.getArchivedAt() != null)
+                        .thenComparing((TaskList l) -> !(prefs.containsKey(l.getId()) && prefs.get(l.getId()).isPinned()))
+                        .thenComparing(TaskList::getName, String.CASE_INSENSITIVE_ORDER))
+                .map(l -> {
+                    TaskListUserPref p = prefs.get(l.getId());
+                    return TaskSidebarResponse.ListCount.builder().listId(l.getId()).name(l.getName()).color(l.getColor()).icon(l.getIcon())
+                            .role(roles.get(l.getId()).name()).archived(l.getArchivedAt() != null)
+                            .open(openByList.getOrDefault(l.getId(), 0L))
+                            .pinned(p != null && p.isPinned()).folder(p != null ? p.getFolder() : null).build();
+                })
+                .toList();
         return TaskSidebarResponse.builder()
                 .assigned(num(c[0])).following(num(c[1])).created(num(c[2])).delegated(num(c[3])).all(num(c[4]))
+                .noKpi(taskRepository.countMyOpenWithoutKpi(me.getId()))
                 .canViewTeam(permissionChecker.hasPermission(me.getId(), KpiTaskAccess.VIEW_TEAM))
                 .canAssign(permissionChecker.hasPermission(me.getId(), KpiTaskAccess.ASSIGN))
+                .multiAssignee(multiAssignee)
                 .badge(taskRepository.badgeCount(me.getId(), today()))
                 .kpis(kpis)
+                .lists(lists)
                 .build();
     }
 
@@ -273,14 +333,19 @@ public class KpiTaskService {
         return taskRepository.badgeCount(currentUser().getId(), today());
     }
 
-    /** Ô chọn người phụ trách: chính mình + (có TASK:ASSIGN) người trong đơn vị mình quản lý. */
+    /**
+     * Ô chọn người thực hiện. {@code all = false}: chính mình + (có TASK:ASSIGN) người trong đơn vị mình quản lý — giao trên
+     * KPI. {@code all = true}: mọi người trong tổ chức — giao việc KHÔNG KPI (giao chéo phòng ban).
+     */
     @Transactional(readOnly = true)
-    public List<TaskOptionResponse> assignableUsers(String query) {
+    public List<TaskOptionResponse> assignableUsers(String query, boolean all) {
         User me = currentUser();
+        UUID orgId = organizationOf(me);
         List<UUID> ids = new ArrayList<>();
         ids.add(me.getId());
-        if (permissionChecker.hasPermission(me.getId(), KpiTaskAccess.ASSIGN)) {
-            UUID orgId = organizationOf(me);
+        if (all && orgId != null) {
+            taskRepository.orgMembers(orgId, blankToNull(query), 300).forEach(r -> { if (!ids.contains(uuid(r[0]))) ids.add(uuid(r[0])); });
+        } else if (permissionChecker.hasPermission(me.getId(), KpiTaskAccess.ASSIGN)) {
             boolean admin = orgId != null && permissionChecker.isGlobalAdminOfOrganization(me.getId(), orgId);
             taskRepository.assignableUsers(me.getId(), admin, orgId != null ? orgId : new UUID(0, 0), blankToNull(query), 300)
                     .forEach(r -> { if (!ids.contains(uuid(r[0]))) ids.add(uuid(r[0])); });
@@ -296,7 +361,7 @@ public class KpiTaskService {
         List<KpiCriteria> kpis = kpiCriteriaRepository.findAllById(taskRepository.taskableKpiIdsOf(owner));
         Instant now = Instant.now();
         return kpis.stream()
-                .filter(k -> access.canAssign(me.getId(), owner, k) && !isLocked(k))
+                .filter(k -> access.canAssign(me.getId(), owner, k) && !TaskResponseAssembler.isLocked(k))
                 .sorted(Comparator.comparing((KpiCriteria k) -> k.getKpiPeriod() != null && k.getKpiPeriod().getStartDate() != null
                         ? k.getKpiPeriod().getStartDate() : Instant.EPOCH).reversed().thenComparing(KpiCriteria::getName))
                 .map(k -> {
@@ -315,70 +380,114 @@ public class KpiTaskService {
                 .toList();
     }
 
-    /** Ô thêm người theo dõi: chỉ người xem được KPI của task. */
+    /** Ô thêm người theo dõi: việc có KPI ⇒ người xem được KPI; việc không KPI ⇒ người cùng tổ chức. */
     @Transactional(readOnly = true)
     public List<TaskOptionResponse> followerCandidates(UUID taskId, String query) {
         User me = currentUser();
         KpiTask task = findTask(taskId);
         if (!access.canView(me.getId(), task)) throw new ForbiddenException(ErrorCode.TASK_NO_PERMISSION_VIEW);
-        List<UUID> ids = kpiAccessPolicy.viewerIds(task.getKpiCriteriaId(), KpiTaskAccess.VIEW_OWN, blankToNull(query), 30);
+        TaskKpiLinks.Link link = kpiLinks.of(task);
+        List<UUID> ids = link.none()
+                ? taskRepository.orgMembers(task.getOrganizationId(), blankToNull(query), 30).stream().map(r -> uuid(r[0])).toList()
+                : link.active() ? kpiAccessPolicy.viewerIds(link.kpiId(), KpiTaskAccess.VIEW_OWN, blankToNull(query), 30) : List.of();
         Set<UUID> existing = new HashSet<>(followerRepository.findUserIds(taskId));
-        return people(ids.stream().filter(id -> !id.equals(task.getOwner().getId()) && !existing.contains(id)).toList(), null);
+        existing.addAll(assigneeRepository.findUserIds(taskId));
+        return people(ids.stream().filter(id -> !existing.contains(id)).toList(), null);
     }
 
-    // ══ Ghi ══════════════════════════════════════════════════════════════════════════════════════
+    // ══ Tạo ══════════════════════════════════════════════════════════════════════════════════════
 
     @Transactional
     public KpiTaskResponse create(CreateKpiTaskRequest req) {
         User me = currentUser();
+        KpiTask task = createInternal(me, req);
+        return assembler.detail(me, task);
+    }
+
+    /** Tạo một việc (dùng chung cho API, nhân bản, mẫu danh sách, nhập Excel, K.AI). */
+    KpiTask createInternal(User me, CreateKpiTaskRequest req) {
         requireOwnPermission(me);
         String title = requireTitle(req.getTitle());
         KpiTask parent = null;
-        KpiCriteria kpi;
+        TaskKpiLinks.Link link;
+        UUID orgId;
         if (req.getParentTaskId() != null) {
             parent = editable(me, req.getParentTaskId(), null, false);
-            if (parent.getParentTaskId() != null) throw new BusinessException(ErrorCode.TASK_SUBTASK_NESTED);
-            kpi = kpiCriteriaRepository.findById(parent.getKpiCriteriaId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.TASK_KPI_DELETED_READONLY));
-        } else {
-            if (req.getKpiId() == null) throw new BusinessException(ErrorCode.TASK_KPI_REQUIRED);
-            kpi = kpiCriteriaRepository.findById(req.getKpiId())
+            int depth = (parent.getDepth() == null ? 0 : parent.getDepth()) + 1;
+            if (depth > MAX_DEPTH) throw new BusinessException(ErrorCode.TASK_SUBTASK_TOO_DEEP, MAX_DEPTH + 1);
+            link = kpiLinks.of(parent);
+            orgId = parent.getOrganizationId();
+        } else if (req.getKpiId() != null) {
+            KpiCriteria kpi = kpiCriteriaRepository.findById(req.getKpiId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.TASK_KPI_REQUIRED));
+            link = new TaskKpiLinks.Link(TaskKpiLinks.State.ACTIVE, kpi.getId(), kpi);
+            orgId = KpiAccessPolicy.organizationIdOf(kpi);
+        } else {
+            link = TaskKpiLinks.Link.NONE;
+            orgId = null;
         }
-        User owner = req.getOwnerId() == null || req.getOwnerId().equals(me.getId()) ? me
-                : userRepository.findById(req.getOwnerId()).orElseThrow(() -> new BusinessException(ErrorCode.TASK_ASSIGN_NOT_ALLOWED, "?"));
-        assertAssignable(me, owner, kpi, parent != null);
-        if (!TASKABLE.contains(kpi.getStatus())) {
-            throw new BusinessException(ErrorCode.TASK_KPI_STATUS_NOT_ALLOWED, kpi.getStatus().name());
+
+        TaskList list = null;
+        if (req.getListId() != null && parent == null) {
+            list = listRepository.findById(req.getListId()).orElseThrow(() -> new BusinessException(ErrorCode.TASK_LIST_NOT_FOUND));
+            listAccess.require(me.getId(), list, TaskListRole.EDITOR);
+            if (list.getArchivedAt() != null) throw new BusinessException(ErrorCode.TASK_LIST_ARCHIVED);
+            if (orgId == null) orgId = list.getOrganizationId();
+            if (!orgId.equals(list.getOrganizationId())) throw new BusinessException(ErrorCode.TASK_LIST_ORG_MISMATCH);
         }
-        cycleStatusGuard.assertWritable(kpi);
+        if (orgId == null) orgId = organizationOf(me);
+        if (orgId == null) throw new ForbiddenException(ErrorCode.TASK_NO_PERMISSION_VIEW);
+
+        List<UUID> assigneeIds = new ArrayList<>(new LinkedHashSet<>(
+                req.getAssigneeIds() != null && !req.getAssigneeIds().isEmpty() ? req.getAssigneeIds().stream().filter(Objects::nonNull).toList()
+                        : List.of(req.getOwnerId() != null ? req.getOwnerId() : me.getId())));
+        List<User> assignees = validateAssignees(me, link, orgId, assigneeIds, parent != null);
+        if (link.active()) {
+            if (!TASKABLE.contains(link.kpi().getStatus())) {
+                throw new BusinessException(ErrorCode.TASK_KPI_STATUS_NOT_ALLOWED, link.kpi().getStatus().name());
+            }
+            cycleStatusGuard.assertWritable(link.kpi());
+        }
         validateRecurrence(req.getRecurrence(), req.getDueDate());
         checkDescriptionDoc(req.getDescriptionDoc());
+        checkStartBeforeDue(req.getStartDate(), req.getDueDate());
 
+        User owner = assignees.get(0);
+        UUID[] ancestors = parent == null ? new UUID[0] : append(parent.getAncestorIds(), parent.getId());
         KpiTask task = taskRepository.save(KpiTask.builder()
-                .organizationId(KpiAccessPolicy.organizationIdOf(kpi))
-                .kpiCriteriaId(kpi.getId())
+                .organizationId(orgId)
+                .kpiCriteriaId(link.kpiId())
                 .parentTaskId(parent != null ? parent.getId() : null)
+                .rootTaskId(parent != null ? parent.rootId() : null)
+                .ancestorIds(ancestors)
+                .depth((short) ancestors.length)
                 .title(title)
                 .description(blankToNull(req.getDescription()))
                 .descriptionDoc(blankToNull(req.getDescriptionDoc()))
+                .startDate(req.getStartDate())
+                .startTime(req.getStartDate() != null ? req.getStartTime() : null)
                 .dueDate(req.getDueDate())
                 .dueTime(req.getDueDate() != null ? req.getDueTime() : null)
                 .priority(req.getPriority() != null ? req.getPriority() : KpiTaskPriority.MEDIUM)
                 .visibility(parent != null ? parent.getVisibility()
                         : req.getVisibility() != null ? req.getVisibility() : KpiTaskVisibility.KPI_SCOPE)
+                .completionMode(req.getCompletionMode() != null ? req.getCompletionMode() : TaskCompletionMode.ANY)
                 .status(KpiTaskStatus.TODO)
                 .owner(owner)
                 .createdBy(me.getId())
                 .sortOrder(taskRepository.maxSortOrder(owner.getId(), KpiTaskStatus.TODO) + 1)
                 .recurrence(copyRule(req.getRecurrence()))
                 .recurrenceEndDate(req.getRecurrence() != null ? req.getRecurrenceEndDate() : null)
+                .sourceRef(sanitizeSource(req.getSourceRef()))
                 .build());
         if (task.getRecurrence() != null) {
             task.setSeriesId(task.getId());
             task.setSeriesIndex(1);
             // Ghi ngay để version trong phản hồi khớp DB (lần sửa kế tiếp của client mang đúng version).
             task = taskRepository.saveAndFlush(task);
+        }
+        for (User a : assignees) {
+            assigneeRepository.save(KpiTaskAssignee.builder().taskId(task.getId()).userId(a.getId()).addedBy(me.getId()).build());
         }
         if (req.getChecklist() != null) {
             int i = 0;
@@ -388,30 +497,48 @@ public class KpiTaskService {
                         .title(truncate(step.strip(), 500)).sortOrder(i++).build());
             }
         }
+        Set<UUID> assigneeSet = assignees.stream().map(User::getId).collect(Collectors.toSet());
+        List<UUID> addedFollowers = new ArrayList<>();
         if (req.getFollowerIds() != null) {
             for (UUID f : new LinkedHashSet<>(req.getFollowerIds())) {
-                if (f == null || f.equals(owner.getId())) continue;
-                assertFollowerAllowed(f, kpi);
+                if (f == null || assigneeSet.contains(f)) continue;
+                assertFollowerAllowed(f, link, orgId);
                 followerRepository.save(KpiTaskFollower.builder().taskId(task.getId()).userId(f).addedBy(me.getId()).build());
+                addedFollowers.add(f);
             }
         }
         reminderPlanner.replace(task, req.getReminders());
+        if (req.getTagIds() != null && !req.getTagIds().isEmpty()) setTagsInternal(task, req.getTagIds());
+        if (list != null) {
+            UUID sectionId = req.getSectionId();
+            if (sectionId != null && sectionRepository.findById(sectionId).filter(s -> s.getListId().equals(req.getListId())).isEmpty()) {
+                throw new BusinessException(ErrorCode.TASK_LIST_SECTION_NOT_FOUND);
+            }
+            listItemRepository.save(TaskListItem.builder().listId(list.getId()).taskId(task.getId()).sectionId(sectionId)
+                    .sortOrder(listItemRepository.maxSortOrder(list.getId()) + 1).addedBy(me.getId()).build());
+            log(task, me, KpiTaskEventAction.LIST_ADDED, null, list.getName());
+            if (req.getFieldValues() != null) {
+                for (Map.Entry<UUID, Object> e : req.getFieldValues().entrySet()) writeFieldValue(me, task, list.getId(), e.getKey(), e.getValue());
+            }
+        }
         log(task, me, KpiTaskEventAction.CREATED, null, null);
-        if (!owner.getId().equals(me.getId())) log(task, me, KpiTaskEventAction.ASSIGNED, null, owner.getId().toString());
+        for (User a : assignees) if (!a.getId().equals(me.getId())) log(task, me, KpiTaskEventAction.ASSIGNED, null, a.getId().toString());
         if (parent != null) log(parent, me, KpiTaskEventAction.SUBTASK_ADDED, null, task.getTitle());
 
         events.publishEvent(TaskEvents.Changed.of(task.getId(), me.getId(), TaskEvents.Kind.CREATED));
-        if (!owner.getId().equals(me.getId())) {
-            events.publishEvent(new TaskEvents.Changed(task.getId(), me.getId(), TaskEvents.Kind.ASSIGNED, null, null));
+        for (User a : assignees) {
+            if (!a.getId().equals(me.getId())) {
+                events.publishEvent(new TaskEvents.Changed(task.getId(), me.getId(), TaskEvents.Kind.ASSIGNED, null, a.getId()));
+            }
         }
         if (parent != null) events.publishEvent(TaskEvents.Changed.of(parent.getId(), me.getId(), TaskEvents.Kind.SUBTASKS_CHANGED));
-        if (req.getFollowerIds() != null) {
-            UUID createdId = task.getId();
-            followerRepository.findUserIds(createdId).forEach(f -> events.publishEvent(
-                    new TaskEvents.Changed(createdId, me.getId(), TaskEvents.Kind.FOLLOWER_ADDED, null, f)));
-        }
-        return detail(me, task);
+        UUID createdId = task.getId();
+        addedFollowers.forEach(f -> events.publishEvent(new TaskEvents.Changed(createdId, me.getId(), TaskEvents.Kind.FOLLOWER_ADDED, null, f)));
+        if (list != null) events.publishEvent(new TaskListEvents.ItemAdded(list.getId(), task.getId(), me.getId()));
+        return task;
     }
+
+    // ══ Sửa ══════════════════════════════════════════════════════════════════════════════════════
 
     /**
      * Sửa từng trường (tự lưu). Việc lặp: {@code scope = FOLLOWING} áp cho lần này + các lần chưa xong phía sau và đổi
@@ -433,12 +560,19 @@ public class KpiTaskService {
 
         LocalDate oldDue = task.getDueDate();
         LocalTime oldTime = task.getDueTime();
+        KpiTaskVisibility oldVisibility = task.getVisibility();
         applyContent(task, req, me, true);
 
         // Hạn.
         LocalDate newDue = req.isClearDueDate() ? null : (req.getDueDate() != null ? req.getDueDate() : task.getDueDate());
         LocalTime newTime = newDue == null || req.isClearDueTime() ? null : (req.getDueTime() != null ? req.getDueTime() : task.getDueTime());
         boolean dueChanged = !Objects.equals(newDue, oldDue) || !Objects.equals(newTime, oldTime);
+        // Bắt đầu.
+        LocalDate newStart = req.isClearStartDate() ? null : (req.getStartDate() != null ? req.getStartDate() : task.getStartDate());
+        LocalTime newStartTime = newStart == null || req.isClearStartTime() ? null
+                : (req.getStartTime() != null ? req.getStartTime() : task.getStartTime());
+        boolean startChanged = !Objects.equals(newStart, task.getStartDate()) || !Objects.equals(newStartTime, task.getStartTime());
+        checkStartBeforeDue(newStart, newDue);
         if (dueChanged) {
             if (newDue == null && task.getRecurrence() != null && !req.isClearRecurrence()) {
                 throw new BusinessException(ErrorCode.TASK_RECURRENCE_NEEDS_DUE);
@@ -447,6 +581,15 @@ public class KpiTaskService {
             task.setDueDate(newDue);
             task.setDueTime(newTime);
             task.setRemindedOverdueAt(null);
+        }
+        if (startChanged) {
+            log(task, me, KpiTaskEventAction.START_CHANGED, dueText(task.getStartDate(), task.getStartTime()), dueText(newStart, newStartTime));
+            task.setStartDate(newStart);
+            task.setStartTime(newStartTime);
+        }
+        if (req.getCompletionMode() != null && req.getCompletionMode() != task.getCompletionMode()) {
+            log(task, me, KpiTaskEventAction.COMPLETION_MODE_CHANGED, task.getCompletionMode().name(), req.getCompletionMode().name());
+            task.setCompletionMode(req.getCompletionMode());
         }
 
         // Lặp lại.
@@ -483,122 +626,332 @@ public class KpiTaskService {
         }
 
         task = taskRepository.saveAndFlush(task);
+        // Phạm vi xem đi theo việc gốc: đổi ở gốc thì cả cây đổi (việc con không có ô phạm vi riêng).
+        if (task.isRoot() && task.getVisibility() != oldVisibility) {
+            for (KpiTask d : taskRepository.findDescendants(task.getId())) {
+                d.setVisibility(task.getVisibility());
+                taskRepository.save(d);
+            }
+        }
         if (dueChanged) reminderPlanner.recompute(task);
         events.publishEvent(TaskEvents.Changed.of(task.getId(), me.getId(),
                 dueChanged ? TaskEvents.Kind.DUE_CHANGED : TaskEvents.Kind.UPDATED));
-        return detail(me, task);
+        return assembler.detail(me, task);
     }
 
-    /** Hoàn thành / đổi trạng thái. Còn việc con chưa xong ⇒ 409 TASK_PARENT_HAS_OPEN_SUBTASKS trừ khi {@code force}. */
+    /**
+     * Hoàn thành / đổi trạng thái. Còn việc con chưa xong ⇒ 409 TASK_PARENT_HAS_OPEN_SUBTASKS; còn bị việc khác chặn ⇒ 409
+     * TASK_BLOCKED_BY_OPEN — trừ khi {@code force}. Kiểu ALL: người thực hiện tích = xong PHẦN MÌNH; việc xong khi người
+     * cuối tích; người sửa được mà không thực hiện tích = hoàn thành cả việc.
+     */
     @Transactional
     public KpiTaskResponse changeStatus(UUID taskId, ChangeKpiTaskStatusRequest req) {
         User me = currentUser();
         KpiTask task = editable(me, taskId, req.getVersion(), false);
+        StatusOutcome outcome = applyStatus(me, task, req.getStatus(), req.getSortOrder(), req.isForce());
+        return assembler.toResponses(me, List.of(outcome.task()), false).get(0);
+    }
+
+    record StatusOutcome(KpiTask task, boolean becameDone) {}
+
+    /** Lõi đổi trạng thái (dùng chung cho API, thao tác hàng loạt, tự động hoá). Người gọi đã kiểm quyền sửa. */
+    StatusOutcome applyStatus(User me, KpiTask task, KpiTaskStatus target, Double sortOrder, boolean force) {
         KpiTaskStatus old = task.getStatus();
-        if (req.getStatus() == KpiTaskStatus.DONE && old != KpiTaskStatus.DONE && !req.isForce()) {
+        boolean toDone = target == KpiTaskStatus.DONE && old != KpiTaskStatus.DONE;
+        if (toDone && !force) {
             long open = taskRepository.countOpenSubtasks(task.getId());
             if (open > 0) throw new StaleStateException(ErrorCode.TASK_PARENT_HAS_OPEN_SUBTASKS, open);
+            long blockers = dependencyRepository.countOpenBlockers(task.getId());
+            if (blockers > 0) throw new StaleStateException(ErrorCode.TASK_BLOCKED_BY_OPEN, blockers);
         }
-        if (old != req.getStatus()) {
-            task.setStatus(req.getStatus());
-            task.setCompletedAt(req.getStatus() == KpiTaskStatus.DONE ? Instant.now() : null);
-            log(task, me, KpiTaskEventAction.STATUS_CHANGED, old.name(), req.getStatus().name());
+        List<KpiTaskAssignee> rows = assigneeRepository.findByTaskIdOrderByAddedAtAsc(task.getId());
+        KpiTaskAssignee mine = rows.stream().filter(a -> a.getUserId().equals(me.getId())).findFirst().orElse(null);
+        Instant now = Instant.now();
+        KpiTaskStatus effective = target;
+
+        if (task.getCompletionMode() == TaskCompletionMode.ALL && mine != null) {
+            if (toDone) {
+                // Tích phần của mình; việc chỉ xong khi mọi người đã tích.
+                mine.setCompletedAt(now);
+                assigneeRepository.save(mine);
+                log(task, me, KpiTaskEventAction.PART_COMPLETED, null, me.getId().toString());
+                boolean allDone = rows.stream().allMatch(a -> a.getCompletedAt() != null);
+                if (!allDone) effective = old == KpiTaskStatus.TODO ? KpiTaskStatus.IN_PROGRESS : old;
+            } else if (target != KpiTaskStatus.DONE && mine.getCompletedAt() != null) {
+                // Bỏ tích phần mình: việc (nếu đã xong) mở lại.
+                mine.setCompletedAt(null);
+                assigneeRepository.save(mine);
+                log(task, me, KpiTaskEventAction.PART_REOPENED, null, me.getId().toString());
+            }
+        } else if (toDone) {
+            for (KpiTaskAssignee a : rows) {
+                if (a.getCompletedAt() == null && (task.getCompletionMode() == TaskCompletionMode.ALL || a == mine || mine == null)) {
+                    a.setCompletedAt(now);
+                    assigneeRepository.save(a);
+                }
+            }
+        } else if (old == KpiTaskStatus.DONE && target != KpiTaskStatus.DONE) {
+            assigneeRepository.clearCompletion(task.getId());
         }
-        task.setSortOrder(req.getSortOrder() != null ? req.getSortOrder()
-                : (old != req.getStatus() ? taskRepository.maxSortOrder(task.getOwner().getId(), req.getStatus()) + 1 : task.getSortOrder()));
+
+        boolean becameDone = effective == KpiTaskStatus.DONE && old != KpiTaskStatus.DONE;
+        if (old != effective) {
+            task.setStatus(effective);
+            task.setCompletedAt(effective == KpiTaskStatus.DONE ? now : null);
+            log(task, me, KpiTaskEventAction.STATUS_CHANGED, old.name(), effective.name());
+        }
+        task.setSortOrder(sortOrder != null ? sortOrder
+                : (old != effective ? taskRepository.maxSortOrder(task.getOwner().getId(), effective) + 1 : task.getSortOrder()));
         task = taskRepository.saveAndFlush(task);
-        if (req.getStatus() == KpiTaskStatus.DONE && old != KpiTaskStatus.DONE && task.getRecurrence() != null) {
+        if (becameDone && task.getRecurrence() != null) {
             spawnNext(task, me);
             taskRepository.flush();
         }
-        if (old != req.getStatus()) {
+        if (old != effective) {
             events.publishEvent(TaskEvents.Changed.of(task.getId(), me.getId(),
-                    req.getStatus() == KpiTaskStatus.DONE ? TaskEvents.Kind.COMPLETED : TaskEvents.Kind.STATUS_CHANGED));
+                    becameDone ? TaskEvents.Kind.COMPLETED : TaskEvents.Kind.STATUS_CHANGED));
             if (task.getParentTaskId() != null) {
                 events.publishEvent(TaskEvents.Changed.of(task.getParentTaskId(), me.getId(), TaskEvents.Kind.SUBTASKS_CHANGED));
             }
+            events.publishEvent(new TaskListEvents.StatusChanged(task.getId(), me.getId(), old, effective));
+        } else {
+            events.publishEvent(TaskEvents.Changed.of(task.getId(), me.getId(), TaskEvents.Kind.UPDATED));
         }
-        return toResponses(me, List.of(task), false).get(0);
+        return new StatusOutcome(task, becameDone);
     }
 
+    // ══ Người thực hiện / KPI ════════════════════════════════════════════════════════════════════
+
     /**
-     * Giao / giao lại. KPI phải là KPI của người mới; việc con luôn ở KPI của việc cha. Việc cha đổi KPI thì việc con đi
-     * theo — người phụ trách việc con nào không thuộc KPI mới thì chặn.
+     * Giao / giao lại người CHÍNH (giữ những người thực hiện khác), có thể kèm đổi KPI (việc gốc). Đổi KPI chạy lại toàn
+     * bộ luật trên KPI đích cho cả cây; người theo dõi không xem được KPI mới bị gỡ khi đã xác nhận.
      */
     @Transactional
     public KpiTaskResponse assign(UUID taskId, AssignKpiTaskRequest req) {
         User me = currentUser();
+        lockTree(taskId);
         KpiTask task = findTask(taskId);
         if (!access.canReassign(me.getId(), task)) {
             throw new ForbiddenException(access.canView(me.getId(), task) ? ErrorCode.TASK_NO_PERMISSION_EDIT : ErrorCode.TASK_NO_PERMISSION_VIEW);
         }
         if (!req.getVersion().equals(task.getVersion())) throw new StaleStateException(ErrorCode.TASK_VERSION_CONFLICT);
-        kpiCriteriaRepository.findById(task.getKpiCriteriaId()).ifPresent(cycleStatusGuard::assertWritable);
+        TaskKpiLinks.Link from = kpiLinks.of(task);
+        if (from.active()) cycleStatusGuard.assertWritable(from.kpi());
 
-        User newOwner = userRepository.findById(req.getOwnerId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.TASK_ASSIGN_NOT_ALLOWED, "?"));
-        UUID targetKpiId = task.getParentTaskId() != null ? task.getKpiCriteriaId()
-                : req.getKpiId() != null ? req.getKpiId() : task.getKpiCriteriaId();
-        if (task.getParentTaskId() != null && req.getKpiId() != null && !req.getKpiId().equals(task.getKpiCriteriaId())) {
+        boolean subtask = !task.isRoot();
+        if (subtask && req.getKpiId() != null && !req.getKpiId().equals(task.getKpiCriteriaId())) {
             throw new BusinessException(ErrorCode.TASK_ASSIGNEE_KPI_MISMATCH);
         }
-        KpiCriteria kpi = kpiCriteriaRepository.findById(targetKpiId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.TASK_ASSIGNEE_KPI_MISMATCH));
-        assertAssignable(me, newOwner, kpi, task.getParentTaskId() != null);
-        if (!TASKABLE.contains(kpi.getStatus())) throw new BusinessException(ErrorCode.TASK_KPI_STATUS_NOT_ALLOWED, kpi.getStatus().name());
-        cycleStatusGuard.assertWritable(kpi);
+        TaskKpiLinks.Link to = subtask || req.getKpiId() == null ? from : kpiLinks.ofKpiId(req.getKpiId());
+        if (to.deleted()) throw new BusinessException(ErrorCode.TASK_ASSIGNEE_KPI_MISMATCH);
 
-        boolean kpiChanged = !kpi.getId().equals(task.getKpiCriteriaId());
-        if (kpiChanged) {
-            for (KpiTask sub : taskRepository.findSubtasks(task.getId())) {
-                if (!KpiTaskAccess.isKpiOf(sub.getOwner().getId(), kpi)) {
-                    throw new BusinessException(ErrorCode.TASK_SUBTASK_OWNER_INVALID, kpi.getName());
-                }
-                sub.setKpiCriteriaId(kpi.getId());
-                sub.setOrganizationId(KpiAccessPolicy.organizationIdOf(kpi));
-                taskRepository.save(sub);
-            }
-            log(task, me, KpiTaskEventAction.KPI_MOVED, task.getKpiCriteriaId().toString(), kpi.getId().toString());
-            task.setKpiCriteriaId(kpi.getId());
-            task.setOrganizationId(KpiAccessPolicy.organizationIdOf(kpi));
-            task.setKpiNameSnapshot(null);
-        }
         UUID previousOwner = task.getOwner().getId();
-        boolean ownerChanged = !previousOwner.equals(newOwner.getId());
-        if (ownerChanged) {
-            log(task, me, KpiTaskEventAction.REASSIGNED, previousOwner.toString(), newOwner.getId().toString());
-            task.setOwner(newOwner);
-            followerRepository.deleteById(new KpiTaskFollower.Key(task.getId(), newOwner.getId()));
+        List<UUID> next = new ArrayList<>(assigneeRepository.findUserIds(task.getId()));
+        next.remove(previousOwner);
+        next.remove(req.getOwnerId());
+        next.add(0, req.getOwnerId());
+        boolean kpiChanged = !Objects.equals(to.kpiId(), from.kpiId());
+        if (kpiChanged) {
+            changeTreeKpi(me, task, to, next, req.getConfirmedFollowerRemovals());
         }
+        Set<UUID> existing = kpiChanged ? Set.of() : new HashSet<>(assigneeRepository.findUserIds(task.getId()));
+        List<User> users = validateAssignees(me, to, task.getOrganizationId(), next, subtask, existing);
+        writeAssignees(me, task, users);
         task = taskRepository.saveAndFlush(task);
+        boolean ownerChanged = !previousOwner.equals(req.getOwnerId());
         if (ownerChanged) {
-            events.publishEvent(new TaskEvents.Changed(task.getId(), me.getId(), TaskEvents.Kind.ASSIGNED, previousOwner, null));
+            log(task, me, KpiTaskEventAction.REASSIGNED, previousOwner.toString(), req.getOwnerId().toString());
+            events.publishEvent(new TaskEvents.Changed(task.getId(), me.getId(), TaskEvents.Kind.ASSIGNED, previousOwner, req.getOwnerId()));
         } else if (kpiChanged) {
-            events.publishEvent(TaskEvents.Changed.of(task.getId(), me.getId(), TaskEvents.Kind.UPDATED));
+            events.publishEvent(TaskEvents.Changed.of(task.getId(), me.getId(), TaskEvents.Kind.KPI_CHANGED));
         }
-        return detail(me, task);
+        return assembler.detail(me, task);
     }
 
-    /** Thêm người theo dõi: người sửa được task thêm bất kỳ ai xem được KPI; người xem được task tự theo dõi được. */
+    /** Thay danh sách người thực hiện (giữ KPI). */
+    @Transactional
+    public KpiTaskResponse setAssignees(UUID taskId, SetTaskAssigneesRequest req) {
+        User me = currentUser();
+        lockTree(taskId);
+        KpiTask task = findTask(taskId);
+        if (!access.canReassign(me.getId(), task)) {
+            throw new ForbiddenException(access.canView(me.getId(), task) ? ErrorCode.TASK_NO_PERMISSION_EDIT : ErrorCode.TASK_NO_PERMISSION_VIEW);
+        }
+        if (!req.getVersion().equals(task.getVersion())) throw new StaleStateException(ErrorCode.TASK_VERSION_CONFLICT);
+        TaskKpiLinks.Link link = kpiLinks.assertWritable(task, false);
+        List<UUID> ids = new ArrayList<>(new LinkedHashSet<>(req.getAssigneeIds().stream().filter(Objects::nonNull).toList()));
+        if (req.getPrimaryId() != null && ids.remove(req.getPrimaryId())) ids.add(0, req.getPrimaryId());
+        UUID previousOwner = task.getOwner().getId();
+        Set<UUID> before = new HashSet<>(assigneeRepository.findUserIds(task.getId()));
+        List<User> users = validateAssignees(me, link, task.getOrganizationId(), ids, !task.isRoot(), before);
+        writeAssignees(me, task, users);
+        if (req.getCompletionMode() != null && req.getCompletionMode() != task.getCompletionMode()) {
+            log(task, me, KpiTaskEventAction.COMPLETION_MODE_CHANGED, task.getCompletionMode().name(), req.getCompletionMode().name());
+            task.setCompletionMode(req.getCompletionMode());
+        }
+        task = taskRepository.saveAndFlush(task);
+        for (User u : users) {
+            if (!before.contains(u.getId())) {
+                log(task, me, KpiTaskEventAction.ASSIGNEE_ADDED, null, u.getId().toString());
+                if (!u.getId().equals(me.getId())) {
+                    events.publishEvent(new TaskEvents.Changed(task.getId(), me.getId(), TaskEvents.Kind.ASSIGNED, null, u.getId()));
+                }
+            }
+        }
+        Set<UUID> after = users.stream().map(User::getId).collect(Collectors.toSet());
+        for (UUID b : before) {
+            if (!after.contains(b)) {
+                log(task, me, KpiTaskEventAction.ASSIGNEE_REMOVED, b.toString(), null);
+                events.publishEvent(new TaskEvents.Changed(task.getId(), me.getId(), TaskEvents.Kind.ASSIGNED, b, null));
+            }
+        }
+        if (!previousOwner.equals(task.getOwner().getId())) {
+            log(task, me, KpiTaskEventAction.REASSIGNED, previousOwner.toString(), task.getOwner().getId().toString());
+        }
+        return assembler.detail(me, task);
+    }
+
+    /**
+     * Gắn / đổi / gỡ KPI của việc GỐC (cả cây đi theo). Gỡ: kỳ của KPI hiện tại phải chưa khoá; KPI đã xoá thì không gỡ
+     * được (chỉ đổi sang KPI khác). Gắn / đổi: luật giao việc đầy đủ trên KPI đích (docs/TASKS_DESIGN.md §2).
+     */
+    @Transactional
+    public KpiTaskResponse setKpi(UUID taskId, SetTaskKpiRequest req) {
+        User me = currentUser();
+        lockTree(taskId);
+        KpiTask task = findTask(taskId);
+        if (!task.isRoot()) throw new BusinessException(ErrorCode.TASK_KPI_ONLY_ROOT);
+        if (!access.canReassign(me.getId(), task)) {
+            throw new ForbiddenException(access.canView(me.getId(), task) ? ErrorCode.TASK_NO_PERMISSION_EDIT : ErrorCode.TASK_NO_PERMISSION_VIEW);
+        }
+        if (!req.getVersion().equals(task.getVersion())) throw new StaleStateException(ErrorCode.TASK_VERSION_CONFLICT);
+        TaskKpiLinks.Link from = kpiLinks.of(task);
+        TaskKpiLinks.Link to = req.getKpiId() == null ? TaskKpiLinks.Link.NONE : kpiLinks.ofKpiId(req.getKpiId());
+        if (to.deleted()) throw new BusinessException(ErrorCode.TASK_MOVE_TARGET_INVALID);
+        if (Objects.equals(from.kpiId(), to.kpiId())) return assembler.detail(me, task);
+        changeTreeKpi(me, task, to, assigneeRepository.findUserIds(task.getId()), req.getConfirmedFollowerRemovals());
+        task = taskRepository.saveAndFlush(task);
+        events.publishEvent(TaskEvents.Changed.of(task.getId(), me.getId(), TaskEvents.Kind.KPI_CHANGED));
+        return assembler.detail(me, task);
+    }
+
+    /**
+     * Đổi KPI của cả cây {@code root}: kiểm khoá kỳ KPI cũ (gỡ khỏi kỳ đã khoá bị chặn), KPI đã xoá thì chỉ đổi sang KPI
+     * khác; KPI đích: trạng thái nhận việc, kỳ chưa khoá, cùng tổ chức, MỌI người thực hiện của MỌI việc trong cây thuộc
+     * KPI và người làm được giao cho họ; người theo dõi không xem được KPI đích bị gỡ (đã xác nhận). {@code rootAssignees}:
+     * người thực hiện của gốc SAU thao tác (giao lại kèm đổi KPI).
+     */
+    private void changeTreeKpi(User me, KpiTask root, TaskKpiLinks.Link to, List<UUID> rootAssignees,
+                               List<FollowerRemovalRef> confirmed) {
+        TaskKpiLinks.Link from = kpiLinks.of(root);
+        if (from.active()) cycleStatusGuard.assertWritable(from.kpi());
+        if (from.deleted() && to.none()) throw new BusinessException(ErrorCode.TASK_KPI_DELETED_READONLY);
+        List<KpiTask> tree = new ArrayList<>();
+        tree.add(root);
+        tree.addAll(taskRepository.findDescendants(root.getId()));
+        if (to.active()) {
+            KpiCriteria kpi = to.kpi();
+            if (!TASKABLE.contains(kpi.getStatus())) throw new BusinessException(ErrorCode.TASK_KPI_STATUS_NOT_ALLOWED, kpi.getStatus().name());
+            cycleStatusGuard.assertWritable(kpi);
+            if (!Objects.equals(KpiAccessPolicy.organizationIdOf(kpi), root.getOrganizationId())) {
+                throw new BusinessException(ErrorCode.TASK_ASSIGNEE_KPI_MISMATCH);
+            }
+            Map<UUID, List<UUID>> assigneesByTask = new HashMap<>();
+            for (KpiTaskAssignee a : assigneeRepository.findByTaskIdIn(tree.stream().map(KpiTask::getId).toList())) {
+                assigneesByTask.computeIfAbsent(a.getTaskId(), k -> new ArrayList<>()).add(a.getUserId());
+            }
+            assigneesByTask.put(root.getId(), rootAssignees);
+            for (KpiTask t : tree) {
+                validateAssignees(me, to, root.getOrganizationId(), assigneesByTask.getOrDefault(t.getId(), List.of()), !t.isRoot());
+            }
+            removeFollowersForKpiChange(me, followerRemovals(List.of(root), kpi), confirmed);
+        }
+        for (KpiTask t : tree) {
+            t.setKpiCriteriaId(to.kpiId());
+            t.setKpiNameSnapshot(null);
+            if (t != root) taskRepository.save(t);
+        }
+        KpiTaskEventAction action = to.none() ? KpiTaskEventAction.KPI_UNLINKED
+                : from.none() ? KpiTaskEventAction.KPI_LINKED : KpiTaskEventAction.KPI_MOVED;
+        log(root, me, action, from.kpiId() != null ? from.kpiId().toString() : null, to.kpiId() != null ? to.kpiId().toString() : null);
+    }
+
+    /**
+     * Từ chối việc (chỉ việc không KPI, người khác giao). Mình bị gỡ khỏi người thực hiện; hết người ⇒ việc quay về người
+     * giao (người tạo) — không có trạng thái "chưa có người phụ trách". Người giao nhận thông báo kèm lý do.
+     */
+    @Transactional
+    public KpiTaskResponse decline(UUID taskId, DeclineTaskRequest req) {
+        User me = currentUser();
+        lockTree(taskId);
+        KpiTask task = findTask(taskId);
+        KpiTaskAccess.Scope scope = access.scope(me.getId(), List.of(task));
+        boolean open = task.getStatus() == KpiTaskStatus.TODO || task.getStatus() == KpiTaskStatus.IN_PROGRESS;
+        if (!scope.canDecline(task) || !open) throw new BusinessException(ErrorCode.TASK_DECLINE_NOT_ALLOWED);
+        assigneeRepository.deleteOne(task.getId(), me.getId());
+        assigneeRepository.flush();
+        List<UUID> remaining = assigneeRepository.findUserIds(task.getId());
+        User creator = userRepository.findById(task.getCreatedBy()).orElseThrow(() -> new BusinessException(ErrorCode.TASK_DECLINE_NOT_ALLOWED));
+        if (remaining.isEmpty()) {
+            assigneeRepository.save(KpiTaskAssignee.builder().taskId(task.getId()).userId(creator.getId()).addedBy(me.getId()).build());
+            task.setOwner(creator);
+        } else if (task.getOwner().getId().equals(me.getId())) {
+            task.setOwner(userRepository.findById(remaining.get(0)).orElse(creator));
+        }
+        String reason = blankToNull(req.getReason());
+        log(task, me, KpiTaskEventAction.DECLINED, me.getId().toString(), reason != null ? truncate(reason, 500) : null);
+        task = taskRepository.saveAndFlush(task);
+        events.publishEvent(new TaskEvents.Declined(task.getId(), me.getId(), creator.getId(), reason));
+        events.publishEvent(new TaskEvents.Changed(task.getId(), me.getId(), TaskEvents.Kind.UPDATED, me.getId(), null));
+        return access.canView(me.getId(), task) ? assembler.detail(me, task) : null;
+    }
+
+    /** Xem trước "Giao / chuyển KPI": những ai sẽ bị gỡ khỏi việc nào nếu chuyển việc sang {@code kpiId}. */
+    @Transactional(readOnly = true)
+    public List<TaskFollowerRemovalResponse> assignImpact(UUID taskId, UUID kpiId) {
+        User me = currentUser();
+        KpiTask task = findTask(taskId);
+        if (!access.canReassign(me.getId(), task)) {
+            throw new ForbiddenException(access.canView(me.getId(), task) ? ErrorCode.TASK_NO_PERMISSION_EDIT : ErrorCode.TASK_NO_PERMISSION_VIEW);
+        }
+        if (!task.isRoot() || kpiId == null || kpiId.equals(task.getKpiCriteriaId())) return List.of();
+        KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
+                .filter(k -> kpiAccessPolicy.canView(me.getId(), k))
+                .orElseThrow(() -> new BusinessException(ErrorCode.TASK_MOVE_TARGET_INVALID));
+        return toRemovalResponses(followerRemovals(List.of(task), kpi));
+    }
+
+    /** Xem trước "Chuyển việc sang KPI khác" ({@link #move}). */
+    @Transactional(readOnly = true)
+    public List<TaskFollowerRemovalResponse> moveImpact(UUID fromKpiId, UUID toKpiId, List<UUID> taskIds) {
+        MovePlan plan = planMove(currentUser(), fromKpiId, toKpiId, taskIds);
+        return toRemovalResponses(followerRemovals(plan.tasks(), plan.to()));
+    }
+
+    // ══ Người theo dõi ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Thêm người theo dõi: người sửa được task thêm bất kỳ ai hợp lệ (việc có KPI: xem được KPI; không KPI: cùng tổ chức);
+     * người xem được task tự theo dõi được. Khoá cây việc TRƯỚC khi đọc KPI, để không chen vào giữa một lần đổi KPI.
+     */
     @Transactional
     public KpiTaskResponse addFollower(UUID taskId, UUID userId) {
         User me = currentUser();
+        lockTree(taskId);
         KpiTask task = findTask(taskId);
         boolean self = userId.equals(me.getId());
         if (!(access.canEdit(me.getId(), task) || (self && access.canView(me.getId(), task)))) {
             throw new ForbiddenException(access.canView(me.getId(), task) ? ErrorCode.TASK_NO_PERMISSION_EDIT : ErrorCode.TASK_NO_PERMISSION_VIEW);
         }
-        KpiCriteria kpi = kpiCriteriaRepository.findById(task.getKpiCriteriaId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.TASK_KPI_DELETED_READONLY));
-        cycleStatusGuard.assertWritable(kpi);
-        if (userId.equals(task.getOwner().getId())) return detail(me, task);
-        assertFollowerAllowed(userId, kpi);
+        TaskKpiLinks.Link link = kpiLinks.assertWritable(task, false);
+        if (assigneeRepository.existsByTaskIdAndUserId(taskId, userId)) return assembler.detail(me, task);
+        assertFollowerAllowed(userId, link, task.getOrganizationId());
         if (!followerRepository.existsByTaskIdAndUserId(taskId, userId)) {
             followerRepository.save(KpiTaskFollower.builder().taskId(taskId).userId(userId).addedBy(me.getId()).build());
             log(task, me, KpiTaskEventAction.FOLLOWER_ADDED, null, userId.toString());
             events.publishEvent(new TaskEvents.Changed(taskId, me.getId(), TaskEvents.Kind.FOLLOWER_ADDED, null, userId));
         }
-        return detail(me, task);
+        return assembler.detail(me, task);
     }
 
     @Transactional
@@ -609,13 +962,14 @@ public class KpiTaskService {
         if (!(access.canEdit(me.getId(), task) || (self && access.isFollower(me.getId(), task)))) {
             throw new ForbiddenException(access.canView(me.getId(), task) ? ErrorCode.TASK_NO_PERMISSION_EDIT : ErrorCode.TASK_NO_PERMISSION_VIEW);
         }
-        kpiCriteriaRepository.findById(task.getKpiCriteriaId()).ifPresent(cycleStatusGuard::assertWritable);
+        TaskKpiLinks.Link link = kpiLinks.of(task);
+        if (link.active()) cycleStatusGuard.assertWritable(link.kpi());
         if (followerRepository.existsByTaskIdAndUserId(taskId, userId)) {
             followerRepository.deleteById(new KpiTaskFollower.Key(taskId, userId));
             log(task, me, KpiTaskEventAction.FOLLOWER_REMOVED, userId.toString(), null);
             events.publishEvent(new TaskEvents.Changed(taskId, me.getId(), TaskEvents.Kind.FOLLOWER_REMOVED, null, userId));
         }
-        return self && !access.canView(me.getId(), task) ? null : detail(me, task);
+        return self && !access.canView(me.getId(), task) ? null : assembler.detail(me, task);
     }
 
     @Transactional
@@ -625,47 +979,83 @@ public class KpiTaskService {
         reminderPlanner.replace(task, reminders == null ? List.of() : reminders);
         log(task, me, KpiTaskEventAction.REMINDERS_CHANGED, null, String.valueOf(reminders == null ? 0 : reminders.size()));
         events.publishEvent(TaskEvents.Changed.of(taskId, me.getId(), TaskEvents.Kind.REMINDERS_CHANGED));
-        return detail(me, task);
+        return assembler.detail(me, task);
     }
 
-    /** Nhân bản: cùng KPI, cùng người phụ trách (nếu mình còn được giao cho người đó), checklist bỏ tích, người theo dõi, nhắc. */
+    // ══ Nhân bản / xoá ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Nhân bản: cùng KPI, cùng người thực hiện (người mình còn được giao — không thì là mình), checklist bỏ tích, người
+     * theo dõi, nhắc, nhãn, danh sách (mình là biên tập) + trường.
+     */
     @Transactional
     public KpiTaskResponse duplicate(UUID taskId) {
         User me = currentUser();
         KpiTask src = editable(me, taskId, null, false);
-        KpiCriteria kpi = kpiCriteriaRepository.findById(src.getKpiCriteriaId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.TASK_KPI_DELETED_READONLY));
-        User owner = access.canAssign(me.getId(), src.getOwner().getId(), kpi) ? src.getOwner() : me;
-        assertAssignable(me, owner, kpi, src.getParentTaskId() != null);
+        TaskKpiLinks.Link link = kpiLinks.of(src);
+        List<UUID> keep = new ArrayList<>();
+        for (UUID a : assigneeRepository.findUserIds(src.getId())) {
+            boolean ok = link.active() ? KpiTaskAccess.isKpiOf(a, link.kpi()) && access.canAssign(me.getId(), a, link.kpi())
+                    : access.canAssignWithoutKpi(me.getId(), a, src.getOrganizationId());
+            if (ok) keep.add(a);
+        }
+        if (keep.isEmpty()) keep.add(me.getId());
+        List<User> users = validateAssignees(me, link, src.getOrganizationId(), keep, !src.isRoot());
         KpiTask copy = taskRepository.save(KpiTask.builder()
                 .organizationId(src.getOrganizationId()).kpiCriteriaId(src.getKpiCriteriaId()).parentTaskId(src.getParentTaskId())
+                .rootTaskId(src.getRootTaskId()).ancestorIds(src.getAncestorIds()).depth(src.getDepth())
                 .title(src.getTitle()).description(src.getDescription()).descriptionDoc(src.getDescriptionDoc())
+                .startDate(src.getStartDate()).startTime(src.getStartTime())
                 .dueDate(src.getDueDate()).dueTime(src.getDueTime()).priority(src.getPriority()).visibility(src.getVisibility())
-                .status(KpiTaskStatus.TODO).owner(owner).createdBy(me.getId())
-                .sortOrder(taskRepository.maxSortOrder(owner.getId(), KpiTaskStatus.TODO) + 1)
+                .completionMode(src.getCompletionMode())
+                .status(KpiTaskStatus.TODO).owner(users.get(0)).createdBy(me.getId())
+                .sortOrder(taskRepository.maxSortOrder(users.get(0).getId(), KpiTaskStatus.TODO) + 1)
                 .build());
+        for (User u : users) assigneeRepository.save(KpiTaskAssignee.builder().taskId(copy.getId()).userId(u.getId()).addedBy(me.getId()).build());
         copyChildren(src, copy, me);
+        if (copy.isRoot()) {
+            Map<UUID, TaskListRole> roles = listAccess.rolesOf(me.getId());
+            for (TaskListItem i : listItemRepository.findByTaskId(src.getId())) {
+                TaskListRole r = roles.get(i.getListId());
+                if (r == null || !r.atLeast(TaskListRole.EDITOR)) continue;
+                listItemRepository.save(TaskListItem.builder().listId(i.getListId()).taskId(copy.getId()).sectionId(i.getSectionId())
+                        .sortOrder(i.getSortOrder() + 0.5).addedBy(me.getId()).build());
+                Set<UUID> fieldIds = fieldRepository.findByListIdOrderBySortOrderAscCreatedAtAsc(i.getListId()).stream()
+                        .map(TaskListField::getId).collect(Collectors.toSet());
+                for (TaskFieldValue v : fieldValueRepository.findByTaskId(src.getId())) {
+                    if (!fieldIds.contains(v.getFieldId())) continue;
+                    fieldValueRepository.save(TaskFieldValue.builder().taskId(copy.getId()).fieldId(v.getFieldId())
+                            .value(v.getValue()).updatedBy(me.getId()).build());
+                }
+            }
+        }
         log(copy, me, KpiTaskEventAction.DUPLICATED, src.getId().toString(), null);
         events.publishEvent(TaskEvents.Changed.of(copy.getId(), me.getId(), TaskEvents.Kind.CREATED));
-        if (!owner.getId().equals(me.getId())) {
-            events.publishEvent(new TaskEvents.Changed(copy.getId(), me.getId(), TaskEvents.Kind.ASSIGNED, null, null));
+        for (User u : users) {
+            if (!u.getId().equals(me.getId())) {
+                events.publishEvent(new TaskEvents.Changed(copy.getId(), me.getId(), TaskEvents.Kind.ASSIGNED, null, u.getId()));
+            }
         }
-        return detail(me, copy);
+        return assembler.detail(me, copy);
     }
 
-    /** Xoá (mềm) — chỉ người tạo; việc con đi theo. */
+    /** Xoá (mềm) — người tạo, hoặc chủ danh sách (việc không KPI); mọi hậu duệ đi theo. */
     @Transactional
     public void delete(UUID taskId) {
         User me = currentUser();
+        deleteInternal(me, taskId);
+    }
+
+    void deleteInternal(User me, UUID taskId) {
         KpiTask task = findTask(taskId);
         if (!access.canDelete(me.getId(), task)) {
             throw new ForbiddenException(access.canView(me.getId(), task) ? ErrorCode.TASK_DELETE_NOT_CREATOR : ErrorCode.TASK_NO_PERMISSION_VIEW);
         }
-        kpiCriteriaRepository.findById(task.getKpiCriteriaId()).ifPresent(cycleStatusGuard::assertWritable);
+        kpiLinks.assertWritable(task, true);
         Instant now = Instant.now();
-        for (KpiTask sub : taskRepository.findSubtasks(task.getId())) {
-            sub.setDeletedAt(now);
-            taskRepository.save(sub);
+        for (KpiTask d : taskRepository.findDescendants(task.getId())) {
+            d.setDeletedAt(now);
+            taskRepository.save(d);
         }
         task.setDeletedAt(now);
         taskRepository.save(task);
@@ -675,6 +1065,8 @@ public class KpiTaskService {
             events.publishEvent(TaskEvents.Changed.of(task.getParentTaskId(), me.getId(), TaskEvents.Kind.SUBTASKS_CHANGED));
         }
     }
+
+    // ══ Checklist / tệp ══════════════════════════════════════════════════════════════════════════
 
     @Transactional
     public KpiTaskResponse addChecklistItem(UUID taskId, KpiTaskChecklistRequest req) {
@@ -686,7 +1078,7 @@ public class KpiTaskService {
         checklistRepository.save(KpiTaskChecklistItem.builder().taskId(taskId).title(truncate(title, 500))
                 .done(Boolean.TRUE.equals(req.getDone())).sortOrder(next).build());
         events.publishEvent(TaskEvents.Changed.of(taskId, me.getId(), TaskEvents.Kind.CHECKLIST_CHANGED));
-        return detail(me, task);
+        return assembler.detail(me, task);
     }
 
     @Transactional
@@ -699,7 +1091,7 @@ public class KpiTaskService {
         if (req.getSortOrder() != null) item.setSortOrder(req.getSortOrder());
         checklistRepository.save(item);
         events.publishEvent(TaskEvents.Changed.of(taskId, me.getId(), TaskEvents.Kind.CHECKLIST_CHANGED));
-        return detail(me, task);
+        return assembler.detail(me, task);
     }
 
     @Transactional
@@ -708,7 +1100,7 @@ public class KpiTaskService {
         KpiTask task = editable(me, taskId, null, false);
         checklistRepository.delete(checklistItem(taskId, itemId));
         events.publishEvent(TaskEvents.Changed.of(taskId, me.getId(), TaskEvents.Kind.CHECKLIST_CHANGED));
-        return detail(me, task);
+        return assembler.detail(me, task);
     }
 
     /** Tệp đi lên NGOÀI transaction — khuôn chung {@link CloudinaryStorageService#uploadThenSave}. */
@@ -745,7 +1137,7 @@ public class KpiTaskService {
                         .build());
             }
             events.publishEvent(TaskEvents.Changed.of(taskId, ctx.me().getId(), TaskEvents.Kind.ATTACHMENTS_CHANGED));
-            return detail(ctx.me(), ctx.task());
+            return assembler.detail(ctx.me(), ctx.task());
         });
     }
 
@@ -761,33 +1153,98 @@ public class KpiTaskService {
         if (att.getStorageKey() != null) storage.deleteFile(att.getStorageKey(), att.getContentType());
         attachmentRepository.delete(att);
         events.publishEvent(TaskEvents.Changed.of(taskId, me.getId(), TaskEvents.Kind.ATTACHMENTS_CHANGED));
-        return detail(me, task);
+        return assembler.detail(me, task);
     }
 
-    /** Chuyển việc của người gọi sang KPI khác (KPI cũ được thay / đã xoá). Việc con đi theo việc cha. */
+    // ══ Nhãn ═════════════════════════════════════════════════════════════════════════════════════
+
+    /** Thay bộ nhãn của việc (nhãn phải cùng tổ chức với việc). */
+    @Transactional
+    public KpiTaskResponse setTags(UUID taskId, List<UUID> tagIds) {
+        User me = currentUser();
+        KpiTask task = editable(me, taskId, null, false);
+        setTagsInternal(task, tagIds == null ? List.of() : tagIds);
+        log(task, me, KpiTaskEventAction.TAGS_CHANGED, null, String.valueOf(tagIds == null ? 0 : tagIds.size()));
+        events.publishEvent(TaskEvents.Changed.of(taskId, me.getId(), TaskEvents.Kind.TAGS_CHANGED));
+        return assembler.detail(me, task);
+    }
+
+    void setTagsInternal(KpiTask task, Collection<UUID> tagIds) {
+        Set<UUID> wanted = new LinkedHashSet<>(tagIds);
+        List<TaskTag> tags = wanted.isEmpty() ? List.of() : tagRepository.findAllById(wanted);
+        if (tags.size() != wanted.size() || tags.stream().anyMatch(t -> !t.getOrganizationId().equals(task.getOrganizationId()))) {
+            throw new BusinessException(ErrorCode.TASK_TAG_NOT_FOUND);
+        }
+        tagLinkRepository.deleteByTaskId(task.getId());
+        tagLinkRepository.flush();
+        for (UUID id : wanted) tagLinkRepository.save(TaskTagLink.builder().taskId(task.getId()).tagId(id).build());
+    }
+
+    // ══ Phụ thuộc ════════════════════════════════════════════════════════════════════════════════
+
+    /** {@code successorId} chờ {@code predecessorId} (FS). Cần sửa được việc sau và xem được việc trước; chặn vòng. */
+    @Transactional
+    public KpiTaskResponse addDependency(UUID successorId, UUID predecessorId) {
+        User me = currentUser();
+        KpiTask succ = editable(me, successorId, null, false);
+        KpiTask pred = findTask(predecessorId);
+        if (!access.canView(me.getId(), pred)) throw new ForbiddenException(ErrorCode.TASK_NO_PERMISSION_VIEW);
+        if (succ.getId().equals(pred.getId()) || !succ.getOrganizationId().equals(pred.getOrganizationId())) {
+            throw new BusinessException(ErrorCode.TASK_DEPENDENCY_INVALID);
+        }
+        if (dependencyRepository.existsByPredecessorIdAndSuccessorId(pred.getId(), succ.getId())) return assembler.detail(me, succ);
+        if (dependencyRepository.reachable(succ.getId(), pred.getId())) throw new BusinessException(ErrorCode.TASK_DEPENDENCY_CYCLE);
+        dependencyRepository.save(TaskDependency.builder().predecessorId(pred.getId()).successorId(succ.getId()).createdBy(me.getId()).build());
+        log(succ, me, KpiTaskEventAction.DEPENDENCY_ADDED, null, pred.getTitle());
+        events.publishEvent(TaskEvents.Changed.of(succ.getId(), me.getId(), TaskEvents.Kind.DEPENDENCIES_CHANGED));
+        events.publishEvent(TaskEvents.Changed.of(pred.getId(), me.getId(), TaskEvents.Kind.DEPENDENCIES_CHANGED));
+        return assembler.detail(me, succ);
+    }
+
+    /** Gỡ một phụ thuộc — người sửa được MỘT trong hai việc. */
+    @Transactional
+    public void removeDependency(UUID dependencyId) {
+        User me = currentUser();
+        TaskDependency d = dependencyRepository.findById(dependencyId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TASK_DEPENDENCY_INVALID));
+        KpiTask succ = findTask(d.getSuccessorId());
+        KpiTask pred = taskRepository.findById(d.getPredecessorId()).orElse(null);
+        boolean ok = access.canEdit(me.getId(), succ) || (pred != null && access.canEdit(me.getId(), pred));
+        if (!ok) throw new ForbiddenException(ErrorCode.TASK_NO_PERMISSION_EDIT);
+        kpiLinks.assertWritable(succ, false);
+        dependencyRepository.delete(d);
+        log(succ, me, KpiTaskEventAction.DEPENDENCY_REMOVED, pred != null ? pred.getTitle() : null, null);
+        events.publishEvent(TaskEvents.Changed.of(succ.getId(), me.getId(), TaskEvents.Kind.DEPENDENCIES_CHANGED));
+    }
+
+    // ══ Chuyển KPI hàng loạt ═════════════════════════════════════════════════════════════════════
+
+    /**
+     * Chuyển việc của người gọi sang KPI khác (KPI cũ được thay / đã xoá). Việc con đi theo việc cha. Mỗi cây phải thoả
+     * TOÀN BỘ luật trên KPI đích — người thực hiện của mọi việc trong cây thuộc KPI và mình được giao cho họ (trước đây chỉ
+     * kiểm người gọi); người theo dõi không xem được KPI mới bị gỡ nếu đã được xác nhận.
+     */
     @Transactional
     public int move(MoveKpiTasksRequest req) {
         User me = currentUser();
-        if (req.getFromKpiId().equals(req.getToKpiId())) throw new BusinessException(ErrorCode.TASK_MOVE_TARGET_INVALID);
-        KpiCriteria to = kpiCriteriaRepository.findById(req.getToKpiId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.TASK_MOVE_TARGET_INVALID));
-        if (!KpiTaskAccess.isKpiOf(me.getId(), to)) throw new ForbiddenException(ErrorCode.TASK_KPI_NOT_OWNED);
-        if (!TASKABLE.contains(to.getStatus())) throw new BusinessException(ErrorCode.TASK_KPI_STATUS_NOT_ALLOWED, to.getStatus().name());
+        MovePlan plan = planMove(me, req.getFromKpiId(), req.getToKpiId(), req.getTaskIds());
+        List<KpiTask> tasks = plan.tasks();
+        if (!tasks.isEmpty()) taskRepository.lockRows(tasks.stream().map(KpiTask::getId).toList());
+        KpiCriteria to = plan.to();
         cycleStatusGuard.assertWritable(to);
         // KPI nguồn đã khoá kỳ thì task của nó chỉ đọc — không chuyển đi được. KPI nguồn đã xoá thì không cần kiểm.
         kpiCriteriaRepository.findById(req.getFromKpiId()).ifPresent(cycleStatusGuard::assertWritable);
+        TaskKpiLinks.Link target = new TaskKpiLinks.Link(TaskKpiLinks.State.ACTIVE, to.getId(), to);
 
-        List<KpiTask> tasks = req.getTaskIds() == null || req.getTaskIds().isEmpty()
-                ? taskRepository.findOpenByOwnerAndKpi(me.getId(), req.getFromKpiId()).stream()
-                        .filter(t -> t.getParentTaskId() == null).toList()
-                : taskRepository.findAllById(req.getTaskIds()).stream()
-                        .filter(t -> t.getKpiCriteriaId().equals(req.getFromKpiId())).toList();
+        removeFollowersForKpiChange(me, followerRemovals(tasks, to), req.getConfirmedFollowerRemovals());
         for (KpiTask t : tasks) {
-            if (!access.canEdit(me.getId(), t)) throw new ForbiddenException(ErrorCode.TASK_NO_PERMISSION_EDIT);
+            List<KpiTask> tree = new ArrayList<>();
+            tree.add(t);
+            tree.addAll(taskRepository.findDescendants(t.getId()));
+            for (KpiTask x : tree) validateAssignees(me, target, t.getOrganizationId(), assigneeRepository.findUserIds(x.getId()), !x.isRoot());
             log(t, me, KpiTaskEventAction.KPI_MOVED, t.getKpiCriteriaId().toString(), to.getId().toString());
-            moveTo(t, to);
-            for (KpiTask sub : taskRepository.findSubtasks(t.getId())) moveTo(sub, to);
-            events.publishEvent(TaskEvents.Changed.of(t.getId(), me.getId(), TaskEvents.Kind.UPDATED));
+            for (KpiTask x : tree) moveTo(x, to);
+            events.publishEvent(TaskEvents.Changed.of(t.getId(), me.getId(), TaskEvents.Kind.KPI_CHANGED));
         }
         return tasks.size();
     }
@@ -799,45 +1256,149 @@ public class KpiTaskService {
         taskRepository.save(t);
     }
 
+    private record MovePlan(KpiCriteria to, List<KpiTask> tasks) {}
+
+    /**
+     * Kiểm KPI đích và chọn các việc sẽ chuyển — dùng chung cho {@link #move} và {@link #moveImpact} (chưa xét khoá kỳ).
+     * Chỉ việc cấp cao nhất: việc con luôn đi theo việc cha, chuyển riêng việc con sẽ tách nó khỏi KPI của việc cha.
+     */
+    private MovePlan planMove(User me, UUID fromKpiId, UUID toKpiId, List<UUID> taskIds) {
+        if (fromKpiId.equals(toKpiId)) throw new BusinessException(ErrorCode.TASK_MOVE_TARGET_INVALID);
+        KpiCriteria to = kpiCriteriaRepository.findById(toKpiId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TASK_MOVE_TARGET_INVALID));
+        if (!KpiTaskAccess.isKpiOf(me.getId(), to)) throw new ForbiddenException(ErrorCode.TASK_KPI_NOT_OWNED);
+        if (!TASKABLE.contains(to.getStatus())) throw new BusinessException(ErrorCode.TASK_KPI_STATUS_NOT_ALLOWED, to.getStatus().name());
+
+        List<KpiTask> tasks = (taskIds == null || taskIds.isEmpty()
+                ? taskRepository.findOpenByOwnerAndKpi(me.getId(), fromKpiId)
+                : taskRepository.findAllById(taskIds)).stream()
+                .filter(t -> t.getParentTaskId() == null && fromKpiId.equals(t.getKpiCriteriaId()))
+                .toList();
+        KpiTaskAccess.Scope scope = access.scope(me.getId(), tasks);
+        for (KpiTask t : tasks) {
+            if (!scope.canEdit(t)) throw new ForbiddenException(ErrorCode.TASK_NO_PERMISSION_EDIT);
+        }
+        return new MovePlan(to, tasks);
+    }
+
+    // ══ Đổi KPI: người theo dõi ══════════════════════════════════════════════════════════════════
+
+    private record FollowerRemoval(KpiTask task, UUID userId) {}
+
+    /** Người theo dõi của các việc (và mọi hậu duệ) không xem được {@code target}. Thứ tự: việc cha rồi hậu duệ. */
+    private List<FollowerRemoval> followerRemovals(List<KpiTask> tasks, KpiCriteria target) {
+        Map<UUID, KpiTask> byId = new LinkedHashMap<>();
+        for (KpiTask t : tasks) {
+            byId.put(t.getId(), t);
+            for (KpiTask sub : taskRepository.findDescendants(t.getId())) byId.put(sub.getId(), sub);
+        }
+        if (byId.isEmpty()) return List.of();
+        Map<UUID, List<UUID>> followersByTask = new HashMap<>();
+        for (KpiTaskFollower f : followerRepository.findByTaskIdIn(byId.keySet())) {
+            followersByTask.computeIfAbsent(f.getTaskId(), k -> new ArrayList<>()).add(f.getUserId());
+        }
+        Map<UUID, Boolean> canView = new HashMap<>();
+        List<FollowerRemoval> out = new ArrayList<>();
+        byId.values().forEach(t -> followersByTask.getOrDefault(t.getId(), List.of()).stream().sorted()
+                .filter(u -> !canView.computeIfAbsent(u, id -> kpiAccessPolicy.canView(id, target)))
+                .forEach(u -> out.add(new FollowerRemoval(t, u))));
+        return out;
+    }
+
+    /**
+     * Gỡ người theo dõi khi đổi KPI. Cho qua khi mọi cặp (việc, người) thực tế nằm trong danh sách đã xác nhận — ít hơn
+     * thì vẫn an toàn (vd. có người tự bỏ theo dõi giữa chừng); có cặp chưa được xác nhận thì chặn
+     * ({@code TASK_FOLLOWER_REMOVAL_UNCONFIRMED}) để giao diện xem lại. Mỗi lần gỡ ghi lịch sử kèm lý do và người làm,
+     * mỗi người bị gỡ nhận MỘT thông báo.
+     */
+    private void removeFollowersForKpiChange(User me, List<FollowerRemoval> removals, List<FollowerRemovalRef> confirmed) {
+        if (removals.isEmpty()) return;
+        Set<FollowerRemovalRef> ok = confirmed == null ? Set.of() : new HashSet<>(confirmed);
+        if (removals.stream().anyMatch(r -> !ok.contains(new FollowerRemovalRef(r.task().getId(), r.userId())))) {
+            throw new BusinessException(ErrorCode.TASK_FOLLOWER_REMOVAL_UNCONFIRMED);
+        }
+        Map<UUID, List<UUID>> tasksByUser = new LinkedHashMap<>();
+        for (FollowerRemoval r : removals) {
+            followerRepository.deleteById(new KpiTaskFollower.Key(r.task().getId(), r.userId()));
+            log(r.task(), me, KpiTaskEventAction.FOLLOWER_REMOVED, r.userId().toString(), FOLLOWER_REMOVED_KPI_CHANGED);
+            tasksByUser.computeIfAbsent(r.userId(), k -> new ArrayList<>()).add(r.task().getId());
+        }
+        tasksByUser.forEach((userId, taskIds) -> events.publishEvent(new TaskEvents.FollowersRevoked(me.getId(), userId, taskIds)));
+    }
+
+    private List<TaskFollowerRemovalResponse> toRemovalResponses(List<FollowerRemoval> removals) {
+        if (removals.isEmpty()) return List.of();
+        Map<UUID, User> users = userRepository.findAllById(removals.stream().map(FollowerRemoval::userId).collect(Collectors.toSet()))
+                .stream().collect(Collectors.toMap(User::getId, Function.identity()));
+        return removals.stream().map(r -> {
+            User u = users.get(r.userId());
+            return TaskFollowerRemovalResponse.builder()
+                    .taskId(r.task().getId()).taskTitle(r.task().getTitle()).subtask(r.task().getParentTaskId() != null)
+                    .userId(r.userId()).userName(u != null ? u.getFullName() : null).avatarUrl(u != null ? u.getAvatarUrl() : null)
+                    .build();
+        }).toList();
+    }
+
+    /**
+     * Khoá dòng việc gốc của cây (việc cha + hậu duệ dùng chung một KPI) trước khi nạp việc. Đổi KPI và thêm người theo
+     * dõi đều đi qua đây nên không chen được vào nhau.
+     */
+    private void lockTree(UUID taskId) {
+        taskRepository.rootIdOf(taskId).ifPresent(root -> taskRepository.lockRows(List.of(root)));
+    }
+
     // ══ Lặp lại ══════════════════════════════════════════════════════════════════════════════════
 
     /**
-     * Hoàn thành một lần của việc lặp ⇒ tạo lần kế tiếp (hạn tính từ hạn cũ). Không tạo khi: quá ngày kết thúc, vượt
-     * ngày kết thúc của đợt KPI, KPI không còn nhận việc, kỳ đã khoá, hoặc lần kế tiếp đã có (hoàn thành lại sau khi mở
-     * lại không nhân đôi).
+     * VIỆC vừa chuyển sang DONE ⇒ tạo lần kế tiếp (hạn tính từ hạn cũ; ngày bắt đầu dời cùng khoảng). Không tạo khi: quá
+     * ngày kết thúc / đủ số lần, (việc có KPI) vượt đợt, KPI không còn nhận việc, kỳ đã khoá; hoặc lần kế tiếp đã có
+     * (hoàn thành lại sau khi mở lại không nhân đôi). Kiểu ALL: gọi khi người CUỐI tích — chép người thực hiện, phần đã
+     * xong về rỗng.
      */
     void spawnNext(KpiTask task, User actor) {
         TaskRecurrence rule = task.getRecurrence();
         if (rule == null || task.getDueDate() == null) return;
         LocalDate next = rule.next(task.getDueDate());
         if (task.getRecurrenceEndDate() != null && next.isAfter(task.getRecurrenceEndDate())) return;
-        KpiCriteria kpi = kpiCriteriaRepository.findById(task.getKpiCriteriaId()).orElse(null);
-        if (kpi == null || !TASKABLE.contains(kpi.getStatus())) return;
-        KpiPeriod period = kpi.getKpiPeriod();
-        if (period != null && period.getEndDate() != null && next.isAfter(LocalDate.ofInstant(period.getEndDate(), ZONE))) return;
-        if (period != null && period.getKpiCycle() != null && cycleStatusGuard.isLocked(period.getKpiCycle().getId())) return;
+        int index = (task.getSeriesIndex() != null ? task.getSeriesIndex() : 1) + 1;
+        if (rule.getCount() != null && index > rule.getCount()) return;
+        TaskKpiLinks.Link link = kpiLinks.of(task);
+        if (link.deleted()) return;
+        if (link.active()) {
+            KpiCriteria kpi = link.kpi();
+            if (!TASKABLE.contains(kpi.getStatus())) return;
+            KpiPeriod period = kpi.getKpiPeriod();
+            if (period != null && period.getEndDate() != null && next.isAfter(LocalDate.ofInstant(period.getEndDate(), ZONE))) return;
+            if (period != null && period.getKpiCycle() != null && cycleStatusGuard.isLocked(period.getKpiCycle().getId())) return;
+        }
 
         UUID seriesId = task.getSeriesId() != null ? task.getSeriesId() : task.getId();
-        int index = (task.getSeriesIndex() != null ? task.getSeriesIndex() : 1) + 1;
         if (taskRepository.existsBySeriesIdAndSeriesIndex(seriesId, index)) return;
         if (task.getSeriesId() == null) {
             task.setSeriesId(seriesId);
             task.setSeriesIndex(1);
             taskRepository.save(task);
         }
+        long shift = ChronoUnit.DAYS.between(task.getDueDate(), next);
 
         TaskRecurrence.Template tpl = rule.getTemplate();
         KpiTask nextTask = taskRepository.save(KpiTask.builder()
                 .organizationId(task.getOrganizationId())
                 .kpiCriteriaId(task.getKpiCriteriaId())
                 .parentTaskId(task.getParentTaskId())
+                .rootTaskId(task.getRootTaskId())
+                .ancestorIds(task.getAncestorIds())
+                .depth(task.getDepth())
                 .title(tpl != null && tpl.getTitle() != null ? tpl.getTitle() : task.getTitle())
                 .description(tpl != null && tpl.getDescription() != null ? tpl.getDescription() : task.getDescription())
                 .descriptionDoc(tpl != null && tpl.getDescriptionDoc() != null ? tpl.getDescriptionDoc() : task.getDescriptionDoc())
                 .priority(tpl != null && tpl.getPriority() != null ? KpiTaskPriority.valueOf(tpl.getPriority()) : task.getPriority())
                 .visibility(tpl != null && tpl.getVisibility() != null ? KpiTaskVisibility.valueOf(tpl.getVisibility()) : task.getVisibility())
+                .startDate(task.getStartDate() != null ? task.getStartDate().plusDays(shift) : null)
+                .startTime(task.getStartTime())
                 .dueDate(next)
                 .dueTime(tpl != null && tpl.getDueTime() != null ? tpl.getDueTime() : task.getDueTime())
+                .completionMode(task.getCompletionMode())
                 .status(KpiTaskStatus.TODO)
                 .owner(task.getOwner())
                 .createdBy(task.getCreatedBy())
@@ -847,163 +1408,132 @@ public class KpiTaskService {
                 .seriesId(seriesId)
                 .seriesIndex(index)
                 .build());
+        for (UUID a : assigneeRepository.findUserIds(task.getId())) {
+            assigneeRepository.save(KpiTaskAssignee.builder().taskId(nextTask.getId()).userId(a).addedBy(actor.getId()).build());
+        }
         copyChildren(task, nextTask, actor);
+        if (nextTask.isRoot()) {
+            for (TaskListItem i : listItemRepository.findByTaskId(task.getId())) {
+                listItemRepository.save(TaskListItem.builder().listId(i.getListId()).taskId(nextTask.getId()).sectionId(i.getSectionId())
+                        .sortOrder(i.getSortOrder() + 0.001).addedBy(actor.getId()).build());
+            }
+            for (TaskFieldValue v : fieldValueRepository.findByTaskId(task.getId())) {
+                fieldValueRepository.save(TaskFieldValue.builder().taskId(nextTask.getId()).fieldId(v.getFieldId())
+                        .value(v.getValue()).updatedBy(actor.getId()).build());
+            }
+        }
         log(nextTask, actor, KpiTaskEventAction.RECURRED, task.getId().toString(), String.valueOf(index));
         events.publishEvent(TaskEvents.Changed.of(nextTask.getId(), actor.getId(), TaskEvents.Kind.CREATED));
     }
 
-    /** Chép checklist (bỏ tích), người theo dõi, mốc nhắc — không chép việc con, tệp, bình luận. */
+    /** Chép checklist (bỏ tích), người theo dõi, mốc nhắc, nhãn — không chép việc con, tệp, bình luận. */
     private void copyChildren(KpiTask from, KpiTask to, User actor) {
         for (KpiTaskChecklistItem item : checklistRepository.findByTaskIdOrderBySortOrderAscCreatedAtAsc(from.getId())) {
             checklistRepository.save(KpiTaskChecklistItem.builder().taskId(to.getId()).title(item.getTitle())
                     .done(false).sortOrder(item.getSortOrder()).build());
         }
+        Set<UUID> assignees = new HashSet<>(assigneeRepository.findUserIds(to.getId()));
         for (KpiTaskFollower f : followerRepository.findByTaskId(from.getId())) {
-            if (f.getUserId().equals(to.getOwner().getId())) continue;
+            if (assignees.contains(f.getUserId()) || f.getUserId().equals(to.getOwner().getId())) continue;
             followerRepository.save(KpiTaskFollower.builder().taskId(to.getId()).userId(f.getUserId()).addedBy(actor.getId()).build());
+        }
+        for (TaskTagLink l : tagLinkRepository.findByTaskId(from.getId())) {
+            tagLinkRepository.save(TaskTagLink.builder().taskId(to.getId()).tagId(l.getTagId()).build());
         }
         reminderPlanner.copy(from, to);
     }
 
-    // ══ Ghép phản hồi ════════════════════════════════════════════════════════════════════════════
+    // ══ Thao tác nội bộ (thao tác hàng loạt, tự động hoá) — người gọi đã kiểm quyền sửa việc ══════
 
-    private KpiTaskResponse detail(User me, KpiTask task) {
-        KpiTaskResponse r = toResponses(me, List.of(task), true).get(0);
-        if (task.getParentTaskId() == null) {
-            r.setSubtasks(toResponses(me, taskRepository.findSubtasks(task.getId()), false));
+    /** Thêm người theo dõi (bỏ qua nếu là người thực hiện / đã theo dõi); vẫn kiểm người theo dõi hợp lệ theo KPI. */
+    void addFollowerInternal(User actor, KpiTask task, UUID userId) {
+        TaskKpiLinks.Link link = kpiLinks.assertWritable(task, false);
+        if (assigneeRepository.existsByTaskIdAndUserId(task.getId(), userId) || followerRepository.existsByTaskIdAndUserId(task.getId(), userId)) return;
+        assertFollowerAllowed(userId, link, task.getOrganizationId());
+        followerRepository.save(KpiTaskFollower.builder().taskId(task.getId()).userId(userId).addedBy(actor.getId()).build());
+        log(task, actor, KpiTaskEventAction.FOLLOWER_ADDED, null, userId.toString());
+        events.publishEvent(new TaskEvents.Changed(task.getId(), actor.getId(), TaskEvents.Kind.FOLLOWER_ADDED, null, userId));
+    }
+
+    /** Thêm một người thực hiện (giữ người cũ) theo đúng luật giao việc của trạng thái KPI. */
+    void addAssigneeInternal(User actor, KpiTask task, UUID userId) {
+        TaskKpiLinks.Link link = kpiLinks.assertWritable(task, false);
+        List<UUID> ids = new ArrayList<>(assigneeRepository.findUserIds(task.getId()));
+        if (ids.contains(userId)) return;
+        Set<UUID> existing = new HashSet<>(ids);
+        ids.add(userId);
+        List<User> users = validateAssignees(actor, link, task.getOrganizationId(), ids, !task.isRoot(), existing);
+        writeAssignees(actor, task, users);
+        taskRepository.saveAndFlush(task);
+        log(task, actor, KpiTaskEventAction.ASSIGNEE_ADDED, null, userId.toString());
+        if (!userId.equals(actor.getId())) {
+            events.publishEvent(new TaskEvents.Changed(task.getId(), actor.getId(), TaskEvents.Kind.ASSIGNED, null, userId));
         }
-        return r;
     }
 
-    private List<KpiTaskResponse> toResponses(User me, List<KpiTask> tasks, boolean detail) {
-        if (tasks.isEmpty()) return new ArrayList<>();
-        Set<UUID> kpiIds = tasks.stream().map(KpiTask::getKpiCriteriaId).collect(Collectors.toSet());
-        Map<UUID, KpiCriteria> kpis = kpiCriteriaRepository.findAllById(kpiIds).stream()
-                .collect(Collectors.toMap(KpiCriteria::getId, Function.identity()));
-        List<UUID> ids = tasks.stream().map(KpiTask::getId).toList();
-        Map<UUID, KpiTask> parents = taskRepository.findAllById(tasks.stream().map(KpiTask::getParentTaskId)
-                        .filter(Objects::nonNull).collect(Collectors.toSet())).stream()
-                .collect(Collectors.toMap(KpiTask::getId, Function.identity()));
-        Map<UUID, List<KpiTaskChecklistItem>> checklist = checklistRepository.findByTaskIdIn(ids).stream()
-                .collect(Collectors.groupingBy(KpiTaskChecklistItem::getTaskId));
-        Map<UUID, List<KpiTaskAttachment>> files = attachmentRepository.findByTaskIdIn(ids).stream()
-                .collect(Collectors.groupingBy(KpiTaskAttachment::getTaskId));
-        // Chỉ bản chi tiết có danh sách tệp; tài liệu gốc thuộc cùng tổ chức với công việc.
-        AttachmentLibrarySources.Viewer library = librarySources.viewer(!detail ? List.of()
-                        : files.values().stream().flatMap(List::stream).map(KpiTaskAttachment::getSourceDocumentId).toList(),
-                me.getId(), tasks.get(0).getOrganizationId());
-        Map<UUID, List<KpiTaskFollower>> followers = followerRepository.findByTaskIdIn(ids).stream()
-                .collect(Collectors.groupingBy(KpiTaskFollower::getTaskId));
-        Map<UUID, List<KpiTaskReminder>> reminders = detail ? reminderRepository.findByTaskIdIn(ids).stream()
-                .collect(Collectors.groupingBy(KpiTaskReminder::getTaskId)) : Map.of();
-        Map<UUID, long[]> subProgress = new HashMap<>();
-        for (Object[] row : taskRepository.subtaskProgress(ids)) subProgress.put(uuid(row[0]), new long[]{num(row[1]), num(row[2])});
-        Map<UUID, Long> comments = discussionService.commentCounts(DiscussionTargetType.TASK, ids);
-        Map<UUID, Long> unread = discussionService.unreadCounts(me.getId(), DiscussionTargetType.TASK, ids);
-        Set<UUID> personIds = new HashSet<>();
-        tasks.forEach(t -> { if (t.getCreatedBy() != null) personIds.add(t.getCreatedBy()); });
-        followers.values().forEach(l -> l.forEach(f -> personIds.add(f.getUserId())));
-        Map<UUID, User> persons = userRepository.findAllById(personIds).stream().collect(Collectors.toMap(User::getId, Function.identity()));
-        LocalDate today = today();
-        LocalTime nowTime = LocalTime.now(ZONE);
-
-        return tasks.stream().map(t -> {
-            KpiTaskResponse r = mapper.toResponse(t);
-            KpiCriteria kpi = kpis.get(t.getKpiCriteriaId());
-            r.setKpiDeleted(kpi == null);
-            r.setKpiName(kpi != null ? kpi.getName() : t.getKpiNameSnapshot());
-            if (kpi != null) {
-                r.setKpiStatus(kpi.getStatus());
-                if (kpi.getKpiPeriod() != null) {
-                    r.setKpiPeriodId(kpi.getKpiPeriod().getId());
-                    r.setKpiPeriodName(kpi.getKpiPeriod().getName());
-                }
-            }
-            boolean open = t.getStatus() == KpiTaskStatus.TODO || t.getStatus() == KpiTaskStatus.IN_PROGRESS;
-            boolean past = t.getDueDate() != null && (t.getDueDate().isBefore(today)
-                    || (t.getDueDate().isEqual(today) && t.getDueTime() != null && t.getDueTime().isBefore(nowTime)));
-            r.setOverdue(open && past);
-            r.setDueToday(t.getDueDate() != null && t.getDueDate().isEqual(today));
-            r.setDueBucket(bucketOf(t, open && past, today));
-            if (t.getParentTaskId() != null && parents.containsKey(t.getParentTaskId())) {
-                r.setParentTitle(parents.get(t.getParentTaskId()).getTitle());
-            }
-            User creator = persons.get(t.getCreatedBy());
-            r.setCreatedByName(creator != null ? creator.getFullName() : null);
-            List<KpiTaskChecklistItem> items = checklist.getOrDefault(t.getId(), List.of());
-            r.setChecklistTotal(items.size());
-            r.setChecklistDone((int) items.stream().filter(KpiTaskChecklistItem::getDone).count());
-            long[] sp = subProgress.getOrDefault(t.getId(), new long[]{0, 0});
-            r.setSubtaskDone((int) sp[0]);
-            r.setSubtaskTotal((int) sp[1]);
-            r.setAttachmentCount(files.getOrDefault(t.getId(), List.of()).size());
-            r.setCommentCount(comments.getOrDefault(t.getId(), 0L));
-            r.setUnreadComments(unread.getOrDefault(t.getId(), 0L));
-            List<KpiTaskFollower> fl = followers.getOrDefault(t.getId(), List.of());
-            r.setFollowers(fl.stream().map(f -> persons.get(f.getUserId())).filter(Objects::nonNull)
-                    .map(u -> KpiTaskResponse.Person.builder().id(u.getId()).fullName(u.getFullName()).avatarUrl(u.getAvatarUrl()).build())
-                    .toList());
-            r.setFollowing(fl.stream().anyMatch(f -> f.getUserId().equals(me.getId())));
-
-            KpiTask parent = parents.get(t.getParentTaskId());
-            boolean editor = access.isOwner(me.getId(), t) || access.isCreator(me.getId(), t)
-                    || (parent != null && (access.isOwner(me.getId(), parent) || access.isCreator(me.getId(), parent)));
-            boolean locked = kpi != null && isLocked(kpi);
-            KpiTaskResponse.ReadOnlyReason reason = !editor ? KpiTaskResponse.ReadOnlyReason.NOT_OWNER
-                    : kpi == null ? KpiTaskResponse.ReadOnlyReason.KPI_DELETED
-                    : locked ? KpiTaskResponse.ReadOnlyReason.CYCLE_LOCKED : null;
-            r.setReadOnlyReason(reason);
-            r.setCanEdit(reason == null);
-            boolean reassigner = access.isCreator(me.getId(), t)
-                    || (parent != null && (access.isOwner(me.getId(), parent) || access.isCreator(me.getId(), parent)));
-            r.setCanReassign(reassigner && kpi != null && !locked);
-            r.setCanDelete(access.isCreator(me.getId(), t) && !locked);
-            r.setCanManageFollowers(reason == null);
-            if (detail) {
-                r.setChecklist(items.stream()
-                        .sorted(Comparator.comparing(KpiTaskChecklistItem::getSortOrder).thenComparing(KpiTaskChecklistItem::getCreatedAt))
-                        .map(mapper::toChecklistItem).toList());
-                r.setAttachments(files.getOrDefault(t.getId(), List.of()).stream().map(a -> {
-                    KpiTaskResponse.Attachment ar = mapper.toAttachment(a);
-                    Document src = library.openable(a.getSourceDocumentId());
-                    if (src != null) {
-                        ar.setSourceDocumentId(src.getId());
-                        ar.setSourceDocumentTitle(src.getTitle());
-                    }
-                    return ar;
-                }).toList());
-                r.setReminders(reminders.getOrDefault(t.getId(), List.of()).stream()
-                        .sorted(Comparator.comparing(KpiTaskReminder::getCreatedAt)).map(mapper::toReminder).toList());
-            }
-            return r;
-        }).collect(Collectors.toCollection(ArrayList::new));
+    void setPriorityInternal(User actor, KpiTask task, KpiTaskPriority priority) {
+        kpiLinks.assertWritable(task, false);
+        if (priority == null || priority == task.getPriority()) return;
+        log(task, actor, KpiTaskEventAction.PRIORITY_CHANGED, task.getPriority().name(), priority.name());
+        task.setPriority(priority);
+        taskRepository.saveAndFlush(task);
+        events.publishEvent(TaskEvents.Changed.of(task.getId(), actor.getId(), TaskEvents.Kind.UPDATED));
     }
 
-    private static KpiTaskResponse.DueBucket bucketOf(KpiTask t, boolean overdue, LocalDate today) {
-        if (t.getDueDate() == null) return KpiTaskResponse.DueBucket.NONE;
-        if (overdue || t.getDueDate().isBefore(today)) return KpiTaskResponse.DueBucket.OVERDUE;
-        if (t.getDueDate().isEqual(today)) return KpiTaskResponse.DueBucket.TODAY;
-        if (t.getDueDate().isEqual(today.plusDays(1))) return KpiTaskResponse.DueBucket.TOMORROW;
-        if (!t.getDueDate().isAfter(endOfWeek(today))) return KpiTaskResponse.DueBucket.THIS_WEEK;
-        return KpiTaskResponse.DueBucket.LATER;
+    /** Đặt / xoá hạn (giữ giờ hạn); việc lặp không xoá hạn được. */
+    void setDueInternal(User actor, KpiTask task, LocalDate due) {
+        kpiLinks.assertWritable(task, false);
+        if (Objects.equals(due, task.getDueDate())) return;
+        if (due == null && task.getRecurrence() != null) throw new BusinessException(ErrorCode.TASK_RECURRENCE_NEEDS_DUE);
+        checkStartBeforeDue(task.getStartDate(), due);
+        log(task, actor, KpiTaskEventAction.DUE_CHANGED, dueText(task.getDueDate(), task.getDueTime()),
+                dueText(due, due == null ? null : task.getDueTime()));
+        task.setDueDate(due);
+        if (due == null) task.setDueTime(null);
+        task.setRemindedOverdueAt(null);
+        taskRepository.saveAndFlush(task);
+        reminderPlanner.recompute(task);
+        events.publishEvent(TaskEvents.Changed.of(task.getId(), actor.getId(), TaskEvents.Kind.DUE_CHANGED));
     }
 
-    /** Chỉ để HIỂN THỊ (không khoá hàng); thao tác ghi luôn đi qua {@link CycleStatusGuard}. */
-    private static boolean isLocked(KpiCriteria kpi) {
-        if (kpi.getStatus() == KpiStatus.CLOSED_BY_LOCK) return true;
-        KpiPeriod p = kpi.getKpiPeriod();
-        if (p == null) return false;
-        if (p.getStatus() != null && p.getStatus().isTerminal()) return true;
-        return p.getKpiCycle() != null && p.getKpiCycle().getStatus() == KpiCycleStatus.LOCKED;
+    void setStartInternal(User actor, KpiTask task, LocalDate start) {
+        kpiLinks.assertWritable(task, false);
+        if (Objects.equals(start, task.getStartDate())) return;
+        checkStartBeforeDue(start, task.getDueDate());
+        log(task, actor, KpiTaskEventAction.START_CHANGED, dueText(task.getStartDate(), task.getStartTime()), dueText(start, null));
+        task.setStartDate(start);
+        if (start == null) task.setStartTime(null);
+        taskRepository.saveAndFlush(task);
+        events.publishEvent(TaskEvents.Changed.of(task.getId(), actor.getId(), TaskEvents.Kind.UPDATED));
+    }
+
+    // ══ Trường tuỳ chỉnh (dùng chung với TaskListService) ════════════════════════════════════════
+
+    /** Ghi một giá trị trường tuỳ chỉnh (trường phải thuộc {@code listId} và việc gốc phải nằm trong danh sách). */
+    void writeFieldValue(User me, KpiTask task, UUID listId, UUID fieldId, Object raw) {
+        TaskListField field = fieldRepository.findById(fieldId).filter(f -> f.getListId().equals(listId))
+                .orElseThrow(() -> new BusinessException(ErrorCode.TASK_FIELD_NOT_FOUND));
+        String json = TaskFieldCodec.encode(field, raw, uid -> userRoleOrgUnitRepository.findByUserId(uid).stream()
+                .anyMatch(a -> task.getOrganizationId().equals(PermissionChecker.organizationIdOf(a.getOrgUnit()))));
+        TaskFieldValue.Key key = new TaskFieldValue.Key(task.getId(), fieldId);
+        if (json == null) {
+            fieldValueRepository.findById(key).ifPresent(fieldValueRepository::delete);
+        } else {
+            TaskFieldValue v = fieldValueRepository.findById(key).orElse(TaskFieldValue.builder().taskId(task.getId()).fieldId(fieldId).build());
+            v.setValue(json);
+            v.setUpdatedBy(me.getId());
+            v.setUpdatedAt(Instant.now());
+            fieldValueRepository.save(v);
+        }
     }
 
     // ══ Tiện ích ═════════════════════════════════════════════════════════════════════════════════
 
     /**
-     * Nạp task để GHI: phải sửa được ({@link KpiTaskAccess#canEdit}), khớp version (nếu có), KPI còn và kỳ chưa khoá.
-     * {@code allowDeletedKpi}: thao tác vẫn được khi KPI đã xoá.
+     * Nạp task để GHI: phải sửa được ({@link KpiTaskAccess}), khớp version (nếu có), và {@link TaskKpiLinks#assertWritable}
+     * (KPI còn ⇒ kỳ chưa khoá; KPI đã xoá ⇒ chỉ khi {@code allowDeletedKpi}; không KPI ⇒ tự do).
      */
-    private KpiTask editable(User me, UUID taskId, Long version, boolean allowDeletedKpi) {
+    KpiTask editable(User me, UUID taskId, Long version, boolean allowDeletedKpi) {
         KpiTask task = findTask(taskId);
         if (!access.canEdit(me.getId(), task)) {
             throw new ForbiddenException(access.canView(me.getId(), task)
@@ -1012,33 +1542,77 @@ public class KpiTaskService {
         if (version != null && !version.equals(task.getVersion())) {
             throw new StaleStateException(ErrorCode.TASK_VERSION_CONFLICT);
         }
-        Optional<KpiCriteria> kpi = kpiCriteriaRepository.findById(task.getKpiCriteriaId());
-        if (kpi.isEmpty()) {
-            if (!allowDeletedKpi) throw new BusinessException(ErrorCode.TASK_KPI_DELETED_READONLY);
-        } else {
-            cycleStatusGuard.assertWritable(kpi.get());
-        }
+        kpiLinks.assertWritable(task, allowDeletedKpi);
         return task;
     }
 
     /**
-     * Người phụ trách phải thuộc KPI (tạo / thực hiện), và người gọi phải được giao cho người đó. Việc con: sai KPI báo
-     * TASK_SUBTASK_OWNER_INVALID; việc thường tự giao cho mình báo TASK_KPI_NOT_OWNED như bản đầu.
+     * Kiểm danh sách người thực hiện theo trạng thái KPI và trả về {@link User} theo đúng thứ tự (người đầu là người
+     * chính). Có KPI: mọi người là người tạo / thực hiện của KPI và mình được giao cho họ (việc con: sai KPI báo
+     * TASK_SUBTASK_OWNER_INVALID). Không KPI: cùng tổ chức, có trang Công việc.
      */
-    private void assertAssignable(User me, User owner, KpiCriteria kpi, boolean subtask) {
-        boolean self = owner.getId().equals(me.getId());
-        if (!KpiTaskAccess.isKpiOf(owner.getId(), kpi)) {
-            if (subtask) throw new BusinessException(ErrorCode.TASK_SUBTASK_OWNER_INVALID, kpi.getName());
-            if (self) throw new ForbiddenException(ErrorCode.TASK_KPI_NOT_OWNED);
-            throw new BusinessException(ErrorCode.TASK_ASSIGNEE_KPI_MISMATCH);
-        }
-        if (!self && !access.canAssign(me.getId(), owner.getId(), kpi)) {
-            throw new ForbiddenException(ErrorCode.TASK_ASSIGN_NOT_ALLOWED, owner.getFullName());
-        }
+    List<User> validateAssignees(User me, TaskKpiLinks.Link link, UUID orgId, List<UUID> ids, boolean subtask) {
+        return validateAssignees(me, link, orgId, ids, subtask, Set.of());
     }
 
-    private void assertFollowerAllowed(UUID userId, KpiCriteria kpi) {
-        if (!kpiAccessPolicy.canView(userId, kpi)) {
+    /**
+     * Như trên; {@code alreadyAssigned}: người đang thực hiện sẵn (không đổi KPI) — vẫn kiểm "thuộc KPI" nhưng không đòi
+     * người làm phải được giao cho họ (người khác đã giao từ trước).
+     */
+    List<User> validateAssignees(User me, TaskKpiLinks.Link link, UUID orgId, List<UUID> ids, boolean subtask,
+                                 Set<UUID> alreadyAssigned) {
+        if (ids == null || ids.isEmpty()) throw new BusinessException(ErrorCode.TASK_ASSIGNEES_REQUIRED);
+        if (ids.size() > 1 && !multiAssignee) throw new BusinessException(ErrorCode.TASK_MULTI_ASSIGNEE_DISABLED);
+        if (ids.size() > MAX_ASSIGNEES) throw new BusinessException(ErrorCode.TASK_TOO_MANY_ASSIGNEES, MAX_ASSIGNEES);
+        Map<UUID, User> users = userRepository.findAllById(ids).stream().collect(Collectors.toMap(User::getId, Function.identity()));
+        List<User> out = new ArrayList<>();
+        for (UUID id : ids) {
+            User u = users.get(id);
+            if (u == null) throw new BusinessException(ErrorCode.TASK_ASSIGN_NOT_ALLOWED, "?");
+            boolean self = id.equals(me.getId());
+            if (link.active()) {
+                KpiCriteria kpi = link.kpi();
+                if (!KpiTaskAccess.isKpiOf(id, kpi)) {
+                    if (subtask) throw new BusinessException(ErrorCode.TASK_SUBTASK_OWNER_INVALID, kpi.getName());
+                    if (self) throw new ForbiddenException(ErrorCode.TASK_KPI_NOT_OWNED);
+                    throw new BusinessException(ErrorCode.TASK_ASSIGNEE_KPI_MISMATCH);
+                }
+                if (!self && !alreadyAssigned.contains(id) && !access.canAssign(me.getId(), id, kpi)) {
+                    throw new ForbiddenException(ErrorCode.TASK_ASSIGN_NOT_ALLOWED, u.getFullName());
+                }
+            } else if (!alreadyAssigned.contains(id) && !access.canAssignWithoutKpi(me.getId(), id, orgId)) {
+                throw new BusinessException(ErrorCode.TASK_ASSIGNEE_NOT_IN_ORG, u.getFullName());
+            }
+            out.add(u);
+        }
+        return out;
+    }
+
+    /** Ghi danh sách người thực hiện (giữ phần đã tích của người còn lại); người đầu là người chính. */
+    void writeAssignees(User me, KpiTask task, List<User> users) {
+        Map<UUID, KpiTaskAssignee> current = assigneeRepository.findByTaskIdOrderByAddedAtAsc(task.getId()).stream()
+                .collect(Collectors.toMap(KpiTaskAssignee::getUserId, Function.identity()));
+        Set<UUID> keep = users.stream().map(User::getId).collect(Collectors.toSet());
+        for (KpiTaskAssignee a : current.values()) if (!keep.contains(a.getUserId())) assigneeRepository.delete(a);
+        for (User u : users) {
+            if (!current.containsKey(u.getId())) {
+                assigneeRepository.save(KpiTaskAssignee.builder().taskId(task.getId()).userId(u.getId()).addedBy(me.getId()).build());
+                // Người thực hiện không đồng thời là người theo dõi.
+                followerRepository.findById(new KpiTaskFollower.Key(task.getId(), u.getId())).ifPresent(followerRepository::delete);
+            }
+        }
+        task.setOwner(users.get(0));
+    }
+
+    /** Người theo dõi hợp lệ: việc có KPI ⇒ xem được KPI; không KPI ⇒ cùng tổ chức; KPI đã xoá ⇒ không thêm được. */
+    private void assertFollowerAllowed(UUID userId, TaskKpiLinks.Link link, UUID orgId) {
+        boolean ok = switch (link.state()) {
+            case ACTIVE -> kpiAccessPolicy.canView(userId, link.kpi());
+            case NONE -> userRoleOrgUnitRepository.findByUserId(userId).stream()
+                    .anyMatch(a -> orgId != null && orgId.equals(PermissionChecker.organizationIdOf(a.getOrgUnit())));
+            case DELETED -> false;
+        };
+        if (!ok) {
             String name = userRepository.findById(userId).map(User::getFullName).orElse(String.valueOf(userId));
             throw new ForbiddenException(ErrorCode.TASK_FOLLOWER_NOT_ALLOWED, name);
         }
@@ -1057,7 +1631,8 @@ public class KpiTaskService {
             if (logIt) log(task, me, KpiTaskEventAction.PRIORITY_CHANGED, task.getPriority().name(), req.getPriority().name());
             task.setPriority(req.getPriority());
         }
-        if (req.getVisibility() != null && req.getVisibility() != task.getVisibility()) {
+        // Phạm vi xem chỉ đặt ở việc gốc (việc con theo gốc).
+        if (req.getVisibility() != null && req.getVisibility() != task.getVisibility() && task.isRoot()) {
             if (logIt) log(task, me, KpiTaskEventAction.VISIBILITY_CHANGED, task.getVisibility().name(), req.getVisibility().name());
             task.setVisibility(req.getVisibility());
         }
@@ -1077,14 +1652,15 @@ public class KpiTaskService {
     }
 
     /** Bản sao mới — Hibernate chỉ thấy cột JSON đổi khi gán một đối tượng KHÁC. */
-    private static TaskRecurrence copyRule(TaskRecurrence r) {
+    static TaskRecurrence copyRule(TaskRecurrence r) {
         if (r == null) return null;
         return TaskRecurrence.builder().freq(r.getFreq()).interval(r.safeInterval())
                 .byWeekday(r.getByWeekday() == null ? null : new ArrayList<>(r.getByWeekday()))
-                .byMonthDay(r.getByMonthDay()).template(r.getTemplate()).build();
+                .byMonthDay(r.getByMonthDay()).bySetPos(r.getBySetPos()).byMonth(r.getByMonth()).count(r.getCount())
+                .template(r.getTemplate()).build();
     }
 
-    private static void validateRecurrence(TaskRecurrence r, LocalDate due) {
+    static void validateRecurrence(TaskRecurrence r, LocalDate due) {
         if (r == null) return;
         if (due == null) throw new BusinessException(ErrorCode.TASK_RECURRENCE_NEEDS_DUE);
         if (r.getFreq() == null || (r.getInterval() != null && (r.getInterval() < 1 || r.getInterval() > 365))) {
@@ -1096,17 +1672,44 @@ public class KpiTaskService {
         if (r.getByMonthDay() != null && (r.getByMonthDay() < 1 || r.getByMonthDay() > 31)) {
             throw new BusinessException(ErrorCode.TASK_RECURRENCE_INVALID);
         }
+        if (r.getBySetPos() != null && (r.getBySetPos() == 0 || r.getBySetPos() < -1 || r.getBySetPos() > 4
+                || r.getByWeekday() == null || r.getByWeekday().size() != 1)) {
+            throw new BusinessException(ErrorCode.TASK_RECURRENCE_INVALID);
+        }
+        if (r.getByMonth() != null && (r.getByMonth() < 1 || r.getByMonth() > 12)) {
+            throw new BusinessException(ErrorCode.TASK_RECURRENCE_INVALID);
+        }
+        if (r.getCount() != null && (r.getCount() < 1 || r.getCount() > 1000)) {
+            throw new BusinessException(ErrorCode.TASK_RECURRENCE_INVALID);
+        }
+    }
+
+    private static void checkStartBeforeDue(LocalDate start, LocalDate due) {
+        if (start != null && due != null && start.isAfter(due)) throw new BusinessException(ErrorCode.TASK_START_AFTER_DUE);
     }
 
     private static void checkDescriptionDoc(String doc) {
         if (doc != null && doc.length() > MAX_DESCRIPTION_DOC) throw new BusinessException(ErrorCode.TASK_DESCRIPTION_TOO_LARGE);
     }
 
+    private static TaskSourceRef sanitizeSource(TaskSourceRef s) {
+        if (s == null || s.getType() == null) return null;
+        String label = s.getLabel() == null ? null : truncate(s.getLabel().strip(), 200);
+        return TaskSourceRef.builder().type(s.getType()).id(s.getId()).label(label).build();
+    }
+
+    static UUID[] append(UUID[] arr, UUID id) {
+        UUID[] base = arr == null ? new UUID[0] : arr;
+        UUID[] out = Arrays.copyOf(base, base.length + 1);
+        out[base.length] = id;
+        return out;
+    }
+
     /**
      * Người cho ô chọn, kèm đơn vị để nhóm. Đơn vị của một người = đơn vị SÂU NHẤT người đó có vai trò (mỗi người còn có
      * một vai trò nhân viên tự sinh ở đơn vị cha — lấy đơn vị cha thì ai cũng rơi vào nhóm cấp trên).
      */
-    private List<TaskOptionResponse> people(List<UUID> ids, String query) {
+    List<TaskOptionResponse> people(List<UUID> ids, String query) {
         Map<UUID, User> users = userRepository.findAllById(ids).stream().collect(Collectors.toMap(User::getId, Function.identity()));
         Map<UUID, UserRoleOrgUnit> home = new HashMap<>();
         if (!ids.isEmpty()) {
@@ -1142,18 +1745,18 @@ public class KpiTaskService {
         return path == null ? 0 : (int) path.chars().filter(c -> c == '/').count();
     }
 
-    private UUID organizationOf(User me) {
+    UUID organizationOf(User me) {
         return userRoleOrgUnitRepository.findByUserId(me.getId()).stream()
                 .map(a -> PermissionChecker.organizationIdOf(a.getOrgUnit())).filter(Objects::nonNull).findFirst().orElse(null);
     }
 
-    private void requireOwnPermission(User me) {
+    void requireOwnPermission(User me) {
         if (!permissionChecker.hasPermission(me.getId(), KpiTaskAccess.VIEW_OWN)) {
             throw new ForbiddenException(ErrorCode.TASK_NO_PERMISSION_VIEW);
         }
     }
 
-    private KpiTask findTask(UUID id) {
+    KpiTask findTask(UUID id) {
         return taskRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.TASK_NOT_FOUND));
     }
 
@@ -1162,7 +1765,7 @@ public class KpiTaskService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.TASK_CHECKLIST_ITEM_NOT_FOUND));
     }
 
-    private void log(KpiTask task, User actor, KpiTaskEventAction action, String oldValue, String newValue) {
+    void log(KpiTask task, User actor, KpiTaskEventAction action, String oldValue, String newValue) {
         eventRepository.save(KpiTaskEvent.builder().taskId(task.getId()).actorId(actor.getId()).action(action)
                 .oldValue(oldValue).newValue(newValue).build());
     }
@@ -1172,7 +1775,7 @@ public class KpiTaskService {
         return t == null ? d.toString() : d + " " + t;
     }
 
-    private static void addIfUuid(Set<UUID> out, String v) {
+    static void addIfUuid(Set<UUID> out, String v) {
         if (v == null || v.length() != 36) return;
         try {
             out.add(UUID.fromString(v));
@@ -1181,7 +1784,7 @@ public class KpiTaskService {
         }
     }
 
-    private static String nameOr(Map<UUID, String> names, String v) {
+    static String nameOr(Map<UUID, String> names, String v) {
         if (v == null || v.length() != 36) return v;
         try {
             return names.getOrDefault(UUID.fromString(v), v);
@@ -1198,20 +1801,20 @@ public class KpiTaskService {
         return o == null ? 0 : ((Number) o).longValue();
     }
 
-    private static String requireTitle(String title) {
+    static String requireTitle(String title) {
         if (title == null || title.isBlank()) throw new BusinessException(ErrorCode.TASK_TITLE_REQUIRED);
         return truncate(title.strip(), 255);
     }
 
-    private static String truncate(String s, int max) {
+    static String truncate(String s, int max) {
         return s.length() <= max ? s : s.substring(0, max);
     }
 
-    private static String blankToNull(String s) {
+    static String blankToNull(String s) {
         return s == null || s.isBlank() ? null : s.strip();
     }
 
-    private User currentUser() {
+    User currentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
