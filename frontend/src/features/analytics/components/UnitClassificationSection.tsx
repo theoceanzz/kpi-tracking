@@ -3,6 +3,7 @@ import { Award, Building2 } from 'lucide-react'
 import type { UnitClassificationOverview } from '../api/unitClassificationApi'
 import StackedComposition from '@/components/charts/primitives/StackedComposition'
 import BellCurveChart from '@/components/charts/BellCurveChart'
+import BscFrameNote from '@/components/charts/BscFrameNote'
 import { seriesColor } from '@/components/charts/chartPalette'
 import { useTranslation } from 'react-i18next'
 
@@ -149,7 +150,10 @@ export default function UnitClassificationSection({ overview, part, view = 'bell
                   {tr('UnitClassificationSection.actualDistributionByLevelNextTo')}
                 </p>
                 {overview?.bellCurve ? (
-                  <BellCurveChart curve={overview.bellCurve} height={240} compact />
+                  <>
+                    <BscFrameNote curve={overview.bellCurve} className="mb-2" />
+                    <BellCurveChart curve={overview.bellCurve} height={240} compact />
+                  </>
                 ) : (
                   <p className="py-12 text-center text-sm text-slate-400 font-medium">{tr('UnitClassificationSection.noPeriodToDrawTheDistribution')}</p>
                 )}

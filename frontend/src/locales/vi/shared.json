@@ -27,7 +27,8 @@
     "toHaveAQuotaToCompare": "để có hạn mức đối chiếu.",
     "ceiling": " (trần {{maxCount}})",
     "floor": " (sàn {{minCount}})",
-    "curveLabel": "Khung:"
+    "curveLabel": "Khung:",
+    "projectedFrame": "Khung dự kiến (BSC chưa chốt): {{value}}%"
   },
   "Boxplot": {
     "highest": "Cao nhất",
@@ -1115,7 +1116,7 @@
       },
       "card": {
         "t": "Một thẻ điểm",
-        "b": "Bấm để mở hạng mục, độ phủ phân rã và kết quả đợt. Menu của thẻ có chuyển giữa chạy song song và chính thức."
+        "b": "Bấm tên thẻ để mở hạng mục, độ phủ phân rã và kết quả đợt. Nút bên phải là việc kế tiếp (trình duyệt, duyệt…); menu ⋯ có sửa, phân rã, gắn vào cây, chuyển chấm chính thức và xoá."
       },
       "add": {
         "t": "Bộ tiêu chí mới",
@@ -2105,39 +2106,63 @@
     "tasks": {
       "intro": {
         "t": "Công việc",
-        "b": "Việc cần làm gắn với chỉ tiêu: bạn phụ trách, bạn theo dõi hoặc bạn giao. Bấm một việc để mở chi tiết, bình luận và việc con."
+        "b": "Việc cần làm: của riêng bạn, giao cho người khác, gom theo danh sách dự án hoặc gắn với KPI. Bấm một việc để mở chi tiết, bình luận và việc con."
       },
       "views": {
-        "t": "Các danh sách",
-        "b": "Tôi phụ trách, Tôi theo dõi, Tôi tạo, Tôi giao cho người khác, Đã hoàn thành, và việc theo từng chỉ tiêu."
+        "t": "Việc của tôi",
+        "b": "Tôi phụ trách, Tôi theo dõi; nhóm \"Truy cập nhanh\" có Tất cả, Tôi tạo, Tôi giao, Đã hoàn thành và Không gắn KPI."
       },
       "create": {
         "t": "Tạo việc",
-        "b": "Tạo việc mới với người phụ trách, hạn và chỉ tiêu gắn kèm. Phím tắt: N."
+        "b": "Mở hộp tạo việc (phím tắt N). Mũi tên ▾ bên cạnh: tạo nhóm mới, nhập từ Excel."
       },
       "mode": {
-        "t": "Danh sách, Kanban, Lịch",
-        "b": "Đổi cách xem: danh sách để rà, Kanban để kéo theo trạng thái, Lịch để xem theo hạn."
+        "t": "Cách xem",
+        "b": "Danh sách, Kanban, Lịch (tháng / tuần có lưới giờ), Gantt; trong một danh sách còn có Bảng điều khiển và Hoạt động của danh sách."
       },
       "group": {
         "t": "Nhóm theo",
-        "b": "Gom việc theo trạng thái, hạn, người phụ trách hoặc chỉ tiêu."
+        "b": "Gom việc theo hạn, trạng thái, người, KPI, nhãn hoặc \"Nhóm của tôi\"; trong danh sách còn theo nhóm hoặc trường tuỳ chỉnh. Kéo đầu nhóm để đổi thứ tự."
       },
       "sort": {
         "t": "Sắp xếp",
-        "b": "Đổi thứ tự trong danh sách."
+        "b": "Theo hạn, ngày bắt đầu, ưu tiên… hoặc Thủ công để kéo thả từng việc."
       },
       "filter": {
         "t": "Lọc",
-        "b": "Lọc theo trạng thái, hạn, độ ưu tiên hoặc đợt."
-      },
-      "search": {
-        "t": "Tìm việc",
-        "b": "Gõ tên việc để tìm nhanh."
+        "b": "Lọc theo hạn, ưu tiên, đợt, KPI, người, nhãn; số cạnh chữ Lọc là số điều kiện đang bật."
       },
       "quickAdd": {
-        "t": "Thêm nhanh",
-        "b": "Gõ tên việc và nhấn Enter để tạo ngay trong danh sách."
+        "t": "Việc mới",
+        "b": "Gõ tên rồi Enter. Kèm \"@tên\", \"ngày mai\", \"15h\", \"!cao\", \"#nhãn\" để giao người, đặt hạn, ưu tiên, nhãn."
+      },
+      "lists": {
+        "t": "Danh sách",
+        "b": "Gom việc theo dự án: mời người, chia nhóm, thêm trường tuỳ chỉnh, bảng điều khiển và luật tự động. Bấm + để tạo danh sách hoặc thư mục."
+      },
+      "saveView": {
+        "t": "Lưu chế độ xem",
+        "b": "Lưu cách nhóm, sắp xếp và bộ lọc hiện tại để mở lại bằng một cú bấm ở cột trái."
+      },
+      "row": {
+        "t": "Một dòng việc",
+        "b": "Bấm để mở chi tiết, bấm đúp tên để sửa, chuột phải (hoặc …) để sao chép link, nhân bản, thêm vào danh sách hay xoá (có Hoàn tác). Bấm thẳng vào ô để sửa ngày, người, ưu tiên."
+      },
+      "columns": {
+        "t": "Tuỳ chỉnh",
+        "b": "Bật / tắt trường hiển thị bằng icon mắt, kéo ⋮⋮ để đổi thứ tự; kéo mép tiêu đề cột để đổi độ rộng."
+      },
+      "activity": {
+        "t": "Hoạt động",
+        "b": "Dòng thời gian mọi thay đổi trên việc bạn tạo, phụ trách hoặc theo dõi — bấm một dòng để mở việc."
+      },
+      "status": {
+        "t": "Đang làm",
+        "b": "Mặc định chỉ hiện việc chưa xong; đổi sang Đã hoàn thành hoặc Tất cả việc."
+      },
+      "more": {
+        "t": "Thêm",
+        "b": "Chọn nhiều việc để xử lý cùng lúc, hoặc xuất các việc đang hiện ra Excel."
       }
     },
     "docs": {
@@ -2146,12 +2171,12 @@
         "b": "Tài liệu cá nhân, của đơn vị và của công ty ở một chỗ. K.AI đọc đúng những gì mỗi người được xem."
       },
       "new": {
-        "t": "Tạo mới",
-        "b": "Soạn tài liệu hoặc bảng tính trực tuyến, tải tệp lên, hoặc tạo thư mục."
+        "t": "Mới",
+        "b": "Tạo tài liệu hoặc bảng tính trực tuyến, hoặc thư mục. Đang đứng trong một thư mục thì tạo ngay tại đó. Thẻ bên cạnh để tải tệp lên."
       },
       "nav": {
-        "t": "Điều hướng",
-        "b": "Trang chủ có tài liệu gần đây và đã ghim; nhóm Drive chia theo phạm vi."
+        "t": "Thanh bên",
+        "b": "Ô Tìm kiếm tìm mọi tài liệu bạn xem được. Trang chủ có Gần đây, Của tôi, Được chia sẻ, Yêu thích; nhóm Drive chia theo phạm vi; tài liệu đã ghim hiện ngay bên dưới."
       },
       "mine": {
         "t": "Của tôi",
@@ -2171,11 +2196,15 @@
       },
       "trash": {
         "t": "Thùng rác",
-        "b": "Tài liệu đã xoá nằm đây một thời gian rồi mới mất hẳn; khôi phục được."
+        "b": "Tài liệu đã xoá nằm đây một thời gian rồi mới mất hẳn; bấm ⋯ để khôi phục về đúng chỗ cũ."
       },
       "main": {
         "t": "Nội dung",
-        "b": "Danh sách thư mục và tài liệu của mục đang chọn. Bấm một tài liệu để xem, chia sẻ hoặc xem phiên bản."
+        "b": "Bấm một tài liệu để mở; ⋯ cuối dòng để chia sẻ, sao chép link, di chuyển, đổi tên, xoá. Ở Drive rê chuột vào dòng để tích chọn nhiều."
+      },
+      "storage": {
+        "t": "Dung lượng",
+        "b": "Bạn và công ty đã dùng bao nhiêu chỗ, kho K.AI đã có bao nhiêu đoạn."
       }
     }
   },
@@ -2942,15 +2971,15 @@
       },
       "items": {
         "t": "Hạng mục và trọng số",
-        "b": "Tick hạng mục để đưa vào thẻ; tổng trọng số các hạng mục được tick phải bằng 100%."
+        "b": "Tick hạng mục để đưa vào thẻ. Lưu nháp được khi tổng chưa đủ; muốn trình duyệt hoặc áp dụng thì tổng các hạng mục được tick phải bằng 100%."
       },
       "split": {
         "t": "Chia đều",
         "b": "Chia đều trọng số cho các hạng mục đang được tick."
       },
       "area": {
-        "t": "Khía cạnh",
-        "b": "Hạng mục gom theo bốn khía cạnh BSC (tài chính, khách hàng…). Bút chì cạnh tên để đổi tên, đổi màu khía cạnh."
+        "t": "Lĩnh vực",
+        "b": "Hạng mục gom theo bốn lĩnh vực BSC (tài chính, khách hàng…). Bút chì cạnh tên để đổi tên, đổi màu lĩnh vực."
       },
       "addItem": {
         "t": "Thêm hạng mục",
@@ -2959,6 +2988,10 @@
       "rowToggle": {
         "t": "Chọn hạng mục",
         "b": "Bấm để đưa hạng mục vào hoặc bỏ khỏi thẻ. Hạng mục do cấp trên giao bị khoá."
+      },
+      "rowTarget": {
+        "t": "Cấu hình dòng",
+        "b": "Mục tiêu riêng của hạng mục trong thẻ này (tối thiểu, đơn vị) và hạng mục chặn. Nguồn số thì tự nhận: đã phân rã thì cộng từ đơn vị con, có KPI thì cộng từ KPI, còn lại nhập tay ở tab Kết quả đợt."
       },
       "rowWeight": {
         "t": "Trọng số hạng mục",
@@ -3164,19 +3197,19 @@
       },
       "form": {
         "t": "Hộp tạo việc",
-        "b": "Mỗi việc gắn với một KPI của người phụ trách, để tiến độ việc nằm cạnh chỉ tiêu nó phục vụ."
+        "b": "Việc có thể đứng riêng, nằm trong một danh sách, hoặc gắn với một KPI để tiến độ việc nằm cạnh chỉ tiêu nó phục vụ."
       },
       "name": {
         "t": "Tên việc",
         "b": "Gõ tên rồi Ctrl + Enter để tạo nhanh."
       },
       "owner": {
-        "t": "Người phụ trách",
-        "b": "Mặc định là bạn. Giao cho người khác cần quyền giao việc, và chỉ chọn được người trong đơn vị bạn quản lý."
+        "t": "Người thực hiện",
+        "b": "Mặc định là bạn. Có thể giao nhiều người; người đầu tiên là người phụ trách chính. Việc gắn KPI chỉ giao được người thuộc KPI đó."
       },
       "kpi": {
         "t": "KPI",
-        "b": "Bắt buộc. Chỉ hiện KPI của người phụ trách mà bạn xem được; đổi người phụ trách thì phải chọn lại."
+        "b": "Không bắt buộc. Gắn KPI thì việc tính vào tiến độ KPI và theo luật xem của KPI."
       },
       "due": {
         "t": "Hạn",
@@ -3188,7 +3221,7 @@
       },
       "more": {
         "t": "Thêm chi tiết",
-        "b": "Mở thêm: ai xem được (công khai trong phạm vi KPI hoặc riêng tư), mô tả và checklist mỗi dòng một bước."
+        "b": "Mở thêm: ngày bắt đầu, kiểu hoàn thành khi nhiều người làm, ai xem được, nhãn, mô tả và checklist."
       },
       "submit": {
         "t": "Tạo",
@@ -3249,6 +3282,198 @@
         "t": "Tạo",
         "b": "Tạo thư mục."
       }
+    },
+    "docsEmail": {
+      "title": "Gửi tài liệu qua email",
+      "to": {
+        "t": "Người nhận",
+        "b": "Gõ email rồi nhấn Enter — người ngoài công ty cũng được. Gõ tên thì gợi ý đồng nghiệp. Bấm + Cc để đồng gửi."
+      },
+      "message": {
+        "t": "Tiêu đề và lời nhắn",
+        "b": "Viết như một email bình thường. Người nhận bấm Trả lời là về thẳng hộp thư của bạn."
+      },
+      "attachment": {
+        "t": "Tài liệu đính kèm",
+        "b": "Tài liệu đi kèm dạng link: mở được không cần tài khoản, tới khi hết hạn bạn chọn ở đây. Thu hồi bất cứ lúc nào ở tab Chia sẻ."
+      },
+      "submit": {
+        "t": "Gửi",
+        "b": "Gửi ngay. Mỗi lần gửi có link riêng — tab Chia sẻ cho biết ai đã mở và bao nhiêu lần."
+      }
+    },
+    "taskListForm": {
+      "title": "Tạo danh sách, từng ô",
+      "add": {
+        "t": "Tạo danh sách",
+        "b": "Nút + cạnh mục Danh sách mở hộp tạo. Bấm vào nó hoặc bấm Tiếp theo để xem."
+      },
+      "form": {
+        "t": "Hộp tạo danh sách",
+        "b": "Danh sách gom việc của một dự án hay nhóm làm việc, có thành viên và cài đặt riêng."
+      },
+      "name": {
+        "t": "Tên và màu",
+        "b": "Đặt tên, chọn màu để nhận ra nhanh ở cột trái."
+      },
+      "template": {
+        "t": "Bắt đầu từ mẫu",
+        "b": "Chọn mẫu có sẵn (dự án, sự kiện, tuyển dụng, việc định kỳ) hoặc mẫu của tổ chức để có sẵn nhóm, trường, luật tự động và việc mẫu."
+      },
+      "submit": {
+        "t": "Tạo",
+        "b": "Tạo danh sách; bạn là chủ. Mời người và chỉnh nhóm, trường trong phần Cài đặt."
+      }
+    },
+    "taskListSettings": {
+      "title": "Cài đặt danh sách, từng phần",
+      "open": {
+        "t": "Cài đặt danh sách",
+        "b": "Bấm ⋯ cạnh tên danh sách rồi chọn \"Cài đặt danh sách\". Bấm vào ⋯ hoặc bấm Tiếp theo."
+      },
+      "tabs": {
+        "t": "Các phần cài đặt",
+        "b": "Chung, Thành viên, Nhóm, Trường, Tự động hoá. Chỉ chủ danh sách sửa được, người khác chỉ xem."
+      },
+      "general": {
+        "t": "Chung",
+        "b": "Đổi tên, màu, mô tả; lưu danh sách thành mẫu để tạo danh sách khác giống vậy; lưu trữ hoặc xoá danh sách."
+      },
+      "members": {
+        "t": "Thành viên",
+        "b": "Mời từng người hoặc cả một đơn vị, với vai trò Chủ, Sửa hoặc Xem. Danh sách không mở quyền xem việc gắn KPI."
+      },
+      "sections": {
+        "t": "Nhóm",
+        "b": "Chia danh sách thành các nhóm (cột Kanban), đổi tên và thứ tự. Xoá nhóm thì việc về \"Chưa phân nhóm\"."
+      },
+      "fields": {
+        "t": "Trường tuỳ chỉnh",
+        "b": "Thêm cột riêng cho danh sách: chữ, số, chọn một, chọn nhiều, người, ngày, đánh dấu. Nhóm, lọc, sắp xếp được theo trường."
+      },
+      "automations": {
+        "t": "Tự động hoá",
+        "b": "Luật \"Khi … thì …\": ví dụ khi việc vào nhóm Xong thì đặt trạng thái Hoàn thành, khi việc được thêm thì giao cho một người."
+      },
+      "needList": {
+        "t": "Cần một danh sách",
+        "b": "Cài đặt thuộc về từng danh sách, mà bạn chưa có danh sách nào. Tạo một danh sách bằng nút + cạnh \"Danh sách\" ở cột trái (bài \"Tạo danh sách, từng ô\"), rồi chạy lại bài này."
+      }
+    },
+    "taskListImport": {
+      "title": "Nhập việc từ Excel",
+      "open": {
+        "t": "Nhập Excel",
+        "b": "Bấm ⋯ cạnh tên danh sách rồi chọn \"Nhập từ Excel\" để thêm nhiều việc cùng lúc. Bấm vào ⋯ hoặc bấm Tiếp theo."
+      },
+      "form": {
+        "t": "Hộp nhập Excel",
+        "b": "Mỗi dòng một việc. Hệ thống đọc tệp, cho xem trước, dòng lỗi tô đỏ và bỏ qua, rồi mới tạo."
+      },
+      "template": {
+        "t": "Tệp mẫu",
+        "b": "Tải tệp mẫu đúng cột: tên, mô tả, email người thực hiện, ngày bắt đầu, hạn, ưu tiên, trạng thái, nhóm, nhãn."
+      },
+      "drop": {
+        "t": "Chọn tệp",
+        "b": "Kéo tệp .xlsx vào đây. Nhóm và nhãn chưa có sẽ được tạo; việc nhập vào không gắn KPI."
+      },
+      "needList": {
+        "t": "Cần một danh sách bạn sửa được",
+        "b": "Việc nhập từ Excel đi vào một danh sách mà bạn là chủ hoặc được sửa. Bạn chưa có danh sách như vậy: tạo một danh sách bằng nút + cạnh \"Danh sách\" ở cột trái, rồi chạy lại bài này."
+      }
     }
+  },
+  "EditorToolbar": {
+    "label": "Thanh định dạng",
+    "undo": "Hoàn tác",
+    "redo": "Làm lại",
+    "style": "Kiểu đoạn",
+    "styles": {
+      "paragraph": "Văn bản thường",
+      "heading-1": "Tiêu đề 1",
+      "heading-2": "Tiêu đề 2",
+      "heading-3": "Tiêu đề 3",
+      "quote": "Trích dẫn",
+      "codeBlock": "Khối mã"
+    },
+    "bold": "Đậm",
+    "italic": "Nghiêng",
+    "underline": "Gạch chân",
+    "strike": "Gạch ngang",
+    "code": "Mã nội dòng",
+    "textColor": "Màu chữ",
+    "highlight": "Màu tô sáng",
+    "colors": {
+      "default": "Mặc định",
+      "gray": "Xám",
+      "brown": "Nâu",
+      "red": "Đỏ",
+      "orange": "Cam",
+      "yellow": "Vàng",
+      "green": "Xanh lá",
+      "blue": "Xanh dương",
+      "purple": "Tím",
+      "pink": "Hồng"
+    },
+    "link": "Chèn link",
+    "linkHint": "Bôi đen chữ trước rồi dán link — hoặc để trống chữ, link sẽ được chèn tại con trỏ.",
+    "removeLink": "Bỏ link",
+    "applyLink": "Áp dụng",
+    "insert": "Chèn",
+    "insertTable": "Bảng",
+    "insertDivider": "Đường kẻ ngang",
+    "align": "Căn lề",
+    "aligns": {
+      "left": "Căn trái",
+      "center": "Căn giữa",
+      "right": "Căn phải",
+      "justify": "Căn đều hai bên"
+    },
+    "checkList": "Danh sách việc cần làm",
+    "bulletList": "Danh sách dấu đầu dòng",
+    "numberedList": "Danh sách đánh số",
+    "outdent": "Giảm thụt lề",
+    "indent": "Tăng thụt lề",
+    "clear": "Xoá định dạng",
+    "print": "In",
+    "zoom": "Thu phóng",
+    "font": "Phông chữ",
+    "defaultFont": "Mặc định",
+    "fontSize": "Cỡ chữ",
+    "fontSizeDown": "Giảm cỡ chữ",
+    "fontSizeUp": "Tăng cỡ chữ",
+    "insertToggle": "Danh sách thu gọn",
+    "insertCode": "Khối mã",
+    "tableSize": "{{rows}} × {{cols}}",
+    "tablePick": "Rê chuột để chọn số hàng × cột",
+    "more": "Thêm công cụ",
+    "deleteBlock": "Xoá khối này",
+    "dragBlock": "Kéo để di chuyển khối",
+    "image": "Chèn ảnh từ máy",
+    "emoji": "Chèn icon",
+    "emojiSearch": "Tìm icon…",
+    "imagePasteHint": "hoặc dán / kéo thả ảnh",
+    "imageUploading_other": "Đang tải {{count}} ảnh lên…",
+    "imageType": "Chỉ chèn được ảnh PNG, JPG, GIF hoặc WebP",
+    "imageTooLarge": "Ảnh tối đa 5 MB",
+    "imageFailed": "Không tải được ảnh lên",
+    "sizes": {
+      "small": "Nhỏ",
+      "normal": "Bình thường",
+      "large": "Lớn",
+      "huge": "Rất lớn"
+    }
+  },
+  "BscFrameNote": {
+    "band": {
+      "EXCEED": "Vượt mục tiêu",
+      "MEET": "Đạt mục tiêu",
+      "BELOW": "Chưa đạt"
+    },
+    "applied": "Khung \"{{band}}\" theo BSC đơn vị",
+    "finalized": "BSC đơn vị {{percent}}% (đã chốt)",
+    "projected": "Khung dự kiến: \"{{band}}\" — BSC đơn vị {{percent}}%, chưa chốt. Đang kiểm theo khung mặc định; khung đổi khi chốt xong BSC.",
+    "thresholds": "Vượt ≥ {{exceed}}% · Đạt {{meet}}–dưới {{exceed}}% · Chưa đạt < {{meet}}% (điểm BSC đơn vị sau trần)"
   }
 }

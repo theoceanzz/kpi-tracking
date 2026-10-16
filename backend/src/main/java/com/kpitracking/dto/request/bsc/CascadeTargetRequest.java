@@ -1,5 +1,6 @@
 package com.kpitracking.dto.request.bsc;
 
+import com.kpitracking.enums.BscLinkType;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
@@ -11,6 +12,12 @@ public class CascadeTargetRequest {
 
     @NotNull
     private UUID orgUnitId;
+
+    /**
+     * Quan hệ của RIÊNG đơn vị này với chỉ tiêu cha; bỏ trống thì lấy {@link CascadeRequest#getLinkType()}.
+     * Dùng để một chỉ tiêu có đơn vị chính (SUM/SHARED) lẫn đơn vị hỗ trợ (SUPPORT) trong cùng một lần giao.
+     */
+    private BscLinkType linkType;
 
     /** Mức đóng góp tuyệt đối vào mục tiêu của chỉ tiêu cha (VD 60 tỷ trong 100 tỷ). */
     private Double contributionValue;

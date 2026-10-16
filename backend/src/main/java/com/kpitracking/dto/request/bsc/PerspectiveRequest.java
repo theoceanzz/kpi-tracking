@@ -20,6 +20,7 @@ public class PerspectiveRequest {
     private String code;
 
     @NotBlank(message = "{validation.enterAreaName}")
+    @Size(max = 100, message = "{validation.areaNameCanMost100Characters}")
     private String name;
 
     private String description;

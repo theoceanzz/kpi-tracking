@@ -384,4 +384,23 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     /** Mọi KPI (chưa xoá) của các đợt — dùng khi phân loại tiến độ đợt để khoá kỳ. */
     List<KpiCriteria> findByKpiPeriodIdIn(java.util.Collection<UUID> kpiPeriodIds);
+
+    /**
+     * KPI mà từng người phải nộp trong đợt trước khi quản lý chấm (xem EvaluationReadinessService):
+     * KPI đang chạy được giao cho người đó, trừ KPI thưởng (làm thêm, không bắt buộc) và KPI cha
+     * phân rã (bài của nó gộp từ KPI con). Hàng = [kpiId, kpiName, assigneeId].
+     */
+    @Query("SELECT k.id, k.name, a.id FROM KpiCriteria k JOIN k.assignees a " +
+           "WHERE k.kpiPeriod.id = :periodId AND a.id IN :userIds AND k.status IN :statuses " +
+           "AND (k.isBonusKpi IS NULL OR k.isBonusKpi = false) " +
+           "AND NOT EXISTS (SELECT 1 FROM KpiCriteria c WHERE c.parent.id = k.id " +
+           "     AND c.parentRelationType = com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION) " +
+           "ORDER BY k.name")
+    List<Object[]> findRequiredSubmissionKpis(@Param("periodId") UUID periodId,
+                                              @Param("userIds") Collection<UUID> userIds,
+                                              @Param("statuses") Collection<KpiStatus> statuses);
+
+    /** Số KPI (chưa xoá) đang gắn thẳng vào một dòng chỉ tiêu BSC — chặn thu hồi phân rã khi còn KPI. */
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.scorecardPerspective.id = :rowId AND k.deletedAt IS NULL")
+    long countLiveByScorecardPerspectiveId(@org.springframework.data.repository.query.Param("rowId") java.util.UUID rowId);
 }

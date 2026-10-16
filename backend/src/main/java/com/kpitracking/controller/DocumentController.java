@@ -9,6 +9,7 @@ import com.kpitracking.dto.request.document.PromotionDecisionRequest;
 import com.kpitracking.dto.request.document.PromotionRequest;
 import com.kpitracking.dto.request.document.RenameFolderRequest;
 import com.kpitracking.dto.request.document.SaveDocumentContentRequest;
+import com.kpitracking.dto.request.document.SendDocumentEmailRequest;
 import com.kpitracking.dto.request.document.ShareDocumentRequest;
 import com.kpitracking.dto.request.document.UpdateDocumentRequest;
 import com.kpitracking.dto.request.document.UpdateSharePermissionRequest;
@@ -20,6 +21,7 @@ import com.kpitracking.dto.response.document.DocumentContentResponse;
 import com.kpitracking.dto.response.document.DocumentFolderListResponse;
 import com.kpitracking.dto.response.document.DocumentFolderResponse;
 import com.kpitracking.dto.response.document.DocumentPromotionResponse;
+import com.kpitracking.dto.response.document.DocumentPublicLinkResponse;
 import com.kpitracking.dto.response.document.DocumentStorageStatsResponse;
 import com.kpitracking.dto.response.document.DocumentResponse;
 import com.kpitracking.dto.response.document.DocumentShareResponse;
@@ -31,7 +33,9 @@ import com.kpitracking.enums.DocumentAiStatus;
 import com.kpitracking.enums.DocumentCategory;
 import com.kpitracking.enums.DocumentScope;
 import com.kpitracking.service.document.DocumentEditService;
+import com.kpitracking.service.document.DocumentEmailService;
 import com.kpitracking.service.document.DocumentFolderService;
+import com.kpitracking.service.document.DocumentImageService;
 import com.kpitracking.service.document.DocumentHomeService;
 import com.kpitracking.service.document.DocumentPromotionService;
 import com.kpitracking.service.document.DocumentStatsService;
@@ -80,6 +84,8 @@ public class DocumentController {
     private final DocumentPromotionService promotions;
     private final DocumentStatsService stats;
     private final DocumentEditService editor;
+    private final DocumentEmailService mailer;
+    private final DocumentImageService images;
 
     @GetMapping("/capabilities")
     @Operation(summary = "Người đang đăng nhập làm được gì với thư viện tài liệu")
@@ -397,6 +403,35 @@ public class DocumentController {
     public ResponseEntity<ApiResponse<Void>> unshare(@PathVariable UUID id, @PathVariable UUID shareId) {
         shares.remove(id, shareId);
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    // ── Ảnh trong trình soạn ───────────────────────────────────────────────────────────────────────
+
+    @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Tải ảnh chèn vào tài liệu trực tuyến / thư (PNG, JPEG, GIF, WebP ≤ 5 MB), trả URL công khai")
+    public ResponseEntity<ApiResponse<Map<String, String>>> uploadImage(@RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(ApiResponse.success(Map.of("url", images.upload(file))));
+    }
+
+    // ── Gửi qua email kèm link công khai ───────────────────────────────────────────────────────────
+
+    @PostMapping("/{id}/email")
+    @Operation(summary = "Soạn và gửi email kèm link tài liệu — người nhận mở được không cần tài khoản")
+    public ResponseEntity<ApiResponse<DocumentPublicLinkResponse>> email(@PathVariable UUID id,
+                                                                         @RequestBody SendDocumentEmailRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(mailer.send(id, request)));
+    }
+
+    @GetMapping("/{id}/public-links")
+    @Operation(summary = "Các lần gửi tài liệu qua email và link công khai đi kèm")
+    public ResponseEntity<ApiResponse<List<DocumentPublicLinkResponse>>> publicLinks(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(mailer.list(id)));
+    }
+
+    @DeleteMapping("/{id}/public-links/{linkId}")
+    @Operation(summary = "Thu hồi link công khai của một lần gửi")
+    public ResponseEntity<ApiResponse<DocumentPublicLinkResponse>> revokePublicLink(@PathVariable UUID id, @PathVariable UUID linkId) {
+        return ResponseEntity.ok(ApiResponse.success(mailer.revoke(id, linkId)));
     }
 
     // ── Đề xuất đưa lên đơn vị / công ty (§16.2) ──────────────────────────────────────────────────

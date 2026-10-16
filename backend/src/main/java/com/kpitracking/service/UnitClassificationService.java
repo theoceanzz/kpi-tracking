@@ -50,6 +50,7 @@ public class UnitClassificationService {
     private final CycleUserEvaluationRepository cycleUserEvaluationRepository;
     private final EvaluationService evaluationService;
     private final ObjectMapper objectMapper;
+    private final BscUnitCycleScore bscUnitCycleScore;
 
     private record LevelDef(String name, String color) {}
     private record Cond(String level, String scope, String op, double percent) {}
@@ -71,7 +72,31 @@ public class UnitClassificationService {
      * {@code block} (chặn không cho chốt đánh giá làm vượt hạn mức).
      */
     private record BellCurve(boolean enabled, String mode, int minMembers, double tolerance,
-                             List<BellTarget> targets) {}
+                             List<BellTarget> targets, BscBands bsc) {
+        BellCurve withTargets(List<BellTarget> t) {
+            return new BellCurve(enabled, mode, minMembers, tolerance, t, bsc);
+        }
+    }
+
+    /**
+     * Khung đổi theo kết quả BSC của đơn vị trong kỳ (sau trần): ≥ {@code exceedAt} ⇒ khung "Vượt",
+     * [{@code meetAt}, {@code exceedAt}) ⇒ khung mặc định ({@code targets} của bell curve), &lt; {@code meetAt}
+     * ⇒ khung "Chưa đạt". Hai khung kia khai THEO VỊ TRÍ mức, cao → thấp (số phần tử phải bằng số mức,
+     * lệch thì giữ khung mặc định). Chỉ số BSC ĐÃ CHỐT mới đổi khung kiểm tra.
+     */
+    private record BscBands(boolean enabled, double exceedAt, double meetAt,
+                            List<Double> exceed, List<Double> below) {}
+
+    /** Mặc định đã chốt với lãnh đạo (2026-10-16) cho thang 5 mức. */
+    private static final BscBands DEFAULT_BSC_BANDS = new BscBands(true, 105, 85,
+            List.of(15.0, 30.0, 40.0, 10.0, 5.0), List.of(5.0, 15.0, 40.0, 28.0, 12.0));
+
+    /**
+     * Khung đang áp cho một đơn vị trong kỳ: {@code curve} là khung KIỂM TRA (đã đổi theo BSC nếu số đã
+     * chốt); {@code projected*} là khung dự kiến khi BSC chưa chốt — chỉ để hiển thị.
+     */
+    private record ActiveCurve(BellCurve curve, String band, Double bscPercent, boolean bscFinalized,
+                               String projectedBand, Map<String, Double> projectedTargets) {}
 
     /** Hạn mức của một mức + tình trạng thực tế của đơn vị ở mức đó. */
     public record QuotaSlot(String level, String color, double targetPercent,
@@ -163,7 +188,8 @@ public class UnitClassificationService {
                 ? classify(rulesOf(mainProfile, ctx), lastCounts, lastEvaluated, levels) : null;
         // Khung bell curve của đợt đang xét — mẫu số là tổng nhân sự, giống màn đánh giá kỳ.
         CycleCurveResponse bellCurve = lastCounts != null
-                ? curveFromCounts(mainProfile, levels, lastCounts, memberIds.size(), lastEvaluated) : null;
+                ? curveFromCounts(mainProfile, activeCurve(mainProfile, unit, cycleId, levels), levels,
+                        lastCounts, memberIds.size(), lastEvaluated) : null;
 
         // Xếp loại nhanh các đơn vị con trực tiếp (đợt hiện tại).
         List<ChildClassification> children = new ArrayList<>();
@@ -253,7 +279,8 @@ public class UnitClassificationService {
                 .cycleId(cycle.getId()).cycleName(cycle.getName())
                 .distribution(distribution(counts, evaluated, levels))
                 .classification(classification)
-                .bellCurve(curveFromCounts(mainProfile, levels, counts, memberIds.size(), evaluated))
+                .bellCurve(curveFromCounts(mainProfile, activeCurve(mainProfile, unit, cycleId, levels), levels,
+                        counts, memberIds.size(), evaluated))
                 .appliedProfileName(mainProfile != null ? mainProfile.name() : null)
                 .trend(trend).children(children)
                 .build();
@@ -323,7 +350,7 @@ public class UnitClassificationService {
         int evaluated = counts.values().stream().mapToInt(Integer::intValue).sum();
 
         Profile profile = resolveProfile(unit, ruleContext(org, levels), cycleId);
-        return curveFromCounts(profile, levels, counts, headcount, evaluated);
+        return curveFromCounts(profile, activeCurve(profile, unit, cycleId, levels), levels, counts, headcount, evaluated);
     }
 
     /**
@@ -331,9 +358,9 @@ public class UnitClassificationService {
      * ({@link #cycleCurve}) và khối "Xếp loại đơn vị" ở Thống kê (theo đợt lẫn theo kỳ), để hai
      * nơi vẽ cùng một biểu đồ từ cùng một phép tính hạn mức.
      */
-    private CycleCurveResponse curveFromCounts(Profile profile, List<LevelDef> levels,
+    private CycleCurveResponse curveFromCounts(Profile profile, ActiveCurve active, List<LevelDef> levels,
                                                Map<String, Integer> counts, int headcount, int evaluated) {
-        BellCurve bc = profile == null ? null : profile.bellCurve();
+        BellCurve bc = active.curve();
         Set<String> valid = levels.stream().map(LevelDef::name).collect(Collectors.toSet());
         boolean configured = bc != null && bc.enabled() && !bc.targets().isEmpty()
                 && bc.targets().stream().anyMatch(t -> valid.contains(t.level()));
@@ -357,6 +384,7 @@ public class UnitClassificationService {
                 b.over(cur > maxQuota(max, headcount))
                         .under(cur < (int) Math.round(min * headcount / 100.0));
             }
+            b.projectedTargetPercent(active.projectedTargets().get(ld.name()));
             buckets.add(b.build());
         }
 
@@ -367,6 +395,10 @@ public class UnitClassificationService {
                 .tolerance(configured ? bc.tolerance() : 0)
                 .headcount(headcount).evaluated(evaluated)
                 .buckets(buckets)
+                .bscBand(active.band()).bscPercent(active.bscPercent()).bscFinalized(active.bscFinalized())
+                .projectedBand(active.projectedBand())
+                .bscExceedAt(bc != null && bc.bsc() != null ? bc.bsc().exceedAt() : null)
+                .bscMeetAt(bc != null && bc.bsc() != null ? bc.bsc().meetAt() : null)
                 .build();
     }
 
@@ -427,7 +459,7 @@ public class UnitClassificationService {
         if (levels.isEmpty()) return NO_PLAN;
 
         Profile profile = resolveProfile(unit, ruleContext(org, levels), cycleId);
-        BellCurve bc = profile == null ? null : profile.bellCurve();
+        BellCurve bc = activeCurve(profile, unit, cycleId, levels).curve();
         Set<String> valid = levels.stream().map(LevelDef::name).collect(Collectors.toSet());
         boolean configured = bc != null && bc.enabled() && !bc.targets().isEmpty()
                 && bc.targets().stream().anyMatch(t -> valid.contains(t.level()));
@@ -632,7 +664,7 @@ public class UnitClassificationService {
         if (levels.isEmpty()) return NO_CURVE;
 
         Profile profile = resolveProfile(unit, ruleContext(org, levels), cycleId);
-        BellCurve bc = profile == null ? null : profile.bellCurve();
+        BellCurve bc = activeCurve(profile, unit, cycleId, levels).curve();
         if (bc == null || !bc.enabled() || bc.targets().isEmpty()) return NO_CURVE;
 
         // Khung khai theo thang CŨ (đổi ma trận / sửa thang điểm) thì bỏ qua thay vì chặn theo
@@ -1021,7 +1053,69 @@ public class UnitClassificationService {
                 node.path("mode").asText("warn"),
                 node.path("minMembers").asInt(5),
                 node.path("tolerance").asDouble(5),
-                targets);
+                targets,
+                parseBscBands(node.path("bsc")));
+    }
+
+    /** Thiếu khối {@code bsc} ⇒ dùng mặc định (bật). Khối có mà thiếu trường ⇒ trường đó lấy mặc định. */
+    private BscBands parseBscBands(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) return DEFAULT_BSC_BANDS;
+        return new BscBands(
+                node.path("enabled").asBoolean(true),
+                node.path("exceedAt").asDouble(DEFAULT_BSC_BANDS.exceedAt()),
+                node.path("meetAt").asDouble(DEFAULT_BSC_BANDS.meetAt()),
+                parsePercents(node.path("exceed"), DEFAULT_BSC_BANDS.exceed()),
+                parsePercents(node.path("below"), DEFAULT_BSC_BANDS.below()));
+    }
+
+    private static List<Double> parsePercents(JsonNode arr, List<Double> fallback) {
+        if (arr == null || !arr.isArray() || arr.isEmpty()) return fallback;
+        List<Double> out = new ArrayList<>();
+        for (JsonNode n : arr) out.add(n.asDouble(0));
+        return out;
+    }
+
+    /**
+     * Chọn khung bell curve theo kết quả BSC của đơn vị trong kỳ. MỘT chỗ duy nhất — biểu đồ đánh giá
+     * kỳ, hiệu chỉnh, kiểm khi chốt đánh giá và Thống kê đều đi qua đây để nói cùng một khung.
+     */
+    private ActiveCurve activeCurve(Profile profile, OrgUnit unit, UUID cycleId, List<LevelDef> levels) {
+        BellCurve bc = profile == null ? null : profile.bellCurve();
+        if (bc == null || !bc.enabled() || bc.bsc() == null || !bc.bsc().enabled() || cycleId == null || unit == null) {
+            return new ActiveCurve(bc, null, null, false, null, Map.of());
+        }
+        Organization org = unit.getOrgHierarchyLevel() != null ? unit.getOrgHierarchyLevel().getOrganization() : null;
+        // Tổ chức không dùng BSC (tắt module) ⇒ bell curve chạy y như cũ, kể cả khi còn thẻ / kết quả BSC cũ.
+        if (org == null || !Boolean.TRUE.equals(org.getEnableBsc())) {
+            return new ActiveCurve(bc, null, null, false, null, Map.of());
+        }
+        UUID orgId = org.getId();
+        BscUnitCycleScore.Score score = bscUnitCycleScore.forCycle(unit, orgId, cycleId);
+        if (score.percent() == null) return new ActiveCurve(bc, null, null, false, null, Map.of());
+
+        String band = bandOf(score.percent(), bc.bsc().exceedAt(), bc.bsc().meetAt());
+        List<BellTarget> frame = bandTargets(bc, band, levels);
+        if (score.finalized()) {
+            return new ActiveCurve(bc.withTargets(frame), band, score.percent(), true, null, Map.of());
+        }
+        Map<String, Double> projected = new LinkedHashMap<>();
+        for (BellTarget t : frame) projected.put(t.level(), t.percent());
+        return new ActiveCurve(bc, null, score.percent(), false, band, projected);
+    }
+
+    /** Vượt ≥ exceedAt; Đạt [meetAt, exceedAt); Chưa đạt < meetAt (tính trên điểm BSC sau trần). */
+    static String bandOf(double percent, double exceedAt, double meetAt) {
+        return percent >= exceedAt ? "EXCEED" : percent >= meetAt ? "MEET" : "BELOW";
+    }
+
+    /** Mốc từng mức của một khung; khung "Vượt"/"Chưa đạt" khai theo vị trí, lệch số mức ⇒ khung mặc định. */
+    private static List<BellTarget> bandTargets(BellCurve bc, String band, List<LevelDef> levels) {
+        List<Double> byPosition = "EXCEED".equals(band) ? bc.bsc().exceed()
+                : "BELOW".equals(band) ? bc.bsc().below() : null;
+        if (byPosition == null || byPosition.size() != levels.size()) return bc.targets();
+        List<BellTarget> out = new ArrayList<>();
+        for (int i = 0; i < levels.size(); i++) out.add(new BellTarget(levels.get(i).name(), byPosition.get(i)));
+        return out;
     }
 
     private Map<UUID, String> loadPaths(List<Profile> profiles) {

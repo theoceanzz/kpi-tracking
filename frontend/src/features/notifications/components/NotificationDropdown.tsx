@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { useNotifications, useMarkAllRead, useMarkAsRead } from '../hooks/useNotifications'
+import { useState } from 'react'
+import { useNotifications, useMarkAllRead, useMarkAsRead, useUnreadCount } from '../hooks/useNotifications'
 import { formatDateTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { CheckCheck, Bell, Send, FileSearch, ShieldCheck, Target, Inbox, Layers, GitBranch, Calculator, Award, Coins, Gift, Wallet, Scale, Users, Lock, FileText, Share2, ArrowUpFromLine, CalendarClock, Volume2, VolumeX, MonitorUp } from 'lucide-react'
@@ -66,21 +66,22 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
   }
 
   const notifications = data?.content || []
-  const unreadCount = notifications.filter(n => !n.isRead).length
+  // Số chưa đọc của MỌI thông báo (máy chủ đếm), không chỉ 20 cái đang tải trong ô này.
+  const unreadCount = useUnreadCount().data ?? notifications.filter(n => !n.isRead).length
 
   // Chưa đọc lên đầu, phần đã đọc mới chia Hôm nay / Trước đó. Con số đỏ trên chuông đếm
   // đúng nhóm đầu tiên này — xếp lẫn theo ngày là người dùng phải tự dò xem cái nào chưa đọc.
   //
   // Chốt nhóm "chưa đọc" ở lần tải đầu của mỗi lần mở: bấm vào một thông báo là nó thành
   // đã đọc, xếp lại ngay thì dòng vừa bấm nhảy xuống dưới ngay dưới con trỏ.
-  const firstUnreadIds = useRef<Set<string> | null>(null)
-  if (firstUnreadIds.current === null && !isLoading && data) {
-    firstUnreadIds.current = new Set(notifications.filter(n => !n.isRead).map(n => n.id))
+  const [firstUnreadIds, setFirstUnreadIds] = useState<Set<string> | null>(null)
+  if (firstUnreadIds === null && !isLoading && data) {
+    setFirstUnreadIds(new Set(notifications.filter(n => !n.isRead).map(n => n.id)))
   }
   // Thông báo mới đến qua websocket khi đang mở cũng thuộc nhóm đầu, dù không có trong
   // ảnh chụp lúc mở.
   const isTopGroup = (n: { id: string; isRead: boolean }) =>
-    (firstUnreadIds.current?.has(n.id) ?? false) || !n.isRead
+    (firstUnreadIds?.has(n.id) ?? false) || !n.isRead
 
   const today = new Date().setHours(0, 0, 0, 0)
   const unreadNotifs = notifications.filter(isTopGroup)
@@ -146,7 +147,7 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
     <div
       role="dialog"
       aria-label={t('NotificationDropdown.notifications')}
-      className="fixed left-4 right-4 top-14 z-50 overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-popover)] shadow-lg animate-in fade-in-0 motion-reduce:animate-none sm:absolute sm:left-auto sm:right-0 sm:top-11 sm:w-[380px]"
+      className="fixed left-4 right-4 top-14 z-50 flex flex-col overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-popover)] shadow-lg animate-in fade-in-0 motion-reduce:animate-none sm:absolute sm:left-auto sm:right-0 sm:top-11 sm:w-[380px]"
     >
         {/* Header */}
       <div className="flex h-12 items-center justify-between border-b border-[var(--color-border)] px-4">
@@ -193,7 +194,8 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
         </div>
 
         {/* Content */}
-      <div className="custom-scrollbar max-h-[480px] overflow-y-auto">
+      {/* Chỉ phần danh sách cuộn; chân "Xem tất cả" luôn hiện (trước đây nằm cuối danh sách, phải cuộn hết mới thấy). */}
+      <div className="custom-scrollbar max-h-[min(480px,calc(100dvh-200px))] overflow-y-auto">
           {isLoading ? (
           <div className="space-y-4 p-4" aria-busy="true">
               {[1, 2, 3].map(i => (
@@ -219,18 +221,20 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
               {renderSection(t('NotificationDropdown.unread'), unreadNotifs)}
               {renderSection(t('NotificationDropdown.today'), todayNotifs)}
               {renderSection(t('NotificationDropdown.earlier'), olderNotifs)}
-            <div className="border-t border-[var(--color-border)] p-2">
-                <Link 
-                  to="/notifications"
-                  onClick={onClose}
-                className="flex h-8 items-center justify-center rounded-control text-[13px] font-medium text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-                >
-                  {t('NotificationDropdown.viewAllNotifications')}
-                </Link>
-              </div>
             </>
           )}
         </div>
+      {!isLoading && notifications.length > 0 && (
+        <div className="shrink-0 border-t border-[var(--color-border)] p-2">
+          <Link
+            to="/notifications"
+            onClick={onClose}
+            className="flex h-8 items-center justify-center rounded-control text-[13px] font-medium text-[var(--color-primary)] transition-colors hover:bg-[var(--color-muted)]"
+          >
+            {t('NotificationDropdown.viewAllNotifications')}
+          </Link>
+        </div>
+      )}
       </div>
   )
 }

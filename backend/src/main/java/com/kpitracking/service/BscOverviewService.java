@@ -88,10 +88,14 @@ public class BscOverviewService {
         Map<String, Integer> statusCounts = new LinkedHashMap<>();
         int withResult = 0, gateOk = 0, gateFail = 0;
         for (BscScorecard s : subtree) {
-            if (s.getId().equals(root.getId())) continue;
-            statusCounts.merge(s.getStatus() == null ? "DRAFT" : s.getStatus().name(), 1, Integer::sum);
+            if (!s.getId().equals(root.getId())) {
+                statusCounts.merge(s.getStatus() == null ? "DRAFT" : s.getStatus().name(), 1, Integer::sum);
+            }
+            // Chỉ đếm thẻ CÓ hạng mục chặn (kể cả thẻ gốc), đúng như widget "Đơn vị vướng hạng mục
+            // chặn". Thẻ không có cửa chặn luôn gatePassed = true — từng đếm cả chúng nên ô tóm tắt
+            // báo "4/4 qua" trong khi widget cạnh đó báo "1/1".
             BscUnitResult r = results.get(s.getId());
-            if (r == null) continue;
+            if (r == null || !hasGate(s)) continue;
             withResult++;
             if (Boolean.FALSE.equals(r.getGatePassed())) gateFail++;
             else gateOk++;
@@ -216,9 +220,9 @@ public class BscOverviewService {
                     .isGate(Boolean.TRUE.equals(row.getIsGate()))
                     .gateMinPercent(row.getGateMinPercent())
                     .gatePassed(it != null ? it.getGatePassed() : null)
+                    // Nguồn số tự nhận lúc tính kết quả — chưa tính thì chưa biết.
                     .measurementSource(it != null && it.getMeasurementSource() != null
-                            ? it.getMeasurementSource().name()
-                            : row.getMeasurementSource() != null ? row.getMeasurementSource().name() : null)
+                            ? it.getMeasurementSource().name() : null)
                     .origin(row.getOrigin() != null ? row.getOrigin().name() : null)
                     .parentScorecardName(row.getParentItem() != null && row.getParentItem().getScorecard() != null
                             ? row.getParentItem().getScorecard().getName() : null)
@@ -409,5 +413,10 @@ public class BscOverviewService {
 
     private static ScorecardCoverageResponse emptyCoverageResponse() {
         return ScorecardCoverageResponse.builder().items(List.of()).build();
+    }
+
+    private boolean hasGate(BscScorecard s) {
+        return s.getScorecardPerspectives() != null
+                && s.getScorecardPerspectives().stream().anyMatch(sp -> Boolean.TRUE.equals(sp.getIsGate()));
     }
 }

@@ -90,6 +90,8 @@ public class UnitClassificationResponses {
         private Integer maxCount;
         private boolean over;        // vượt trần
         private boolean under;       // dưới sàn
+        /** Mốc % của khung DỰ KIẾN (BSC đơn vị chưa chốt) — chỉ để tham khảo, không dùng để kiểm. */
+        private Double projectedTargetPercent;
     }
 
     /**
@@ -107,6 +109,19 @@ public class UnitClassificationResponses {
         private int headcount;       // tổng nhân sự (mẫu số của hạn mức)
         private int evaluated;       // số người đã có điểm kỳ
         private List<CurveBucket> buckets;  // cao → thấp
+        /**
+         * Khung đổi theo kết quả BSC của đơn vị: EXCEED / MEET / BELOW (null = không áp — chưa có số
+         * BSC, chưa chốt, hoặc hồ sơ tắt tính năng). Khi khác null thì {@code buckets} đã theo khung này.
+         */
+        private String bscBand;
+        /** Điểm BSC đơn vị của kỳ (sau trần) dùng để chọn khung; null = đơn vị chưa có số BSC. */
+        private Double bscPercent;
+        /** Mọi đợt đã chốt kết quả BSC đơn vị — chỉ khi đó khung mới đổi. */
+        private boolean bscFinalized;
+        /** BSC chưa chốt: khung SẼ áp nếu chốt đúng số hiện tại (bucket mang {@code projectedTargetPercent}). */
+        private String projectedBand;
+        private Double bscExceedAt;
+        private Double bscMeetAt;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor

@@ -58,6 +58,7 @@ public class EvaluationService {
     private final ConductService conductService;
     private final com.kpitracking.service.kpi.CycleLockChecker cycleLockChecker;
     private final com.kpitracking.service.kpi.CycleStatusGuard cycleStatusGuard;
+    private final EvaluationReadinessService readinessService;
     private final com.kpitracking.service.notification.NotificationDispatcher notificationDispatcher;
 
     // Khung bell curve cần đọc lại phân bố xếp loại của cả đơn vị, mà UnitClassificationService
@@ -200,6 +201,12 @@ public class EvaluationService {
                 evaluatedUser.getId(), kpiPeriod.getId(), currentUser.getId())
                 .orElse(new Evaluation());
 
+        // Quản lý chỉ chấm lần đầu khi nhân viên đã nộp đủ KPI + tự đánh giá, hoặc đợt đã kết thúc.
+        // Sửa lại bản mình đã chấm thì không chặn (bản cũ có thể chấm trước khi có luật này).
+        if (!isSelfEval && evaluation.getId() == null) {
+            readinessService.assertReady(kpiPeriod, evaluatedUser.getId(), evaluatedUser.getFullName());
+        }
+
         evaluation.setUser(evaluatedUser);
         evaluation.setEvaluator(currentUser);
         evaluation.setKpiPeriod(kpiPeriod);
@@ -235,7 +242,11 @@ public class EvaluationService {
             var bscResult = bscScoringService.computeForUser(
                     evaluatedUser.getId(), kpiPeriod.getId(), org.getId(),
                     Boolean.TRUE.equals(org.getEnableWaterfall()));
-            boolean isOfficial = bscResult != null
+            // Phiếu TỰ ĐÁNH GIÁ không phải điểm chính thức: không áp các chốt chặn BSC dưới đây và không
+            // thay điểm tự chấm bằng điểm BSC. Trước đây chặn cả phiếu tự đánh giá ⇒ nhân viên không tự
+            // đánh giá được vì dữ liệu BSC họ không sửa được, còn quản lý thì chờ "chưa tự đánh giá" —
+            // cả hai kẹt tới khi hết đợt. Các chốt vẫn chặn đúng chỗ: lúc quản lý chốt điểm.
+            boolean isOfficial = !isSelfEval && bscResult != null
                     && bscResult.getScoringMode() == com.kpitracking.enums.BscScoringMode.OFFICIAL;
 
             // Khi kỳ đã chạy CHÍNH THỨC, bsc_score là điểm thật ⇒ dữ liệu phải đủ:
@@ -373,7 +384,7 @@ public class EvaluationService {
         User currentUser = getCurrentUser();
         UUID targetUserId = userId != null ? userId : currentUser.getId();
 
-        kpiPeriodRepository.findById(kpiPeriodId)
+        KpiPeriod kpiPeriod = kpiPeriodRepository.findById(kpiPeriodId)
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", kpiPeriodId));
 
         java.util.List<com.kpitracking.entity.UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(targetUserId);
@@ -405,7 +416,11 @@ public class EvaluationService {
                 .matrixRating(rating)
                 .bonusScore(bonus)
                 .maxAllowedScore(Math.max(maxScore, SCORING_POOL + bonus))
+                .quantitativeWeight(parts[1])
                 .officialScore(systemScore);
+        if (!targetUserId.equals(currentUser.getId())) {
+            builder.scoringReadiness(readinessService.compute(kpiPeriod, targetUserId));
+        }
 
         // BSC preview (chỉ khi org bật BSC & kỳ đã có bộ tiêu chí)
         if (Boolean.TRUE.equals(org.getEnableBsc())) {
@@ -423,6 +438,39 @@ public class EvaluationService {
         }
 
         return builder.build();
+    }
+
+    /**
+     * Ai trong đơn vị (cả nhánh dưới; không truyền = cả tổ chức của đợt) đã đủ điều kiện để mình
+     * chấm đợt — chỉ trả những người mình có quyền chấm (EVALUATION:CREATE ở đơn vị của họ), trừ chính mình.
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<com.kpitracking.dto.response.evaluation.ScoringReadinessResponse> getScoringReadiness(UUID kpiPeriodId, UUID orgUnitId) {
+        User currentUser = getCurrentUser();
+        KpiPeriod kpiPeriod = kpiPeriodRepository.findById(kpiPeriodId)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", kpiPeriodId));
+        String path = "%";
+        if (orgUnitId != null) {
+            path = orgUnitRepository.findById(orgUnitId)
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", orgUnitId))
+                    .getPath() + "%";
+        }
+        java.util.List<UUID> candidateIds = userRoleOrgUnitRepository
+                .findUsersByOrgUnitPath(path, kpiPeriod.getOrganization().getId()).stream()
+                .map(User::getId)
+                .filter(id -> !id.equals(currentUser.getId()))
+                .toList();
+        if (candidateIds.isEmpty()) return java.util.List.of();
+
+        Map<UUID, Boolean> canEvaluateInUnit = new HashMap<>();
+        Set<UUID> allowed = new HashSet<>();
+        for (UserRoleOrgUnit a : userRoleOrgUnitRepository.findByUserIdInWithUnit(candidateIds)) {
+            boolean ok = canEvaluateInUnit.computeIfAbsent(a.getOrgUnit().getId(),
+                    unitId -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "EVALUATION:CREATE", unitId));
+            if (ok) allowed.add(a.getUser().getId());
+        }
+        return new java.util.ArrayList<>(readinessService.compute(kpiPeriod,
+                candidateIds.stream().filter(allowed::contains).toList()).values());
     }
 
     private Double calculateSystemScore(UUID userId, UUID kpiPeriodId) {

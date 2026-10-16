@@ -10,6 +10,6 @@ export function useEvaluations(params: {
   organizationId?: string;
   sortBy?: string;
   sortDir?: string;
-} = {}) {
-  return useQuery({ queryKey: ['evaluations', params], queryFn: () => evaluationApi.getAll(params) })
+} = {}, options: { enabled?: boolean } = {}) {
+  return useQuery({ queryKey: ['evaluations', params], queryFn: () => evaluationApi.getAll(params), enabled: options.enabled ?? true })
 }

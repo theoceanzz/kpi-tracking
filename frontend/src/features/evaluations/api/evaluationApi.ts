@@ -1,6 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import type { Evaluation, CreateEvaluationRequest, EvaluationScorePreview } from '@/types/evaluation'
+import type { Evaluation, CreateEvaluationRequest, EvaluationScorePreview, ScoringReadiness } from '@/types/evaluation'
 
 export const evaluationApi = {
   getAll: (params: { 
@@ -26,4 +26,8 @@ export const evaluationApi = {
 
   getScorePreview: (kpiPeriodId: string, userId?: string) =>
     axiosInstance.get<ApiResponse<EvaluationScorePreview>>('/evaluations/score-preview', { params: { kpiPeriodId, userId } }).then((r) => r.data.data),
+
+  /** Ai trong đơn vị (cả nhánh dưới) đã đủ điều kiện để mình chấm đợt — nộp đủ KPI + tự đánh giá, hoặc đợt đã hết. */
+  getScoringReadiness: (kpiPeriodId: string, orgUnitId?: string) =>
+    axiosInstance.get<ApiResponse<ScoringReadiness[]>>('/evaluations/scoring-readiness', { params: { kpiPeriodId, orgUnitId } }).then((r) => r.data.data),
 }

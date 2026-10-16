@@ -73,6 +73,17 @@ export interface UnitClassBellCurve {
   /** Dung sai ± quanh mốc (điểm %). */
   tolerance: number
   targets: UnitBellTarget[]
+  /** Đổi khung theo kết quả BSC của đơn vị (vắng mặt = mặc định, bật). */
+  bsc?: UnitClassBscBands
+}
+
+/** Khung theo BSC đơn vị: Vượt ≥ exceedAt dùng `exceed`, Chưa đạt < meetAt dùng `below` (theo vị trí mức, cao → thấp). */
+export interface UnitClassBscBands {
+  enabled: boolean
+  exceedAt: number
+  meetAt: number
+  exceed: number[]
+  below: number[]
 }
 
 /** Một HỒ SƠ luật xếp loại: gán cho (các) đơn vị và (tuỳ chọn) (các) kỳ. Đơn vị con kế thừa hồ sơ của cha. */

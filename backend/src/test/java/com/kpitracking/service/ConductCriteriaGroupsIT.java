@@ -163,6 +163,72 @@ class ConductCriteriaGroupsIT {
         assertThat(flat.getCriteria()).hasSize(4).allSatisfy(c -> assertThat(c.getGroupId()).isNull());
     }
 
+    /** Lưu lại bộ (kể cả không đổi gì) từng xoá mềm + chèn lại TẤT CẢ dòng — bảng phình, id đổi. */
+    @Test
+    void resavingWithIds_updatesInPlace_insteadOfInsertingNewRows() {
+        ConductSetResponse set = createGrouped(uniq("Sửa tại chỗ"), List.of());
+        List<UUID> groupIds = set.getGroups().stream().map(g -> g.getId()).toList();
+        List<UUID> criteriaIds = set.getCriteria().stream().map(c -> c.getId()).toList();
+        em.flush();
+        Integer rowsBefore = jdbc.queryForObject(
+                "SELECT count(*) FROM conduct_criteria WHERE conduct_criteria_set_id = ?", Integer.class, set.getId());
+
+        // Gửi lại y nguyên những gì giao diện đang giữ (kèm id), chỉ đổi tên một tiêu chí.
+        List<ConductGroupRequest> resend = set.getGroups().stream().map(g -> ConductGroupRequest.builder()
+                .id(g.getId()).name(g.getName()).weight(g.getWeight())
+                .criteria(g.getCriteria().stream().map(c -> ConductCriteriaRequest.builder()
+                        .id(c.getId()).name(c.getName()).description(c.getDescription()).weight(c.getWeight()).build())
+                        .toList())
+                .build()).toList();
+        resend.get(0).getCriteria().get(0).setName("Đã đổi tên");
+        conductService.updateSet(DEMO1, set.getId(), ConductSetRequest.builder().name(set.getName()).groups(resend).build());
+        ConductSetResponse saved = conductService.updateSet(DEMO1, set.getId(),
+                        ConductSetRequest.builder().name(set.getName()).groups(resend).build())
+                .getSets().stream().filter(s -> s.getId().equals(set.getId())).findFirst().orElseThrow();
+
+        em.flush();
+
+        assertThat(saved.getGroups()).extracting(g -> g.getId()).containsExactlyElementsOf(groupIds);
+        assertThat(saved.getCriteria()).extracting(c -> c.getId()).containsExactlyElementsOf(criteriaIds);
+        assertThat(saved.getCriteria().get(0).getName()).isEqualTo("Đã đổi tên");
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM conduct_criteria WHERE conduct_criteria_set_id = ?", Integer.class, set.getId()))
+                .isEqualTo(rowsBefore);
+    }
+
+    @Test
+    void resaving_dropsOnlyRemovedRows_andInsertsOnlyNewOnes() {
+        ConductSetResponse set = createGrouped(uniq("Bỏ một thêm một"), List.of());
+        em.flush();
+        var g0 = set.getGroups().get(0);
+        UUID removed = g0.getCriteria().get(4).getId();
+
+        // Nhóm đầu: giữ 4 tiêu chí cũ (20% mỗi cái), bỏ cái thứ 5, thêm một tiêu chí mới 20%.
+        List<ConductCriteriaRequest> first = new ArrayList<>(g0.getCriteria().subList(0, 4).stream()
+                .map(c -> ConductCriteriaRequest.builder().id(c.getId()).name(c.getName()).weight(c.getWeight()).build())
+                .toList());
+        first.add(ConductCriteriaRequest.builder().name("Mới").weight(20.0).build());
+        List<ConductGroupRequest> groups = new ArrayList<>(set.getGroups().stream().skip(1).map(g -> ConductGroupRequest.builder()
+                .id(g.getId()).name(g.getName()).weight(g.getWeight())
+                .criteria(g.getCriteria().stream().map(c -> ConductCriteriaRequest.builder()
+                        .id(c.getId()).name(c.getName()).weight(c.getWeight()).build()).toList())
+                .build()).toList());
+        groups.add(0, ConductGroupRequest.builder().id(g0.getId()).name(g0.getName()).weight(g0.getWeight()).criteria(first).build());
+
+        ConductSetResponse saved = conductService.updateSet(DEMO1, set.getId(),
+                        ConductSetRequest.builder().name(set.getName()).groups(groups).build())
+                .getSets().stream().filter(s -> s.getId().equals(set.getId())).findFirst().orElseThrow();
+        em.flush();
+
+        assertThat(saved.getCriteria()).hasSize(21).extracting(c -> c.getId()).doesNotContain(removed);
+        assertThat(jdbc.queryForObject(
+                "SELECT deleted_at IS NOT NULL FROM conduct_criteria WHERE id = ?", Boolean.class, removed)).isTrue();
+        // 21 dòng ban đầu + đúng 1 dòng mới.
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM conduct_criteria WHERE conduct_criteria_set_id = ?", Integer.class, set.getId()))
+                .isEqualTo(22);
+    }
+
     // ── phiếu chấm ──────────────────────────────────────────────────────────
 
     @Test

@@ -320,6 +320,30 @@ export default function TourHost() {
     return () => document.removeEventListener('click', onClick, true)
   }, [current])
 
+  // Bấm ra ngoài hộp hướng dẫn = thoát bài, y như nút X (giữ bước đang dở để lần sau hỏi học tiếp).
+  // Joyride tự xử lý thì nó đóng bước mà bộ chạy không biết, nên tắt ở Joyride và bắt ở đây.
+  // Không tính là "ra ngoài": bấm trong hộp, bấm vào chính phần tử đang tô sáng (bước cho bấm, nút
+  // "bấm vào đây"), và bấm trong danh sách chọn / popover / menu đang mở hoặc bong bóng K.AI.
+  // Dùng `click` chứ không `pointerdown`: vuốt để cuộn trên điện thoại không được làm mất bài.
+  useEffect(() => {
+    if (!armed) return
+    const onClick = (e: MouseEvent) => {
+      const el = e.target
+      if (!(el instanceof Element) || !el.isConnected) return
+      if (el.closest('[data-tour-tooltip],[data-radix-popper-content-wrapper],[role="listbox"],[role="menu"],[data-ai-widget]')) return
+      const step = stepsRef.current[indexRef.current]
+      const target = step && step.target !== 'body' ? resolveTarget(step.target) : null
+      if (target) {
+        const r = target.getBoundingClientRect()
+        const pad = 6 // = spotlightPadding
+        if (e.clientX >= r.left - pad && e.clientX <= r.right + pad && e.clientY >= r.top - pad && e.clientY <= r.bottom + pad) return
+      }
+      latest.current.close()
+    }
+    window.addEventListener('click', onClick, true)
+    return () => window.removeEventListener('click', onClick, true)
+  }, [armed])
+
   // Cờ trên <body> cho CSS: hiện các nút vốn chỉ hiện khi rê chuột (xem `[data-tour-reveal]`).
   useEffect(() => {
     if (!armed) return

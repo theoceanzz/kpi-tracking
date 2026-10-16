@@ -3,6 +3,7 @@ import i18n from 'i18next'
 import { Scale, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import CollapsibleCard from '@/components/common/CollapsibleCard'
 import BellCurveChart from '@/components/charts/BellCurveChart'
+import BscFrameNote from '@/components/charts/BscFrameNote'
 import { cn } from '@/lib/utils'
 import type { CycleCurve } from '@/types/kpi'
 import { useTranslation } from 'react-i18next'
@@ -99,6 +100,7 @@ export default function CycleBellCurveCard({ curve, orgUnitName, defaultOpen = f
   function Chart() {
     return (
       <div className={compact ? 'space-y-2' : 'space-y-4'}>
+        <BscFrameNote curve={curve} />
         <BellCurveChart curve={curve} height={compact ? 170 : 260} compact={compact} showIssues={false} />
         {compact && modeBadge}
 

@@ -78,6 +78,14 @@ export const bscApi = {
       .post<ApiResponse<ScorecardCoverageResponse>>(`/bsc/scorecards/${scorecardId}/cascade`, data)
       .then(r => r.data.data),
 
+  /** Thu hồi MỘT chỉ tiêu đã phân rã khỏi một đơn vị. */
+  revokeCascade: (scorecardId: string, scorecardPerspectiveId: string, orgUnitId: string) =>
+    axiosInstance
+      .delete<ApiResponse<ScorecardCoverageResponse>>(`/bsc/scorecards/${scorecardId}/cascade`, {
+        params: { scorecardPerspectiveId, orgUnitId },
+      })
+      .then(r => r.data.data),
+
   getWholeCascade: (scorecardId: string) =>
     axiosInstance
       .get<ApiResponse<WholeCascadeResponse>>(`/bsc/scorecards/${scorecardId}/whole-cascade`)
@@ -113,7 +121,8 @@ export const bscApi = {
   getUnitResult: (scorecardId: string, kpiPeriodId: string) =>
     axiosInstance
       .get<ApiResponse<UnitResultResponse | null>>(`/bsc/scorecards/${scorecardId}/results`, { params: { kpiPeriodId } })
-      .then(r => r.data.data),
+      // Đợt chưa tính thì backend trả data rỗng; React Query không nhận undefined làm dữ liệu.
+      .then(r => r.data.data ?? null),
 
   recomputeUnitResult: (scorecardId: string, kpiPeriodId: string) =>
     axiosInstance

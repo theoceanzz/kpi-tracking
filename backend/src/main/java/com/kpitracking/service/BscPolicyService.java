@@ -48,6 +48,7 @@ public class BscPolicyService {
     private final OrganizationRepository organizationRepository;
     private final KpiCycleRepository kpiCycleRepository;
     private final KpiPeriodRepository kpiPeriodRepository;
+    private final BscCycleLockGuard cycleLockGuard;
 
     @Transactional(readOnly = true)
     public List<CascadePolicyResponse> list(UUID organizationId) {
@@ -65,6 +66,7 @@ public class BscPolicyService {
         KpiCycle cycle = resolveCycle(request.getKpiCycleId());
         List<KpiPeriod> periods = resolvePeriods(request.getKpiPeriodIds());
         assertScopeSane(cycle, periods);
+        assertScopeWritable(cycle, periods);
         assertNoConflict(organizationId, cycle, periods, null);
 
         BscCascadePolicy policy = BscCascadePolicy.builder()
@@ -82,9 +84,12 @@ public class BscPolicyService {
         BscCascadePolicy policy = policyRepository.findById(policyId)
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.coefficientPolicy"), "id", policyId));
         validate(request);
+        // Kỳ đã khoá: chính sách đang áp cho nó là một phần hồ sơ kỳ — không sửa, không chuyển đi.
+        assertScopeWritable(policy.getKpiCycle(), policy.getKpiPeriods());
         KpiCycle cycle = resolveCycle(request.getKpiCycleId());
         List<KpiPeriod> periods = resolvePeriods(request.getKpiPeriodIds());
         assertScopeSane(cycle, periods);
+        assertScopeWritable(cycle, periods);
         assertNoConflict(policy.getOrganization().getId(), cycle, periods, policy.getId());
         policy.setName(request.getName().trim());
         policy.setKpiCycle(cycle);
@@ -102,12 +107,18 @@ public class BscPolicyService {
     public void delete(UUID policyId) {
         BscCascadePolicy policy = policyRepository.findById(policyId)
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.coefficientPolicy"), "id", policyId));
+        assertScopeWritable(policy.getKpiCycle(), policy.getKpiPeriods());
         // Soft delete: kết quả đã chốt vẫn trỏ tới chính sách này qua cascade_policy_id.
         policy.setDeletedAt(Instant.now());
         policyRepository.save(policy);
     }
 
     // ============================================================
+
+    private void assertScopeWritable(KpiCycle cycle, List<KpiPeriod> periods) {
+        if (cycle != null) cycleLockGuard.assertWritable(cycle);
+        cycleLockGuard.assertWritable(periods);
+    }
 
     private void apply(BscCascadePolicy policy, CascadePolicyRequest r) {
         if (r.getRecognizedCapPercent() != null) policy.setRecognizedCapPercent(r.getRecognizedCapPercent());

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Client } from '@stomp/stompjs'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -147,6 +147,19 @@ export function useWebSocketNotifications() {
               if (!old || typeof old !== 'object' || !('content' in old)) return old
               if (old.content.some((n) => n.id === notification.id)) alreadyListed = true
               return { ...old, content: [notification, ...old.content.filter((n) => n.id !== notification.id)] }
+            }
+          )
+          // Trang "Tất cả thông báo" tải dần (dạng nhiều trang): lên đầu trang 1, bỏ bản cũ ở mọi trang.
+          qc.setQueriesData<InfiniteData<CursorPageResponse<Notification>>>(
+            { queryKey: ['notifications', 'feed'] },
+            (old) => {
+              if (!old || typeof old !== 'object' || !('pages' in old) || old.pages.length === 0) return old
+              if (old.pages.some((p) => p.content.some((n) => n.id === notification.id))) alreadyListed = true
+              const pages = old.pages.map((p, i) => ({
+                ...p,
+                content: [...(i === 0 ? [notification] : []), ...p.content.filter((n) => n.id !== notification.id)],
+              }))
+              return { ...old, pages }
             }
           )
 

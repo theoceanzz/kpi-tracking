@@ -1,7 +1,8 @@
 import * as React from 'react'
+import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type ChoiceChipVariant = 'soft' | 'solid' | 'segment'
+export type ChoiceChipVariant = 'soft' | 'solid' | 'segment' | 'check'
 
 export interface ChoiceChipProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   selected: boolean
@@ -9,6 +10,8 @@ export interface ChoiceChipProps extends React.ButtonHTMLAttributes<HTMLButtonEl
    * `soft`: nền primary-soft khi chọn (mặc định, dùng cho chip lọc/chọn giá trị).
    * `solid`: nền primary đặc — khi lựa chọn là quyết định chính của form (vd loại chỉ tiêu).
    * `segment`: nút trong khay `bg-muted p-0.5`, chọn thì nổi nền card — dạng segmented.
+   * `check`: ô tick vuông 24px cho dòng chọn được (tự vẽ dấu ✓). Lúc chưa chọn có viền đậm —
+   *   `solid` chưa chọn chỉ là ô xám nhạt, đặt trên dòng bị làm mờ thì gần như không thấy.
    */
   variant?: ChoiceChipVariant
   size?: 'sm' | 'default'
@@ -26,7 +29,7 @@ export const ChoiceChip = React.forwardRef<HTMLButtonElement, ChoiceChipProps>(
       'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors',
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2',
       'disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-3.5 [&_svg]:shrink-0',
-      size === 'sm' ? 'h-7 px-2.5 text-xs' : 'h-8 px-3 text-[13px]',
+      variant === 'check' ? 'h-6 w-6 p-0 [&_svg]:size-4' : size === 'sm' ? 'h-7 px-2.5 text-xs' : 'h-8 px-3 text-[13px]',
     )
     const look = {
       soft: selected
@@ -38,10 +41,13 @@ export const ChoiceChip = React.forwardRef<HTMLButtonElement, ChoiceChipProps>(
       segment: selected
         ? 'bg-[var(--color-card)] text-[var(--color-foreground)] shadow-sm'
         : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]',
+      check: selected
+        ? 'border-2 border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-foreground)] hover:bg-[var(--color-primary-hover)]'
+        : 'border-2 border-[var(--color-border-strong)] bg-[var(--color-card)] hover:border-[var(--color-primary)]',
     }[variant]
     return (
       <button ref={ref} type={type} aria-pressed={selected} className={cn(base, look, className)} {...props}>
-        {children}
+        {variant === 'check' ? (selected && (children ?? <Check aria-hidden="true" strokeWidth={3} />)) : children}
       </button>
     )
   },

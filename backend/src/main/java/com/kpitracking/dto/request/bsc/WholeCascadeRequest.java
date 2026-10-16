@@ -21,7 +21,7 @@ public class WholeCascadeRequest {
     private String itemName;
 
     /** Lĩnh vực của dòng — các báo cáo theo lĩnh vực sẽ dồn phần này vào đây. */
-    @NotNull
+    /** Không còn dùng (giao cả bộ kiểu mới đưa xuống đúng các chỉ tiêu của thẻ nguồn) — giữ cho client cũ. */
     private BscFixedPerspective fixedPerspective;
 
     /** Giao mới hoặc cập nhật trọng số. */

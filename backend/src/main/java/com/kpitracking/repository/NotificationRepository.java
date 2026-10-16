@@ -72,4 +72,10 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     java.util.Optional<Notification> findRecentUnread(@Param("userId") UUID userId, @Param("type") String type,
                                                       @Param("referenceId") UUID referenceId,
                                                       @Param("since") java.time.Instant since);
+
+    /** Những người đã có thông báo loại này từ {@code since} — để bản tóm tắt mỗi ngày chỉ gửi một lần. */
+    @org.springframework.data.jpa.repository.Query(value = """
+            SELECT DISTINCT user_id FROM notifications WHERE type = :type AND created_at >= :since
+            """, nativeQuery = true)
+    java.util.List<UUID> usersNotifiedSince(@Param("type") String type, @Param("since") java.time.Instant since);
 }

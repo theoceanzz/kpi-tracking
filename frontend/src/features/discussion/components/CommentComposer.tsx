@@ -12,6 +12,7 @@ import { discussionApi } from '../api/discussionApi'
 import { COLLAB_ACCEPT, COLLAB_EXTENSIONS, COLLAB_MAX_FILES_PER_COMMENT, checkFiles, isImageName } from '../attachments'
 import { PickFromLibraryButton } from '@/features/documents/components/DocumentPickerDialog'
 import type { DiscussionTargetType, MentionCandidate } from '../types'
+import MentionText from './MentionText'
 
 export interface ComposerSubmit {
   body: string
@@ -64,6 +65,7 @@ export default function CommentComposer({
   const [activeIdx, setActiveIdx] = useState(0)
   const [debounced, setDebounced] = useState('')
   const ref = useRef<HTMLTextAreaElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const draft = useStateDraft(text, setText, { key: `discussion:${draftKey}`, enabled: !initialText })
 
@@ -236,19 +238,33 @@ export default function CommentComposer({
       )}
 
       <div className="flex items-end gap-2">
-        {/* Ô soạn chat — ngoại lệ có chủ đích của quy ước Input/Textarea (CLAUDE.md). */}
-        <textarea
-          ref={ref}
-          value={text}
-          rows={1}
-          onChange={onChange}
-          onKeyDown={onKeyDown}
-          onPaste={onPaste}
-          onBlur={() => setTimeout(() => setMentionAt(null), 150)}
-          placeholder={placeholder ?? t('composer.placeholder')}
-          maxLength={5000}
-          className="no-edit-hint min-h-[36px] flex-1 resize-none bg-transparent px-1 py-2 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)]"
-        />
+        {/* Ô soạn chat — ngoại lệ có chủ đích của quy ước Input/Textarea (CLAUDE.md). Textarea chữ trong suốt nằm trên
+            một lớp nền vẽ lại đúng nội dung, nhờ vậy "@Tên" đã chọn hiện màu ngay khi soạn. Hai lớp phải cùng font,
+            padding, cách xuống dòng; thanh cuộn của textarea bị ẩn để bề rộng dòng hai bên luôn bằng nhau. */}
+        <div className="relative min-w-0 flex-1">
+          <div
+            ref={backdropRef}
+            aria-hidden
+            className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-1 py-2 text-sm text-[var(--color-foreground)]"
+          >
+            <MentionText text={text} names={mentions.map((m) => m.fullName)} className="text-[var(--color-primary)]" />
+            {/* Dòng trống cuối (sau Shift+Enter) vẫn phải chiếm chỗ như trong textarea. */}
+            {String.fromCharCode(0x200b)}
+          </div>
+          <textarea
+            ref={ref}
+            value={text}
+            rows={1}
+            onChange={onChange}
+            onKeyDown={onKeyDown}
+            onPaste={onPaste}
+            onScroll={(e) => { if (backdropRef.current) backdropRef.current.scrollTop = e.currentTarget.scrollTop }}
+            onBlur={() => setTimeout(() => setMentionAt(null), 150)}
+            placeholder={placeholder ?? t('composer.placeholder')}
+            maxLength={5000}
+            className="no-edit-hint relative block min-h-[36px] w-full resize-none whitespace-pre-wrap break-words bg-transparent px-1 py-2 text-sm text-transparent caret-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          />
+        </div>
         {allowFiles && (
           <>
             <input

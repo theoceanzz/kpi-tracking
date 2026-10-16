@@ -19,4 +19,6 @@ public class CoverageChildResponse {
     private Double contributionPercent;
     private Double targetValue;
     private Double weightPercentage;
+    /** Đơn vị nhận chỉ tiêu này qua "giao cả bộ" (X% cả bộ) — thu hồi ở tab Giao cả bộ, không ở đây. */
+    private Double wholeSharePercent;
 }

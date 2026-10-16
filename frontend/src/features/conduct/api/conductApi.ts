@@ -54,14 +54,20 @@ export interface ConductConfig {
   sets: ConductSet[]
 }
 
+/** Tiêu chí khi lưu bộ: `id` của tiêu chí đang có (sửa tại chỗ) hoặc bỏ trống (tiêu chí mới). */
+export type ConductCriteriaInput = Omit<ConductCriteria, 'id' | 'position' | 'groupId'> & { id?: string | null }
+
 /** Trường bỏ trống = giữ nguyên, nên chỉ gửi đúng phần vừa sửa. */
 export interface ConductSetInput {
   name: string
   maxScore?: number | null
   kpiCycleIds?: string[] | null
-  criteria?: Omit<ConductCriteria, 'id' | 'position' | 'groupId'>[] | null
-  /** Bộ chia nhóm: có phần tử thì thay cả bộ bằng các nhóm này (criteria bị bỏ qua); [] = về bộ phẳng. */
-  groups?: { name: string; weight: number; criteria: Omit<ConductCriteria, 'id' | 'position' | 'groupId'>[] }[] | null
+  criteria?: ConductCriteriaInput[] | null
+  /**
+   * Bộ chia nhóm: có phần tử thì thay cả bộ bằng các nhóm này (criteria bị bỏ qua); [] = về bộ phẳng.
+   * Nhóm / tiêu chí mang `id` đang có thì server sửa tại chỗ; không id = dòng mới; dòng vắng mặt bị xoá mềm.
+   */
+  groups?: { id?: string | null; name: string; weight: number; criteria: ConductCriteriaInput[] }[] | null
   /** Chỉ khi TẠO: chép tiêu chí từ bộ này (bỏ trống = chép bộ mặc định). */
   copyFromSetId?: string | null
 }

@@ -64,6 +64,15 @@ public class EvaluationController {
         return ResponseEntity.ok(ApiResponse.success(score));
     }
 
+    @GetMapping("/scoring-readiness")
+    @PreAuthorize("hasAuthority('EVALUATION:CREATE')")
+    @Operation(summary = "Who in the unit is ready to be scored by the manager for a period")
+    public ResponseEntity<ApiResponse<java.util.List<com.kpitracking.dto.response.evaluation.ScoringReadinessResponse>>> getScoringReadiness(
+            @RequestParam UUID kpiPeriodId,
+            @RequestParam(required = false) UUID orgUnitId) {
+        return ResponseEntity.ok(ApiResponse.success(evaluationService.getScoringReadiness(kpiPeriodId, orgUnitId)));
+    }
+
     @GetMapping("/score-preview")
     @Operation(summary = "Get computed scores (system + behavior + matrix rating) for a period")
     public ResponseEntity<ApiResponse<com.kpitracking.dto.response.evaluation.EvaluationScorePreview>> getScorePreview(

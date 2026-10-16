@@ -41,7 +41,8 @@
     "newComments": "New comments",
     "readOnly": "You can only view this discussion.",
     "hideSystem": "Hide system activity",
-    "showSystem": "Show system activity"
+    "showSystem": "Show system activity",
+    "older": "Show older comments"
   },
   "link": {
     "notFound": "This comment could not be opened"

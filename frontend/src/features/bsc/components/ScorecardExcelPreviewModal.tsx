@@ -249,7 +249,10 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
       utils.book_append_sheet(wb, ws, t('ScorecardExcelPreviewModal.bscScorecard'))
       const wbout = write(wb, { type: 'array', bookType: 'xlsx' })
       const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-      onImport(new File([blob], file?.name || 'import_scorecards.xlsx', { type: blob.type }))
+      // Tệp gửi lên LUÔN là .xlsx vừa dựng ở trên (kể cả khi người dùng chọn mẫu .csv) — giữ tên gốc
+      // đuôi .csv thì backend từ chối vì chỉ nhận .xlsx.
+      const xlsxName = (file?.name || 'import_scorecards').replace(/\.(csv|xlsx?)$/i, '') + '.xlsx'
+      onImport(new File([blob], xlsxName, { type: blob.type }))
     } catch { toast.error(t('ScorecardExcelPreviewModal.errorCreatingTheImportFile')) }
   }
 

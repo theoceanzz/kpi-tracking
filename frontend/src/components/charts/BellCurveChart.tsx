@@ -21,6 +21,7 @@ type Row = {
   over: boolean
   under: boolean
   band: [number, number] | null
+  projected: number | null
 }
 
 function toRow(b: CycleCurveBucket): Row {
@@ -37,6 +38,7 @@ function toRow(b: CycleCurveBucket): Row {
     over: b.over,
     under: b.under,
     band: b.minPercent != null && b.maxPercent != null ? [b.minPercent, b.maxPercent] : null,
+    projected: b.projectedTargetPercent ?? null,
   }
 }
 
@@ -67,6 +69,9 @@ function CurveTooltip({ active, payload, headcount, complete }: {
         </>
       ) : (
         <p className="text-[var(--color-subtle-foreground)] italic">{t('BellCurveChart.thisLevelIsNotInThe')}</p>
+      )}
+      {d.projected != null && d.projected !== d.target && (
+        <p className="text-[var(--color-muted-foreground)] mt-1">{t('BellCurveChart.projectedFrame', { value: d.projected })}</p>
       )}
     </div>
   )

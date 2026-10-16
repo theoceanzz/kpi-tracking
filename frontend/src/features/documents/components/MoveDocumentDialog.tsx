@@ -8,10 +8,12 @@ import { useDocumentFolders, useMoveDocument } from '../hooks/useDocuments'
 import type { DocumentFolder, KbDocument } from '../types'
 
 /**
- * Chọn thư mục đích để chuyển tài liệu. Chỉ duyệt trong ĐÚNG phạm vi của tài liệu (cùng kho cá nhân / đơn vị /
- * công ty) — chuyển sang phạm vi khác là đổi quyền xem, việc đó làm ở ô "Phạm vi" trong drawer.
+ * "Di chuyển đến": chọn thư mục đích cho một hoặc nhiều tài liệu (chọn nhiều ở Drive — cùng một phạm vi). Chỉ duyệt trong
+ * ĐÚNG phạm vi của tài liệu (cùng kho cá nhân / đơn vị / công ty) — chuyển sang phạm vi khác là đổi quyền xem, việc đó làm
+ * ở ô "Phạm vi" trong drawer.
  */
-export default function MoveDocumentDialog({ doc, onClose }: { doc: KbDocument; onClose: () => void }) {
+export default function MoveDocumentDialog({ docs, onClose }: { docs: KbDocument[]; onClose: () => void }) {
+  const doc = docs[0]!
   const { t } = useTranslation('documents')
   const move = useMoveDocument()
   const [at, setAt] = useState<DocumentFolder | null>(null)
@@ -21,7 +23,7 @@ export default function MoveDocumentDialog({ doc, onClose }: { doc: KbDocument; 
 
   const rootLabel = doc.scope === 'PERSONAL' ? t('location.mine') : doc.scope === 'UNIT' ? (doc.orgUnitName ?? t('scope.UNIT')) : t('scope.COMPANY')
   const target = at?.id ?? null
-  const same = target === (doc.folderId ?? null)
+  const same = docs.every(d => (d.folderId ?? null) === target)
 
   return (
     <Dialog
@@ -29,14 +31,14 @@ export default function MoveDocumentDialog({ doc, onClose }: { doc: KbDocument; 
       onClose={onClose}
       size="md"
       dismissible={!move.isPending}
-      title={t('move.title', { title: doc.title })}
+      title={docs.length === 1 ? t('move.title', { title: doc.title }) : t('move.titleMany', { count: docs.length })}
       description={t('move.description')}
       footer={
         <DialogFooter
           note={same ? t('move.alreadyHere') : undefined}
           secondary={<Button variant="outline" onClick={onClose} disabled={move.isPending}>{t('common.cancel')}</Button>}
           primary={
-            <Button disabled={same || move.isPending} onClick={() => move.mutate({ id: doc.id, folderId: target }, { onSuccess: onClose })}>
+            <Button disabled={same || move.isPending} onClick={() => move.mutate({ ids: docs.filter(d => (d.folderId ?? null) !== target).map(d => d.id), folderId: target }, { onSuccess: onClose })}>
               {move.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
               {t('move.here')}
             </Button>

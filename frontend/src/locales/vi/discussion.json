@@ -41,7 +41,8 @@
     "newComments": "Có bình luận mới",
     "readOnly": "Bạn chỉ xem được cuộc thảo luận này.",
     "hideSystem": "Ẩn hoạt động hệ thống",
-    "showSystem": "Hiện hoạt động hệ thống"
+    "showSystem": "Hiện hoạt động hệ thống",
+    "older": "Xem bình luận cũ hơn"
   },
   "link": {
     "notFound": "Không mở được bình luận này"

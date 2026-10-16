@@ -149,8 +149,10 @@
     "scoreRating": "Score · Rating",
     "searchEmployees": "Search employees…",
     "selfScore": "Self-score",
+    "selfAssess": "Self-assess",
+    "selfAssessHint": "This is you — your period is scored by the head of the parent unit; here you can only self-assess.",
     "theUnitHasNoMembersYet": "The unit has no members yet",
-    "thisPeriodHasEndedPeopleWho": "This period has ended — people who did not submit are marked \"Not submitted\".",
+    "thisPeriodHasEndedPeopleWho": "This period has ended — people who did not submit are marked \"Not submitted\". You can now score everyone; KPIs not submitted score 0.",
     "tryAnotherKeywordOrClearThe": "Try another keyword or clear the search.",
     "unit": "Unit",
     "viewEvaluation": "View evaluation"
@@ -565,5 +567,13 @@
     "levelOf": "level {{level}}",
     "selfLevel": "Self-assessed: {{level}}",
     "behaviorScale": "behaviour scale"
+  },
+  "ScoringReadiness": {
+    "submitted": "Submitted {{submitted}}/{{required}} KPIs",
+    "noKpi": "No KPIs in this period",
+    "selfEvalMissing": "Self-assessment not done",
+    "missing": "Missing: {{names}}",
+    "rule": "You can score once the employee has submitted every KPI for the period and completed the self-assessment, or after the period ends (KPIs not submitted score 0).",
+    "title": "Cannot score yet"
   }
 }

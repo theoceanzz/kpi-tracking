@@ -67,6 +67,23 @@ export interface EvaluationScorePreview {
   bscPerspectives?: PerspectiveScoreResponse[] | null
   bscCoveragePercent?: number | null
   bscUnassignedKpis?: string[] | null
+  /** Tổng trọng số KPI định lượng (trừ KPI thưởng) trên MỌI KPI được giao, kể cả chưa nộp. */
+  quantitativeWeight?: number | null
+  /** Quản lý đã chấm được người này chưa (chỉ có khi xem điểm của người khác). */
+  scoringReadiness?: ScoringReadiness | null
+}
+
+// Matches BE: ScoringReadinessResponse — xem EvaluationReadinessService.
+export interface ScoringReadiness {
+  userId: string
+  requiredKpiCount: number
+  submittedKpiCount: number
+  missingKpiNames: string[]
+  selfEvaluationRequired: boolean
+  selfEvaluated: boolean
+  /** Đợt đã kết thúc ⇒ chấm được luôn, KPI chưa nộp tính 0. */
+  periodEnded: boolean
+  ready: boolean
 }
 
 // Frontend-only: evaluation layer type for UI display

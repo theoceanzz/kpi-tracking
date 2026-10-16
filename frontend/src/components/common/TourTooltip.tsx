@@ -36,6 +36,8 @@ export function TourTooltip({ step, tooltipProps }: TooltipRenderProps) {
   const card = (
     <div
       {...tooltipProps}
+      // Bấm ngoài hộp này là thoát bài (xem `TourHost`) — đánh dấu để nhận ra "trong hộp".
+      data-tour-tooltip=""
       className={cn(
         'flex flex-col rounded-card border border-[var(--color-border-strong)] bg-[var(--color-card)] text-[var(--color-foreground)] shadow-2xl animate-in fade-in zoom-in-95 duration-200',
         narrow
@@ -107,7 +109,8 @@ export function TourResumePrompt({ title, current, total, onResume, onRestart, o
 }) {
   const { t } = useTranslation('shared')
   return (
-    <div className="fixed inset-0 z-[1400] flex items-center justify-center bg-black/30 p-4">
+    // Bấm ra nền tối ngoài hộp = đóng, như mọi hộp hướng dẫn khác.
+    <div className="fixed inset-0 z-[1400] flex items-center justify-center bg-black/30 p-4" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div
         role="dialog"
         aria-modal="true"

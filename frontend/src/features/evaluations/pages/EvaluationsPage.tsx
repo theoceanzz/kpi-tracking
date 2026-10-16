@@ -20,6 +20,8 @@ import type { Evaluation } from '@/types/evaluation'
 import { Star, Plus, TrendingUp, AlertCircle, ClipboardCheck, Inbox, Eye } from 'lucide-react'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import FilterBar from '@/components/common/FilterBar'
+import ScopeSelectItems from '@/components/common/ScopeSelectItems'
+import { pickCurrentOrNearest } from '@/components/common/dateScope'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Pagination from '@/components/common/Pagination'
@@ -58,9 +60,21 @@ export default function EvaluationsPage() {
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
-  // Filter states
-  const [selectedKpiPeriodId, setSelectedKpiPeriodId] = useState('ALL')
+  // Đợt người dùng tự chọn; rỗng = chưa chọn ⇒ dùng đợt mặc định (tính bên dưới, sau khi có danh sách đợt).
+  const [pickedKpiPeriodId, setSelectedKpiPeriodId] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
 
+  // Đợt đang xem — luôn là MỘT đợt (không có "Tất cả đợt"), như trang chấm đợt. Vào trang: đợt trên
+  // URL (luồng nhắc việc mang theo) nếu có, không thì đợt đang chạy — kẽ giữa hai đợt thì đợt gần nhất.
+  // Suy ra lúc render chứ không setState trong effect; rỗng = danh sách đợt chưa tải ⇒ chưa gọi API.
+  const { data: periodsData, isLoading: isLoadingPeriods } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
+  const periods = useMemo(() => periodsData?.content ?? [], [periodsData])
+  const urlPeriodId = searchParams.get('periodId')
+  const defaultPeriodId = useMemo(
+    () => ((urlPeriodId && periods.find(p => p.id === urlPeriodId)) || pickCurrentOrNearest(periods))?.id ?? '',
+    [periods, urlPeriodId],
+  )
+  const selectedKpiPeriodId = pickedKpiPeriodId || defaultPeriodId
 
   // Tải trọn phạm vi đang lọc để gom nhóm theo người cho đủ — phân trang 10 bản ghi/trang
   // sẽ cắt ngang một người thành hai trang. Phân trang lại theo NGƯỜI ở phía dưới.
@@ -69,15 +83,14 @@ export default function EvaluationsPage() {
     size: GROUPING_FETCH_SIZE,
     sortBy,
     sortDir,
-    kpiPeriodId: selectedKpiPeriodId === 'ALL' ? undefined : selectedKpiPeriodId,
+    kpiPeriodId: selectedKpiPeriodId || undefined,
     organizationId: user?.memberships?.[0]?.organizationId,
-  })
+  }, { enabled: !!selectedKpiPeriodId })
 
   // Modal states
   const [showForm, setShowForm] = useState(false)
   useTourModal('eval.form', () => { if (canCreate) setShowForm(true) }, () => setShowForm(false))
   const [detailEval, setDetailEval] = useState<Evaluation | null>(null)
-  const [searchParams, setSearchParams] = useSearchParams()
   const [preSelectedPeriodId, setPreSelectedPeriodId] = useState<string | undefined>()
 
   // Handle auto-open self-evaluation from URL
@@ -96,10 +109,7 @@ export default function EvaluationsPage() {
   }, [searchParams, setSearchParams])
 
   // Fetch reference data for filters
-  const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
   const { data: orgUnitTreeData } = useOrgUnitTree()
-
-  const periods = periodsData?.content ?? []
 
   // Logic for reminders and single evaluation
   const now = new Date()
@@ -318,7 +328,7 @@ export default function EvaluationsPage() {
 
   const tableColSpan = personMode ? 5 : 6
   const reminderDue = activePeriod && hasKpiInActivePeriod && !hasSelfEvalForActivePeriod && isNearDeadline
-  const emptyTitle = selectedKpiPeriodId !== 'ALL' ? t('EvaluationsPage.noEvaluationsForThisPeriodYet') : canViewAll ? t('EvaluationsPage.noEvaluationsYet') : t('EvaluationsPage.youHaveNoEvaluationsYet')
+  const emptyTitle = selectedKpiPeriodId ? t('EvaluationsPage.noEvaluationsForThisPeriodYet') : canViewAll ? t('EvaluationsPage.noEvaluationsYet') : t('EvaluationsPage.youHaveNoEvaluationsYet')
   const emptyDesc = canViewAll ? t('EvaluationsPage.evaluationsAppearWhenAPersonSelf') : t('EvaluationsPage.onceYouSelfAssessOrYour')
 
   return (
@@ -355,10 +365,9 @@ export default function EvaluationsPage() {
         <Select value={selectedKpiPeriodId} onValueChange={val => { setSelectedKpiPeriodId(val); setPage(0); resetGroups() }}>
           <SelectTrigger {...tourAnchor('eval.period')} className="w-full sm:w-auto sm:min-w-52" aria-label={t('EvaluationsPage.evaluationPeriods')}><SelectValue placeholder={t('EvaluationsPage.evaluationPeriods')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">{t('EvaluationsPage.allPeriods')}</SelectItem>
-            {periods.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <ScopeSelectItems items={periods} selectedId={selectedKpiPeriodId} />
+          </SelectContent>
+        </Select>
         <Select value={`${sortBy}:${sortDir}`} onValueChange={v => { const [f, d] = v.split(':'); if (f && d) { setSortBy(f); setSortDir(d as 'asc' | 'desc'); setPage(0) } }}>
           <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label={t('EvaluationsPage.order')}><SelectValue placeholder={t('EvaluationsPage.order')} /></SelectTrigger>
           <SelectContent>
@@ -368,9 +377,6 @@ export default function EvaluationsPage() {
             <SelectItem value="score:asc">{t('EvaluationsPage.scoreLowHigh')}</SelectItem>
           </SelectContent>
         </Select>
-            {selectedKpiPeriodId !== 'ALL' && (
-          <Button variant="ghost" size="sm" onClick={() => { setSelectedKpiPeriodId('ALL'); setPage(0) }}>{t('EvaluationsPage.clearFilters')}</Button>
-            )}
       </FilterBar>
 
       {hitFetchCap && (
@@ -380,7 +386,8 @@ export default function EvaluationsPage() {
         </div>
       )}
 
-      {isLoading ? (
+      {/* Chưa chọn được đợt (đợt đang tải / sắp tự chọn) thì vẫn là đang tải, không phải "chưa có đánh giá". */}
+      {isLoading || (!selectedKpiPeriodId && (isLoadingPeriods || periods.length > 0)) ? (
         <LoadingSkeleton type="table" rows={6} />
       ) : evaluations.length === 0 ? (
         <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">

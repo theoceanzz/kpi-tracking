@@ -25,6 +25,7 @@ public class FormRegistry {
     public static final String EVALUATION_FORM = "evaluation_form";
     public static final String KPI_ADJUSTMENT_FORM = "kpi_adjustment_form";
     public static final String ORG_UNIT_DRAWER_FORM = "org_unit_drawer_form";
+    public static final String TASK_FORM = "task_form";
 
     /**
      * Ô của form tạo/sửa chỉ tiêu KPI. Phản chiếu {@code frontend/src/features/kpi/schemas/kpiSchema.ts}
@@ -143,6 +144,31 @@ public class FormRegistry {
                     // (OrgUnitDrawerFormFillTool.relationOf); đơn vị gốc không có ô này trên màn hình.
                     Field.enumOf("parentRelation", "Quan hệ với đơn vị cấp trên", parentRelationLabels())));
 
+    /**
+     * Hộp tạo công việc (trang Công việc). Phản chiếu {@code frontend/src/features/tasks/schemas/taskFormSchema.ts}.
+     * Cố ý BỎ phạm vi xem, người theo dõi, danh sách: đổi ai được thấy việc là thao tác người dùng tự bấm.
+     */
+    private static final Descriptor TASK = new Descriptor(
+            TASK_FORM,
+            "Tạo công việc",
+            "suggest_task_form",
+            List.of(
+                    Field.text("title", "Tên công việc"),
+                    Field.text("description", "Mô tả"),
+                    Field.date("startDate", "Ngày bắt đầu"),
+                    Field.date("dueDate", "Hạn"),
+                    Field.enumOf("priority", "Ưu tiên", priorityLabels()),
+                    Field.entityList("assigneeIds", "Người thực hiện"),
+                    Field.entity("kpiId", "KPI")));
+
+    private static Map<String, String> priorityLabels() {
+        Map<String, String> m = new LinkedHashMap<>();
+        m.put("HIGH", "Cao");
+        m.put("MEDIUM", "Trung bình");
+        m.put("LOW", "Thấp");
+        return m;
+    }
+
     private static Map<String, String> parentRelationLabels() {
         Map<String, String> m = new LinkedHashMap<>();
         m.put("DIRECT", "Trực tuyến");
@@ -180,6 +206,7 @@ public class FormRegistry {
         byFormId.put(EVALUATION.formId(), EVALUATION);
         byFormId.put(KPI_ADJUSTMENT.formId(), KPI_ADJUSTMENT);
         byFormId.put(ORG_UNIT_DRAWER.formId(), ORG_UNIT_DRAWER);
+        byFormId.put(TASK.formId(), TASK);
     }
 
     /** Bản mô tả của form đang mở; {@code null} nếu client nêu một formId không có thật. */

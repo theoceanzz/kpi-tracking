@@ -48,7 +48,7 @@ export default function HeaderBreadcrumb() {
         <ArrowLeft aria-hidden="true" />
       </Button>
 
-      <nav aria-label={t('HeaderBreadcrumb.breadcrumb')} className="flex min-w-0 items-center gap-1.5 text-[13px]">
+      <nav aria-label={t('HeaderBreadcrumb.breadcrumb')} className="hidden min-w-0 items-center gap-1.5 text-[13px] sm:flex">
         <Button variant="ghost" className="shrink-0" onClick={goBack}>
           {labelOf(owner)}
         </Button>

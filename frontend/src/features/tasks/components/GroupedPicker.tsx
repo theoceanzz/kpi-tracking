@@ -104,7 +104,7 @@ export default function GroupedPicker({
           )}
         >
           <span className={cn('flex min-w-0 items-center gap-2', !selected && 'text-[var(--color-muted-foreground)]')}>
-            {selected && people && <UserAvatar fullName={selected.name} avatarUrl={selected.avatarUrl} className="h-5 w-5 rounded-full text-[9px]" />}
+            {selected && people && <UserAvatar fullName={selected.name} avatarUrl={selected.avatarUrl} className="h-5 w-5 rounded-full text-[9px]" fallbackClassName="bg-[var(--color-primary-soft)] font-semibold text-[var(--color-primary)]" />}
             <span className="truncate">{selected ? label(selected) : placeholder}</span>
             {selected?.groupName && !people && <span className="truncate text-xs text-[var(--color-subtle-foreground)]">· {selected.groupName}</span>}
           </span>
@@ -140,7 +140,7 @@ export default function GroupedPicker({
               {g.items.map((o) => (
                 <button key={o.id} type="button" onClick={() => pick(o.id)}
                   className={cn('flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-[var(--color-muted)]', o.id === value && 'bg-[var(--color-primary-soft)]')}>
-                  {people && <UserAvatar fullName={o.name} avatarUrl={o.avatarUrl} className="h-6 w-6 shrink-0 rounded-full text-[9px]" />}
+                  {people && <UserAvatar fullName={o.name} avatarUrl={o.avatarUrl} className="h-6 w-6 shrink-0 rounded-full text-[9px]" fallbackClassName="bg-[var(--color-primary-soft)] font-semibold text-[var(--color-primary)]" />}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm text-[var(--color-foreground)]">{label(o)}</span>
                     {people && o.detail && <span className="block truncate text-[11px] text-[var(--color-subtle-foreground)]">{o.detail}</span>}

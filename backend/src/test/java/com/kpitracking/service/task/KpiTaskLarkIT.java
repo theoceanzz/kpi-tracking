@@ -218,9 +218,16 @@ class KpiTaskLarkIT extends CollabITSupport {
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.TASK_PARENT_HAS_OPEN_SUBTASKS));
         assertThat(done(taskService.get(parent.getId()), true).getStatus()).isEqualTo(KpiTaskStatus.DONE);
 
-        // Việc con không có việc con.
-        assertThatThrownBy(() -> taskService.create(CreateKpiTaskRequest.builder().parentTaskId(a.getId()).title("Cháu").build()))
-                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.TASK_SUBTASK_NESTED));
+        // Việc con nhiều cấp: tối đa 5 cấp (gốc = cấp 1), cấp thứ 6 bị chặn.
+        UUID deepest = a.getId();
+        for (int level = 3; level <= KpiTaskService.MAX_DEPTH + 1; level++) {
+            deepest = taskService.create(CreateKpiTaskRequest.builder().parentTaskId(deepest).title("Cấp " + level).build()).getId();
+        }
+        UUID last = deepest;
+        assertThat(taskService.get(last).getDepth()).isEqualTo(KpiTaskService.MAX_DEPTH);
+        assertThat(taskService.get(last).getKpiId()).isEqualTo(kpiId);   // cả cây theo KPI của gốc
+        assertThatThrownBy(() -> taskService.create(CreateKpiTaskRequest.builder().parentTaskId(last).title("Quá sâu").build()))
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.TASK_SUBTASK_TOO_DEEP));
     }
 
     // ── 9. Nhắc trước 1 giờ ───────────────────────────────────────────────────────────────────

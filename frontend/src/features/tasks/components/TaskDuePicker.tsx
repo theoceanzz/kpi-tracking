@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { format, parse, isValid } from 'date-fns'
 import { DayPicker } from 'react-day-picker'
@@ -9,31 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { dateFnsLocale, formatDate } from '@/i18n/format'
 import { cn } from '@/lib/utils'
 import { addDays, endOfWorkWeek, todayIso } from '../taskUtils'
-
-/**
- * Cùng bộ class lịch với DateTimePicker của form tạo đợt / kỳ. Lưu ý: `nav` định vị tuyệt đối — DayPicker phải nằm
- * trong một khung `relative` của riêng nó, không thì hai mũi tên bám vào mép popover và đè lên phần khác.
- */
-const DAY_PICKER_CLASS_NAMES = {
-  months: 'flex flex-col',
-  month: 'space-y-2',
-  month_caption: 'flex justify-center relative items-center h-9 px-8',
-  caption_label: 'text-sm font-medium text-[var(--color-foreground)] capitalize',
-  nav: 'absolute inset-x-0 top-0 flex justify-between',
-  button_previous: 'h-9 w-9 flex items-center justify-center rounded-card text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-colors',
-  button_next: 'h-9 w-9 flex items-center justify-center rounded-card text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-colors',
-  weekdays: 'flex',
-  weekday: 'w-9 h-8 text-center text-caption uppercase',
-  weeks: '',
-  week: 'flex mt-1',
-  day: 'w-9 h-9 p-0 text-center flex items-center justify-center',
-  day_button: 'w-9 h-9 rounded-card text-sm font-medium transition-colors hover:bg-[var(--color-muted)]',
-  selected: 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)] rounded-card hover:bg-[var(--color-primary-hover)] font-semibold',
-  today: 'text-[var(--color-primary)] font-semibold',
-  outside: 'opacity-30',
-  disabled: 'opacity-20 cursor-not-allowed',
-  hidden: 'invisible',
-}
+import { DAY_PICKER_CLASS_NAMES } from './dayPickerStyles'
 
 const Chevron = (props: { orientation?: string }) =>
   props.orientation === 'left' ? <ChevronLeft size={16} /> : <ChevronRight size={16} />
@@ -58,6 +34,13 @@ interface Props {
   className?: string
   tone?: string
   size?: 'sm' | 'default'
+  /** Ô trong bảng (kiểu Lark): chỉ hiện chữ ngắn; icon lịch + nút xoá hạn chỉ hiện khi rê chuột. */
+  compact?: boolean
+  /** Chữ hiển thị thay cho ngày đầy đủ (vd. "Hôm nay"). */
+  display?: string
+  /** Sau chữ ngày (vd. icon chuông / lặp ở ô hạn kiểu Lark). */
+  suffix?: ReactNode
+  title?: string
 }
 
 /**
@@ -65,7 +48,7 @@ interface Props {
  * công tắc "Đặt giờ" và Xong. Bật "Đặt giờ" mới hiện hai cột cuộn giờ – phút (24 giờ) bên trái lịch; tắt = hạn cả ngày.
  * Điện thoại: cột giờ nằm dưới lịch, thấp lại.
  */
-export default function TaskDuePicker({ value, onChange, disabled, placeholder, className, tone, size = 'default' }: Props) {
+export default function TaskDuePicker({ value, onChange, disabled, placeholder, className, tone, size = 'default', compact, display: displayOverride, suffix, title }: Props) {
   const { t } = useTranslation('tasks')
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<DueValue>(value)
@@ -87,7 +70,7 @@ export default function TaskDuePicker({ value, onChange, disabled, placeholder, 
   const minute = draft.time ? Number(draft.time.slice(3, 5)) : null
   const setTime = (h: number, m: number) => setDraft((d) => ({ ...d, date: d.date ?? todayIso(), time: `${pad(h)}:${pad(m)}` }))
 
-  const display = value.date ? `${formatDate(value.date)}${value.time ? ` ${value.time.slice(0, 5)}` : ''}` : (placeholder ?? t('due.pick'))
+  const display = value.date ? (displayOverride ?? `${formatDate(value.date)}${value.time ? ` ${value.time.slice(0, 5)}` : ''}`) : (placeholder ?? t('due.pick'))
   const today = todayIso()
   const quick: { label: string; date: string }[] = [
     { label: t('due.today'), date: today },
@@ -98,19 +81,24 @@ export default function TaskDuePicker({ value, onChange, disabled, placeholder, 
   return (
     <Popover open={open} onOpenChange={openWith}>
       <PopoverTrigger asChild>
-        <button type="button" disabled={disabled}
+        <button type="button" disabled={disabled} title={title}
           className={cn(
             'flex w-full items-center gap-2 rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 text-left text-sm transition-colors hover:border-[var(--color-border-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] disabled:cursor-not-allowed disabled:opacity-50',
             size === 'sm' ? 'h-8 text-xs' : 'h-9',
+            compact && 'group/due gap-1',
             className,
           )}>
-          <CalendarClock size={14} className="shrink-0 text-[var(--color-subtle-foreground)]" />
-          <span className={cn('flex-1 truncate', value.date ? (tone ?? 'text-[var(--color-foreground)]') : 'text-[var(--color-muted-foreground)]')}>{display}</span>
+          {/* Ô gọn (bảng): chưa có ngày ⇒ chỉ icon lịch mờ như Lark; có ngày ⇒ icon chỉ hiện khi rê. */}
+          <CalendarClock size={compact && !value.date ? 16 : 14} className={cn('shrink-0',
+            compact && value.date ? 'hidden text-[var(--color-subtle-foreground)] group-hover/due:block' : compact ? 'text-[var(--color-muted-foreground)]' : 'text-[var(--color-subtle-foreground)]')} />
+          <span className={cn('min-w-0 truncate', !compact && 'flex-1', value.date ? (tone ?? 'text-[var(--color-foreground)]') : 'text-[var(--color-muted-foreground)]')}>{display}</span>
+          {value.date && suffix}
+          {compact && <span className="flex-1" />}
           {value.date && !disabled && (
             <span role="button" tabIndex={0} aria-label={t('detail.clearDue')}
               onClick={(e) => { e.stopPropagation(); commit({ date: null, time: null }) }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); commit({ date: null, time: null }) } }}
-              className="rounded p-0.5 text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]">
+              className={cn('rounded p-0.5 text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]', compact && 'hidden group-hover/due:block')}>
               <X size={13} />
             </span>
           )}

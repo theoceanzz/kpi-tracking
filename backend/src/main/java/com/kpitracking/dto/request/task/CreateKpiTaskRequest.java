@@ -5,13 +5,16 @@ import com.kpitracking.enums.KpiTaskVisibility;
 import lombok.*;
 
 import com.kpitracking.entity.TaskRecurrence;
+import com.kpitracking.entity.TaskSourceRef;
+import com.kpitracking.enums.TaskCompletionMode;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
-/** Tạo công việc. KPI và tên là bắt buộc — service trả mã lỗi riêng (TASK_KPI_REQUIRED / TASK_TITLE_REQUIRED). */
+/** Tạo công việc. Chỉ tên là bắt buộc (TASK_TITLE_REQUIRED); KPI tuỳ chọn — có KPI thì luật KPI áp như cũ. */
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class CreateKpiTaskRequest {
 
@@ -35,4 +38,19 @@ public class CreateKpiTaskRequest {
     private List<KpiTaskReminderInput> reminders;
     private TaskRecurrence recurrence;
     private LocalDate recurrenceEndDate;
+
+    // ── V42 ──
+    /** Người thực hiện (nhiều người); bỏ trống = {@code ownerId} hoặc chính người tạo. Người đầu tiên là người chính. */
+    private List<UUID> assigneeIds;
+    private TaskCompletionMode completionMode;
+    private LocalDate startDate;
+    private LocalTime startTime;
+    /** Thêm ngay vào danh sách (và nhóm) này — cần quyền EDITOR trên danh sách. */
+    private UUID listId;
+    private UUID sectionId;
+    private List<UUID> tagIds;
+    /** Giá trị trường tuỳ chỉnh của {@code listId}: fieldId → giá trị. */
+    private Map<UUID, Object> fieldValues;
+    /** Tạo từ bình luận / tài liệu / K.AI. */
+    private TaskSourceRef sourceRef;
 }

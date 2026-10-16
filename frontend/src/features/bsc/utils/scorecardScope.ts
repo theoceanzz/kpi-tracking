@@ -4,13 +4,18 @@
 
 type PeriodScoped = { periods?: { id: string }[] | null; status?: string | null }
 
-/** Bộ đã đóng / lưu trữ thôi chấm điểm — cùng luật với backend `BscScorecardStatus.isRetired`. */
-const isRetired = (sc: PeriodScoped) => sc.status === 'CLOSED' || sc.status === 'ARCHIVED'
+/**
+ * Bộ ĐÃ DUYỆT mới chấm điểm (và mới bắt KPI gắn hạng mục) — cùng luật với backend
+ * `BscScorecardStatus.isScoring`. Nháp / chờ duyệt (kể cả thẻ phân rã tự sinh) và thẻ đã đóng thì
+ * chưa. `APPROVED` là trạng thái cũ, vẫn tính là đang chấm.
+ */
+export const isScoringScorecard = (sc: PeriodScoped) =>
+  !sc.status || sc.status === 'ACTIVE' || sc.status === 'APPROVED'
 
 /** Bộ tiêu chí này có áp dụng cho đợt `periodId` không. */
 export const scorecardAppliesToPeriod = (sc: PeriodScoped, periodId?: string | null): boolean =>
   !!periodId && (sc.periods || []).some(p => p.id === periodId)
 
-/** Lọc các bộ tiêu chí ĐANG DÙNG áp cho một đợt (bỏ bộ đã đóng / lưu trữ). */
+/** Lọc các bộ tiêu chí ĐANG CHẤM ĐIỂM cho một đợt (bỏ bộ nháp / chờ duyệt / đã đóng). */
 export const scorecardsForPeriod = <T extends PeriodScoped>(scorecards: T[] | undefined, periodId?: string | null): T[] =>
-  !periodId ? [] : (scorecards || []).filter(sc => !isRetired(sc) && scorecardAppliesToPeriod(sc, periodId))
+  !periodId ? [] : (scorecards || []).filter(sc => isScoringScorecard(sc) && scorecardAppliesToPeriod(sc, periodId))

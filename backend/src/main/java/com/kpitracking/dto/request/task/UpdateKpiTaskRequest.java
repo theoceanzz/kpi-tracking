@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import com.kpitracking.entity.TaskRecurrence;
+import com.kpitracking.enums.TaskCompletionMode;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -36,4 +37,11 @@ public class UpdateKpiTaskRequest {
     private boolean clearRecurrenceEndDate;
     /** Việc lặp: THIS = chỉ lần này; FOLLOWING = lần này và các lần sau (mặc định THIS). */
     private String scope;
+
+    // ── V42 ──
+    private LocalDate startDate;
+    private boolean clearStartDate;
+    private LocalTime startTime;
+    private boolean clearStartTime;
+    private TaskCompletionMode completionMode;
 }

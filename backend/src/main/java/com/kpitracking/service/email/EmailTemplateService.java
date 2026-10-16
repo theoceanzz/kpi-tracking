@@ -63,8 +63,13 @@ public class EmailTemplateService {
     private final com.kpitracking.repository.UserRepository userRepository;
     private final com.kpitracking.repository.UserRoleOrgUnitRepository userRoleOrgUnitRepository;
 
-    @Value("${app.frontend-url:${app.cors.allowed-origins:http://localhost:3000}}")
     private String frontendUrl;
+
+    /** FRONTEND_URL có thể liệt kê nhiều domain cách nhau dấu phẩy — link trong email dùng domain đầu tiên. */
+    @Value("${app.frontend-url:${app.cors.allowed-origins:http://localhost:3000}}")
+    void setFrontendUrl(String frontendUrl) {
+        this.frontendUrl = frontendUrl.split(",")[0].trim().replaceAll("/+$", "");
+    }
 
     public String getFrontendUrl() {
         return frontendUrl;
