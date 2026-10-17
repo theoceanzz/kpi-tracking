@@ -264,5 +264,96 @@
   "route": "/me?section=my-rewards",
   "role": "staff",
   "description": "Số dư điểm ghi nhận, cửa hàng quà và lịch sử đổi quà."
+ },
+ {
+  "id": "don-tu-nop-don",
+  "title": "Đơn từ — Nộp đơn",
+  "route": "/requests?tab=submit",
+  "role": "staff",
+  "description": "Các mẫu đơn mình được nộp, chia theo nhóm; ô tìm phía trên, nút Tạo đơn bằng K.AI."
+ },
+ {
+  "id": "don-tu-hop-nop",
+  "title": "Đơn từ — Hộp nộp đơn",
+  "route": "/requests?tab=submit",
+  "role": "staff",
+  "description": "Điền các ô của mẫu; phần Quy trình duyệt bên dưới tự tính người duyệt theo nội dung đang điền."
+ },
+ {
+  "id": "don-tu-trang-thai",
+  "title": "Đơn từ — Trạng thái đơn của người nộp",
+  "route": "/requests?tab=status",
+  "role": "staff",
+  "description": "Đơn mình đã nộp, đang ở bước nào, chờ ai; đơn còn chờ duyệt thì rút được."
+ },
+ {
+  "id": "don-tu-can-duyet",
+  "title": "Đơn từ — Đơn cần tôi duyệt",
+  "route": "/requests?tab=status",
+  "role": "head",
+  "description": "Người duyệt thấy các đơn đang chờ đúng mình; mở đơn để duyệt hoặc từ chối kèm lý do."
+ },
+ {
+  "id": "don-tu-quan-tri",
+  "title": "Đơn từ — Quản trị đơn từ",
+  "route": "/requests?tab=admin",
+  "role": "director",
+  "description": "Nhóm đơn và các mẫu đơn: bật / tắt, sắp xếp, đặt tên theo ngôn ngữ, nhân bản, xoá."
+ },
+ {
+  "id": "don-tu-thu-vien-mau",
+  "title": "Đơn từ — Thư viện mẫu",
+  "route": "/requests?tab=admin",
+  "role": "director",
+  "description": "Tạo đơn nhanh từ mẫu dựng sẵn (nghỉ phép, tăng ca, thanh toán, mua sắm…) hoặc tự thiết kế."
+ },
+ {
+  "id": "don-tu-thiet-ke",
+  "title": "Đơn từ — Thiết kế mẫu đơn",
+  "route": "/requests?tab=admin",
+  "role": "director",
+  "description": "Hai bước: Thông tin cơ bản (tên, nhóm, ai được nộp, người quản trị mẫu) và Thiết kế form (kéo widget, ô bắt buộc, điều kiện hiện); sau đó các bước duyệt của riêng mẫu."
+ },
+ {
+  "id": "quy-trinh-duyet-danh-sach",
+  "title": "Quy trình duyệt — Danh sách",
+  "route": "/company?section=approval-processes",
+  "role": "director",
+  "description": "Các quy trình duyệt theo điều kiện cho KPI, BSC, Quà thưởng và Đơn từ; bật / tắt áp dụng."
+ },
+ {
+  "id": "quy-trinh-duyet-so-do",
+  "title": "Quy trình duyệt — Vẽ sơ đồ",
+  "route": "/company?section=approval-processes",
+  "role": "director",
+  "description": "Bắt đầu → Điều kiện → Bước duyệt → Đã duyệt / Không duyệt. Bấm một node để thêm bước, bấm đúp để cài người duyệt hoặc điều kiện."
+ },
+ {
+  "id": "cho-toi-duyet",
+  "title": "Chờ tôi duyệt",
+  "route": "/performance?section=process-approvals",
+  "role": "head",
+  "description": "Một hộp chung cho mọi yêu cầu đang ở bước của mình: chỉ tiêu, điều chỉnh, báo cáo, đánh giá, chốt kỳ, BSC, thưởng. Đơn từ có hộp Cần duyệt riêng ở mục Đơn từ."
+ },
+ {
+  "id": "phieu-cham-cot-ai",
+  "title": "Phiếu chấm — cột AI chấm",
+  "route": "/performance?section=submissions-org-unit",
+  "role": "head",
+  "description": "Bốn cột Hệ thống / Quản lý / AI / Sếp; ô AI có nút Gợi ý, thanh điểm và con mắt xem cách AI chấm."
+ },
+ {
+  "id": "cai-dat-ai-cham-bai",
+  "title": "Cài đặt AI gợi ý điểm khi chấm",
+  "route": "/settings/tools?section=ai-review",
+  "role": "director",
+  "description": "Bật / tắt cho cả công ty, thang điểm AI nhiều mức, đơn vị tắt AI, bộ tiêu chí và báo cáo lệch."
+ },
+ {
+  "id": "kai-tao-don",
+  "title": "K.AI tạo đơn hộ",
+  "route": "/ai-assistant",
+  "role": "staff",
+  "description": "K.AI chọn mẫu, điền bản nháp; thẻ Mở đơn để nộp đưa sang hộp nộp đơn đã điền sẵn, người dùng tự nộp."
  }
 ]
