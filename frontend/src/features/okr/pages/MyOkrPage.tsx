@@ -7,6 +7,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
+import { useApiAllowed } from '@/hooks/useApiAllowed'
 import { useMyUnitChain, useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
 import { isMyActiveKpi, kpiWorkState } from '@/features/kpi/utils/myKpiStatus'
@@ -85,15 +86,28 @@ export default function MyOkrPage() {
   const { data: objectives, isLoading: loadingObjectives } = useObjectives(organizationId)
   const { hasPermission } = usePermission()
   const { data: kpiPage, isLoading: loadingKpis } = useMyKpi({ size: 500 })
+  // Giám đốc / phó giám đốc không nhận KPI cá nhân (không có KPI:VIEW_MY) ⇒ không có lựa chọn
+  // "mục tiêu tôi đang góp", trang mở thẳng ở cấp đơn vị của họ (thường là công ty).
+  const canSeeMyKpis = useApiAllowed('GET', '/kpi-criteria/my')
+  // Nút phân tích dẫn tới mục người xem VÀO ĐƯỢC (cùng quyền với cây nav Thống kê): người nộp báo cáo
+  // → "Mục tiêu của tôi"; quản lý không nộp báo cáo (giám đốc) → "Mục tiêu đơn vị tôi quản lý"; không
+  // có mục nào thì ẩn nút, khỏi dẫn sang một trang trống.
+  const analyticsSection = !hasPermission('DASHBOARD:VIEW') ? null
+    : hasPermission('SUBMISSION:CREATE') ? 'my-objectives'
+      : hasPermission('KPI:VIEW') || hasPermission('SUBMISSION:REVIEW') ? 'subordinate'
+        : null
 
   // Chưa có KPI nào gắn OKR thì mở sẵn cấp đơn vị mình để trang không trống; có rồi thì việc của
   // mình đứng trước.
   const [scope, setScope] = useState<string | null>(null)
   useEffect(() => {
-    if (scope !== null || !kpiPage || levels.length === 0) return
+    if (scope !== null || levels.length === 0) return
+    // Không chờ kpiPage: query đó bị tắt khi thiếu quyền nên sẽ không bao giờ có dữ liệu.
+    if (!canSeeMyKpis) { setScope(levels[0]!.unitId); return }
+    if (!kpiPage) return
     const hasLinked = (kpiPage.content ?? []).some(k => isMyActiveKpi(k, user?.id) && (k.keyResultId || k.objectiveId))
     setScope(hasLinked ? MINE : (levels[0]?.unitId ?? MINE))
-  }, [kpiPage, scope, user?.id, levels])
+  }, [kpiPage, scope, user?.id, levels, canSeeMyKpis])
   const effectiveScope: string = scope ?? MINE
   const level = levels.find(l => l.unitId === effectiveScope)
   const [search, setSearch] = useState('')
@@ -158,15 +172,19 @@ export default function MyOkrPage() {
         stats={[
           { label: t('MyOkrPage.target'), value: stats.objectives, icon: Target },
           { label: t('MyOkrPage.keyResult'), value: stats.krs, icon: TrendingUp },
-          { label: t('MyOkrPage.okrLinkedKpis'), value: stats.linked, icon: ListChecks },
-          { label: t('MyOkrPage.toSubmit'), value: stats.toSubmit, icon: Send },
+          ...(canSeeMyKpis ? [
+            { label: t('MyOkrPage.okrLinkedKpis'), value: stats.linked, icon: ListChecks },
+            { label: t('MyOkrPage.toSubmit'), value: stats.toSubmit, icon: Send },
+          ] : []),
         ]}
       >
         {/* Nút phụ luôn ở hàng dưới, phải — cùng bố cục với BSC của tôi ở mọi vai trò. */}
         <div className="flex flex-wrap gap-2 sm:justify-end">
-          <Button {...tourAnchor('myokr.analytics')} asChild variant="outline">
-            <Link to="/analytics"><TrendingUp aria-hidden="true" /> {t('MyOkrPage.viewAnalytics')}</Link>
-          </Button>
+          {analyticsSection && (
+            <Button {...tourAnchor('myokr.analytics')} asChild variant="outline">
+              <Link to="/analytics"><TrendingUp aria-hidden="true" /> {t('MyOkrPage.viewAnalytics')}</Link>
+            </Button>
+          )}
           {hasPermission('OKR:MANAGE') && (
             <Button {...tourAnchor('myokr.manage')} asChild variant="outline">
               <Link to="/settings/tools?section=okr"><ExternalLink aria-hidden="true" /> {t('MyOkrPage.okrManagement')}</Link>
@@ -181,7 +199,7 @@ export default function MyOkrPage() {
             <SelectValue placeholder={t('MyOkrPage.level')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={MINE}>{t('MyOkrPage.iParticipate')}</SelectItem>
+            {canSeeMyKpis && <SelectItem value={MINE}>{t('MyOkrPage.iParticipate')}</SelectItem>}
             {levels.map(l => <SelectItem key={l.unitId} value={l.unitId}>{levelLabel(l)}</SelectItem>)}
           </SelectContent>
         </Select>

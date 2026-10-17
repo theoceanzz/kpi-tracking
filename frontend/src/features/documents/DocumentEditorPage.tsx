@@ -1,34 +1,48 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useBlocker, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { useCreateBlockNote } from '@blocknote/react'
+import { SideMenuController, useCreateBlockNote } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/shadcn'
 import '@blocknote/shadcn/style.css'
 import './editor/blocknote.css'
 import {
-  AlertTriangle, ArrowLeft, Check, CloudOff, Download, Eye, FilePen, FileText, Info, Loader2, RotateCcw,
+  AlertTriangle, ArrowLeft, BookOpen, Check, ChevronDown, ChevronRight, CloudOff, Copy, Download, Eye, FilePen, FileText,
+  History, Info, Link2, Loader2, Mail, PenLine, Pin, PinOff, Printer, RotateCcw, Share2, Star, StarOff, Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Drawer } from '@/components/ui/dialog'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
+import RowMenu, { type RowMenuItem } from '@/components/common/RowMenu'
+import UserAvatar from '@/components/common/UserAvatar'
 import { getApiErrorCode, getApiErrorMessage } from '@/lib/apiError'
 import { formatDateTime } from '@/i18n/format'
 import { cn } from '@/lib/utils'
 import { useThemeStore } from '@/store/themeStore'
 import { documentApi, documentFileUrl } from './api/documentApi'
-import { useDocument, useDocumentContent, useMarkOpened } from './hooks/useDocuments'
+import {
+  useCopyDocument, useDeleteDocument, useDocument, useDocumentContent, useMarkOpened, useToggleFavorite, useTogglePin,
+} from './hooks/useDocuments'
 import { useConvertToOnline } from './hooks/useConvertToOnline'
-import { locationLabel } from './components/docMenu'
-import { AiStatusBadge } from './components/docUi'
-import { blockNoteDictionary, parseBlocks, parseMarkdownToBlocks, saveTextFile, toHtmlDocument } from './editor/blocks'
+import { copyAppLink, locationLabel } from './components/docMenu'
+import SendDocumentEmailDialog from './components/SendDocumentEmailDialog'
+import SharePanel from './components/SharePanel'
+import { AiStatusIcon } from './components/docUi'
+import DocOutline, { type OutlineItem } from './editor/DocOutline'
+import { blockNoteDictionary, extractHeadings, parseBlocks, parseMarkdownToBlocks, saveTextFile, toHtmlDocument } from './editor/blocks'
 import { useAutosave, type SaveStatus } from './editor/useAutosave'
+import DocToolbar from './editor/DocToolbar'
+import DocSideMenu from './editor/DocSideMenu'
+import { docSchema } from './editor/schema'
+import { uploadEditorImage } from './editor/uploadImage'
+import { ZOOM_LEVELS } from '@/components/common/editor-toolbar/formatting'
 import type { DocumentContent, KbDocument } from './types'
 import type { IWorkbookData } from '@univerjs/presets'
-import { saveBlob } from './utils'
+import { documentPath, downloadUrl, editorPath, larkTime, saveBlob } from './utils'
 
 // Trình bảng tính (Univer) rất nặng — chỉ tải khi mở đúng một bảng tính.
 const SheetEditor = lazy(() => import('./editor/SheetEditor'))
@@ -83,10 +97,14 @@ function EditorShell({ doc, initial, onReload }: { doc: KbDocument; initial: Doc
   const navigate = useNavigate()
   const isDark = useThemeStore(s => s.isDark)
   // Sửa nội dung: người quản lý hoặc người được chia sẻ quyền chỉnh sửa. Đổi tên / chuyển định dạng vẫn chỉ người quản lý.
-  const editable = doc.canEditContent
+  // Ô "Chỉnh sửa ▾" như Lark cho người sửa được chuyển sang chế độ Đọc (ẩn thanh công cụ, khoá nội dung).
+  const canWrite = doc.canEditContent
+  const [mode, setMode] = useState<'edit' | 'read'>('edit')
   const format = initial.format
   const sheet = format === 'sheet'
   const rich = format === 'blocks' || format === 'markdown'
+  // Bảng tính (Univer) chỉ khoá / mở khi gắn — không đổi chế độ tại chỗ được.
+  const editable = canWrite && (sheet || mode === 'edit')
 
   // Bảng tính: Univer giữ dữ liệu, trang này chỉ giữ hàm đọc snapshot. Chưa gắn xong thì giữ nguyên nội dung đã mở.
   const sheetReader = useRef<(() => IWorkbookData | null) | null>(null)
@@ -103,7 +121,10 @@ function EditorShell({ doc, initial, onReload }: { doc: KbDocument; initial: Doc
     [format, initial.content],
   )
   const editor = useCreateBlockNote({
+    schema: docSchema,
     initialContent: initialBlocks,
+    // Dán / kéo thả ảnh vào tài liệu là tự tải lên; người chỉ xem thì không có.
+    uploadFile: canWrite ? uploadEditorImage : undefined,
     dictionary,
     tables: { splitCells: true, cellBackgroundColor: true, cellTextColor: true, headers: true },
   }, [])
@@ -144,17 +165,46 @@ function EditorShell({ doc, initial, onReload }: { doc: KbDocument; initial: Doc
     })
   }, [blocker, flush, t])
 
-  // Ctrl/⌘+S: lưu ngay thay vì để trình duyệt mở hộp "Lưu trang".
+  // Thu phóng (chỉ phần nội dung, như Google Docs), nhớ theo trình duyệt.
+  const [zoom, setZoomState] = useState(readZoom)
+  const setZoom = (z: number) => {
+    setZoomState(z)
+    try { localStorage.setItem(ZOOM_KEY, String(z)) } catch { /* trình duyệt chặn lưu — chỉ mất phần nhớ */ }
+  }
+
+  // In đúng nội dung tài liệu (không in thanh bên, nút bấm): dựng trang HTML riêng trong iframe ẩn rồi gọi in.
+  const print = () => {
+    const html = toHtmlDocument(doc.title, `<h1>${escapeHtml(doc.title)}</h1>${editor.blocksToHTMLLossy(editor.document)}`)
+    const frame = document.createElement('iframe')
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'
+    document.body.appendChild(frame)
+    const win = frame.contentWindow
+    if (!win) { frame.remove(); return }
+    win.document.open()
+    win.document.write(html)
+    win.document.close()
+    win.onafterprint = () => frame.remove()
+    setTimeout(() => { win.focus(); win.print(); setTimeout(() => frame.remove(), 60_000) }, 50)
+  }
+  const printRef = useRef(print)
+  useEffect(() => { printRef.current = print })
+
+  // Ctrl/⌘+S: lưu ngay thay vì để trình duyệt mở hộp "Lưu trang". Ctrl/⌘+P: in nội dung tài liệu thay vì cả trang web.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      const key = e.key.toLowerCase()
+      if ((e.ctrlKey || e.metaKey) && key === 's') {
         e.preventDefault()
         if (editable) void flush()
+      }
+      if ((e.ctrlKey || e.metaKey) && key === 'p' && rich) {
+        e.preventDefault()
+        printRef.current()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [flush, editable])
+  }, [flush, editable, rich])
 
   const keepMine = async () => {
     try {
@@ -178,6 +228,56 @@ function EditorShell({ doc, initial, onReload }: { doc: KbDocument; initial: Doc
     )
   }
 
+  const [emailing, setEmailing] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const favorite = useToggleFavorite()
+  const pin = useTogglePin()
+  const copy = useCopyDocument()
+  const remove = useDeleteDocument()
+  const labels = { today: t('time.today'), yesterday: t('time.yesterday') }
+
+  // Mục lục cột trái (như Lark) dựng từ các khối tiêu đề, cập nhật sau khi ngừng gõ một nhịp.
+  const [outline, setOutline] = useState<OutlineItem[]>(() => (rich ? extractHeadings(editor.document) : []))
+  const outlineTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const refreshOutline = () => {
+    clearTimeout(outlineTimer.current)
+    outlineTimer.current = setTimeout(() => setOutline(extractHeadings(editor.document)), 400)
+  }
+  useEffect(() => () => clearTimeout(outlineTimer.current), [])
+  const [outlineOpen, setOutlineOpenState] = useState(readOutlineOpen)
+  const setOutlineOpen = (open: boolean) => {
+    setOutlineOpenState(open)
+    try { localStorage.setItem(OUTLINE_KEY, open ? '1' : '0') } catch { /* trình duyệt chặn lưu — chỉ mất phần nhớ */ }
+  }
+
+  // Tải về: tài liệu → Markdown / HTML, bảng tính → Excel / CSV, .md / .txt → tệp gốc.
+  const exportKeys: ExportKey[] = format === 'blocks' ? ['md', 'html'] : sheet ? ['xlsx', 'csv'] : ['file']
+  const runExport = (k: ExportKey) => {
+    if (k === 'md') saveTextFile(`${doc.title}.md`, 'text/markdown', editor.blocksToMarkdownLossy(editor.document))
+    else if (k === 'html') saveTextFile(`${doc.title}.html`, 'text/html', toHtmlDocument(doc.title, editor.blocksToHTMLLossy(editor.document)))
+    else if (k === 'xlsx' || k === 'csv') void exportSheet(doc.title, readSheet(), k)
+    else downloadUrl(documentFileUrl(doc.id))
+  }
+
+  // Menu ⋯ góc phải như Lark: ghim, yêu thích, link, bản sao — tải về, in — chi tiết, lịch sử — xoá.
+  const moreItems: RowMenuItem[] = [
+    { key: 'pin', icon: doc.pinned ? <PinOff /> : <Pin />, label: doc.pinned ? t('actions.unpin') : t('actions.pin'), onSelect: () => pin.mutate({ id: doc.id, value: !doc.pinned }) },
+    { key: 'favorite', icon: doc.favorite ? <StarOff /> : <Star />, label: doc.favorite ? t('actions.unfavorite') : t('actions.favorite'), onSelect: () => favorite.mutate({ id: doc.id, value: !doc.favorite }) },
+    { key: 'link', separated: true, icon: <Link2 />, label: t('actions.copyLink'), onSelect: () => copyAppLink(documentPath(doc), t('toast.linkCopied')) },
+    ...(doc.canEdit ? [{ key: 'email', icon: <Mail />, label: t('actions.email'), onSelect: () => void flush().then(() => setEmailing(true)) }] : []),
+    ...(format === 'blocks' || sheet ? [{
+      key: 'copy', icon: <Copy />, label: t('actions.makeCopy'),
+      onSelect: () => void flush().then(() => copy.mutate(doc, { onSuccess: created => navigate(editorPath(created.id)) })),
+    }] : []),
+    ...exportKeys.map((k, i) => ({ key: `export-${k}`, separated: i === 0, icon: <Download />, label: t(EXPORT_LABEL[k]), onSelect: () => runExport(k) })),
+    ...(rich ? [{ key: 'print', icon: <Printer />, label: t('editor.print'), onSelect: print }] : []),
+    { key: 'details', separated: true, icon: <Info />, label: t('editor.details'), onSelect: () => navigate(`/documents?doc=${doc.id}`) },
+    ...(doc.canEdit ? [{ key: 'versions', icon: <History />, label: t('editor.versions'), onSelect: () => navigate(`/documents?doc=${doc.id}&panel=versions`) }] : []),
+    ...(doc.canEdit ? [{ key: 'delete', separated: true, danger: true, icon: <Trash2 />, label: t('actions.delete'), onSelect: () => setDeleting(true) }] : []),
+  ]
+  const crumbs = locationLabel(doc, t).split(' › ')
+
   const goBack = () => {
     const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0
     if (idx > 0) navigate(-1)
@@ -185,37 +285,57 @@ function EditorShell({ doc, initial, onReload }: { doc: KbDocument; initial: Doc
   }
 
   return (
-    <div className={cn('mx-auto space-y-3', sheet ? 'max-w-[1800px]' : 'max-w-[1100px]')}>
-      <header className="flex flex-wrap items-center gap-2">
+    <div className={cn('mx-auto space-y-3', sheet ? 'max-w-[1800px]' : rich ? 'max-w-[1360px]' : 'max-w-[1100px]')}>
+      {/* Đầu trang như Lark: đường dẫn › tên + ghim, dòng trạng thái lưu; phải: Chia sẻ (xanh), Chỉnh sửa ▾, ⋯. */}
+      <header className="flex flex-wrap items-start gap-2">
         <Button variant="ghost" size="icon-sm" onClick={goBack} aria-label={t('editor.back')} title={t('editor.back')}>
           <ArrowLeft aria-hidden="true" />
         </Button>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-caption">{locationLabel(doc, t)}</p>
+          <nav aria-label={t('drive.breadcrumb')} className="flex min-w-0 items-center gap-1 text-sm">
+            {crumbs.map((c, idx) => (
+              <Fragment key={idx}>
+                <span className="max-w-[180px] shrink-0 truncate text-[var(--color-muted-foreground)]">{c}</span>
+                <ChevronRight size={13} className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" />
+              </Fragment>
+            ))}
+            <span className="min-w-0 truncate font-medium text-[var(--color-foreground)]">{doc.title || t('editor.titlePlaceholder')}</span>
+            <button type="button" onClick={() => pin.mutate({ id: doc.id, value: !doc.pinned })} aria-pressed={doc.pinned}
+                    aria-label={doc.pinned ? t('actions.unpin') : t('actions.pin')} title={doc.pinned ? t('actions.unpin') : t('actions.pin')}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]">
+              <Pin size={14} className={doc.pinned ? 'fill-[var(--color-success)] text-[var(--color-success)]' : undefined} aria-hidden="true" />
+            </button>
+          </nav>
+          <div className="mt-0.5 flex items-center gap-2">
+            {canWrite
+              ? <SaveIndicator status={autosave.status} savedAt={autosave.savedAt} lastModified={larkTime(doc.updatedAt, labels)} onRetry={() => void flush()} />
+              : <span className="flex items-center gap-1 text-caption"><Eye size={13} aria-hidden="true" /> {t('editor.readOnly')}</span>}
+            <AiStatusIcon doc={doc} />
+          </div>
         </div>
-        <AiStatusBadge status={doc.aiStatus} error={doc.aiError} />
-        {editable
-          ? <SaveIndicator status={autosave.status} savedAt={autosave.savedAt} onRetry={() => void flush()} />
-          : <Badge variant="secondary"><Eye aria-hidden="true" className="size-3.5" /> {t('editor.readOnly')}</Badge>}
-        {format === 'blocks' ? (
-          <ExportMenu items={[
-            { label: t('editor.exportMarkdown'), run: () => saveTextFile(`${doc.title}.md`, 'text/markdown', editor.blocksToMarkdownLossy(editor.document)) },
-            { label: t('editor.exportHtml'), run: () => saveTextFile(`${doc.title}.html`, 'text/html', toHtmlDocument(doc.title, editor.blocksToHTMLLossy(editor.document))) },
-          ]} />
-        ) : sheet ? (
-          <ExportMenu items={[
-            { label: t('editor.exportXlsx'), run: () => exportSheet(doc.title, readSheet(), 'xlsx') },
-            { label: t('editor.exportCsv'), run: () => exportSheet(doc.title, readSheet(), 'csv') },
-          ]} />
-        ) : (
-            <Button asChild variant="ghost" size="icon-sm" aria-label={t('actions.download')} title={t('actions.download')}>
-              <a href={documentFileUrl(doc.id)} download><Download aria-hidden="true" /></a>
-            </Button>
+        <div className="flex items-center gap-1.5">
+          {doc.canEdit && !doc.legacy && (
+            <Button size="sm" onClick={() => setSharing(true)}><Share2 aria-hidden="true" /> {t('actions.share')}</Button>
           )}
-        <Button variant="outline" size="sm" onClick={() => navigate(`/documents?doc=${doc.id}`)}>
-          <Info aria-hidden="true" /> {t('editor.details')}
-        </Button>
+          {canWrite && !sheet && <ModeMenu mode={mode} onChange={setMode} />}
+          <RowMenu items={moreItems} label={t('actions.more')} />
+        </div>
       </header>
+      {emailing && <SendDocumentEmailDialog doc={doc} onClose={() => setEmailing(false)} />}
+      {sharing && (
+        <Drawer open onClose={() => setSharing(false)} size="lg" title={t('share.dialogTitle')} description={doc.title}>
+          <SharePanel doc={doc} onEmail={() => { setSharing(false); void flush().then(() => setEmailing(true)) }} />
+        </Drawer>
+      )}
+      <ConfirmDialog
+        open={deleting}
+        onClose={() => setDeleting(false)}
+        onConfirm={() => remove.mutate(doc, { onSuccess: () => { setDeleting(false); navigate('/documents', { replace: true }) } })}
+        title={t('delete.title', { title: doc.title })}
+        description={t('delete.description', { days: 30 })}
+        confirmLabel={t('actions.delete')}
+        loading={remove.isPending}
+      />
 
       {autosave.status === 'conflict' && (
         <div role="alert" className="flex flex-wrap items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm">
@@ -241,6 +361,14 @@ function EditorShell({ doc, initial, onReload }: { doc: KbDocument; initial: Doc
         </div>
       )}
 
+      {/* Thanh công cụ cố định kiểu Google Docs — dính trên đầu khi cuộn. Tệp .md không lưu được màu / căn lề nên ẩn. */}
+      {rich && editable && (
+        <div className="sticky top-0 z-20 -mx-1 bg-[var(--color-background)] px-1 py-1">
+          <DocToolbar editor={editor} features={{ rich: format === 'blocks', insert: true }}
+                      zoom={zoom} onZoom={setZoom} onPrint={print} />
+        </div>
+      )}
+
       {sheet ? (
         <article className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
           <div className="border-b border-[var(--color-border)] px-4 py-3">
@@ -252,10 +380,25 @@ function EditorShell({ doc, initial, onReload }: { doc: KbDocument; initial: Doc
           </Suspense>
         </article>
       ) : (
-      <article className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-        <div className="mx-auto max-w-[900px] pb-24 pt-10">
+      // Khung tài liệu rộng bằng thanh công cụ, nội dung 900px luôn ở giữa; mục lục nằm nổi trong lề trái (không đẩy
+      // nội dung lệch sang phải), và chỉ có khi tài liệu có tiêu đề — như Lark.
+      <article className="@container relative rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+        {rich && outline.length > 0 && (
+          <aside className="absolute inset-y-0 left-0 w-[calc((100%-900px)/2)] min-w-12 pl-3 pt-10 @min-[1300px]:pl-6">
+            <DocOutline title={doc.title} items={outline} open={outlineOpen} onOpenChange={setOutlineOpen} />
+          </aside>
+        )}
+        <div className="mx-auto max-w-[900px] pb-24 pt-10" style={rich && zoom !== 100 ? { zoom: zoom / 100 } : undefined}>
           <div className="px-6 sm:px-[54px]">
             <TitleField doc={doc} editable={doc.canEdit} />
+            {/* Như Lark: avatar + tên chủ sở hữu | ngày sửa, ngay dưới tiêu đề. */}
+            <div className="mt-3 flex items-center gap-2 text-sm text-[var(--color-muted-foreground)]">
+              <UserAvatar fullName={doc.createdByName ?? ''} className="h-5 w-5 rounded-full text-[9px]"
+                          fallbackClassName="bg-[var(--color-primary)] font-semibold text-[var(--color-primary-foreground)]" />
+              <span className="text-[var(--color-foreground)]">{doc.createdByName ?? '—'}</span>
+              <span className="h-3.5 w-px bg-[var(--color-border)]" aria-hidden="true" />
+              <span>{t('editor.modifiedAt', { time: larkTime(doc.updatedAt, labels) })}</span>
+            </div>
           </div>
           {rich
             ? (
@@ -263,9 +406,14 @@ function EditorShell({ doc, initial, onReload }: { doc: KbDocument; initial: Doc
                 editor={editor}
                 editable={editable}
                 theme={isDark ? 'dark' : 'light'}
-                onChange={() => markChanged()}
+                onChange={() => { markChanged(); refreshOutline() }}
+                // Định dạng nằm trên thanh công cụ cố định; khung nổi khi bôi đen chỉ trùng lặp và che chữ.
+                formattingToolbar={false}
+                sideMenu={false}
                 className="kg-doc-editor mt-4 min-h-[60vh]"
-              />
+              >
+                <SideMenuController sideMenu={DocSideMenu} />
+              </BlockNoteView>
             )
             : (
               <div className="px-6 sm:px-[54px]">
@@ -288,6 +436,21 @@ function EditorShell({ doc, initial, onReload }: { doc: KbDocument; initial: Doc
   )
 }
 
+const ZOOM_KEY = 'kg-doc-zoom'
+
+function readZoom(): number {
+  try {
+    const z = Number(localStorage.getItem(ZOOM_KEY))
+    return ZOOM_LEVELS.includes(z) ? z : 100
+  } catch {
+    return 100
+  }
+}
+
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
+}
+
 /** Nội dung `.kgsheet` → snapshot; rỗng / hỏng → null (Univer tạo bảng tính trống). */
 function parseWorkbook(json: string): IWorkbookData | null {
   try {
@@ -306,31 +469,50 @@ async function exportSheet(title: string, wb: IWorkbookData | null, kind: 'xlsx'
   else saveTextFile(`${title}.csv`, 'text/csv', conv.sheetToCsv(wb))
 }
 
-/**
- * Tải về tài liệu / bảng tính soạn trực tuyến (tệp gốc là JSON nội bộ): tài liệu → Markdown / HTML (mở bằng Word),
- * bảng tính → Excel / CSV.
- */
-function ExportMenu({ items }: { items: { label: string; run: () => void | Promise<void> }[] }) {
+/** Ô "Chỉnh sửa ▾" như Lark: chuyển giữa soạn và đọc (đọc = khoá nội dung, ẩn thanh công cụ). */
+function ModeMenu({ mode, onChange }: { mode: 'edit' | 'read'; onChange: (m: 'edit' | 'read') => void }) {
   const { t } = useTranslation('documents')
   const [open, setOpen] = useState(false)
-  const item = 'flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] focus-visible:bg-[var(--color-muted)] focus-visible:outline-none'
+  const Icon = mode === 'edit' ? PenLine : BookOpen
+  const item = (m: 'edit' | 'read', I: typeof PenLine) => (
+    <button type="button" role="menuitemradio" aria-checked={mode === m} onClick={() => { onChange(m); setOpen(false) }}
+            className="flex w-full items-start gap-2.5 rounded-control px-2.5 py-2 text-left hover:bg-[var(--color-muted)]">
+      <I size={16} className="mt-0.5 shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm text-[var(--color-foreground)]">{t(`editor.mode.${m}`)}</span>
+        <span className="block text-caption">{t(`editor.mode.${m}Hint`)}</span>
+      </span>
+      {mode === m && <Check size={15} className="mt-0.5 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />}
+    </button>
+  )
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={t('actions.download')} title={t('actions.download')} aria-haspopup="menu">
-          <Download aria-hidden="true" />
+        <Button variant="outline" size="sm" aria-haspopup="menu" className="border-[var(--color-primary)] text-[var(--color-primary)]">
+          <Icon aria-hidden="true" /> {t(`editor.mode.${mode}`)} <ChevronDown aria-hidden="true" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-56 p-1.5" role="menu">
-        {items.map(it => (
-          <button key={it.label} type="button" role="menuitem" className={item}
-                  onClick={() => { setOpen(false); void it.run() }}>
-            {it.label}
-          </button>
-        ))}
+      <PopoverContent align="end" className="w-64 p-1.5" role="menu">
+        {item('edit', PenLine)}
+        {item('read', BookOpen)}
       </PopoverContent>
     </Popover>
   )
+}
+
+type ExportKey = 'md' | 'html' | 'xlsx' | 'csv' | 'file'
+const EXPORT_LABEL = {
+  md: 'editor.exportMarkdown', html: 'editor.exportHtml', xlsx: 'editor.exportXlsx', csv: 'editor.exportCsv', file: 'actions.download',
+} as const
+
+const OUTLINE_KEY = 'kg-doc-outline'
+
+function readOutlineOpen(): boolean {
+  try {
+    return localStorage.getItem(OUTLINE_KEY) !== '0'
+  } catch {
+    return true
+  }
 }
 
 /** Tiêu đề to như Lark: sửa tại chỗ, lưu khi rời ô hoặc Enter. */
@@ -355,7 +537,7 @@ function TitleField({ doc, editable, compact }: { doc: KbDocument; editable: boo
     if (next !== doc.title) rename.mutate(next)
   }
 
-  const size = compact ? 'text-xl' : 'text-3xl'
+  const size = compact ? 'text-xl' : 'text-4xl'
   if (!editable) return <h1 className={cn('break-words font-semibold leading-tight text-[var(--color-foreground)]', size)}>{doc.title}</h1>
   return (
     <input
@@ -371,7 +553,7 @@ function TitleField({ doc, editable, compact }: { doc: KbDocument; editable: boo
   )
 }
 
-function SaveIndicator({ status, savedAt, onRetry }: { status: SaveStatus; savedAt: Date | null; onRetry: () => void }) {
+function SaveIndicator({ status, savedAt, lastModified, onRetry }: { status: SaveStatus; savedAt: Date | null; lastModified: string; onRetry: () => void }) {
   const { t } = useTranslation('documents')
   if (status === 'error') {
     return (
@@ -385,7 +567,7 @@ function SaveIndicator({ status, savedAt, onRetry }: { status: SaveStatus; saved
     : status === 'dirty' ? t('editor.status.dirty')
       : status === 'conflict' ? t('editor.status.conflict')
         : status === 'saved' && savedAt ? t('editor.status.saved', { time: formatDateTime(savedAt) })
-          : t('editor.status.idle')
+          : t('editor.lastModified', { time: lastModified })
   return (
     <span role="status" aria-live="polite" className={cn('flex items-center gap-1.5 text-caption', status === 'conflict' && 'text-[var(--color-warning)]')}>
       {status === 'saving' ? <Loader2 size={13} className="animate-spin" aria-hidden="true" />

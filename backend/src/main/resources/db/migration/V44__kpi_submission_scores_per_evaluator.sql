@@ -1,4 +1,4 @@
--- V41 — Điểm từng chỉ tiêu theo TỪNG người chấm (người dùng chốt 02/10).
+-- V44 — Điểm từng chỉ tiêu theo TỪNG người chấm (người dùng chốt 02/10).
 --
 -- kpi_submissions.manager_score chỉ có một ô: cấp sau chấm là đè điểm cấp trước, nên màn chấm không hiện được
 -- "Quản lý chấm" và "Sếp chấm" cạnh nhau. Bảng này giữ một dòng cho mỗi (bài nộp, người chấm); kpi_submissions vẫn

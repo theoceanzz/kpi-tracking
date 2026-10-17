@@ -647,4 +647,19 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
            "WHERE ou.id IN :unitIds " +
            "GROUP BY ou.id, ou.name, s.status ORDER BY ou.name")
     java.util.List<Object[]> submissionCompositionByUnit(@Param("unitIds") java.util.Collection<UUID> unitIds);
+
+    /**
+     * Cặp (KPI, người nộp) đã có bài nộp tính được trong đợt: bài đang chờ duyệt / đã duyệt / bị từ
+     * chối, hoặc bài bị trả lại mà đã quá hạn nộp lại (khi đó KPI chấm như không có bài — xem
+     * {@link #findAwaitingResubmission}). Bài nháp và bài trả lại còn trong hạn chưa tính.
+     * Hàng = [kpiId, userId].
+     */
+    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT s.kpiCriteria.id, s.submittedBy.id FROM KpiSubmission s " +
+            "WHERE s.kpiCriteria.kpiPeriod.id = :periodId AND s.submittedBy.id IN :userIds AND s.deletedAt IS NULL " +
+            "AND (s.status IN (com.kpitracking.enums.SubmissionStatus.PENDING, com.kpitracking.enums.SubmissionStatus.APPROVED, " +
+            "                  com.kpitracking.enums.SubmissionStatus.REJECTED) " +
+            "  OR (s.status = com.kpitracking.enums.SubmissionStatus.RETURNED AND s.resubmission IS NULL AND s.resubmitDeadline < :now))")
+    java.util.List<Object[]> findSubmittedKpiPairs(@org.springframework.data.repository.query.Param("periodId") UUID periodId,
+                                                   @org.springframework.data.repository.query.Param("userIds") java.util.Collection<UUID> userIds,
+                                                   @org.springframework.data.repository.query.Param("now") java.time.Instant now);
 }

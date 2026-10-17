@@ -71,14 +71,25 @@ public class GlobalExceptionHandler {
         return coded(ex, ErrorCode.NOT_FOUND, ex.getMessage());
     }
 
-    /** Thiếu hoặc sai kiểu tham số query — trả 400 thay vì để rơi xuống 500. */
+    /**
+     * Thiếu hoặc sai kiểu tham số query, hoặc thân request không đọc được (JSON hỏng, sai mã hoá, giá
+     * trị enum lạ) — lỗi của request nên trả 400 thay vì để rơi xuống 500 "lỗi không xác định".
+     */
     @ExceptionHandler({
             org.springframework.web.bind.MissingServletRequestParameterException.class,
-            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+            org.springframework.http.converter.HttpMessageNotReadableException.class
     })
     public ResponseEntity<ApiResponse<Void>> handleBadRequestParam(Exception ex) {
         log.warn("Tham số không hợp lệ: {}", ex.getMessage());
         return translated(ErrorCode.BAD_REQUEST_PARAM);
+    }
+
+    /** Gọi sai phương thức (GET vào endpoint chỉ có POST…) là lỗi của client — 405, không phải 500. */
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(Exception ex) {
+        log.warn("Sai phương thức HTTP: {}", ex.getMessage());
+        return translated(ErrorCode.METHOD_NOT_ALLOWED);
     }
 
     /** Người dùng hết hạn mức token AI của tháng — khác với việc nhà cung cấp AI hết credit. */

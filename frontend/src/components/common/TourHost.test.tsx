@@ -168,6 +168,27 @@ describe('TourHost', () => {
     await until(() => useTourStore.getState().activeTour === 'page+3' && showing(1, 1)())
   })
 
+  it('bấm ra ngoài hộp thì thoát bài như nút X; bấm trong hộp hay vào phần tử đang tô sáng thì không', async () => {
+    const a = anchor('a')
+    anchor('b')
+    a.getBoundingClientRect = () => ({ left: 10, top: 10, right: 110, bottom: 60, width: 100, height: 50, x: 10, y: 10, toJSON: () => ({}) })
+    tours.page = { steps: [{ target: '#a', title: 'A', content: 'a' }, { target: '#b', title: 'B', content: 'b' }] }
+    const click = (el: Element, x: number, y: number) =>
+      act(() => { el.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: x, clientY: y })) })
+
+    act(() => root.render(<TourHost />))
+    act(() => useTourStore.getState().setNavScope('page', null))
+    await until(showing(1, 2))
+
+    await click(document.querySelector('[data-tour-tooltip]')!, 900, 900)
+    await click(a, 50, 30)
+    expect(useTourStore.getState().activeTour).toBe('page')
+
+    await click(document.body, 900, 900)
+    await until(() => useTourStore.getState().activeTour === null)
+    expect(useTourStore.getState().seenToursByUser.u1?.page).toBe(1)
+  })
+
   it('bài viết lại (bản mới) không tự chạy với người đã xem bản cũ', async () => {
     anchor('a')
     tours.page = { version: 2, steps: [{ target: '#a', title: 'A', content: 'a' }] }

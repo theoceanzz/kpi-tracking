@@ -43,6 +43,7 @@ public class DiscussionTargets {
     private final KpiTaskAccess taskAccess;
     private final PermissionChecker permissionChecker;
     private final com.kpitracking.repository.KpiTaskFollowerRepository followerRepository;
+    private final com.kpitracking.repository.KpiTaskAssigneeRepository assigneeRepository;
 
     /** Đối tượng đã nạp. {@code kpi} là KPI của chính nó (KPI) hoặc của task; có thể null khi KPI của task đã xoá. */
     public record Target(DiscussionTargetType type, UUID id, UUID organizationId, String title,
@@ -65,7 +66,8 @@ public class DiscussionTargets {
         }
         KpiTask task = taskRepository.findById(id)
                 .orElseThrow(() -> new ForbiddenException(ErrorCode.TASK_NOT_FOUND));
-        KpiCriteria kpi = kpiCriteriaRepository.findById(task.getKpiCriteriaId()).orElse(null);
+        // Việc không KPI ⇒ kpi null (đơn vị cho thông báo lấy theo người nhận ở DiscussionListener).
+        KpiCriteria kpi = task.getKpiCriteriaId() == null ? null : kpiCriteriaRepository.findById(task.getKpiCriteriaId()).orElse(null);
         return new Target(type, id, task.getOrganizationId(), task.getTitle(), kpi, task);
     }
 
@@ -113,6 +115,7 @@ public class DiscussionTargets {
         }
         Set<UUID> ids = new LinkedHashSet<>();
         ids.add(t.task().getOwner().getId());
+        ids.addAll(assigneeRepository.findUserIds(t.task().getId()));
         if (t.task().getCreatedBy() != null) ids.add(t.task().getCreatedBy());
         ids.addAll(followerRepository.findUserIds(t.task().getId()));
         if (t.task().getVisibility() == com.kpitracking.enums.KpiTaskVisibility.KPI_SCOPE && t.kpi() != null) {

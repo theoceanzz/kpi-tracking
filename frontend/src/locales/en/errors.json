@@ -6,6 +6,12 @@
     "help": "Help",
     "reportASystemError": "Report a system error",
     "thePageYouAreLookingFor": "The page you are looking for does not exist or has moved to a new address.",
-    "youDoNotHaveAccessTo": "You do not have access to this resource. This is a restricted area."
+    "youDoNotHaveAccessTo": "You do not have access to this resource. This is a restricted area.",
+    "titleForbidden": "Access denied",
+    "subTitleForbidden": "403 Forbidden",
+    "titleNotFound": "Page not found",
+    "subTitleNotFound": "404 Error",
+    "titleServerError": "Internal server error",
+    "subTitleServerError": "500 Error"
   }
 }

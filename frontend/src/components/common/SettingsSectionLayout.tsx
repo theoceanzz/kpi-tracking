@@ -198,7 +198,7 @@ export default function SettingsSectionLayout({
 
       {/* Cụm chỉ có một mục thì hàng tab không nói thêm được gì — bỏ hẳn cho gọn. */}
       {siblings.length > 1 && (
-        <div id="tour-section-tabs" {...tourAnchor('section.tabs')} className="flex items-stretch border-b border-[var(--color-border)] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div id="tour-section-tabs" {...tourAnchor('section.tabs')} className="flex items-stretch border-b border-[var(--color-border)] overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {siblings.map(def => {
             const isActive = def.id === active.id
             return (

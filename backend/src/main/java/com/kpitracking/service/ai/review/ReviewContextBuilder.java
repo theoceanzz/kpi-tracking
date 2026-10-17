@@ -176,7 +176,7 @@ public class ReviewContextBuilder {
                     subs, history(userId, kpi.getName(), kpiPeriodId)));
         }
 
-        // Thang điểm AI riêng của công ty (V48) — không phải thang định tính của KPI.
+        // Thang điểm AI riêng của công ty (V51) — không phải thang định tính của KPI.
         AiReviewSettingsResolver.AiScale ai = settingsResolver.aiScale(organizationId);
 
         return new ReviewContext(organizationId, kpiPeriodId, period == null ? null : period.getName(),

@@ -100,6 +100,7 @@ const formsToolsTours = perLanguage((): Record<TourKey, TourDef> => {
 
     [BSC_FORM]: {
       title: t('bscForm.title'),
+      version: 2,
       cleanup: bsc.close,
       steps: [
         bsc.opener('bscForm.add', tourTarget('bsc.add'), 'left'),
@@ -114,6 +115,7 @@ const formsToolsTours = perLanguage((): Record<TourKey, TourDef> => {
         bsc.step('bscForm.area', tourTarget('bsc.form.area'), 'top'),
         bsc.step('bscForm.addItem', tourTarget('bsc.form.add-item'), 'left'),
         bsc.step('bscForm.rowToggle', tourTarget('bsc.form.row-toggle'), 'right'),
+        bsc.step('bscForm.rowTarget', tourTarget('bsc.form.row-target'), 'left'),
         bsc.step('bscForm.rowWeight', tourTarget('bsc.form.row-weight'), 'left'),
         bsc.step('bscForm.submit', tourTarget('bsc.form.submit'), 'top'),
       ],

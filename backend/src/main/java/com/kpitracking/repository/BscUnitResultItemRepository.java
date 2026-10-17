@@ -25,4 +25,8 @@ public interface BscUnitResultItemRepository extends JpaRepository<BscUnitResult
             + "WHERE r.kpiPeriod.id = :periodId AND sp.id IN :rowIds")
     List<BscUnitResultItem> findByPeriodAndRowIds(@Param("periodId") UUID periodId,
                                                   @Param("rowIds") Collection<UUID> rowIds);
+
+    /** Mọi dòng kết quả (mọi đợt) của một dòng chỉ tiêu — dùng khi thu hồi phân rã. */
+    @Query("SELECT i FROM BscUnitResultItem i JOIN FETCH i.unitResult WHERE i.scorecardPerspective.id = :rowId")
+    List<BscUnitResultItem> findByScorecardPerspectiveId(@Param("rowId") UUID rowId);
 }

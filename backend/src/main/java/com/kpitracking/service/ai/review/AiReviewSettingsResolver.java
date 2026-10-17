@@ -51,7 +51,7 @@ public class AiReviewSettingsResolver {
     public record Effective(boolean enabled, UUID fromUnitId, String source) {}
 
     /**
-     * Thang điểm AI của công ty (V48) và điểm tối đa (= điểm mức cao nhất). Trống khi chưa cấu hình: khi đó AI không được
+     * Thang điểm AI của công ty (V51) và điểm tối đa (= điểm mức cao nhất). Trống khi chưa cấu hình: khi đó AI không được
      * hỏi mức (như thang định tính trống trước đây) nên không ra điểm.
      */
     public record AiScale(List<ReviewContext.QualityLevel> levels, java.math.BigDecimal max) {

@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Một mức của THANG ĐIỂM AI (V48, 13/10): AI chọn một mức cho chất lượng bài nộp, điểm AI = {@link #points} của mức,
+ * Một mức của THANG ĐIỂM AI (V51, 13/10): AI chọn một mức cho chất lượng bài nộp, điểm AI = {@link #points} của mức,
  * điểm tối đa = điểm của mức cao nhất. Thang riêng của AI, tách khỏi thang định tính của KPI; một thang cho cả công ty.
  * {@link #description} đi vào lời nhắc để AI hiểu mức đó nghĩa là gì.
  */

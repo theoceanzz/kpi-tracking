@@ -131,6 +131,8 @@ export interface CycleCurveBucket {
   maxCount: number | null
   over: boolean
   under: boolean
+  /** Mốc của khung DỰ KIẾN theo BSC đơn vị chưa chốt — chỉ tham khảo. */
+  projectedTargetPercent?: number | null
 }
 
 /** Phân bố mức của đơn vị trong kỳ + khung bell curve đang áp. */
@@ -143,6 +145,15 @@ export interface CycleCurve {
   evaluated: number
   /** Cao → thấp. */
   buckets: CycleCurveBucket[]
+  /** Khung đổi theo BSC đơn vị đã CHỐT: EXCEED / MEET / BELOW; null = khung mặc định. */
+  bscBand?: 'EXCEED' | 'MEET' | 'BELOW' | null
+  /** Điểm BSC đơn vị của kỳ (sau trần); null = chưa có số. */
+  bscPercent?: number | null
+  bscFinalized?: boolean
+  /** BSC chưa chốt: khung sẽ áp nếu chốt đúng số hiện tại. */
+  projectedBand?: 'EXCEED' | 'MEET' | 'BELOW' | null
+  bscExceedAt?: number | null
+  bscMeetAt?: number | null
 }
 
 export interface CycleUnitEvaluation {

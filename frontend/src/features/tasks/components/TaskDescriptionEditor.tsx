@@ -15,6 +15,8 @@ interface Props {
   editable: boolean
   /** Tự lưu: gọi sau khi người dùng ngừng gõ {@link SAVE_DELAY_MS}. */
   onSave: (doc: string, plain: string) => void
+  /** Đặt con trỏ vào ô ngay khi hiện (mở từ dòng "Thêm mô tả…"). */
+  autoFocus?: boolean
 }
 
 const SAVE_DELAY_MS = 1500
@@ -63,7 +65,7 @@ function LinkPopover({ active, current, className, onApply }: {
   )
 }
 
-export default function TaskDescriptionEditor({ doc, plain, editable, onSave }: Props) {
+export default function TaskDescriptionEditor({ doc, plain, editable, onSave, autoFocus }: Props) {
   const { t } = useTranslation('tasks')
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSaved = useRef<string | null>(doc)
@@ -74,6 +76,7 @@ export default function TaskDescriptionEditor({ doc, plain, editable, onSave }: 
     extensions: [StarterKit.configure({ heading: false, codeBlock: false, link: { openOnClick: true, autolink: true } })],
     content: parseDoc(doc, plain),
     editable,
+    autofocus: autoFocus ? 'end' : false,
     editorProps: {
       attributes: {
         class: 'prose-sm min-h-[80px] max-w-none px-3 py-2 text-sm text-[var(--color-foreground)] outline-none [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[var(--color-primary)] [&_a]:underline',

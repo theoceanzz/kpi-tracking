@@ -1,5 +1,5 @@
 import { LocaleNumberInput } from '@/components/ui/number-input'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type BaseSyntheticEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Scale, ChevronDown, Check, PlusCircle, Edit2, Trash2, Target, Lock, ShieldAlert, GripVertical } from 'lucide-react'
@@ -25,7 +25,7 @@ import FixedPerspectiveFormModal from './FixedPerspectiveFormModal'
 import {
   ScorecardResponse, ScorecardRequest, BscScorecardStatus, BscScoringMode, BscEmptyPerspectivePolicy,
   BscFixedPerspective, PerspectiveResponse, FixedPerspectiveResponse, BscScorecardApplyScope,
-  ScorecardPerspectiveResponse, BscItemOrigin, BscGateEffect, BscGateScope, BscMeasurementSource,
+  ScorecardPerspectiveResponse, BscItemOrigin, BscGateEffect, BscGateScope,
   BscPerspectiveStatus,
 } from '../types'
 import { ChoiceChip } from '@/components/ui/choice-chip'
@@ -68,7 +68,7 @@ const toRow = (
   enabled: boolean,
   row?: Partial<Pick<ScorecardPerspectiveResponse,
     'targetValue' | 'minimumValue' | 'unit' | 'origin' | 'locked' | 'parentItemName'
-    | 'parentScorecardName' | 'sourceScorecardName' | 'measurementSource' | 'isGate' | 'gateMinPercent'
+    | 'parentScorecardName' | 'sourceScorecardName' | 'isGate' | 'gateMinPercent'
     | 'gateEffect' | 'gateCapRating' | 'gateAppliesTo'>>,
 ): WeightRow => ({
   perspectiveId: p.id,
@@ -77,15 +77,16 @@ const toRow = (
   color: p.color,
   fixedPerspective: p.fixedPerspective,
   displayOrder: p.displayOrder,
-  targetValue: row ? row.targetValue ?? null : p.targetValue,
-  minimumValue: row ? row.minimumValue ?? null : p.minimumValue,
+  // Mục tiêu HIỆU LỰC của dòng (riêng của thẻ, không có thì của hạng mục) — hiện thẳng trong ô để
+  // dòng luôn có con số để chấm.
+  targetValue: row ? row.targetValue ?? p.targetValue ?? null : p.targetValue,
+  minimumValue: row ? (row.targetValue != null ? row.minimumValue ?? null : row.minimumValue ?? p.minimumValue ?? null) : p.minimumValue,
   unit: row ? row.unit ?? null : p.unit,
   origin: row?.origin ?? BscItemOrigin.SELF,
   locked: row?.locked ?? false,
   parentItemName: row?.parentItemName ?? null,
   parentScorecardName: row?.parentScorecardName ?? null,
   sourceScorecardName: row?.sourceScorecardName ?? null,
-  measurementSource: row?.measurementSource ?? BscMeasurementSource.ROLLUP,
   isGate: row?.isGate ?? false,
   gateMinPercent: row?.gateMinPercent ?? null,
   gateEffect: row?.gateEffect ?? null,
@@ -351,7 +352,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
    * `null` ở mục tiêu = xoá con số riêng, quay về mặc định của hạng mục.
    */
   const setRowTarget = (id: string, patch: Partial<Pick<WeightRow,
-    'targetValue' | 'minimumValue' | 'unit' | 'measurementSource'
+    'targetValue' | 'minimumValue' | 'unit'
     | 'isGate' | 'gateMinPercent' | 'gateEffect' | 'gateCapRating' | 'gateAppliesTo'>>) =>
     updateRows(prev => prev.map(r => r.perspectiveId === id ? { ...r, ...patch } : r))
 
@@ -455,8 +456,12 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
    * duyệt. Còn lại trạng thái do các nút trên cây quyết định — hiện một ô khoá chỉ gây hiểu nhầm.
    */
   const showStatus = !!scorecard && canApprove && statusEditable
-  const submitAs = (forced?: BscScorecardStatus) =>
-    rhfHandleSubmit(data => onSubmit(forced ? { ...data, status: forced } : data), toastFirstError)
+  // Gán trạng thái TRƯỚC khi kiểm: luật "đủ 100%" của schema chỉ áp cho thẻ không phải nháp, nên tạo
+  // thẳng ở trạng thái áp dụng phải được kiểm với đúng trạng thái đó.
+  const submitAs = (forced?: BscScorecardStatus) => (e?: BaseSyntheticEvent) => {
+    if (forced) setValue('status', forced)
+    return rhfHandleSubmit(data => onSubmit(data), toastFirstError)(e)
+  }
 
   const groupRank = (r: WeightRow) => {
     const i = (fixedPerspectives || []).findIndex(fp => fp.code === r.fixedPerspective)
@@ -488,7 +493,6 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
           targetValue: r.targetValue ?? null,
           minimumValue: r.minimumValue ?? null,
           unit: r.unit ?? null,
-          measurementSource: r.measurementSource ?? null,
           isGate: r.isGate ?? false,
           gateMinPercent: r.gateMinPercent ?? null,
           gateEffect: r.gateEffect ?? null,
@@ -546,7 +550,8 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
         dragId === r.perspectiveId && 'opacity-40',
         dragId !== r.perspectiveId && !r.enabled && 'opacity-50',
         dragOverId === r.perspectiveId && 'bg-[var(--color-primary-soft)]')}>
-    <div className="flex items-center gap-3 pl-1.5 pr-4 py-2.5">
+    {/* Màn hẹp: tên hạng mục giữ tối thiểu 9rem, nút + trọng số xuống hàng dưới thay vì bóp tên còn một ký tự. */}
+    <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-1.5 pl-1.5 pr-4 py-2.5">
       <span
         className="shrink-0 -mr-1.5 p-1 rounded-control cursor-grab active:cursor-grabbing text-[var(--color-subtle-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-muted)]"
         title={t('ScorecardFormModal.dragToReorder')}
@@ -555,13 +560,12 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
         onMouseUp={() => { if (!dragId) setDragArmed(null) }}>
         <GripVertical size={14} aria-hidden="true" />
       </span>
-      <ChoiceChip {...tourAnchor('bsc.form.row-toggle')} selected={r.enabled} variant="solid" className="shrink-0" onClick={() => { if (!r.locked) toggle(r.perspectiveId) }} disabled={!!r.locked} title={r.locked
+      <ChoiceChip {...tourAnchor('bsc.form.row-toggle')} selected={r.enabled} variant="check" onClick={() => { if (!r.locked) toggle(r.perspectiveId) }} disabled={!!r.locked} title={r.locked
           ? t('ScorecardFormModal.kpiAssignedByTheParentRemoving')
           : r.enabled ? t('ScorecardFormModal.removeTheItemFromThisScorecard') : t('ScorecardFormModal.addTheItemToThisScorecard')}>
-        {r.enabled && <span className="text-xs font-semibold">✓</span>}
       </ChoiceChip>
       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color || '#8b5cf6' }} />
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-[9rem] sm:min-w-0">
         <p className="text-sm font-medium text-[var(--color-foreground)] truncate flex items-center gap-1.5">
           {r.name}
           {r.origin === BscItemOrigin.ASSIGNED && (
@@ -575,6 +579,10 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
           <p className="text-caption truncate">
             {t('ScorecardFormModal.sourceRowHint', { name: r.sourceScorecardName })}
           </p>
+        )}
+        {!isSourceRow && !(r.targetValue != null && r.targetValue > 0) && (
+          // Dữ liệu cũ (thời còn cách chấm trung bình) có thể chưa có mục tiêu: nói ra để người sửa điền.
+          <p className="text-caption truncate text-[var(--color-warning)]">{t('ScorecardFormModal.noTargetYet')}</p>
         )}
         {(r.targetValue != null || r.minimumValue != null) && (
           <p className="text-caption truncate">
@@ -596,8 +604,8 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
       {/* Cả ba nút hiện thường trực. Giấu sau hover thì người dùng không biết là có —
           riêng nút cấu hình là thao tác chính của luồng phân rã nên càng không được giấu.
           Xoá vẫn an toàn vì phải qua hộp xác nhận nói rõ là xoá khỏi TOÀN tổ chức. */}
-      {!isSourceRow && <div className="flex items-center gap-0.5 shrink-0">
-        <Button variant="ghost" size="icon-sm" className={cn('',
+      {!isSourceRow && <div className="flex items-center gap-0.5 shrink-0 ml-auto sm:ml-0">
+        <Button {...tourAnchor('bsc.form.row-target')} variant="ghost" size="icon-sm" className={cn('',
             targetOpen || isOwnTarget || r.isGate
               ? 'text-[var(--color-warning)] bg-[var(--color-warning-bg)]'
               : 'hover:text-[var(--color-warning)] hover:bg-[var(--color-warning-bg)] dark:hover:bg-[var(--color-warning-bg)]')} type="button" onClick={() => toggleTargetRow(r.perspectiveId)} disabled={!r.enabled} title={t('ScorecardFormModal.customTargetGateItemAndData')}>
@@ -659,7 +667,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
 
         {/* Hạng mục chặn — "câu chặn 10": không đạt thì bị áp TRẦN XẾP LOẠI, điểm giữ nguyên. */}
         <div className="w-full pt-2 mt-1 border-t border-[var(--color-border)] space-y-2">
-          <label className="flex items-center gap-2 cursor-pointer">
+          <label className="flex flex-wrap items-center gap-x-2 gap-y-0.5 cursor-pointer">
             <input type="checkbox" checked={!!r.isGate} disabled={!r.enabled || !!r.locked}
               onChange={e => setRowTarget(r.perspectiveId, {
                 isGate: e.target.checked,
@@ -724,26 +732,11 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
             </div>
           )}
 
-          <div className="flex items-end gap-2">
-            <div className="space-y-1">
-              <label className="text-label block">{t('ScorecardFormModal.unitResultSource')}</label>
-              <Select value={r.measurementSource ?? BscMeasurementSource.ROLLUP} disabled={!r.enabled}
-                onValueChange={v => setRowTarget(r.perspectiveId, { measurementSource: v as BscMeasurementSource })}>
-                <SelectTrigger className="h-9 w-auto min-w-[10.5rem] gap-2 px-3 py-0 rounded-control text-xs font-medium bg-[var(--color-muted)] border-[var(--color-border)] focus:ring-1 focus:ring-[var(--color-ring)] focus:ring-offset-0"><SelectValue /></SelectTrigger>
-                <SelectContent className={COMPACT_MENU}>
-                  <SelectItem value={BscMeasurementSource.ROLLUP}>{t('ScorecardFormModal.summedFromKpis')}</SelectItem>
-                  <SelectItem value={BscMeasurementSource.MANUAL}>{t('ScorecardFormModal.manualEntry')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {/* Giải thích đổi theo lựa chọn: hai nguồn này khác nhau ở CHỖ LẤY SỐ, mà nhìn tên
-                thì không thấy được — nói mơ hồ thì người dùng chọn bừa rồi kết quả đơn vị ra rỗng. */}
-            <p className="flex-1 text-caption pb-1.5 leading-relaxed">
-              {(r.measurementSource ?? BscMeasurementSource.ROLLUP) === BscMeasurementSource.ROLLUP
-                ? t('ScorecardFormModal.theSystemSumsTheResultsOf')
-                : t('ScorecardFormModal.theOwnerTypesInTheWhole')}
-            </p>
-          </div>
+          {/* Nguồn kết quả đơn vị không còn phải chọn: hệ thống tự nhận theo dòng (BscCascadeService.recompute). */}
+          <p className="text-caption leading-relaxed">
+            <span className="font-medium text-[var(--color-foreground)]">{t('ScorecardFormModal.unitResultSource')}:</span>{' '}
+            {t('ScorecardFormModal.autoSourceHint')}
+          </p>
         </div>
       </div>
     )}
@@ -984,7 +977,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
               <label className="text-label ml-1 flex items-center gap-1.5">
                 <Scale size={12} /> {t('ScorecardFormModal.itemsWeights')}
               </label>
-              <Button {...tourAnchor('bsc.form.split')} variant="ghost" type="button" onClick={distributeEvenly}>{t('ScorecardFormModal.splitEvenly')}</Button>
+              <Button {...tourAnchor('bsc.form.split')} variant="outline" size="sm" type="button" onClick={distributeEvenly}>{t('ScorecardFormModal.splitEvenly')}</Button>
             </div>
             <p className="text-caption ml-1">
               {t('ScorecardFormModal.tickToAddItemsToThis')}

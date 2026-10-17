@@ -48,6 +48,7 @@ public class BscResultService {
     private final ApplicationEventPublisher eventPublisher;
     private final BscSourceScores sourceScores;
     private final com.kpitracking.service.kpi.approval.KpiApprovalViewService approvalView;
+    private final BscCycleLockGuard cycleLockGuard;
 
     // ============================================================
     // Waterfall
@@ -127,6 +128,7 @@ public class BscResultService {
     public BscWaterfallResponse override(UUID evaluationId, BscOverrideRequest request) {
         Evaluation e = evaluationRepository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluation"), "id", evaluationId));
+        cycleLockGuard.assertWritable(e.getKpiPeriod());
         User actor = currentUserOrNull();
 
         if (request.getScore() == null) {
@@ -144,6 +146,14 @@ public class BscResultService {
             }
             if (request.getScore() < 0) {
                 throw new BusinessException(ErrorCode.OVERRIDE_SCORE_CANNOT_NEGATIVE);
+            }
+            // Ghi đè không được vượt trần điểm công nhận của chính sách đang áp cho đợt (không có
+            // chính sách thì trần là 150 — mức cao nhất điểm BSC tự tính ra được). Không có trần thì
+            // một cú gõ nhầm 500 thành điểm đã công bố.
+            Double cap = waterfall(evaluationId).getRecognizedCapPercent();
+            double max = cap != null ? cap : 150.0;
+            if (request.getScore() > max) {
+                throw new BusinessException(ErrorCode.OVERRIDE_SCORE_EXCEEDS_CAP, String.valueOf(max));
             }
             e.setOverrideScore(request.getScore());
             e.setOverrideReasonCode(request.getReasonCode().trim());

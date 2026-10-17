@@ -10,7 +10,7 @@ import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useNextStepHint } from '../workflow/nextStep/useNextStepHint'
 import { useKpiCycles } from '../hooks/useKpiCycles'
 import { useAuthStore } from '@/store/authStore'
-import { formatDateTime, FREQUENCY_MAP } from '@/lib/utils'
+import { cn, formatDateTime, FREQUENCY_MAP } from '@/lib/utils'
 import type { KpiPeriod, KpiFrequency } from '@/types/kpi'
 import {
   Calendar, CalendarRange, Plus, Pencil, Trash2,
@@ -30,6 +30,7 @@ import { LockedBadge, LockedHint } from '../components/CycleLockHint'
 import { periodLockReason } from '../utils/cycleLockReason'
 import { PERIOD_STATUS_LABEL } from '../types/cycleLock'
 import { useTranslation } from 'react-i18next'
+import { fitsIn, fmtDay } from '../utils/cycleLockDates'
 import { useStateDraft } from '@/hooks/useFormDraft'
 import { useCreateFromLink, useCreatePeriodCycleOption } from '@/components/common/CreatePeriodCycleOption'
 import DraftNotice from '@/components/common/DraftNotice'
@@ -326,9 +327,13 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
 
   // Danh sách kỳ để gán đợt vào (tuỳ chọn).
   const { data: cyclesData } = useKpiCycles({ organizationId, size: 100, sortBy: 'startDate', direction: 'desc' })
-  const cycles = cyclesData?.content || []
+  // Cùng luật với form kỳ: chỉ kỳ ôm trọn thời gian đợt mới chọn được, kỳ còn lại hiện mờ kèm lý do.
+  const fitsCycle = (c: { startDate: string | null; endDate: string | null }) =>
+    fitsIn(formData.startDate || null, formData.endDate || null, { id: '', name: '', startDate: c.startDate, endDate: c.endDate })
+  const cycles = [...(cyclesData?.content || [])].sort((a, b) => Number(fitsCycle(b)) - Number(fitsCycle(a)))
   const createCycle = useCreatePeriodCycleOption('cycle')
   const selectedCycle = formData.cycleId !== 'NONE' ? cycles.find(c => c.id === formData.cycleId) : undefined
+  const selectedCycleFits = !selectedCycle || fitsCycle(selectedCycle)
 
   // Auto calculate end date on mount if creating new
   useState(() => {
@@ -410,16 +415,12 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
     }
 
     // Đợt thuộc một kỳ ⇒ thời gian đợt phải nằm gọn trong thời gian của kỳ.
-    if (selectedCycle?.startDate && selectedCycle?.endDate) {
-      const cycleStart = new Date(selectedCycle.startDate).getTime()
-      const cycleEnd = new Date(selectedCycle.endDate).getTime()
-      if (start < cycleStart || end > cycleEnd) {
-        toast.error(
-          t('KpiPeriodsPage.thePeriodDatesMustBeWithin', { name: selectedCycle.name }) +
-          `(${format(new Date(selectedCycle.startDate), 'dd/MM/yyyy')} – ${format(new Date(selectedCycle.endDate), 'dd/MM/yyyy')})`
-        )
-        return
-      }
+    if (selectedCycle && !selectedCycleFits) {
+      toast.error(
+        t('KpiPeriodsPage.thePeriodDatesMustBeWithin', { name: selectedCycle.name }) +
+        `(${fmtDay(selectedCycle.startDate)} – ${fmtDay(selectedCycle.endDate)})`
+      )
+      return
     }
 
     const standardEnd = computeStandardEndDate(new Date(formData.startDate), formData.periodType).getTime()
@@ -497,19 +498,28 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
             </SelectTrigger>
             <SelectContent className="rounded-card border-[var(--color-border)] p-2">
               <SelectItem value="NONE" className="rounded-card text-sm font-medium text-[var(--color-muted-foreground)]">{t('KpiPeriodsPage.notInAnyCycle')}</SelectItem>
-              {cycles.map(cycle => (
-                <SelectItem key={cycle.id} value={cycle.id} disabled={cycle.status === 'LOCKED'} className="rounded-card text-sm font-medium">
-                  {cycle.name}{cycle.status === 'LOCKED' && t('KpiPeriodsPage.locked')}
-                </SelectItem>
-              ))}
+              {cycles.map(cycle => {
+                const locked = cycle.status === 'LOCKED'
+                const fits = fitsCycle(cycle)
+                return (
+                  <SelectItem key={cycle.id} value={cycle.id} disabled={locked || !fits} className="rounded-card text-sm font-medium">
+                    {cycle.name}{locked && t('KpiPeriodsPage.locked')}
+                    {cycle.startDate && cycle.endDate && (
+                      <span className="ml-2 text-caption">
+                        {fmtDay(cycle.startDate)} – {fmtDay(cycle.endDate)}{!locked && !fits && ` · ${t('KpiPeriodsPage.outsidePeriodDates')}`}
+                      </span>
+                    )}
+                  </SelectItem>
+                )
+              })}
               {createCycle.item}
             </SelectContent>
           </Select>
           {selectedCycle?.startDate && selectedCycle?.endDate && (
-            <p className="text-caption font-medium ml-1">
-              {t('KpiPeriodsPage.thePeriodMustBeWithinThe')}{' '}
-              <span className="font-semibold text-[var(--color-muted-foreground)]">
-                {format(new Date(selectedCycle.startDate), 'dd/MM/yyyy')} – {format(new Date(selectedCycle.endDate), 'dd/MM/yyyy')}
+            <p className={cn('text-caption font-medium ml-1', !selectedCycleFits && 'text-[var(--color-error)]')}>
+              {selectedCycleFits ? t('KpiPeriodsPage.thePeriodMustBeWithinThe') : t('KpiPeriodsPage.datesOutsideCycle')}{' '}
+              <span className={cn('font-semibold', selectedCycleFits && 'text-[var(--color-muted-foreground)]')}>
+                {fmtDay(selectedCycle.startDate)} – {fmtDay(selectedCycle.endDate)}
               </span>
             </p>
           )}

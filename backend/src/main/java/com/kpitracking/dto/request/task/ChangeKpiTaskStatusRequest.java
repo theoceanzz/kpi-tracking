@@ -13,6 +13,6 @@ public class ChangeKpiTaskStatusRequest {
     private Double sortOrder;
     @NotNull
     private Long version;
-    /** Hoàn thành dù còn việc con chưa xong (người dùng đã xác nhận). */
+    /** Hoàn thành dù còn việc con chưa xong / còn bị việc khác chặn (người dùng đã xác nhận). */
     private boolean force;
 }

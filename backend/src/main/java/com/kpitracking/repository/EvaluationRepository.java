@@ -331,4 +331,19 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
 
     /** Đánh giá (chưa xoá) của nhiều đợt — phân loại tiến độ khi khoá kỳ. */
     java.util.List<Evaluation> findByKpiPeriodIdIn(java.util.Collection<UUID> kpiPeriodIds);
+
+    /** Trong số {@code userIds}, những người đã tự đánh giá đợt này (người chấm = chính họ). */
+    @Query("SELECT DISTINCT e.user.id FROM Evaluation e WHERE e.kpiPeriod.id = :periodId " +
+           "AND e.user.id IN :userIds AND e.evaluator.id = e.user.id")
+    java.util.List<UUID> findSelfEvaluatedUserIds(@Param("periodId") UUID periodId,
+                                                  @Param("userIds") java.util.Collection<UUID> userIds);
+
+    /**
+     * Tên các đợt (trong {@code periodIds}) đã có phiếu đánh giá do QUẢN LÝ chốt (người chấm khác người
+     * được chấm) cho người thuộc {@code unitIds}. Dùng để chặn đổi chế độ chấm BSC sau khi điểm đã công bố.
+     */
+    @Query("SELECT DISTINCT e.kpiPeriod.name FROM Evaluation e WHERE e.kpiPeriod.id IN :periodIds " +
+           "AND e.orgUnit.id IN :unitIds AND e.evaluator.id <> e.user.id AND e.deletedAt IS NULL")
+    java.util.List<String> findManagerEvaluatedPeriodNames(@Param("periodIds") java.util.Collection<UUID> periodIds,
+                                                         @Param("unitIds") java.util.Collection<UUID> unitIds);
 }

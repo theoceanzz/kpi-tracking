@@ -154,7 +154,7 @@ public class Organization {
     @Builder.Default
     private Boolean enableAiReview = false;
 
-    // Thang điểm AI nằm ở bảng ai_review_levels (V48). Ba cột trọng số cũ (ai_review_weight_*) còn trong DB, không dùng.
+    // Thang điểm AI nằm ở bảng ai_review_levels (V51). Ba cột trọng số cũ (ai_review_weight_*) còn trong DB, không dùng.
 
     // Bộ tiêu chí hạnh kiểm KHÔNG map thành collection ở đây: nó được đọc/ghi qua
     // ConductCriteriaRepository, và một collection cascade+orphanRemoval nạp lười ở đây

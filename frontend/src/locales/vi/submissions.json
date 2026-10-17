@@ -149,8 +149,10 @@
     "scoreRating": "Điểm · Xếp loại",
     "searchEmployees": "Tìm nhân viên…",
     "selfScore": "Tự chấm",
+    "selfAssess": "Tự đánh giá",
+    "selfAssessHint": "Đây là bạn — đợt của bạn do trưởng đơn vị cấp trên chấm, ở đây bạn chỉ tự đánh giá.",
     "theUnitHasNoMembersYet": "Đơn vị chưa có nhân sự",
-    "thisPeriodHasEndedPeopleWho": "Đợt này đã kết thúc — nhân sự chưa nộp được đánh dấu \"Chưa nộp\".",
+    "thisPeriodHasEndedPeopleWho": "Đợt này đã kết thúc — nhân sự chưa nộp được đánh dấu \"Chưa nộp\". Bạn chấm được cả người chưa nộp đủ, KPI chưa nộp tính 0 điểm.",
     "tryAnotherKeywordOrClearThe": "Thử từ khoá khác hoặc xoá tìm kiếm.",
     "unit": "Đơn vị",
     "viewEvaluation": "Xem đánh giá"
@@ -459,6 +461,55 @@
     "saved": "Đã lưu cài đặt AI gợi ý điểm.",
     "saveFailed": "Không lưu được cài đặt AI."
   },
+  "AiUnitWeights": {
+    "title": "Đơn vị tắt AI",
+    "description": "Tắt AI cho đơn vị cần (áp cả đơn vị con).",
+    "companyOff": "Công ty đang tắt AI nên mọi đơn vị cũng tắt.",
+    "add": "Thêm đơn vị",
+    "empty": "Chưa có. Mọi đơn vị theo cài đặt công ty.",
+    "aiOff": "Tắt AI",
+    "removeAria": "Bật lại AI cho {{unit}}",
+    "removeTitle": "Bật lại AI cho đơn vị?",
+    "removeDescription": "{{unit}} sẽ theo lại cài đặt của công ty.",
+    "removeConfirm": "Bật lại AI",
+    "saved": "Đã tắt AI cho đơn vị.",
+    "saveFailed": "Không tắt được AI cho đơn vị.",
+    "removed": "Đã bật lại AI cho đơn vị.",
+    "removeFailed": "Không bật lại được AI cho đơn vị.",
+    "dialog": {
+      "addTitle": "Tắt AI cho một đơn vị",
+      "unit": "Đơn vị",
+      "chooseUnit": "Chọn đơn vị",
+      "turnOff": "Tắt AI gợi ý điểm",
+      "turnOffExplain": "Quản lý của đơn vị này (và đơn vị con) sẽ không thấy nút “Gợi ý” của AI khi chấm, và nhân viên không tự soi bài bằng AI được.",
+      "cancel": "Huỷ"
+    }
+  },
+  "AiReviewPanel": {
+    "title": "AI đọc trước bài nộp",
+    "disclaimer": "Kết quả do AI gợi ý – cần quản lý xác nhận",
+    "running": "AI đang đọc bài nộp… Bạn có thể đóng màn này, kết quả vẫn được giữ.",
+    "failed": "AI chưa phân tích được lượt này.",
+    "missingData": "Còn thiếu để đánh giá chắc hơn",
+    "criteriaSetVersion": "chấm theo bộ tiêu chí phiên bản {{version}}",
+    "unreadable": "AI không đọc được {{count}} tệp — hãy tự mở xem:",
+    "kpi": "Chỉ tiêu",
+    "qualityLabel": "Chất lượng:",
+    "qualityUnknown": "chưa xác định",
+    "qualityComment": "Nhận xét chất lượng:",
+    "strengths": "Điểm mạnh",
+    "gaps": "Cần bổ sung",
+    "suggestions": "Gợi ý chỉnh sửa",
+    "introPerKpi": "Chưa có kết quả AI. Mở phiếu chấm và bấm Gợi ý ở chỉ tiêu cần chấm."
+  },
+  "ScoringReadiness": {
+    "submitted": "Đã nộp {{submitted}}/{{required}} KPI",
+    "noKpi": "Chưa có KPI trong đợt",
+    "selfEvalMissing": "Chưa tự đánh giá",
+    "missing": "Còn thiếu: {{names}}",
+    "rule": "Chấm được khi nhân viên đã nộp đủ KPI của đợt và tự đánh giá xong, hoặc sau khi đợt kết thúc (KPI chưa nộp tính 0 điểm).",
+    "title": "Chưa chấm được"
+  },
   "AiScale": {
     "title": "Thang điểm AI",
     "hint": "AI chọn một mức cho chất lượng bài nộp. Điểm AI là điểm của mức đó; điểm tối đa là điểm của mức cao nhất. Mô tả mức giúp AI chọn đúng.",
@@ -508,47 +559,6 @@
         "description": "Đầy đủ, có số liệu và đối chiếu với kế hoạch"
       }
     }
-  },
-  "AiUnitWeights": {
-    "title": "Đơn vị tắt AI",
-    "description": "Tắt AI cho đơn vị cần (áp cả đơn vị con).",
-    "companyOff": "Công ty đang tắt AI nên mọi đơn vị cũng tắt.",
-    "add": "Thêm đơn vị",
-    "empty": "Chưa có. Mọi đơn vị theo cài đặt công ty.",
-    "aiOff": "Tắt AI",
-    "removeAria": "Bật lại AI cho {{unit}}",
-    "removeTitle": "Bật lại AI cho đơn vị?",
-    "removeDescription": "{{unit}} sẽ theo lại cài đặt của công ty.",
-    "removeConfirm": "Bật lại AI",
-    "saved": "Đã tắt AI cho đơn vị.",
-    "saveFailed": "Không tắt được AI cho đơn vị.",
-    "removed": "Đã bật lại AI cho đơn vị.",
-    "removeFailed": "Không bật lại được AI cho đơn vị.",
-    "dialog": {
-      "addTitle": "Tắt AI cho một đơn vị",
-      "unit": "Đơn vị",
-      "chooseUnit": "Chọn đơn vị",
-      "turnOff": "Tắt AI gợi ý điểm",
-      "turnOffExplain": "Quản lý của đơn vị này (và đơn vị con) sẽ không thấy nút “Gợi ý” của AI khi chấm, và nhân viên không tự soi bài bằng AI được.",
-      "cancel": "Huỷ"
-    }
-  },
-  "AiReviewPanel": {
-    "title": "AI đọc trước bài nộp",
-    "disclaimer": "Kết quả do AI gợi ý – cần quản lý xác nhận",
-    "running": "AI đang đọc bài nộp… Bạn có thể đóng màn này, kết quả vẫn được giữ.",
-    "failed": "AI chưa phân tích được lượt này.",
-    "missingData": "Còn thiếu để đánh giá chắc hơn",
-    "criteriaSetVersion": "chấm theo bộ tiêu chí phiên bản {{version}}",
-    "unreadable": "AI không đọc được {{count}} tệp — hãy tự mở xem:",
-    "kpi": "Chỉ tiêu",
-    "qualityLabel": "Chất lượng:",
-    "qualityUnknown": "chưa xác định",
-    "qualityComment": "Nhận xét chất lượng:",
-    "strengths": "Điểm mạnh",
-    "gaps": "Cần bổ sung",
-    "suggestions": "Gợi ý chỉnh sửa",
-    "introPerKpi": "Chưa có kết quả AI. Mở phiếu chấm và bấm Gợi ý ở chỉ tiêu cần chấm."
   },
   "ScorerColumns": {
     "system": "Hệ thống",

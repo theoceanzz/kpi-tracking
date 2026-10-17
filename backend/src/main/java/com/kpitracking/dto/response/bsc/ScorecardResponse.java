@@ -42,4 +42,6 @@ public class ScorecardResponse {
     private Instant updatedAt;
     /** Đang chờ duyệt theo quy trình "Lập và phê duyệt thẻ điểm": bước hiện tại, tính cho người xem. */
     private com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse approval;
+    /** Tổ chức đang bật quy trình "Lập và phê duyệt thẻ điểm" — thẻ nháp phải trình, không duyệt thẳng. */
+    private boolean approvalProcessActive;
 }

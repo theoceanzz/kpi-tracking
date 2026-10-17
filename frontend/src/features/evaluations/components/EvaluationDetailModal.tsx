@@ -8,7 +8,7 @@ import { useEvaluationSubmissions } from '@/features/submissions/hooks/useSubmis
 import { useEvaluations } from '../hooks/useEvaluations'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { getScoringFunctions, SCORING_POOL, describePerspectiveScore } from '@/lib/scoring'
+import { getScoringFunctions, SCORING_POOL, describePerspectiveScore, bscCoverage } from '@/lib/scoring'
 import { formatNumber, formatDateTime, cn } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
 import type { Evaluation } from '@/types/evaluation'
@@ -759,7 +759,9 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                       </Button>
                     }
                   >
-                    {evaluation.bscPerspectives && evaluation.bscPerspectives.length > 0 && (
+                    {evaluation.bscPerspectives && evaluation.bscPerspectives.length > 0 && (() => {
+                      const coverage = bscCoverage(evaluation.bscPerspectives, evaluation.bscScore)
+                      return (<>
                       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
                         {evaluation.bscPerspectives.map(p => (
                           <span key={p.perspectiveId}
@@ -770,10 +772,20 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                             <b className={cn('tabular-nums', p.achievementPercent == null && 'text-[var(--color-subtle-foreground)]')}>
                               {p.achievementPercent != null ? `${p.achievementPercent.toFixed(0)}%` : t('EvaluationDetailModal.none')}
                             </b>
+                            <span className="tabular-nums text-[var(--color-subtle-foreground)]">×{p.weightPercentage}%</span>
                           </span>
                         ))}
                       </div>
-                    )}
+                      {coverage.renormalized && (
+                        <p className="text-caption mt-2">
+                          {t('EvaluationDetailModal.bscPartialCoverage', {
+                            score: evaluation.bscScore!.toFixed(1), presentWeight: coverage.presentWeight, totalWeight: coverage.totalWeight,
+                            present: coverage.present, count: coverage.count, contribution: coverage.contribution,
+                          })}
+                        </p>
+                      )}
+                      </>)
+                    })()}
                   </DetailRow>
                 )}
               </div>

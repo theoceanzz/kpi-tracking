@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, ArrowUpFromLine, Download, Eye, FilePen, Loader2, Pin, RefreshCw, Star, Trash2, Upload } from 'lucide-react'
 import { Drawer, DialogFooter } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import CreateTaskButton from '@/features/tasks/components/CreateTaskButton'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
@@ -290,6 +291,8 @@ export default function DocumentDrawer({ doc, caps, onClose, initialTab = 'info'
               <RefreshCw aria-hidden="true" /> {t('actions.reindex')}
             </Button>
           )}
+          <CreateTaskButton className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            defaults={() => ({ title: doc.title, sourceRef: { type: 'DOCUMENT', id: doc.id, label: doc.title } })} />
           {editable && targets.length > 0 && (
             <Button variant="outline" size="sm" onClick={() => setPromoting(true)}>
               <ArrowUpFromLine aria-hidden="true" /> {t('promotion.propose')}

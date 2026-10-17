@@ -7,6 +7,9 @@ import com.kpitracking.dto.response.task.*;
 import com.kpitracking.enums.KpiTaskPriority;
 import com.kpitracking.enums.KpiTaskStatus;
 import com.kpitracking.service.task.KpiTaskService;
+import com.kpitracking.service.task.TaskSearch;
+import com.kpitracking.service.task.TaskBatchService;
+import com.kpitracking.service.task.TaskExcelService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -35,11 +38,14 @@ import java.util.UUID;
 public class KpiTaskController {
 
     private final KpiTaskService taskService;
+    private final TaskBatchService batchService;
+    private final TaskExcelService excelService;
 
     @GetMapping({"/kpi-tasks", "/kpi-tasks/my"})
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Danh sách theo chế độ xem (ASSIGNED|FOLLOWING|CREATED|DELEGATED|ALL|DONE|TEAM) + bộ lọc; "
-            + "due = OVERDUE|TODAY|TOMORROW|WEEK|LATER|NONE; dueFrom/dueTo cho chế độ Lịch")
+    @Operation(summary = "Danh sách theo chế độ xem (ASSIGNED|FOLLOWING|CREATED|DELEGATED|ALL|DONE|TEAM|LIST|SEARCH) + bộ lọc; "
+            + "due = OVERDUE|TODAY|TOMORROW|WEEK|LATER|NONE; dueFrom/dueTo cho Lịch; rangeFrom/rangeTo cho Gantt; "
+            + "fieldFilters = JSON [{fieldId, op, value}] (chỉ trong một danh sách)")
     public ResponseEntity<ApiResponse<PageResponse<KpiTaskResponse>>> list(
             @RequestParam(required = false) String view,
             @RequestParam(required = false) UUID kpiId,
@@ -54,9 +60,65 @@ public class KpiTaskController {
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "false") boolean topLevel,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "200") int size) {
+            @RequestParam(defaultValue = "200") int size,
+            @RequestParam(required = false) UUID listId,
+            @RequestParam(required = false) UUID sectionId,
+            @RequestParam(defaultValue = "false") boolean noSection,
+            @RequestParam(required = false) Boolean hasKpi,
+            @RequestParam(required = false) List<UUID> tagIds,
+            @RequestParam(required = false) String fieldFilters,
+            @RequestParam(required = false) UUID sortFieldId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate rangeFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate rangeTo) {
         return ResponseEntity.ok(ApiResponse.success(taskService.list(new KpiTaskService.ListQuery(
-                view, kpiId, kpiPeriodId, ownerId, status, priority, due, dueFrom, dueTo, keyword, sort, topLevel, page, size))));
+                view, kpiId, kpiPeriodId, ownerId, status, priority, due, dueFrom, dueTo, keyword, sort, topLevel, page, size,
+                listId, sectionId, noSection, hasKpi, tagIds, parseFieldFilters(fieldFilters), sortFieldId, rangeFrom, rangeTo))));
+    }
+
+    @GetMapping("/kpi-tasks/export")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Xuất Excel theo đúng bộ lọc đang xem (chỉ việc người gọi xem được)")
+    public ResponseEntity<byte[]> export(
+            @RequestParam(required = false) String view,
+            @RequestParam(required = false) UUID kpiId,
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(required = false) UUID ownerId,
+            @RequestParam(required = false) List<KpiTaskStatus> status,
+            @RequestParam(required = false) KpiTaskPriority priority,
+            @RequestParam(required = false) String due,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false) UUID listId,
+            @RequestParam(required = false) UUID sectionId,
+            @RequestParam(required = false) Boolean hasKpi,
+            @RequestParam(required = false) List<UUID> tagIds,
+            @RequestParam(required = false) String fieldFilters) throws java.io.IOException {
+        byte[] bytes = excelService.export(new KpiTaskService.ListQuery(view, kpiId, kpiPeriodId, ownerId, status, priority, due,
+                null, null, keyword, sort, false, 0, 500, listId, sectionId, false, hasKpi, tagIds, parseFieldFilters(fieldFilters),
+                null, null, null));
+        return TaskListController.file(bytes, "tasks.xlsx");
+    }
+
+    @PostMapping("/kpi-tasks/batch")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Thao tác hàng loạt (tối đa 200 việc) — kết quả từng dòng")
+    public ResponseEntity<ApiResponse<TaskListResponses.BatchResult>> batch(@Valid @RequestBody TaskListRequests.Batch request) {
+        return ResponseEntity.ok(ApiResponse.success(batchService.run(request)));
+    }
+
+    /** Mảng JSON các {fieldId, op, value} — sai định dạng thì bỏ qua bộ lọc. */
+    private static List<TaskSearch.FieldFilter> parseFieldFilters(String json) {
+        if (json == null || json.isBlank()) return List.of();
+        try {
+            List<Map<String, Object>> raw = new com.fasterxml.jackson.databind.ObjectMapper().readValue(json,
+                    new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+            return raw.stream().filter(m -> m.get("fieldId") != null && m.get("op") != null)
+                    .map(m -> new TaskSearch.FieldFilter(UUID.fromString(m.get("fieldId").toString()), null,
+                            m.get("op").toString(), m.get("value")))
+                    .limit(10).toList();
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 
     @GetMapping("/kpi-tasks/sidebar")
@@ -74,9 +136,11 @@ public class KpiTaskController {
 
     @GetMapping("/kpi-tasks/assignable-users")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Người tôi được giao việc (chính tôi + người trong đơn vị tôi quản lý nếu có TASK:ASSIGN)")
-    public ResponseEntity<ApiResponse<List<TaskOptionResponse>>> assignableUsers(@RequestParam(required = false) String q) {
-        return ResponseEntity.ok(ApiResponse.success(taskService.assignableUsers(q)));
+    @Operation(summary = "Người tôi được giao việc: all=false ⇒ trên KPI (chính tôi + đơn vị tôi quản lý nếu có TASK:ASSIGN); "
+            + "all=true ⇒ việc không KPI (mọi người trong tổ chức)")
+    public ResponseEntity<ApiResponse<List<TaskOptionResponse>>> assignableUsers(@RequestParam(required = false) String q,
+                                                                                @RequestParam(defaultValue = "false") boolean all) {
+        return ResponseEntity.ok(ApiResponse.success(taskService.assignableUsers(q, all)));
     }
 
     @GetMapping("/kpi-tasks/assignable-kpis")
@@ -159,6 +223,57 @@ public class KpiTaskController {
         return ResponseEntity.ok(ApiResponse.success(taskService.assign(id, request)));
     }
 
+    @PutMapping("/kpi-tasks/{id}/assignees")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Thay danh sách người thực hiện (người đầu / primaryId là người chính)")
+    public ResponseEntity<ApiResponse<KpiTaskResponse>> setAssignees(@PathVariable UUID id,
+                                                                     @Valid @RequestBody SetTaskAssigneesRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(taskService.setAssignees(id, request)));
+    }
+
+    @PutMapping("/kpi-tasks/{id}/kpi")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Gắn / đổi / gỡ KPI của việc gốc (kpiId null = gỡ); xem trước người theo dõi bị gỡ qua assign-impact")
+    public ResponseEntity<ApiResponse<KpiTaskResponse>> setKpi(@PathVariable UUID id, @Valid @RequestBody SetTaskKpiRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(taskService.setKpi(id, request)));
+    }
+
+    @PostMapping("/kpi-tasks/{id}/decline")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Từ chối việc được giao (chỉ việc không KPI)")
+    public ResponseEntity<ApiResponse<KpiTaskResponse>> decline(@PathVariable UUID id, @Valid @RequestBody DeclineTaskRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(taskService.decline(id, request)));
+    }
+
+    @PutMapping("/kpi-tasks/{id}/tags")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Thay bộ nhãn của việc")
+    public ResponseEntity<ApiResponse<KpiTaskResponse>> setTags(@PathVariable UUID id, @RequestBody List<UUID> tagIds) {
+        return ResponseEntity.ok(ApiResponse.success(taskService.setTags(id, tagIds)));
+    }
+
+    @PostMapping("/kpi-tasks/{id}/dependencies/{predecessorId}")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Việc {id} chờ việc {predecessorId} xong (FS)")
+    public ResponseEntity<ApiResponse<KpiTaskResponse>> addDependency(@PathVariable UUID id, @PathVariable UUID predecessorId) {
+        return ResponseEntity.ok(ApiResponse.success(taskService.addDependency(id, predecessorId)));
+    }
+
+    @DeleteMapping("/kpi-task-dependencies/{dependencyId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> removeDependency(@PathVariable UUID dependencyId) {
+        taskService.removeDependency(dependencyId);
+        return ResponseEntity.ok(ApiResponse.success((Void) null));
+    }
+
+    @GetMapping("/kpi-tasks/{id}/assign-impact")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Xem trước khi giao / chuyển KPI: người theo dõi nào sẽ bị gỡ khỏi việc nào (không xem được KPI mới)")
+    public ResponseEntity<ApiResponse<List<TaskFollowerRemovalResponse>>> assignImpact(@PathVariable UUID id,
+                                                                                       @RequestParam(required = false) UUID kpiId) {
+        return ResponseEntity.ok(ApiResponse.success(taskService.assignImpact(id, kpiId)));
+    }
+
     @PutMapping("/kpi-tasks/{id}/followers/{userId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<KpiTaskResponse>> addFollower(@PathVariable UUID id, @PathVariable UUID userId) {
@@ -231,5 +346,14 @@ public class KpiTaskController {
     @Operation(summary = "Chuyển việc của người gọi sang KPI khác (vd. KPI cũ đã được thay)")
     public ResponseEntity<ApiResponse<Map<String, Integer>>> move(@Valid @RequestBody MoveKpiTasksRequest request) {
         return ResponseEntity.ok(ApiResponse.success(Map.of("moved", taskService.move(request))));
+    }
+
+    @GetMapping("/kpi-tasks/move-impact")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Xem trước khi chuyển việc sang KPI khác: người theo dõi nào sẽ bị gỡ khỏi việc nào")
+    public ResponseEntity<ApiResponse<List<TaskFollowerRemovalResponse>>> moveImpact(@RequestParam UUID fromKpiId,
+                                                                                     @RequestParam UUID toKpiId,
+                                                                                     @RequestParam(required = false) List<UUID> taskIds) {
+        return ResponseEntity.ok(ApiResponse.success(taskService.moveImpact(fromKpiId, toKpiId, taskIds)));
     }
 }

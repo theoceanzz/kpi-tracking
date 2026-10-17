@@ -75,6 +75,7 @@ public class BscCascadeService {
     private final ApplicationEventPublisher eventPublisher;
     private final BscSourceScores sourceScores;
     private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
+    private final BscCycleLockGuard cycleLockGuard;
 
     /**
      * Mức cao nhất của thang xếp loại (ma trận hiệu suất trả 1..5). Dùng cho BLOCK_EXCELLENT:
@@ -160,6 +161,7 @@ public class BscCascadeService {
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.period"), "id", kpiPeriodId));
         // Tính lại ghi đè kết quả của đơn vị đó nên cũng phải gác phạm vi như khi sửa bộ tiêu chí.
         accessGuard.assertCanEdit(scorecard);
+        cycleLockGuard.assertWritable(period);
         // Suy từ tổ chức của chính bộ tiêu chí thay vì bắt caller truyền — cùng một tổ chức mà hai
         // đường gọi truyền hai giá trị khác nhau thì kết quả BSC đơn vị sẽ lệch nhau không rõ lý do.
         boolean enableWaterfall = Boolean.TRUE.equals(scorecard.getOrganization().getEnableWaterfall());
@@ -245,15 +247,18 @@ public class BscCascadeService {
 
             Double actual = null;
             Double achievement = null;
-            BscMeasurementSource source = row.getMeasurementSource() != null
-                    ? row.getMeasurementSource() : BscMeasurementSource.ROLLUP;
-
-            // Chỉ tiêu ĐÃ GIAO XUỐNG cấp dưới thì con số của nó nằm ở kết quả của các đơn vị con,
-            // không phải ở KPI gắn trực tiếp vào đơn vị này. Đây cũng là cách DUY NHẤT để thẻ công
-            // ty (không gắn đơn vị nào nên không có KPI nào để cộng) ra được kết quả.
-            ChildRollup fromChildren = sourceCard == null && source == BscMeasurementSource.ROLLUP
-                    ? rollupFromChildren(childrenByParent.get(row.getId()), childResults, target, minimum)
-                    : null;
+            int sourceCount = 0;
+            // Nguồn số TỰ NHẬN theo từng dòng — người dùng không phải chọn (cột cấu hình
+            // `measurement_source` không còn được đọc):
+            //   1. dòng "Kết quả cấp trên" (giao cả bộ)  → kết quả tổng của thẻ nguồn;
+            //   2. đã phân rã xuống đơn vị con (chia chỉ tiêu / cùng chịu chung) → cộng từ đơn vị con;
+            //   3. có KPI gắn vào                         → cộng từ KPI;
+            //   4. còn lại (chưa phân rã, chưa có KPI)    → người phụ trách nhập tay ở tab kết quả.
+            // Đây cũng là cách thẻ công ty ra được điểm: chỉ tiêu nào giao xuống thì cộng lên,
+            // chỉ tiêu nào giữ lại thì lãnh đạo tự nhập — trước đây dòng "giữ lại" mà quên chọn
+            // "Nhập tay" thì rơi khỏi điểm công ty không ai hay.
+            BscMeasurementSource source;
+            List<BscScorecardPerspective> cascadedTo = contributingChildren(childrenByParent.get(row.getId()));
 
             if (sourceCard != null) {
                 // Kết quả TỔNG của thẻ nguồn trong cùng đợt — đúng con số cuối cùng của nó, không
@@ -261,11 +266,17 @@ public class BscCascadeService {
                 BscSourceScores.SourceScore ss = sources.get(sourceCard.getId());
                 achievement = ss != null ? ss.percent() : null;
                 source = BscMeasurementSource.SCORECARD_RESULT;
-            } else if (fromChildren != null) {
-                actual = fromChildren.actual();
-                achievement = fromChildren.achievement();
+            } else if (!cascadedTo.isEmpty()) {
+                // Đơn vị con chưa có số ⇒ dòng chưa có số (chính sách hạng mục rỗng quyết định),
+                // KHÔNG rơi về KPI hay nhập tay: con số của chỉ tiêu đã giao nằm ở cấp dưới.
+                ChildRollup fromChildren = rollupFromChildren(cascadedTo, childResults, target, minimum);
+                if (fromChildren != null) {
+                    actual = fromChildren.actual();
+                    achievement = fromChildren.achievement();
+                }
+                sourceCount = cascadedTo.size();
                 source = BscMeasurementSource.CHILD_ROLLUP;
-            } else if (source == BscMeasurementSource.ROLLUP) {
+            } else if (!kpis.isEmpty()) {
                 // Cộng thực đạt của MỌI người trong đơn vị (targetUserId = null), vì đây là kết quả
                 // của đơn vị chứ không của một cá nhân.
                 double sum = 0.0;
@@ -282,15 +293,21 @@ public class BscCascadeService {
                             // Dòng không đặt mục tiêu ⇒ không quy ra % được từ tổng thực đạt;
                             // rơi về trung bình có trọng số tỉ lệ đạt của các KPI con.
                             : averageKpiAchievement(kpis, enableWaterfall);
-                } else if (!kpis.isEmpty()) {
+                } else {
                     achievement = averageKpiAchievement(kpis, enableWaterfall);
                 }
+                sourceCount = kpis.size();
+                source = BscMeasurementSource.ROLLUP;
             } else {
-                // MANUAL / DATASOURCE: lấy con số đã nhập. DATASOURCE chưa nối nên hành xử như MANUAL.
                 actual = manualActuals.get(row.getId());
                 if (actual != null) {
-                    achievement = achievementCalculator.perspectiveRatioFromActual(target, minimum, actual) * 100.0;
+                    achievement = target != null && target > 0
+                            ? achievementCalculator.perspectiveRatioFromActual(target, minimum, actual) * 100.0
+                            // Dòng chấm theo trung bình (không mục tiêu) mà không có KPI nào để lấy
+                            // trung bình ⇒ số nhập tay CHÍNH LÀ % đạt (trần 150 như mọi chỗ khác).
+                            : Math.max(0.0, Math.min(actual, 150.0));
                 }
+                source = BscMeasurementSource.MANUAL;
             }
 
             Double weighted = achievement != null ? (weight / 100.0) * achievement : null;
@@ -320,7 +337,7 @@ public class BscCascadeService {
                     .achievementPercent(achievement)
                     .weightPercentage(weight)
                     .weightedScore(weighted)
-                    .kpiCount(fromChildren != null ? fromChildren.childCount() : kpis.size())
+                    .kpiCount(sourceCount)
                     .gatePassed(gatePassed)
                     .measurementSource(source)
                     .build());
@@ -357,6 +374,15 @@ public class BscCascadeService {
      * <p>Trả null khi chưa đơn vị con nào có kết quả cho đợt này — khi đó dòng quay về cách cũ
      * (cộng KPI cá nhân), chứ không phải ra 0 làm tụt điểm cả bộ tiêu chí.
      */
+    /** Dòng con thật sự góp số lên dòng cha: chia chỉ tiêu / cùng chịu chung (bỏ vai trò hỗ trợ). */
+    private static List<BscScorecardPerspective> contributingChildren(List<BscScorecardPerspective> children) {
+        if (children == null) return List.of();
+        return children.stream().filter(c -> {
+            BscLinkType link = c.getLinkType() != null ? c.getLinkType() : BscLinkType.SUM;
+            return link != BscLinkType.SUPPORT && link != BscLinkType.CUSTOM;
+        }).toList();
+    }
+
     private ChildRollup rollupFromChildren(List<BscScorecardPerspective> children,
                                            java.util.Map<UUID, BscUnitResultItem> childResults,
                                            Double target, Double minimum) {
@@ -439,9 +465,11 @@ public class BscCascadeService {
                                            boolean viaApproval) {
         BscUnitResult result = unitResultRepository.findByScorecardIdAndKpiPeriodId(scorecardId, kpiPeriodId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NO_BSC_RESULTS_PERIOD));
+        cycleLockGuard.assertWritable(result.getKpiPeriod());
         if (result.getAchievementPercent() == null) {
             throw new BusinessException(ErrorCode.BSC_RESULTS_COULD_NOT_COMPUTED);
         }
+        assertCompleteBeforeFinalize(result);
         boolean provisional = checkSourcesBeforeFinalize(result, kpiPeriodId, allowProvisional, viaApproval);
         if (!viaApproval && actor != null && proposeFinalize(result, allowProvisional, actor)) return result;
         result.setProvisionalSource(provisional);
@@ -452,6 +480,29 @@ public class BscCascadeService {
         eventPublisher.publishEvent(new BscEvents.UnitResultFinalized(
                 scorecardId, kpiPeriodId, actor != null ? actor.getId() : null));
         return saved;
+    }
+
+    /**
+     * Con số chốt phải là con số của MỘT bộ tiêu chí hoàn chỉnh. Hai trường hợp từng chốt được mà
+     * không ai hay: dòng "Nhập tay" chưa điền (bị bỏ qua, %đạt chia lại trên phần còn lại — con số
+     * chốt khác hẳn lúc điền) và thẻ lệch 100% sau khi nhận / bị thu hồi phân rã (%đạt chia trên 120
+     * hay 80). Nhập tay số 0 nếu thật sự chưa có kết quả.
+     */
+    private void assertCompleteBeforeFinalize(BscUnitResult result) {
+        List<BscScorecardPerspective> rows =
+                scorecardPerspectiveRepository.findByScorecardIdOrderByDisplayOrderAsc(result.getScorecard().getId());
+        double total = rows.stream().mapToDouble(r -> r.getWeightPercentage() != null ? r.getWeightPercentage() : 0.0).sum();
+        if (Math.abs(total - 100.0) > 0.01) {
+            throw new BusinessException(ErrorCode.FINALIZE_TOTAL_WEIGHT_NOT_100, String.valueOf(Math.round(total * 10) / 10.0));
+        }
+        String emptyManual = unitResultItemRepository.findByUnitResultId(result.getId()).stream()
+                .filter(i -> i.getMeasurementSource() == BscMeasurementSource.MANUAL && i.getActualValue() == null)
+                .map(i -> i.getScorecardPerspective() != null && i.getScorecardPerspective().getPerspective() != null
+                        ? i.getScorecardPerspective().getPerspective().getName() : "?")
+                .collect(java.util.stream.Collectors.joining(", "));
+        if (!emptyManual.isEmpty()) {
+            throw new BusinessException(ErrorCode.FINALIZE_MANUAL_ROWS_EMPTY, emptyManual);
+        }
     }
 
     /**
@@ -515,6 +566,8 @@ public class BscCascadeService {
     public BscUnitResult reopenResult(UUID scorecardId, UUID kpiPeriodId) {
         BscUnitResult result = unitResultRepository.findByScorecardIdAndKpiPeriodId(scorecardId, kpiPeriodId)
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unitBscResult"), Terms.of("field.period"), kpiPeriodId));
+        // Kỳ đã khoá thì kết quả đã chốt là số cuối — mở khoá ở đây là đường lách khoá kỳ.
+        cycleLockGuard.assertWritable(result.getKpiPeriod());
         result.setStatus(BscUnitResultStatus.DRAFT);
         result.setFinalizedBy(null);
         result.setFinalizedAt(null);
@@ -527,6 +580,7 @@ public class BscCascadeService {
     public BscUnitResult setManualActual(UUID scorecardId, UUID kpiPeriodId, UUID itemId, Double actual) {
         BscUnitResult result = unitResultRepository.findByScorecardIdAndKpiPeriodId(scorecardId, kpiPeriodId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NO_BSC_RESULTS_PERIOD_2));
+        cycleLockGuard.assertWritable(result.getKpiPeriod());
         if (result.getStatus() != BscUnitResultStatus.DRAFT) {
             throw new BusinessException(ErrorCode.RESULTS_FINALIZED);
         }
@@ -536,12 +590,13 @@ public class BscCascadeService {
         if (!item.getUnitResult().getId().equals(result.getId())) {
             throw new BusinessException(ErrorCode.RESULT_ROW_OUTSIDE_PERIOD_BEING_EDITED);
         }
-        if (item.getScorecardPerspective().getMeasurementSource() != BscMeasurementSource.ROLLUP) {
-            item.setActualValue(actual);
-            unitResultItemRepository.save(item);
-        } else {
+        // Chỉ dòng hệ thống đã nhận là "nhập tay" (chưa phân rã, chưa có KPI) mới gõ số được;
+        // dòng lấy số từ KPI / đơn vị con / thẻ nguồn thì số đó là của chúng.
+        if (item.getMeasurementSource() != BscMeasurementSource.MANUAL) {
             throw new BusinessException(ErrorCode.KPI_TAKES_FIGURES_AUTOMATICALLY_KPIS);
         }
+        item.setActualValue(actual);
+        unitResultItemRepository.save(item);
         return recompute(scorecardId, kpiPeriodId);
     }
 

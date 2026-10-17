@@ -1,4 +1,4 @@
-import { formatNumber } from '@/i18n/format'
+import { formatNumber, intlLocale } from '@/i18n/format'
 import type { DocumentCapabilities, DocumentScope, KbDocument, OnlineFormat } from './types'
 
 /** Dung lượng tệp — số qua `formatNumber` để đúng dấu thập phân theo ngôn ngữ. */
@@ -103,4 +103,29 @@ export function onlineFormat(doc: Pick<KbDocument, 'fileName' | 'legacy'>): Onli
 /** Đường dẫn trang soạn / đọc trực tuyến của một tài liệu. */
 export function editorPath(id: string): string {
   return `/documents/${id}/edit`
+}
+
+/** Đường dẫn mở một tài liệu như khi bấm vào nó: tài liệu trực tuyến → trình soạn, tệp → drawer chi tiết. */
+export function documentPath(doc: Pick<KbDocument, 'id' | 'fileName' | 'legacy'>): string {
+  return onlineFormat(doc) ? editorPath(doc.id) : `/documents?doc=${doc.id}${doc.legacy ? '&legacy=1' : ''}`
+}
+
+/**
+ * Thời điểm kiểu Lark: "16:59 Hôm nay", "08:10 Hôm qua", "17:39 23 thg 2" (cùng năm), "14 thg 2, 2025" (năm khác).
+ * `labels` = chữ "Hôm nay" / "Hôm qua" đã dịch.
+ */
+export function larkTime(iso: string | null | undefined, labels: { today: string; yesterday: string }, now = new Date()): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  const time = new Intl.DateTimeFormat(intlLocale(), { hour: '2-digit', minute: '2-digit', hour12: false }).format(d)
+  const day = (x: Date) => `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (day(d) === day(now)) return `${time} ${labels.today}`
+  if (day(d) === day(yesterday)) return `${time} ${labels.yesterday}`
+  if (d.getFullYear() === now.getFullYear()) {
+    return `${time} ${new Intl.DateTimeFormat(intlLocale(), { day: 'numeric', month: 'short' }).format(d)}`
+  }
+  return new Intl.DateTimeFormat(intlLocale(), { day: 'numeric', month: 'short', year: 'numeric' }).format(d)
 }

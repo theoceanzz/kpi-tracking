@@ -956,6 +956,14 @@
     "source": "BscCascadeController.java"
   },
   {
+    "method": "DELETE",
+    "path": "/api/v1/bsc/scorecards/{scorecardId}/cascade",
+    "anyOf": [
+      "BSC:MANAGE"
+    ],
+    "source": "BscCascadeController.java"
+  },
+  {
     "method": "POST",
     "path": "/api/v1/bsc/scorecards/{scorecardId}/cascade",
     "anyOf": [
@@ -1581,6 +1589,12 @@
     "source": "DocumentController.java"
   },
   {
+    "method": "POST",
+    "path": "/api/v1/documents/{id}/email",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
     "method": "PUT",
     "path": "/api/v1/documents/{id}/favorite",
     "authenticated": true,
@@ -1625,6 +1639,18 @@
   {
     "method": "POST",
     "path": "/api/v1/documents/{id}/promotions",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/documents/{id}/public-links/{linkId}",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/documents/{id}/public-links",
     "authenticated": true,
     "source": "DocumentController.java"
   },
@@ -1727,6 +1753,12 @@
   {
     "method": "POST",
     "path": "/api/v1/documents/folders",
+    "authenticated": true,
+    "source": "DocumentController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/documents/images",
     "authenticated": true,
     "source": "DocumentController.java"
   },
@@ -1926,6 +1958,14 @@
     "method": "GET",
     "path": "/api/v1/evaluations/score-preview",
     "authenticated": true,
+    "source": "EvaluationController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/evaluations/scoring-readiness",
+    "anyOf": [
+      "EVALUATION:CREATE"
+    ],
     "source": "EvaluationController.java"
   },
   {
@@ -2700,6 +2740,24 @@
     "source": "KpiPeriodController.java"
   },
   {
+    "method": "DELETE",
+    "path": "/api/v1/kpi-task-dependencies/{dependencyId}",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-tasks/{id}/assign-impact",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/kpi-tasks/{id}/assignees",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
     "method": "POST",
     "path": "/api/v1/kpi-tasks/{id}/assign",
     "authenticated": true,
@@ -2737,6 +2795,18 @@
   },
   {
     "method": "POST",
+    "path": "/api/v1/kpi-tasks/{id}/decline",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-tasks/{id}/dependencies/{predecessorId}",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "POST",
     "path": "/api/v1/kpi-tasks/{id}/duplicate",
     "authenticated": true,
     "source": "KpiTaskController.java"
@@ -2767,6 +2837,42 @@
   },
   {
     "method": "PUT",
+    "path": "/api/v1/kpi-tasks/{id}/kpi",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/kpi-tasks/{id}/milestone",
+    "authenticated": true,
+    "source": "TaskPersonalController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/kpi-tasks/{id}/my-section",
+    "authenticated": true,
+    "source": "TaskPersonalController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/kpi-tasks/{id}/parent",
+    "authenticated": true,
+    "source": "TaskPersonalController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/kpi-tasks/{id}/presence",
+    "authenticated": true,
+    "source": "TaskPersonalController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-tasks/{id}/presence",
+    "authenticated": true,
+    "source": "TaskPersonalController.java"
+  },
+  {
+    "method": "PUT",
     "path": "/api/v1/kpi-tasks/{id}/reminders",
     "authenticated": true,
     "source": "KpiTaskController.java"
@@ -2780,6 +2886,12 @@
   {
     "method": "POST",
     "path": "/api/v1/kpi-tasks/{id}/subtasks",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/kpi-tasks/{id}/tags",
     "authenticated": true,
     "source": "KpiTaskController.java"
   },
@@ -2802,6 +2914,18 @@
     "source": "KpiTaskController.java"
   },
   {
+    "method": "PUT",
+    "path": "/api/v1/kpi-tasks/{taskId}/fields/{fieldId}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-tasks/activities",
+    "authenticated": true,
+    "source": "TaskPersonalController.java"
+  },
+  {
     "method": "GET",
     "path": "/api/v1/kpi-tasks/assignable-kpis",
     "authenticated": true,
@@ -2821,9 +2945,51 @@
   },
   {
     "method": "POST",
+    "path": "/api/v1/kpi-tasks/batch",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-tasks/export",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-tasks/move-impact",
+    "authenticated": true,
+    "source": "KpiTaskController.java"
+  },
+  {
+    "method": "POST",
     "path": "/api/v1/kpi-tasks/move",
     "authenticated": true,
     "source": "KpiTaskController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/kpi-tasks/my-sections/{id}",
+    "authenticated": true,
+    "source": "TaskPersonalController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/kpi-tasks/my-sections/{id}",
+    "authenticated": true,
+    "source": "TaskPersonalController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/kpi-tasks/my-sections",
+    "authenticated": true,
+    "source": "TaskPersonalController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/kpi-tasks/my-sections",
+    "authenticated": true,
+    "source": "TaskPersonalController.java"
   },
   {
     "method": "GET",
@@ -3321,6 +3487,24 @@
     "path": "/api/v1/provinces",
     "authenticated": true,
     "source": "ProvinceController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/public/documents/{token}/content",
+    "authenticated": true,
+    "source": "PublicDocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/public/documents/{token}/file",
+    "authenticated": true,
+    "source": "PublicDocumentController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/public/documents/{token}",
+    "authenticated": true,
+    "source": "PublicDocumentController.java"
   },
   {
     "method": "POST",
@@ -4684,6 +4868,234 @@
     "path": "/api/v1/submissions",
     "authenticated": true,
     "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/task-list-templates/{templateId}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/task-list-templates",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/task-lists/{id}/archive",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/task-lists/{id}/automations/{automationId}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/task-lists/{id}/automations/{automationId}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/task-lists/{id}/automations",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/task-lists/{id}/automations",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/task-lists/{id}/dashboard",
+    "authenticated": true,
+    "source": "TaskPersonalController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/task-lists/{id}/fields/{fieldId}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/task-lists/{id}/fields/{fieldId}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/task-lists/{id}/fields",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/task-lists/{id}/import/preview",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/task-lists/{id}/import",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/task-lists/{id}/items/{taskId}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/task-lists/{id}/items",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/task-lists/{id}/items",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/task-lists/{id}/members/{memberId}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/task-lists/{id}/members/{memberId}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/task-lists/{id}/members",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/task-lists/{id}/my-prefs",
+    "authenticated": true,
+    "source": "TaskPersonalController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/task-lists/{id}/save-as-template",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/task-lists/{id}/sections/{sectionId}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/task-lists/{id}/sections/{sectionId}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/task-lists/{id}/sections",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/task-lists/{id}/stats",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/task-lists/{id}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/task-lists/{id}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/task-lists/{id}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/task-lists/import-template",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/task-lists",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/task-tags/{id}",
+    "authenticated": true,
+    "source": "TaskTagController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/task-tags/{id}",
+    "authenticated": true,
+    "source": "TaskTagController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/task-tags",
+    "authenticated": true,
+    "source": "TaskTagController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/task-tags",
+    "authenticated": true,
+    "source": "TaskTagController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/task-views/{viewId}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/task-views/{viewId}",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/task-views",
+    "authenticated": true,
+    "source": "TaskListController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/task-views",
+    "authenticated": true,
+    "source": "TaskListController.java"
   },
   {
     "method": "GET",

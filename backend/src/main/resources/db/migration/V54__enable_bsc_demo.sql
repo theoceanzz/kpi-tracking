@@ -1,6 +1,6 @@
--- V51 — Bật module BSC cho tổ chức demo.
+-- V54 — Bật module BSC cho tổ chức demo.
 --
--- V44 đã gieo đủ thẻ điểm, chỉ tiêu và kết quả đơn vị cho Demo Company, nhưng không bật cờ
+-- V47 đã gieo đủ thẻ điểm, chỉ tiêu và kết quả đơn vị cho Demo Company, nhưng không bật cờ
 -- `enable_bsc`, nên toàn bộ dữ liệu đó không hiện ở đâu cả: tab BSC, các ô "Bản đồ chiến lược" /
 -- "Luồng mục tiêu theo nhánh" biến mất khỏi thư viện biểu đồ, và cột "Đóng góp BSC" của bảng xếp
 -- hạng đơn vị để trống. Gieo dữ liệu mà không bật tính năng thì coi như chưa gieo.

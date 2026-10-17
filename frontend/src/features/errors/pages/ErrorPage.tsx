@@ -14,8 +14,8 @@ interface ErrorPageProps {
 
 const ERROR_CONFIG = perLanguage(() => ({
   '403': {
-    title: 'Access Denied',
-    subTitle: '403 Forbidden',
+    title: i18n.t('errors:ErrorPage.titleForbidden'),
+    subTitle: i18n.t('errors:ErrorPage.subTitleForbidden'),
     message: i18n.t('errors:ErrorPage.youDoNotHaveAccessTo'),
     icon: ShieldAlert,
     themeColor: 'text-[var(--color-error)]',
@@ -24,8 +24,8 @@ const ERROR_CONFIG = perLanguage(() => ({
     darkBgColor: 'dark:bg-[var(--color-error-bg)]'
   },
   '404': {
-    title: 'Page Not Found',
-    subTitle: '404 Error',
+    title: i18n.t('errors:ErrorPage.titleNotFound'),
+    subTitle: i18n.t('errors:ErrorPage.subTitleNotFound'),
     message: i18n.t('errors:ErrorPage.thePageYouAreLookingFor'),
     icon: Ghost,
     themeColor: 'text-[var(--color-info)]',
@@ -34,8 +34,8 @@ const ERROR_CONFIG = perLanguage(() => ({
     darkBgColor: 'dark:bg-[var(--color-info-bg)]'
   },
   '500': {
-    title: 'Internal Server Error',
-    subTitle: '500 Error',
+    title: i18n.t('errors:ErrorPage.titleServerError'),
+    subTitle: i18n.t('errors:ErrorPage.subTitleServerError'),
     message: i18n.t('errors:ErrorPage.aServerSideErrorOccurredWe'),
     icon: Search,
     themeColor: 'text-[var(--color-warning)]',

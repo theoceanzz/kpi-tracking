@@ -1,4 +1,4 @@
-import type { UnitBellTarget, UnitClassBellCurve } from '../api/organizationApi'
+import type { UnitBellTarget, UnitClassBellCurve, UnitClassBscBands } from '../api/organizationApi'
 
 /** Làm tròn 1 chữ số — % hiển thị, không cần hơn. */
 export const r1 = (v: number) => Math.round(v * 10) / 10
@@ -72,5 +72,23 @@ export function bellCurveForLevels(
     minMembers: Number.isFinite(bc.minMembers) ? bc.minMembers : 5,
     tolerance: Number.isFinite(bc.tolerance) ? bc.tolerance : 5,
     targets: levelNames.map(level => ({ level, percent: byLevel.get(level) ?? 0 })),
+    // Giữ cấu hình "đổi khung theo BSC" — bỏ sót ở đây thì mỗi lần mở lại hồ sơ là mất.
+    ...(bc.bsc ? { bsc: bc.bsc } : {}),
+  }
+}
+
+/** Mặc định đã chốt với lãnh đạo (2026-10-16) cho thang 5 mức, cao → thấp. */
+const DEFAULT_EXCEED = [15, 30, 40, 10, 5]
+const DEFAULT_BELOW = [5, 15, 40, 28, 12]
+
+/** Cấu hình hiệu lực (khối `bsc` vắng mặt ⇒ backend dùng mặc định, bật). */
+export function effectiveBscBands(value: UnitClassBscBands | undefined, levelCount: number, main: UnitBellTarget[]): UnitClassBscBands {
+  const fallback = (defaults: number[]) => (levelCount === defaults.length ? defaults : main.map(t => t.percent))
+  return {
+    enabled: value?.enabled ?? true,
+    exceedAt: value?.exceedAt ?? 105,
+    meetAt: value?.meetAt ?? 85,
+    exceed: value?.exceed?.length === levelCount ? value.exceed : fallback(DEFAULT_EXCEED),
+    below: value?.below?.length === levelCount ? value.below : fallback(DEFAULT_BELOW),
   }
 }

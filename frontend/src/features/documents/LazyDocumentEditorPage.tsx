@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 
-// Trình soạn tài liệu kéo theo TipTap + Markdown (+ mammoth khi chuyển .docx) — nạp muộn, chỉ ai mở tài liệu mới tải.
+// Trình soạn tài liệu kéo theo BlockNote + Markdown (+ mammoth khi chuyển .docx) — nạp muộn, chỉ ai mở tài liệu mới tải.
 const DocumentEditorPage = lazy(() => import('./DocumentEditorPage'))
 
 export default function LazyDocumentEditorPage() {

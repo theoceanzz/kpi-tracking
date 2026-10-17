@@ -213,7 +213,9 @@ export function BscUnitAttainmentWidget({ filter, gate = 'ALL', meta }: {
       name: r.orgUnitName ?? r.name,
       subText: [r.parentScorecardName, r.gatePassed === false ? t('bscWidgets.failedTheGate', { value: r.gateFailedItems ?? '' }) : null].filter(Boolean).join(' · ') || undefined,
       value: r.achievementPercent ?? 0,
-      color: r.gatePassed === false ? '#f43f5e' : attainHex(r.achievementPercent),
+      // Màu CHỈ theo mức đạt. Trượt hạng mục chặn đã ghi bằng chữ ở dòng phụ — dùng chung màu đỏ cho cả
+      // "đạt < 70%" lẫn "trượt chặn" từng làm chú thích nói một đằng, ô bên cạnh nói một nẻo.
+      color: attainHex(r.achievementPercent),
     })), [withResult, t])
 
   return (

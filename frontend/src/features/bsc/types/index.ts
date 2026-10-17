@@ -94,7 +94,11 @@ export enum BscItemOrigin {
   SELF = 'SELF',
 }
 
-/** Quan hệ với chỉ tiêu cha. Chỉ SUM tham gia phép cộng khi đo độ phủ. */
+/**
+ * Quan hệ với chỉ tiêu cha. Chỉ SUM tham gia phép cộng khi đo độ phủ.
+ * Giao diện chỉ cho chọn theo hai trục: cách tính của CHỈ TIÊU (SUM | SHARED, không trộn — backend chặn)
+ * và vai trò của ĐƠN VỊ (chính | hỗ trợ = SUPPORT). CUSTOM là giá trị cũ, chạy y hệt SUPPORT.
+ */
 export enum BscLinkType {
   SUM = 'SUM',
   SHARED = 'SHARED',
@@ -164,6 +168,10 @@ export interface ScorecardPerspectiveResponse {
   parentItemId?: string | null
   parentItemName?: string | null
   parentScorecardName?: string | null
+  /** Thẻ của dòng cha — để thẻ nguồn biết đơn vị nào đang nhận cả bộ của mình. */
+  parentScorecardId?: string | null
+  /** Dòng sinh từ "giao cả bộ": trọng số X% của CẢ BỘ ở đơn vị này. */
+  wholeSharePercent?: number | null
   linkType?: BscLinkType | null
   contributionValue?: number | null
   contributionPercent?: number | null
@@ -196,11 +204,15 @@ export enum BscScorecardApplyScope {
 export interface ScorecardPeriodResponse {
   id: string
   name: string
+  startDate?: string
+  endDate?: string
 }
 
 export interface ScorecardResponse {
   /** Đang chờ duyệt theo quy trình "Lập và phê duyệt thẻ điểm". */
   approval?: import('@/types/approvalChain').ApprovalSummary | null
+  /** Tổ chức đang bật quy trình duyệt thẻ — thẻ nháp phải trình, không duyệt thẳng. */
+  approvalProcessActive?: boolean
   id: string
   name: string
   vision?: string
@@ -241,7 +253,6 @@ export interface ScorecardPerspectiveWeightRequest {
   targetValue?: number | null
   minimumValue?: number | null
   unit?: string | null
-  measurementSource?: BscMeasurementSource | null
   isGate?: boolean | null
   gateMinPercent?: number | null
   gateEffect?: BscGateEffect | null
@@ -313,6 +324,8 @@ export interface PerspectiveScoreResponse {
 
 export interface CascadeTargetRequest {
   orgUnitId: string
+  /** Quan hệ của riêng đơn vị này; bỏ trống thì lấy `CascadeRequest.linkType`. */
+  linkType?: BscLinkType
   contributionValue?: number | null
   contributionPercent?: number | null
   targetValue?: number | null
@@ -329,8 +342,6 @@ export interface CascadeRequest {
 
 /** Phân rã CẢ BỘ: mỗi đơn vị nhận một dòng "Kết quả cấp trên", chỉ có trọng số. */
 export interface WholeCascadeRequest {
-  itemName?: string | null
-  fixedPerspective: BscFixedPerspective
   targets: { orgUnitId: string; weightPercentage: number }[]
   revokeOrgUnitIds?: string[]
 }
@@ -365,6 +376,8 @@ export interface CoverageChildResponse {
   contributionPercent?: number | null
   targetValue?: number | null
   weightPercentage?: number | null
+  /** Đơn vị nhận chỉ tiêu này qua "giao cả bộ" (X% cả bộ) — thu hồi ở tab Giao cả bộ. */
+  wholeSharePercent?: number | null
 }
 
 /** NOT_CASCADED = chưa phân rã dòng nào; UNDER/OVER = tổng đóng góp lệch so với mục tiêu cha. */

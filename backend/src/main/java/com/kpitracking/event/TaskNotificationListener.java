@@ -31,6 +31,8 @@ import java.util.*;
  *   <li>Thông báo: được giao việc, bị giao lại (người cũ), được thêm theo dõi — riêng từng cái; đổi hạn / đổi trạng
  *       thái / hoàn thành báo người phụ trách + người tạo + người theo dõi (trừ người làm), GỘP trong 5 phút.</li>
  *   <li>KPI cũ được thay ⇒ báo người còn việc dở ở KPI cũ.</li>
+ *   <li>Đổi KPI làm người theo dõi bị gỡ (không xem được KPI mới) ⇒ báo người đó, gộp theo lượt đổi.</li>
+ *   <li>Người được giao từ chối việc ⇒ báo người giao kèm lý do.</li>
  * </ul>
  */
 @Component
@@ -40,12 +42,16 @@ public class TaskNotificationListener {
 
     public static final String TYPE_KPI_REPLACED = "TASK_KPI_REPLACED";
     public static final String TYPE_TASK = "TASK";
+    public static final String TYPE_FOLLOWER_REMOVED = "TASK_FOLLOWER_REMOVED";
+    public static final String TYPE_TASK_LIST = "TASK_LIST";
     private static final Duration GROUP_WINDOW = Duration.ofMinutes(5);
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final KpiTaskRepository taskRepository;
     private final KpiTaskFollowerRepository followerRepository;
+    private final KpiTaskAssigneeRepository assigneeRepository;
+    private final TaskListRepository taskListRepository;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final NotificationDispatcher dispatcher;
@@ -91,19 +97,23 @@ public class TaskNotificationListener {
     private void notify(KpiTask task, TaskEvents.Changed e) {
         User actor = e.actorId() == null ? null : userRepository.findById(e.actorId()).orElse(null);
         String actorName = actor != null ? actor.getFullName() : "";
-        KpiCriteria kpi = kpiCriteriaRepository.findById(task.getKpiCriteriaId()).orElse(null);
+        KpiCriteria kpi = task.getKpiCriteriaId() == null ? null : kpiCriteriaRepository.findById(task.getKpiCriteriaId()).orElse(null);
         String kpiName = kpi != null ? kpi.getName() : task.getKpiNameSnapshot();
         UUID orgId = task.getOrganizationId();
         switch (e.kind()) {
             case ASSIGNED -> {
-                User owner = task.getOwner();
-                if (!owner.getId().equals(e.actorId())) {
-                    dispatcher.dispatch(orgId, "task_assigned", owner, unitFor(kpi, owner),
+                // subject = người VỪA được giao; null + không có người cũ = sự kiện kiểu cũ ⇒ báo người chính.
+                UUID to = e.subjectUserId() != null ? e.subjectUserId() : e.previousOwnerId() == null ? task.getOwner().getId() : null;
+                if (to != null && !to.equals(e.actorId())) {
+                    userRepository.findById(to).ifPresent(u -> dispatcher.dispatch(orgId, "task_assigned", u, unitFor(kpi, u),
                             LocalizedText.of("notif.task.assigned.title"),
-                            LocalizedText.of("notif.task.assigned.message", actorName, task.getTitle(), kpiName),
-                            TYPE_TASK, task.getId());
+                            kpiName != null
+                                    ? LocalizedText.of("notif.task.assigned.message", actorName, task.getTitle(), kpiName)
+                                    : LocalizedText.of("notif.task.assigned.messageNoKpi", actorName, task.getTitle()),
+                            TYPE_TASK, task.getId()));
                 }
                 if (e.previousOwnerId() != null && !e.previousOwnerId().equals(e.actorId())) {
+                    User owner = task.getOwner();
                     userRepository.findById(e.previousOwnerId()).ifPresent(old -> dispatcher.dispatch(orgId, "task_assigned", old,
                             unitFor(kpi, old), LocalizedText.of("notif.task.unassigned.title"),
                             LocalizedText.of("notif.task.unassigned.message", actorName, task.getTitle(), owner.getFullName()),
@@ -185,10 +195,77 @@ public class TaskNotificationListener {
         }
     }
 
-    /** Người phụ trách + người tạo + người theo dõi. */
+    /**
+     * Bị gỡ khỏi người theo dõi vì việc chuyển sang KPI mình không xem được: làm mới danh sách "Tôi theo dõi" và báo MỘT
+     * lần cho cả lượt đổi KPI. Không nêu tên KPI mới (họ không được xem) và không mở thẳng việc (họ không còn xem được) —
+     * loại {@link #TYPE_FOLLOWER_REMOVED} chỉ dẫn về trang Công việc; {@code referenceId} vẫn là việc để tra cứu.
+     */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onFollowersRevoked(TaskEvents.FollowersRevoked e) {
+        User user = userRepository.findById(e.userId()).orElse(null);
+        if (user == null || e.taskIds().isEmpty()) return;
+        for (UUID taskId : e.taskIds()) {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("taskId", taskId);
+            payload.put("kind", TaskEvents.Kind.FOLLOWER_REMOVED.name());
+            payload.put("actorId", e.actorId());
+            try {
+                messagingTemplate.convertAndSendToUser(user.getEmail(), "/queue/tasks", payload);
+            } catch (Exception ex) {
+                log.debug("Không đẩy được gói làm mới danh sách cho {}", user.getId());
+            }
+        }
+        if (user.getId().equals(e.actorId())) return;
+        KpiTask first = taskRepository.findById(e.taskIds().get(0)).orElse(null);
+        if (first == null) return;
+        String actorName = e.actorId() == null ? "" : userRepository.findById(e.actorId()).map(User::getFullName).orElse("");
+        LocalizedText message = e.taskIds().size() == 1
+                ? LocalizedText.of("notif.task.followerRevoked.message", actorName, first.getTitle())
+                : LocalizedText.of("notif.task.followerRevoked.messageMany", actorName, e.taskIds().size(), first.getTitle());
+        dispatcher.dispatchInAppOnly(first.getOrganizationId(), "task_follower_removed", user, unitFor(null, user),
+                LocalizedText.of("notif.task.followerRevoked.title"), message, TYPE_FOLLOWER_REMOVED, first.getId());
+    }
+
+    /**
+     * Người từ chối việc ⇒ báo người giao (người tạo) kèm lý do. Đi cả email gộp như "được giao": người giao cần biết để
+     * giao lại.
+     */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onDeclined(TaskEvents.Declined e) {
+        KpiTask task = taskRepository.findById(e.taskId()).orElse(null);
+        User to = userRepository.findById(e.notifyUserId()).orElse(null);
+        if (task == null || to == null || to.getId().equals(e.declinedBy())) return;
+        String who = userRepository.findById(e.declinedBy()).map(User::getFullName).orElse("");
+        LocalizedText message = e.reason() == null || e.reason().isBlank()
+                ? LocalizedText.of("notif.task.declined.message", who, task.getTitle())
+                : LocalizedText.of("notif.task.declined.messageReason", who, task.getTitle(), e.reason());
+        dispatcher.dispatch(task.getOrganizationId(), "task_declined", to, unitFor(null, to),
+                LocalizedText.of("notif.task.declined.title"), message, TYPE_TASK, task.getId());
+    }
+
+    /** Được thêm vào danh sách công việc ⇒ báo người đó (chỉ chuông). Liên kết mở thẳng danh sách. */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onListMemberAdded(TaskListEvents.MemberAdded e) {
+        TaskList list = taskListRepository.findById(e.listId()).orElse(null);
+        User to = userRepository.findById(e.userId()).orElse(null);
+        if (list == null || to == null || to.getId().equals(e.actorId())) return;
+        String who = e.actorId() == null ? "" : userRepository.findById(e.actorId()).map(User::getFullName).orElse("");
+        dispatcher.dispatchInAppOnly(list.getOrganizationId(), "task_list_shared", to, unitFor(null, to),
+                LocalizedText.of("notif.taskList.shared.title"), LocalizedText.of("notif.taskList.shared.message", who, list.getName()),
+                TYPE_TASK_LIST, list.getId());
+    }
+
+    /** Người thực hiện + người tạo + người theo dõi. */
     private Set<UUID> audience(KpiTask task) {
         Set<UUID> ids = new LinkedHashSet<>();
         ids.add(task.getOwner().getId());
+        ids.addAll(assigneeRepository.findUserIds(task.getId()));
         if (task.getCreatedBy() != null) ids.add(task.getCreatedBy());
         ids.addAll(followerRepository.findUserIds(task.getId()));
         return ids;

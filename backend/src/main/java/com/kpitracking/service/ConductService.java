@@ -305,18 +305,57 @@ public class ConductService {
             throw new BusinessException(ErrorCode.TOTAL_WEIGHT_SET_MUST_100_PERCENT, set.getName(), String.valueOf(Math.round(total * 100.0) / 100.0));
         }
 
-        softDeleteCriteria(set);
+        Existing existing = loadExisting(set);
         int position = 1;
         for (ConductCriteriaRequest req : criteria) {
-            conductCriteriaRepository.save(ConductCriteria.builder()
-                    .organization(org)
-                    .criteriaSet(set)
-                    .name(req.getName().trim())
-                    .description(req.getDescription())
-                    .weight(req.getWeight())
-                    .position(position++)
-                    .build());
+            upsertCriterion(org, set, null, req, position++, existing);
         }
+        existing.retireLeftovers();
+    }
+
+    /**
+     * Tiêu chí / nhóm đang sống của một bộ, khoá theo id — lưu lại bộ thì SỬA TẠI CHỖ dòng có
+     * id gửi lên, chỉ dòng mới chèn thêm và dòng bị bỏ mới xoá mềm.
+     *
+     * Bản cũ xoá mềm cả bộ rồi chèn lại mỗi lần bấm Lưu: bảng phình thêm một lượt dòng sau mỗi
+     * lần lưu (kể cả khi không đổi gì) và id tiêu chí đổi liên tục, phiếu đã chấm mất liên kết.
+     */
+    private final class Existing {
+        final Map<UUID, ConductCriteria> criteria = new LinkedHashMap<>();
+        final Map<UUID, ConductCriteriaGroup> groups = new LinkedHashMap<>();
+
+        /** Dòng còn trong map sau khi duyệt request = người dùng đã bỏ ⇒ xoá mềm. */
+        void retireLeftovers() {
+            Instant now = Instant.now();
+            criteria.values().forEach(c -> c.setDeletedAt(now));
+            conductCriteriaRepository.saveAll(criteria.values());
+            groups.values().forEach(g -> g.setDeletedAt(now));
+            conductCriteriaGroupRepository.saveAll(groups.values());
+        }
+    }
+
+    private Existing loadExisting(ConductCriteriaSet set) {
+        Existing e = new Existing();
+        conductCriteriaRepository.findByCriteriaSetIdOrderByPositionAsc(set.getId())
+                .forEach(c -> e.criteria.put(c.getId(), c));
+        conductCriteriaGroupRepository.findByCriteriaSetIdOrderByPositionAsc(set.getId())
+                .forEach(g -> e.groups.put(g.getId(), g));
+        return e;
+    }
+
+    /** Id lạ (của bộ khác / đã xoá) hoặc không có id ⇒ dòng mới; Hibernate chỉ UPDATE khi giá trị thật sự đổi. */
+    private void upsertCriterion(Organization org, ConductCriteriaSet set, ConductCriteriaGroup group,
+                                 ConductCriteriaRequest req, int position, Existing existing) {
+        ConductCriteria c = req.getId() != null ? existing.criteria.remove(req.getId()) : null;
+        if (c == null) {
+            c = ConductCriteria.builder().organization(org).criteriaSet(set).build();
+        }
+        c.setGroup(group);
+        c.setName(req.getName().trim());
+        c.setDescription(req.getDescription());
+        c.setWeight(req.getWeight());
+        c.setPosition(position);
+        conductCriteriaRepository.save(c);
     }
 
     private void replaceGroupedCriteria(Organization org, ConductCriteriaSet set, List<ConductGroupRequest> groups) {
@@ -341,30 +380,24 @@ public class ConductService {
                     String.valueOf(Math.round(groupTotal * 100.0) / 100.0));
         }
 
-        softDeleteCriteria(set);
+        Existing existing = loadExisting(set);
         // Thứ tự tiêu chí chạy liên tục qua các nhóm: dòng phiếu khớp tiêu chí theo vị trí.
         int position = 1;
         int groupPosition = 1;
         for (ConductGroupRequest g : groups) {
-            ConductCriteriaGroup group = conductCriteriaGroupRepository.save(ConductCriteriaGroup.builder()
-                    .organization(org)
-                    .criteriaSet(set)
-                    .name(g.getName().trim())
-                    .weight(g.getWeight())
-                    .position(groupPosition++)
-                    .build());
+            ConductCriteriaGroup group = g.getId() != null ? existing.groups.remove(g.getId()) : null;
+            if (group == null) {
+                group = ConductCriteriaGroup.builder().organization(org).criteriaSet(set).build();
+            }
+            group.setName(g.getName().trim());
+            group.setWeight(g.getWeight());
+            group.setPosition(groupPosition++);
+            group = conductCriteriaGroupRepository.save(group);
             for (ConductCriteriaRequest req : g.getCriteria()) {
-                conductCriteriaRepository.save(ConductCriteria.builder()
-                        .organization(org)
-                        .criteriaSet(set)
-                        .group(group)
-                        .name(req.getName().trim())
-                        .description(req.getDescription())
-                        .weight(req.getWeight())
-                        .position(position++)
-                        .build());
+                upsertCriterion(org, set, group, req, position++, existing);
             }
         }
+        existing.retireLeftovers();
     }
 
     /** Xoá mềm tiêu chí VÀ nhóm của bộ (phiếu đã chấm giữ bản chụp riêng). */

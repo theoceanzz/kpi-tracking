@@ -63,8 +63,11 @@ public class OrgNotificationConfigService {
             "discussion_comment", "discussion_reply", "discussion_mention",
             // Công việc gắn KPI: nhắc trước hạn 1 ngày, quá hạn, KPI của việc đã được thay thế.
             "task_due_soon", "task_overdue", "task_kpi_replaced",
-            // Công việc kiểu Lark: được giao / giao lại, được thêm theo dõi, việc mình liên quan đổi hạn / trạng thái (gộp).
-            "task_assigned", "task_follower_added", "task_changed",
+            // Công việc kiểu Lark: được giao / giao lại, được thêm theo dõi, việc mình liên quan đổi hạn / trạng thái (gộp),
+            // bị gỡ khỏi theo dõi vì việc chuyển sang KPI mình không xem được.
+            "task_assigned", "task_follower_added", "task_changed", "task_follower_removed",
+            // V42: người được giao từ chối việc, luật tự động hoá báo tin, được thêm vào danh sách công việc.
+            "task_declined", "task_automation", "task_list_shared", "task_daily_digest",
             // Đơn từ: có đơn chờ mình duyệt, đơn mình nộp đã có kết quả.
             "approval_request_pending", "approval_request_decided"
     );

@@ -149,6 +149,27 @@ public class BscNotificationEventListener {
     // Phân rã chỉ tiêu
     // ============================================================
 
+    /** Chỉ tiêu bị thu hồi: người phụ trách BSC của đơn vị phải biết để chia lại trọng số. */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void handleCascadeRevoked(BscEvents.CascadeRevoked event) {
+        BscScorecard child = find(event.childScorecardId());
+        OrgUnit unit = orgUnitRepository.findById(event.orgUnitId()).orElse(null);
+        if (child == null || unit == null) return;
+        Object actorName = nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.superiorCapital"));
+        LocalizedText title = LocalizedText.of("notif.bsc.cascadeRevoked.title");
+        LocalizedText message = LocalizedText.of("notif.bsc.cascadeRevoked.message", actorName, event.itemName(), unit.getName());
+        Set<UUID> notified = new HashSet<>();
+        if (event.actorId() != null) notified.add(event.actorId());
+        for (User owner : routing.nearestWithPermission(unit, "BSC:MANAGE_UNIT", notified)) {
+            if (notified.add(owner.getId())) {
+                dispatcher.dispatch(orgIdOf(child), "bsc_cascaded", owner, unit,
+                        title, message, TYPE_ASSIGNED, child.getId());
+            }
+        }
+    }
+
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -167,8 +188,9 @@ public class BscNotificationEventListener {
                     : String.format("%,.0f%s", target.contributionValue(),
                             target.unit() == null || target.unit().isBlank() ? "" : " " + target.unit());
 
-            LocalizedText title = LocalizedText.of("notif.bsc.cascaded.title");
-            LocalizedText message = LocalizedText.of("notif.bsc.cascaded.message",
+            String key = target.updated() ? "notif.bsc.cascadeUpdated" : "notif.bsc.cascaded";
+            LocalizedText title = LocalizedText.of(key + ".title");
+            LocalizedText message = LocalizedText.of(key + ".message",
                     actorName, event.itemName(), unit.getName(),
                     amount == null ? "" : LocalizedText.of("notif.bsc.cascaded.contribution", amount));
 

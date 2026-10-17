@@ -26,4 +26,13 @@ public enum BscScorecardStatus {
     public boolean isRetired() {
         return this == CLOSED || this == ARCHIVED;
     }
+
+    /**
+     * Thẻ đã qua duyệt nên được dùng để CHẤM ĐIỂM (và để bắt KPI gắn hạng mục). Nháp / chờ duyệt —
+     * kể cả thẻ do phân rã tự sinh cho đơn vị — chưa chấm ai: đơn vị phải trình và được duyệt trước.
+     * {@code APPROVED} là trạng thái cũ (trước khi "duyệt là áp dụng luôn") nên vẫn tính là đang chấm.
+     */
+    public boolean isScoring() {
+        return this == ACTIVE || this == APPROVED;
+    }
 }

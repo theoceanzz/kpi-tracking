@@ -9,6 +9,7 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import { taskApi } from '../api/taskApi'
 import GroupedPicker from './GroupedPicker'
 import { useTaskMutations } from '../hooks/useTasks'
+import { useFollowerRemovalConfirm } from '../hooks/useFollowerRemovalConfirm'
 import type { KpiTask } from '../types'
 
 interface Props {
@@ -27,9 +28,10 @@ interface Props {
  */
 export default function AssignDialog({ task, open, onClose, initialOwnerId, kpiOnly }: Props) {
   const { t } = useTranslation('tasks')
-    const [ownerId, setOwnerId] = useState<string | undefined>()
+  const [ownerId, setOwnerId] = useState<string | undefined>()
   const [kpiId, setKpiId] = useState<string | undefined>()
   const m = useTaskMutations()
+  const removal = useFollowerRemovalConfirm()
 
   // Mở lại (hoặc mở cho việc khác) ⇒ về giá trị đầu — chỉnh state ngay trong render thay vì effect.
   const resetKey = open && task ? `${task.id}:${initialOwnerId ?? ''}` : ''
@@ -42,39 +44,53 @@ export default function AssignDialog({ task, open, onClose, initialOwnerId, kpiO
     }
   }
 
+  // Việc không KPI: giao cho bất kỳ ai trong tổ chức, không chọn KPI.
+  const noKpi = task?.kpiState === 'NONE'
   const { data: people = [] } = useQuery({
-    queryKey: ['kpi-tasks', 'assignable-users', ''],
-    queryFn: () => taskApi.assignableUsers(''),
+    queryKey: ['kpi-tasks', 'assignable-users', noKpi ? 'all' : ''],
+    queryFn: () => taskApi.assignableUsers('', noKpi),
     enabled: open && !kpiOnly,
     staleTime: 30_000,
   })
   const { data: kpis = [], isFetching: kpisLoading } = useQuery({
     queryKey: ['kpi-tasks', 'assignable-kpis', ownerId],
     queryFn: () => taskApi.assignableKpis(ownerId),
-    enabled: open && !!ownerId && !task?.parentTaskId,
+    enabled: open && !!ownerId && !task?.parentTaskId && !noKpi,
     staleTime: 30_000,
   })
 
   if (!task) return null
   const subtask = !!task.parentTaskId
   // KPI hiện tại vẫn thuộc người mới ⇒ chọn sẵn; không thì để người dùng chọn.
-  const chosenKpi = kpiId ?? (kpis.some((k) => k.id === task.kpiId) ? task.kpiId : undefined)
-  const finalKpi = subtask ? task.kpiId : chosenKpi
-  const changed = ownerId !== task.ownerId || finalKpi !== task.kpiId
-  const pending = m.assign.isPending || m.move.isPending
+  const chosenKpi = kpiId ?? (kpis.some((k) => k.id === task.kpiId) ? task.kpiId ?? undefined : undefined)
+  const finalKpi = subtask || noKpi ? task.kpiId ?? undefined : chosenKpi
+  const changed = ownerId !== task.ownerId || (finalKpi ?? null) !== task.kpiId
+  const pending = m.assign.isPending || m.move.isPending || removal.busy
 
+  // Đổi KPI ⇒ người theo dõi không xem được KPI mới bị gỡ: xem trước, có ai thì hỏi lại, rồi mới gửi.
   const submit = () => {
-    if (!ownerId || !finalKpi) return
+    if (!ownerId || (!finalKpi && !noKpi)) return
     const onError = (e: unknown) => toast.error(getApiErrorMessage(e))
     const onSuccess = () => { toast.success(t('assign.done')); onClose() }
-    if (kpiOnly && !task.canReassign) {
-      m.move.mutate({ fromKpiId: task.kpiId, toKpiId: finalKpi, taskIds: [task.id] }, { onSuccess, onError })
+    if (kpiOnly && !task.canReassign && task.kpiId && finalKpi) {
+      const move = { fromKpiId: task.kpiId, toKpiId: finalKpi, taskIds: [task.id] }
+      void removal.start({
+        preview: () => taskApi.moveImpact(move),
+        commit: (confirmed) => m.move.mutateAsync({ ...move, confirmedFollowerRemovals: confirmed }),
+        onSuccess, onError,
+      })
     } else {
-      m.assign.mutate({ id: task.id, ownerId, kpiId: subtask ? undefined : finalKpi, version: task.version }, { onSuccess, onError })
+      const kpiId = subtask || noKpi ? undefined : finalKpi
+      void removal.start({
+        preview: () => taskApi.assignImpact(task.id, kpiId),
+        commit: (confirmed) => m.assign.mutateAsync({ id: task.id, ownerId, kpiId, version: task.version, confirmedFollowerRemovals: confirmed }),
+        onSuccess, onError,
+      })
     }
   }
 
   return (
+    <>
     <Dialog
       open={open}
       onClose={onClose}
@@ -83,7 +99,7 @@ export default function AssignDialog({ task, open, onClose, initialOwnerId, kpiO
       description={task.title}
       footer={<DialogFooter
         secondary={<Button variant="outline" onClick={onClose}>{t('detail.close')}</Button>}
-        primary={<Button disabled={!changed || !ownerId || !finalKpi || pending} onClick={submit}>
+        primary={<Button disabled={!changed || !ownerId || (!finalKpi && !noKpi) || pending} onClick={submit}>
           {pending && <Loader2 className="animate-spin" />} {t('assign.confirm')}
         </Button>}
       />}
@@ -96,7 +112,9 @@ export default function AssignDialog({ task, open, onClose, initialOwnerId, kpiO
               placeholder={t('picker.pickPerson')} searchPlaceholder={t('picker.searchPerson')} emptyLabel={t('assign.noPeople')} />
           </label>
         )}
-        {subtask ? (
+        {noKpi ? (
+          <p className="text-xs text-[var(--color-subtle-foreground)]">{t('assign.noKpiHint')}</p>
+        ) : subtask ? (
           <p className="text-xs text-[var(--color-subtle-foreground)]">{t('assign.subtaskKpi', { name: task.kpiName ?? '' })}</p>
         ) : (
           <label className="block space-y-1">
@@ -112,5 +130,8 @@ export default function AssignDialog({ task, open, onClose, initialOwnerId, kpiO
         )}
       </div>
     </Dialog>
+    {/* Sau hộp giao việc để nổi lên trên nó. */}
+    {removal.dialog}
+    </>
   )
 }

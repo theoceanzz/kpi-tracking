@@ -109,7 +109,7 @@ public class AiReviewAdminService {
     public AiReviewReportResponse report(UUID kpiPeriodId, UUID orgUnitId) {
         User me = currentUser();
         Organization org = organizationOf(me);
-        // Thang điểm AI (V48) — % của mức AI chọn cho báo cáo lệch và mức tin cậy của dòng (luật 07/10).
+        // Thang điểm AI (V51) — % của mức AI chọn cho báo cáo lệch và mức tin cậy của dòng (luật 07/10).
         List<ReviewContext.QualityLevel> scale = settingsResolver.aiScale(org.getId()).levels();
         Map<UUID, OrgUnit> units = orgUnitRepository.findSubtree("/", org.getId()).stream()
                 .collect(Collectors.toMap(OrgUnit::getId, u -> u, (a, b) -> a));

@@ -26,7 +26,7 @@
     "open": "Mở",
     "favorite": "Thêm vào yêu thích",
     "unfavorite": "Bỏ yêu thích",
-    "pin": "Ghim lên thanh bên",
+    "pin": "Ghim",
     "unpin": "Bỏ ghim",
     "share": "Chia sẻ",
     "move": "Di chuyển",
@@ -35,7 +35,17 @@
     "readOnline": "Đọc trực tuyến",
     "convertOnline": "Chuyển thành tài liệu trực tuyến",
     "details": "Chi tiết",
-    "newSheet": "Bảng tính mới"
+    "newSheet": "Bảng tính mới",
+    "email": "Gửi qua email",
+    "moveTo": "Di chuyển đến",
+    "openNewTab": "Mở trong tab mới",
+    "copyLink": "Sao chép link",
+    "makeCopy": "Tạo bản sao",
+    "copyTitle": "{{title}} (bản sao)",
+    "aiOn": "Cho K.AI đọc",
+    "aiOff": "Ngừng cho K.AI đọc",
+    "confirm": "Xác nhận",
+    "moreSub": "Khác"
   },
   "common": {
     "cancel": "Huỷ",
@@ -64,7 +74,8 @@
     "category": "Danh mục",
     "allCategories": "Mọi danh mục",
     "aiStatus": "Trạng thái AI",
-    "allAiStatuses": "Mọi trạng thái AI"
+    "allAiStatuses": "Mọi trạng thái AI",
+    "button": "Lọc"
   },
   "empty": {
     "notMemberTitle": "Bạn chưa thuộc tổ chức nào",
@@ -149,7 +160,8 @@
     "dropTitle": "Chọn tệp tài liệu"
   },
   "ai": {
-    "readyDetail": "{{count}} đoạn · nạp lúc {{time}}"
+    "readyDetail": "{{count}} đoạn · nạp lúc {{time}}",
+    "off": "Không cho K.AI đọc"
   },
   "edit": {
     "heading": "Thông tin và quyền xem",
@@ -163,7 +175,8 @@
   "delete": {
     "title": "Xoá tài liệu “{{title}}”?",
     "description": "K.AI thôi dùng tài liệu này ngay. Tài liệu vào thùng rác và khôi phục được trong {{days}} ngày. Các câu trả lời K.AI đã trích từ tài liệu này trước đây vẫn còn trong lịch sử chat.",
-    "legacyDescription": "K.AI thôi dùng tài liệu này ngay. Tài liệu cũ không có tệp gốc nên không vào thùng rác — xoá là xoá hẳn."
+    "legacyDescription": "K.AI thôi dùng tài liệu này ngay. Tài liệu cũ không có tệp gốc nên không vào thùng rác — xoá là xoá hẳn.",
+    "titleMany_other": "Xoá {{count}} tài liệu?"
   },
   "badge": {
     "noOriginal": "Không có tệp gốc",
@@ -177,19 +190,19 @@
     "expired": "Hết hiệu lực"
   },
   "table": {
-    "name": "Tài liệu",
+    "name": "Tên",
     "category": "Danh mục",
     "unit": "Đơn vị",
     "uploadedBy": "Người tải lên",
     "updated": "Cập nhật",
     "size": "Dung lượng",
-    "ai": "AI",
+    "ai": "K.AI",
     "actions": "Thao tác",
     "location": "Vị trí",
     "owner": "Người tạo",
-    "createdAt": "Tạo lúc",
+    "createdAt": "Ngày tạo",
     "openedAt": "Mở gần nhất",
-    "updatedAt": "Cập nhật"
+    "updatedAt": "Sửa lần cuối"
   },
   "toast": {
     "uploaded": "Đã tải lên — AI đang đọc tài liệu",
@@ -218,7 +231,12 @@
     "convertedOnline": "Đã chuyển thành tài liệu trực tuyến — tệp cũ nằm trong tab Phiên bản",
     "convertFailed": "Chưa chuyển được tài liệu",
     "sharePermissionUpdated": "Đã đổi quyền chia sẻ",
-    "autoConvertFailed": "Đã tải lên nhưng chưa chuyển được sang dạng soạn trực tuyến — tệp vẫn xem và tải về được."
+    "autoConvertFailed": "Đã tải lên nhưng chưa chuyển được sang dạng soạn trực tuyến — tệp vẫn xem và tải về được.",
+    "emailSent": "Đã gửi email kèm link tài liệu",
+    "emailFailed": "Không gửi được email",
+    "linkRevoked": "Đã thu hồi link — người nhận không mở được nữa",
+    "linkCopied": "Đã sao chép link",
+    "copied": "Đã tạo bản sao"
   },
   "settingsCard": {
     "title": "Tài liệu của trợ lý AI đã chuyển sang trang Tài liệu",
@@ -251,7 +269,8 @@
     "pinned": "Đã ghim",
     "pinnedEmpty": "Ghim tài liệu hay dùng để mở nhanh từ đây.",
     "requests": "Đề xuất",
-    "storage": "Dung lượng"
+    "storage": "Dung lượng",
+    "search": "Tìm kiếm"
   },
   "location": {
     "mine": "Của tôi",
@@ -272,11 +291,14 @@
     "description": "Chọn thư mục cùng phạm vi. Muốn đổi người xem được thì đổi “Phạm vi” trong chi tiết tài liệu.",
     "alreadyHere": "Tài liệu đang ở đây",
     "here": "Chuyển vào đây",
-    "noSubfolders": "Không có thư mục con"
+    "noSubfolders": "Không có thư mục con",
+    "titleMany_other": "Di chuyển {{count}} tài liệu"
   },
   "drive": {
     "breadcrumb": "Đường dẫn thư mục",
-    "searchScope": "Tìm trong {{name}}…"
+    "searchScope": "Tìm trong {{name}}…",
+    "folders": "Thư mục",
+    "documents": "Tài liệu"
   },
   "share": {
     "intro": {
@@ -313,7 +335,12 @@
     "newPermission": "Quyền cho người được thêm",
     "permissionHint": "Người có quyền chỉnh sửa sửa được nội dung như Google Docs — không xoá, không di chuyển, không chia sẻ tiếp.",
     "permissionOf": "Quyền của {{name}}",
-    "youAreEditor": "{{name}} đã chia sẻ tài liệu này với bạn — bạn xem và chỉnh sửa nội dung được."
+    "youAreEditor": "{{name}} đã chia sẻ tài liệu này với bạn — bạn xem và chỉnh sửa nội dung được.",
+    "browseUnits": "Chọn theo cây đơn vị",
+    "collaborators": "Người cộng tác",
+    "dialogTitle": "Chia sẻ tài liệu",
+    "inviteHeading": "Mời người cộng tác",
+    "removeOption": "Gỡ quyền"
   },
   "versions": {
     "intro": "Mỗi lần thay tệp, bản cũ được giữ lại (tối đa 10 bản). Khôi phục một bản cũ không làm mất bản hiện tại.",
@@ -350,7 +377,8 @@
     "confirmDescription": "Tệp và mọi phiên bản cũ bị xoá ngay, không khôi phục được nữa.",
     "empty": "Dọn sạch thùng rác",
     "emptyConfirmTitle": "Dọn sạch thùng rác?",
-    "emptyConfirmDescription_other": "Xoá vĩnh viễn {{count}} tài liệu cùng mọi phiên bản cũ. Không khôi phục được nữa."
+    "emptyConfirmDescription_other": "Xoá vĩnh viễn {{count}} tài liệu cùng mọi phiên bản cũ. Không khôi phục được nữa.",
+    "timeRemaining": "Thời gian còn lại"
   },
   "home": {
     "tabs": "Danh sách tài liệu",
@@ -361,7 +389,7 @@
       "favorites": "Yêu thích"
     },
     "cardUpload": "Tải lên",
-    "cardUploadHint": "Word, Excel, PDF… mở ra sửa ngay",
+    "cardUploadHint": "Tải tệp trên máy lên",
     "cardAsk": "Hỏi K.AI về tài liệu",
     "cardAskHint": "Trả lời từ tài liệu bạn xem được",
     "empty": {
@@ -374,8 +402,8 @@
       "favoritesTitle": "Chưa có tài liệu yêu thích",
       "favoritesDescription": "Bấm ⋯ → “Thêm vào yêu thích” trên một tài liệu để gom về đây."
     },
-    "cardCreate": "Tạo mới",
-    "cardCreateHint": "Tài liệu, bảng tính, thư mục"
+    "cardCreate": "Mới",
+    "cardCreateHint": "Tạo tài liệu mới"
   },
   "layout": {
     "label": "Kiểu hiển thị",
@@ -494,6 +522,96 @@
     "markdownNotice": "Tệp .md chỉ giữ được định dạng Markdown — màu chữ, màu nền, căn lề sẽ mất khi lưu. Chuyển thành tài liệu trực tuyến để giữ đủ định dạng (tệp .md vẫn còn trong tab Phiên bản).",
     "sheetTitlePlaceholder": "Bảng tính không tên",
     "exportXlsx": "Tải về Excel (.xlsx)",
-    "exportCsv": "Tải về CSV (trang tính đầu)"
+    "exportCsv": "Tải về CSV (trang tính đầu)",
+    "lastModified": "Sửa lần cuối: {{time}}",
+    "modifiedAt": "Sửa lần cuối {{time}}",
+    "print": "In",
+    "toc": "Mục lục",
+    "tocCollapse": "Thu gọn mục lục",
+    "tocExpand": "Mở mục lục",
+    "versions": "Lịch sử phiên bản",
+    "mode": {
+      "edit": "Chỉnh sửa",
+      "editHint": "Sửa trực tiếp nội dung",
+      "read": "Đọc",
+      "readHint": "Chỉ xem, không sửa nhầm"
+    }
+  },
+  "email": {
+    "title": "Gửi tài liệu qua email",
+    "description": "Soạn thư như email bình thường — tài liệu đi kèm dưới dạng link, người nhận mở được kể cả khi không dùng KeyGo.",
+    "to": "Đến",
+    "cc": "Cc",
+    "toPlaceholder": "Nhập email rồi nhấn Enter — hoặc gõ tên người trong công ty",
+    "subject": "Tiêu đề",
+    "message": "Lời nhắn",
+    "messagePlaceholder": "Viết lời nhắn cho người nhận…",
+    "attachment": "Tài liệu đính kèm",
+    "kind": {
+      "doc": "Tài liệu trực tuyến",
+      "sheet": "Bảng tính trực tuyến"
+    },
+    "expiry": "Link mở được trong",
+    "expiryDays_other": "{{count}} ngày",
+    "publicNote": "Ai có link trong thư đều mở được tài liệu (bản mới nhất) mà không cần tài khoản, cho tới khi hết hạn. Thu hồi bất cứ lúc nào ở tab Chia sẻ của tài liệu.",
+    "send": "Gửi",
+    "invalidAddress": "Email không hợp lệ: {{email}}",
+    "tooMany": "Tối đa {{max}} người nhận mỗi lần gửi",
+    "removeRecipient": "Bỏ {{email}}",
+    "suggestions": "Gợi ý người nhận",
+    "sectionTitle": "Gửi qua email",
+    "sectionHint": "Gửi cho bất kỳ ai, kể cả người ngoài công ty — kèm link mở không cần tài khoản.",
+    "compose": "Soạn email",
+    "sentLine": "{{name}} gửi lúc {{time}}",
+    "views_other": "đã mở {{count}} lần",
+    "notOpened": "chưa mở",
+    "expiresAt": "Link mở được đến {{time}}",
+    "expiredAt": "Link đã hết hạn lúc {{time}}",
+    "revokedAt": "Đã thu hồi lúc {{time}}",
+    "revoke": "Thu hồi",
+    "revoked": "Đã thu hồi",
+    "expired": "Hết hạn",
+    "revokeTitle": "Thu hồi link?",
+    "revokeDescription": "Link trong thư gửi {{recipients}} sẽ không mở được nữa. Thư đã gửi vẫn nằm trong hộp thư của họ.",
+    "removeCc": "Bỏ Cc",
+    "messageTooLong": "Lời nhắn tối đa {{max}} ký tự"
+  },
+  "public": {
+    "tagline": "Tài liệu được chia sẻ qua KeyGo",
+    "unavailableTitle": "Không mở được tài liệu",
+    "unavailable": "Link không còn mở được — có thể đã hết hạn, bị thu hồi hoặc tài liệu đã bị xoá. Hãy liên hệ người gửi.",
+    "sentBy": "{{name}} đã gửi cho bạn",
+    "sentByOrg": "{{name}} · {{org}} đã gửi cho bạn",
+    "updatedAt": "Cập nhật {{time}}",
+    "expiresAt": "link mở được đến {{time}}"
+  },
+  "time": {
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua"
+  },
+  "select": {
+    "all": "Chọn tất cả",
+    "one": "Chọn “{{title}}”",
+    "count_other": "Đã chọn {{count}}",
+    "clear": "Bỏ chọn"
+  },
+  "newMenu": {
+    "doc": "Tài liệu",
+    "sheet": "Bảng tính",
+    "folder": "Thư mục"
+  },
+  "heading": {
+    "home": "Trang chủ",
+    "mine": "Của tôi",
+    "unit": "Đơn vị",
+    "company": "Công ty",
+    "trash": "Thùng rác",
+    "requests": "Đề xuất",
+    "storage": "Dung lượng",
+    "search": "Tìm kiếm"
+  },
+  "search": {
+    "resultCount_other": "{{count}} kết quả cho “{{q}}”",
+    "searching": "Đang tìm “{{q}}”…"
   }
 }

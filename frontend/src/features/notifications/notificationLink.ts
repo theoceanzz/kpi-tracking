@@ -89,7 +89,16 @@ export function notificationLink(n: Pick<Notification, 'type' | 'referenceId'>):
     case 'TASK':
     case 'TASK_CHANGED':
       return n.referenceId ? `/tasks?task=${encodeURIComponent(n.referenceId)}` : '/tasks'
+    // Bị gỡ khỏi người theo dõi (việc chuyển sang KPI mình không xem được): không mở việc — đã không còn quyền xem.
+    case 'TASK_FOLLOWER_REMOVED':
+      return '/tasks'
+    // Được mời vào một danh sách công việc: referenceId là id danh sách.
+    case 'TASK_LIST':
+      return n.referenceId ? `/tasks?list=${encodeURIComponent(n.referenceId)}` : '/tasks'
     // KPI cũ đã được thay: mở KPI mới ở tab Công việc, nơi có hộp "chuyển việc sang KPI mới".
+    // Tóm tắt buổi sáng: mở "Tôi phụ trách".
+    case 'TASK_DIGEST':
+      return '/tasks?view=ASSIGNED'
     case 'TASK_KPI_REPLACED':
       return n.referenceId ? `/kpi/${encodeURIComponent(n.referenceId)}?tab=tasks` : '/tasks'
     default:

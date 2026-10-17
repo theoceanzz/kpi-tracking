@@ -91,6 +91,21 @@ public class BscCascadeController {
     }
 
     /** Hiện trạng phân rã CẢ BỘ của một thẻ: đang giao cho đơn vị nào, trọng số bao nhiêu. */
+    /**
+     * Thu hồi MỘT chỉ tiêu đã phân rã khỏi một đơn vị. Cùng mức quyền với phân rã. Bị chặn khi dòng đã có
+     * KPI gắn vào, đã giao tiếp xuống cấp dưới, hoặc nằm trong kết quả đợt đã chốt.
+     */
+    @DeleteMapping("/scorecards/{scorecardId}/cascade")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    public ResponseEntity<ApiResponse<ScorecardCoverageResponse>> revokeCascade(
+            @PathVariable UUID scorecardId,
+            @RequestParam UUID scorecardPerspectiveId,
+            @RequestParam UUID orgUnitId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                ErrorMessages.text("success.bsc.cascadeRevoked", "Đã thu hồi chỉ tiêu khỏi đơn vị"),
+                treeService.revokeCascade(scorecardId, scorecardPerspectiveId, orgUnitId)));
+    }
+
     @GetMapping("/scorecards/{scorecardId}/whole-cascade")
     @PreAuthorize("hasAuthority('BSC:VIEW')")
     public ResponseEntity<ApiResponse<WholeCascadeResponse>> wholeCascade(@PathVariable UUID scorecardId) {
@@ -106,9 +121,12 @@ public class BscCascadeController {
     public ResponseEntity<ApiResponse<WholeCascadeResponse>> cascadeWhole(
             @PathVariable UUID scorecardId,
             @Valid @RequestBody WholeCascadeRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(
-                ErrorMessages.text("success.bsc.wholeCascaded", "Đã giao kết quả cả bộ tiêu chí xuống các đơn vị"),
-                treeService.cascadeWhole(scorecardId, request)));
+        boolean onlyRevoke = (request.getTargets() == null || request.getTargets().isEmpty())
+                && request.getRevokeOrgUnitIds() != null && !request.getRevokeOrgUnitIds().isEmpty();
+        String message = onlyRevoke
+                ? ErrorMessages.text("success.bsc.wholeRevoked", "Đã thu hồi kết quả cả bộ tiêu chí khỏi các đơn vị")
+                : ErrorMessages.text("success.bsc.wholeCascaded", "Đã giao kết quả cả bộ tiêu chí xuống các đơn vị");
+        return ResponseEntity.ok(ApiResponse.success(message, treeService.cascadeWhole(scorecardId, request)));
     }
 
     /**

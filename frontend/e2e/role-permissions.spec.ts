@@ -23,6 +23,8 @@ const COMMON_PAGES = [
   '/dashboard', '/me', '/my-kpi', '/my-tasks', '/tasks', '/submissions', '/submissions/new',
   '/evaluations', '/my-adjustments', '/notifications', '/profile', '/documents', '/kpi-setup',
   '/requests', '/requests?tab=status',
+  // OKR/BSC của tôi mở cho MỌI vai trò, kể cả giám đốc không có KPI:VIEW_MY.
+  '/me?section=my-okr', '/me?section=my-bsc',
 ]
 /** Màn quản lý — vai trò có quyền thì vào được; không có thì bị PermissionRoute đẩy đi, cũng không được 403. */
 const MANAGER_PAGES = [
@@ -110,6 +112,36 @@ async function visit(page: Page, w: ReturnType<typeof watch>, path: string) {
 
 const report = (o: Offence[]) => o.map(x => `  [${x.page}] ${x.what}`).join('\n')
 
+/** Các tab của trang Công việc mọi vai trò đều có (tab "Đơn vị" chỉ quản lý thấy nên không đi bằng URL ở đây). */
+const TASK_VIEWS = ['ASSIGNED', 'FOLLOWING', 'CREATED', 'DELEGATED', 'NOKPI', 'DONE', 'ALL', 'ACTIVITY']
+/** Chế độ xem của trang Công việc — chọn qua localStorage `tasks.mode` như khi người dùng bấm. */
+const TASK_MODES = ['list', 'kanban', 'calendar', 'gantt']
+
+/**
+ * Trang Công việc kiểu Lark: mỗi tab × mỗi chế độ (Danh sách / Kanban / Lịch / Gantt), mở chi tiết việc đầu tiên (nhịp
+ * "đang xem", lịch sử, thảo luận) và bảng lệnh Ctrl+K — đều không được 403 hay bị chặn trước.
+ */
+async function walkTasks(page: Page, w: ReturnType<typeof watch>) {
+  for (const mode of TASK_MODES) {
+    await page.evaluate(m => localStorage.setItem('tasks.mode', m), mode)
+    for (const view of TASK_VIEWS) await visit(page, w, `/tasks?view=${view}&e2e=${mode}`)
+  }
+  await page.evaluate(() => localStorage.setItem('tasks.mode', 'list'))
+  await visit(page, w, '/tasks?view=ALL')
+  const first = page.locator('[data-task-id]').first()
+  if (await first.isVisible().catch(() => false)) {
+    w.at('/tasks (chi tiết việc)')
+    await first.locator('p').first().click()
+    await w.settle()
+    await page.keyboard.press('Escape')
+  }
+  w.at('/tasks (Ctrl+K)')
+  await page.keyboard.press('Control+k')
+  await page.keyboard.type('a')
+  await w.settle()
+  await page.keyboard.press('Escape')
+}
+
 test.describe('không màn nào gọi API vượt quyền của người dùng', () => {
   test.skip(!PASSWORD, 'Đặt E2E_PASSWORD (mật khẩu tài khoản mẫu) để chạy')
 
@@ -118,6 +150,7 @@ test.describe('không màn nào gọi API vượt quyền của người dùng',
       const w = watch(page)
       await login(page, email)
       for (const path of [...COMMON_PAGES, ...MANAGER_PAGES]) await visit(page, w, path)
+      await walkTasks(page, w)
       expect(w.offences, `Lời gọi vượt quyền:\n${report(w.offences)}`).toEqual([])
     })
   }

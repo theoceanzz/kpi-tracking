@@ -37,6 +37,10 @@ public class ScorecardPerspectiveResponse {
     /** Tên chỉ tiêu cha — để tooltip trỏ ngược lên BSC công ty mà không phải gọi thêm API. */
     private String parentItemName;
     private String parentScorecardName;
+    /** Thẻ cha của dòng cha (để thẻ nguồn biết đơn vị nào đang nhận cả bộ của mình). */
+    private UUID parentScorecardId;
+    /** Dòng sinh từ "giao cả bộ": trọng số X% của CẢ BỘ ở đơn vị này. Null = không phải. */
+    private Double wholeSharePercent;
     private BscLinkType linkType;
     private Double contributionValue;
     private Double contributionPercent;

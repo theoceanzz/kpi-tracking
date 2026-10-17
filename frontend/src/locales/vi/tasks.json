@@ -7,7 +7,23 @@
     "mine": "Của tôi",
     "team": "Đơn vị",
     "byKpi": "Theo KPI",
-    "noKpis": "Không có KPI nào trong đợt đang diễn ra"
+    "noKpis": "Không có KPI nào trong đợt đang diễn ra",
+    "lists": "Danh sách",
+    "noLists": "Tạo danh sách đầu tiên",
+    "archived": "Đã lưu trữ ({{count}})",
+    "savedViews": "Chế độ xem đã lưu",
+    "listsHint": "Rê chuột vào một danh sách, bấm \"…\" để ghim hoặc xếp vào thư mục.",
+    "moveToFolder": "Chuyển vào thư mục",
+    "newFolder": "Thư mục mới, nhấn Enter",
+    "pin": "Ghim lên đầu",
+    "pinned": "Đã ghim",
+    "removeFromFolder": "Bỏ khỏi thư mục",
+    "unpin": "Bỏ ghim",
+    "title": "Công việc",
+    "quickAccess": "Truy cập nhanh",
+    "newList": "Danh sách mới",
+    "newFolderItem": "Thư mục mới",
+    "showArchived": "Hiện danh sách đã lưu trữ ({{count}})"
   },
   "view": {
     "ASSIGNED": "Tôi phụ trách",
@@ -16,19 +32,33 @@
     "DELEGATED": "Tôi giao cho người khác",
     "DONE": "Đã hoàn thành",
     "ALL": "Tất cả",
-    "TEAM": "Việc của đơn vị"
+    "TEAM": "Việc của đơn vị",
+    "NOKPI": "Không gắn KPI",
+    "ACTIVITY": "Hoạt động"
   },
   "mode": {
     "list": "Danh sách",
     "kanban": "Kanban",
-    "calendar": "Lịch"
+    "calendar": "Lịch",
+    "gantt": "Gantt",
+    "stats": "Bảng điều khiển",
+    "activity": "Hoạt động"
   },
   "toolbar": {
     "groupBy": "Nhóm theo",
     "sort": "Sắp xếp",
     "filter": "Lọc",
     "create": "Tạo việc",
-    "createHint": "Phím tắt: N"
+    "createHint": "Phím tắt: N",
+    "export": "Xuất Excel",
+    "select": "Chọn nhiều",
+    "selectHint": "Chọn nhiều việc để sửa cùng lúc (Shift + bấm để chọn cả đoạn)",
+    "createMore": "Tạo khác",
+    "newGroup": "Nhóm mới",
+    "createGroup": "Tạo nhóm",
+    "groupName": "Tên nhóm",
+    "customize": "Tuỳ chỉnh",
+    "more": "Thêm"
   },
   "groupBy": {
     "due": "Hạn",
@@ -36,13 +66,20 @@
     "status": "Trạng thái",
     "owner": "Người phụ trách",
     "priority": "Ưu tiên",
-    "none": "Không nhóm"
+    "none": "Không nhóm",
+    "section": "Nhóm",
+    "tag": "Nhãn",
+    "fields": "Trường tuỳ chỉnh",
+    "mysection": "Nhóm của tôi"
   },
   "sort": {
     "due": "Hạn",
     "priority": "Ưu tiên",
     "created": "Ngày tạo",
-    "manual": "Thủ công (kéo thả)"
+    "manual": "Thủ công",
+    "start": "Ngày bắt đầu",
+    "title": "Tên việc",
+    "updated": "Cập nhật gần nhất"
   },
   "filter": {
     "search": "Tìm theo tên việc",
@@ -56,7 +93,11 @@
     "remove": "Bỏ bộ lọc",
     "clearAll": "Bỏ tất cả",
     "allKpis": "Mọi KPI",
-    "kpi": "KPI"
+    "kpi": "KPI",
+    "kpiLink": "Gắn KPI",
+    "withKpi": "Có KPI",
+    "withoutKpi": "Không gắn KPI",
+    "tags": "Nhãn"
   },
   "dueFilter": {
     "OVERDUE": "Quá hạn",
@@ -76,7 +117,14 @@
   },
   "group": {
     "all": "Tất cả việc",
-    "completed": "Đã hoàn thành"
+    "completed": "Đã hoàn thành",
+    "noSection": "Chưa phân nhóm",
+    "noValue": "Chưa có giá trị",
+    "checked": "Đã đánh dấu",
+    "unchecked": "Chưa đánh dấu",
+    "noTag": "Không có nhãn",
+    "noKpi": "Không gắn KPI",
+    "noMySection": "Chưa xếp nhóm"
   },
   "status": {
     "TODO": "Chưa làm",
@@ -103,7 +151,12 @@
     "done": "Xong",
     "hour": "Giờ",
     "minute": "Phút",
-    "setTime": "Đặt giờ"
+    "setTime": "Đặt giờ",
+    "minutes": "{{count}} phút",
+    "hours": "{{count}} giờ",
+    "left": "Còn {{amount}}",
+    "ago": "Quá {{amount}}",
+    "other": "Khác"
   },
   "row": {
     "markDone": "Đánh dấu hoàn thành",
@@ -114,18 +167,37 @@
     "subtasks": "Việc con",
     "recurring": "Việc lặp lại",
     "openSubtasksTitle": "Còn việc con chưa xong",
-    "completeAnyway": "Vẫn hoàn thành"
+    "completeAnyway": "Vẫn hoàn thành",
+    "partCompleted": "Đã xong phần của bạn trong \"{{title}}\"",
+    "markMyPart": "Đánh dấu xong phần của tôi",
+    "blocked": "Đang chờ {{count}} việc phải xong trước",
+    "collapseSubtasks": "Ẩn việc con",
+    "expandSubtasks": "Hiện việc con",
+    "renameHint": "Bấm đúp để đổi tên"
   },
   "quickAdd": {
     "label": "Thêm việc",
     "placeholder": "Tên việc, nhấn Enter để tạo",
     "kpiPlaceholder": "Chọn KPI",
-    "pickKpi": "Hãy chọn KPI cho việc này"
+    "pickKpi": "Hãy chọn KPI cho việc này",
+    "syntaxHint": "Gõ nhanh: @tên người · ngày mai 15h · !cao · #nhãn",
+    "labelLark": "Việc mới"
   },
   "list": {
     "empty": "Không có việc nào.",
     "cannotDrop": "Không thả vào nhóm này được (không xác định được giá trị của nhóm)",
-    "subtaskKpiFixed": "Việc con luôn ở KPI của việc cha"
+    "subtaskKpiFixed": "Việc con luôn ở KPI của việc cha",
+    "colTitle": "Tên việc",
+    "colCreated": "Ngày tạo",
+    "columns": "Trường hiển thị",
+    "resetColumns": "Về mặc định",
+    "resizeColumn": "Kéo để đổi độ rộng cột",
+    "dragGroupHint": "Kéo để đổi thứ tự nhóm",
+    "shownOf": "Đã hiện {{shown}} / {{total}} việc",
+    "loadMore": "Tải thêm",
+    "colCreator": "Người tạo",
+    "hideColumn": "Ẩn cột",
+    "showColumn": "Hiện cột"
   },
   "progress": {
     "label": "{{done}}/{{total}} việc hoàn thành",
@@ -140,7 +212,7 @@
     "moved": "Đã chuyển {{count}} việc"
   },
   "readOnly": {
-    "NOT_OWNER": "Bạn chỉ xem được việc này (chỉ người phụ trách và người tạo sửa được).",
+    "NOT_OWNER": "Bạn chỉ xem được việc này (chỉ người thực hiện và người tạo sửa được).",
     "CYCLE_LOCKED": "Kỳ KPI đã khoá — công việc chỉ đọc.",
     "KPI_DELETED": "KPI của việc này đã bị xoá — chỉ chuyển sang KPI khác hoặc xoá được."
   },
@@ -148,7 +220,8 @@
     "title": "Chi tiết công việc",
     "tab": {
       "comments": "Bình luận",
-      "activity": "Hoạt động"
+      "activity": "Hoạt động",
+      "all": "Tất cả"
     },
     "owner": "Người phụ trách",
     "assignedBy": "giao bởi {{name}}",
@@ -198,7 +271,40 @@
     "backToParent": "Việc cha",
     "close": "Đóng",
     "removeLink": "Bỏ link",
-    "applyLink": "Áp dụng"
+    "applyLink": "Áp dụng",
+    "assignees": "Người thực hiện",
+    "startDate": "Ngày bắt đầu",
+    "completionMode": "Kiểu hoàn thành",
+    "lists": "Danh sách",
+    "tags": "Nhãn",
+    "source": "Tạo từ",
+    "reassignWithKpi": "Giao lại kèm KPI",
+    "time": "Thời gian",
+    "moreProps": "Thêm thuộc tính ({{count}})",
+    "lessProps": "Ẩn thuộc tính trống",
+    "addDescription": "Thêm mô tả…",
+    "add": "Thêm",
+    "completed": "Đã hoàn thành",
+    "myPartDone": "Đã xong phần của tôi",
+    "expand": "Mở rộng",
+    "shrink": "Thu nhỏ",
+    "prevTask": "Việc trước",
+    "nextTask": "Việc sau",
+    "viewing": "Đang xem: {{names}}",
+    "followingAsAssignee": "Bạn là người thực hiện nên luôn nhận cập nhật của việc này",
+    "share": "Chia sẻ (sao chép link)",
+    "privateToggle": "Chỉ người liên quan xem",
+    "viewHistory": "Xem lịch sử",
+    "historyTitle": "Lịch sử thay đổi",
+    "commentTitle": "Bình luận",
+    "addDescriptionLark": "Thêm mô tả",
+    "addSubtaskLark": "Thêm việc con",
+    "addChecklistLark": "Thêm checklist",
+    "addAttachmentLark": "Thêm tệp đính kèm",
+    "followersCount": "{{count}} người theo dõi",
+    "noFollowers": "Thêm người theo dõi",
+    "noFollowersYet": "Chưa có ai theo dõi",
+    "listFields": "Trường của danh sách"
   },
   "scope": {
     "title": "Sửa việc lặp lại",
@@ -228,7 +334,8 @@
     "unit": {
       "DAILY": "ngày",
       "WEEKLY": "tuần",
-      "MONTHLY": "tháng"
+      "MONTHLY": "tháng",
+      "YEARLY": "năm"
     },
     "onDay": "Vào ngày",
     "endDate": "Ngày kết thúc (tuỳ chọn)",
@@ -237,7 +344,29 @@
     "needDue": "Việc lặp lại cần có hạn.",
     "summaryDaily": "Mỗi {{count}} ngày",
     "summaryWeekly": "Mỗi {{count}} tuần: {{days}}",
-    "summaryMonthly": "Mỗi {{count}} tháng, ngày {{day}}"
+    "summaryMonthly": "Mỗi {{count}} tháng, ngày {{day}}",
+    "yearly": "Hằng năm",
+    "workdays": "Ngày làm việc (T2–T6)",
+    "byDay": "Theo ngày trong tháng",
+    "byNth": "Theo thứ trong tuần",
+    "month": "Tháng",
+    "ends": "Kết thúc",
+    "times": "lần",
+    "countSummary": "{{count}} lần",
+    "summaryMonthlyNth": "Mỗi {{count}} tháng, {{day}} {{pos}}",
+    "summaryYearly": "Mỗi {{count}} năm, ngày {{day}}/{{month}}",
+    "pos": {
+      "1": "tuần đầu",
+      "2": "tuần thứ hai",
+      "3": "tuần thứ ba",
+      "4": "tuần thứ tư",
+      "-1": "tuần cuối"
+    },
+    "end": {
+      "never": "Không kết thúc",
+      "date": "Vào ngày",
+      "count": "Sau số lần"
+    }
   },
   "weekday": {
     "1": "T2",
@@ -257,7 +386,24 @@
     "weekOf": "Tuần từ",
     "noDue": "Chưa có hạn",
     "noDueHint": "Kéo vào lịch để đặt hạn; kéo việc ra đây để xoá hạn.",
-    "clickToCreate": "Bấm vào ô trống để tạo việc vào ngày này"
+    "clickToCreate": "Bấm vào ô trống để tạo việc vào ngày này",
+    "dragStart": "Kéo để đổi ngày bắt đầu",
+    "dragEnd": "Kéo để đổi hạn",
+    "allDay": "Cả ngày",
+    "clickToCreateAt": "Bấm vào ô giờ trống để tạo việc vào giờ đó",
+    "dragStartTime": "Kéo để đổi giờ bắt đầu",
+    "dragEndTime": "Kéo để đổi giờ hạn",
+    "threeDays": "3 ngày",
+    "threeDaysOf": "3 ngày từ"
+  },
+  "followerRemoval": {
+    "title": "Gỡ người theo dõi khi đổi KPI?",
+    "description": "Những người dưới đây không có quyền xem KPI mới nên sẽ không theo dõi được các việc này nữa.",
+    "subtask": "Việc con",
+    "peopleOf": "Người bị gỡ khỏi \"{{title}}\"",
+    "note": "Họ chỉ bị gỡ khỏi đúng các việc trên, nhận một thông báo, và lần gỡ được ghi vào lịch sử của từng việc.",
+    "cancel": "Huỷ",
+    "confirm": "Gỡ và đổi KPI"
   },
   "assign": {
     "title": "Giao việc",
@@ -270,18 +416,26 @@
     "noKpis": "Người này chưa có KPI nào mà bạn được giao việc trên.",
     "subtaskKpi": "Việc con luôn ở KPI của việc cha: \"{{name}}\".",
     "confirm": "Xác nhận",
-    "done": "Đã cập nhật người phụ trách / KPI"
+    "done": "Đã cập nhật người phụ trách / KPI",
+    "noKpiHint": "Việc không gắn KPI: giao được cho bất kỳ ai trong tổ chức. Muốn gắn KPI thì đổi ở mục KPI của việc."
   },
   "new": {
     "title": "Tạo việc",
     "titlePlaceholder": "Tên việc",
     "create": "Tạo",
     "kpiPlaceholder": "Chọn KPI",
-    "noKpi": "Người này chưa có KPI nào nhận thêm việc.",
+    "noKpi": "Không gắn KPI",
     "me": "{{name}} (tôi)",
     "moreDetails": "Thêm chi tiết",
     "checklistLines": "Checklist (mỗi dòng một bước)",
-    "checklistPlaceholder": "Bước 1\nBước 2"
+    "checklistPlaceholder": "Bước 1\nBước 2",
+    "kpiOptional": "KPI (không bắt buộc)",
+    "kpiPlaceholderOptional": "Không gắn KPI",
+    "noKpiOptions": "Người phụ trách chưa có KPI nào nhận thêm việc, việc sẽ không gắn KPI.",
+    "list": "Danh sách",
+    "noList": "Không thuộc danh sách nào",
+    "section": "Nhóm",
+    "anyoneHint": "Việc không gắn KPI giao được cho bất kỳ ai trong tổ chức. Gắn KPI thì chỉ giao được người thuộc KPI đó."
   },
   "history": {
     "CREATED": "đã tạo công việc",
@@ -296,12 +450,34 @@
     "REASSIGNED": "giao lại: {{from}} → {{to}}",
     "FOLLOWER_ADDED": "thêm người theo dõi {{to}}",
     "FOLLOWER_REMOVED": "bỏ người theo dõi {{from}}",
+    "FOLLOWER_REMOVED_KPI_CHANGED": "gỡ người theo dõi {{from}} vì việc chuyển sang KPI người này không có quyền xem",
     "SUBTASK_ADDED": "thêm việc con \"{{to}}\"",
     "RECURRENCE_CHANGED": "đổi lặp lại",
     "RECURRED": "tạo lần lặp thứ {{to}}",
     "REMINDERS_CHANGED": "đổi nhắc việc",
     "DUPLICATED": "nhân bản từ một việc khác",
-    "DELETED": "đã xoá công việc"
+    "DELETED": "đã xoá công việc",
+    "KPI_LINKED": "gắn KPI",
+    "KPI_UNLINKED": "gỡ KPI",
+    "DECLINED": "từ chối việc",
+    "DECLINED_REASON": "từ chối việc, lý do: {{to}}",
+    "ASSIGNEE_ADDED": "thêm người thực hiện {{to}}",
+    "ASSIGNEE_REMOVED": "bỏ người thực hiện {{from}}",
+    "PART_COMPLETED": "đã xong phần của mình",
+    "PART_REOPENED": "mở lại phần của mình",
+    "START_CHANGED": "đổi ngày bắt đầu: {{from}} → {{to}}",
+    "COMPLETION_MODE_CHANGED": "đổi kiểu hoàn thành",
+    "LIST_ADDED": "thêm vào danh sách \"{{to}}\"",
+    "LIST_REMOVED": "bỏ khỏi danh sách \"{{from}}\"",
+    "SECTION_CHANGED": "chuyển nhóm: {{from}} → {{to}}",
+    "TAGS_CHANGED": "đổi nhãn",
+    "FIELD_CHANGED": "sửa trường \"{{to}}\"",
+    "DEPENDENCY_ADDED": "thêm việc phải xong trước \"{{to}}\"",
+    "DEPENDENCY_REMOVED": "bỏ phụ thuộc vào \"{{from}}\"",
+    "AUTOMATION_RAN": "luật tự động \"{{to}}\" đã chạy",
+    "IMPORTED": "nhập từ Excel vào danh sách \"{{to}}\"",
+    "MILESTONE_CHANGED": "đổi đánh dấu mốc",
+    "PARENT_CHANGED": "đổi việc cha từ \"{{from}}\" sang \"{{to}}\""
   },
   "picker": {
     "pickPerson": "Chọn người",
@@ -313,5 +489,390 @@
     "noGroup": "Khác",
     "empty": "Không có kết quả",
     "latestPeriod": "Đợt gần nhất"
+  },
+  "validation": {
+    "titleRequired": "Nhập tên việc",
+    "startAfterDue": "Ngày bắt đầu phải trước hoặc bằng hạn"
+  },
+  "assignees": {
+    "add": "Thêm người",
+    "change": "Đổi người",
+    "makePrimary": "Đặt làm người phụ trách chính",
+    "remove": "Bỏ người này",
+    "count": "{{count}} người thực hiện",
+    "addLark": "Thêm người thực hiện"
+  },
+  "completion": {
+    "ANY": "Một người xong là xong",
+    "ALL": "Mọi người cùng xong mới xong",
+    "whenAny": "Việc hoàn thành khi một người hoàn thành",
+    "whenAll": "Việc hoàn thành khi tất cả hoàn thành"
+  },
+  "decline": {
+    "action": "Từ chối việc",
+    "title": "Từ chối việc này?",
+    "description": "Bạn sẽ không còn là người thực hiện. Việc được trả về người giao (hoặc bỏ bạn ra nếu còn người khác cùng làm).",
+    "reasonPlaceholder": "Lý do (không bắt buộc)",
+    "done": "Đã từ chối việc"
+  },
+  "deps": {
+    "title": "Phụ thuộc",
+    "addBlocker": "Thêm việc phải xong trước",
+    "search": "Tìm việc",
+    "noCandidates": "Không có việc phù hợp",
+    "BLOCKED_BY": "Chờ",
+    "BLOCKING": "Đang chặn",
+    "hidden": "Việc bạn không xem được",
+    "remove": "Bỏ phụ thuộc",
+    "menuBlockedBy": "Bị chặn bởi",
+    "menuBlocking": "Đang chặn",
+    "pickBlockedByHint": "Chọn việc phải xong trước việc này.",
+    "pickBlockingHint": "Chọn việc phải chờ việc này xong."
+  },
+  "kpiLink": {
+    "none": "Không gắn KPI",
+    "link": "Gắn KPI",
+    "change": "Đổi KPI",
+    "unlink": "Gỡ KPI",
+    "pick": "Chọn KPI",
+    "linked": "Đã gắn KPI",
+    "unlinked": "Đã gỡ KPI",
+    "followsRoot": "Theo KPI của việc gốc",
+    "notAllowed": "Bạn không đổi được KPI của việc này"
+  },
+  "lists": {
+    "create": "Tạo danh sách",
+    "createSubmit": "Tạo",
+    "namePlaceholder": "Tên danh sách",
+    "nameRequired": "Nhập tên danh sách",
+    "descriptionPlaceholder": "Mô tả (không bắt buộc)",
+    "template": "Bắt đầu từ",
+    "blank": "Danh sách trống",
+    "blankHint": "Tự thêm nhóm, trường và việc sau",
+    "builtin": "Có sẵn",
+    "templateMeta": "{{sections}} nhóm · {{fields}} trường · {{tasks}} việc mẫu",
+    "includeSampleTasks": "Tạo kèm {{count}} việc mẫu",
+    "deleteTemplate": "Xoá mẫu",
+    "settings": "Cài đặt",
+    "settingsTitle": "Cài đặt danh sách \"{{name}}\"",
+    "tab": {
+      "general": "Chung",
+      "members": "Thành viên",
+      "sections": "Nhóm",
+      "fields": "Trường",
+      "automations": "Tự động hoá"
+    },
+    "ownerOnly": "Chỉ chủ danh sách sửa được phần cài đặt.",
+    "name": "Tên",
+    "description": "Mô tả",
+    "color": "Màu",
+    "save": "Lưu",
+    "saveAsTemplate": "Lưu thành mẫu",
+    "templateIncludeTasks": "Lưu cả các việc (tên, nhóm, checklist, hạn tương đối)",
+    "templateSaved": "Đã lưu mẫu danh sách",
+    "archive": "Lưu trữ",
+    "unarchive": "Bỏ lưu trữ",
+    "archivedBadge": "Đã lưu trữ",
+    "delete": "Xoá danh sách",
+    "deleteTitle": "Xoá danh sách?",
+    "deleteBody": "Danh sách \"{{name}}\" cùng nhóm, trường, luật tự động sẽ bị xoá. Các việc vẫn còn, chỉ không nằm trong danh sách này nữa.",
+    "addPerson": "Thêm người",
+    "addUnit": "Thêm cả đơn vị",
+    "searchUnit": "Tìm đơn vị",
+    "wholeUnit": "(cả đơn vị)",
+    "removeMember": "Bỏ khỏi danh sách",
+    "rolesHint": "Chủ: sửa cài đặt và mời người. Sửa: thêm, sắp xếp việc trong danh sách. Xem: chỉ xem. Việc gắn KPI vẫn theo luật xem của KPI.",
+    "role": {
+      "OWNER": "Chủ",
+      "EDITOR": "Sửa",
+      "VIEWER": "Xem"
+    },
+    "noSections": "Chưa có nhóm nào",
+    "sectionPlaceholder": "Tên nhóm mới",
+    "addSection": "Thêm nhóm",
+    "deleteSection": "Xoá nhóm",
+    "moveUp": "Lên trên",
+    "moveDown": "Xuống dưới",
+    "sectionDeleteHint": "Xoá nhóm thì việc trong nhóm chuyển về \"Chưa phân nhóm\".",
+    "addTo": "Thêm vào danh sách",
+    "removeFrom": "Bỏ khỏi danh sách",
+    "membersCount": "{{count}} thành viên",
+    "icon": "Biểu tượng",
+    "removeIcon": "Bỏ biểu tượng",
+    "addToLark": "Thêm vào danh sách",
+    "addToAnother": "Thêm vào danh sách khác",
+    "noneToAdd": "Không còn danh sách nào bạn sửa được",
+    "share": "Chia sẻ"
+  },
+  "field": {
+    "type": {
+      "TEXT": "Chữ",
+      "NUMBER": "Số",
+      "SINGLE_SELECT": "Chọn một",
+      "MULTI_SELECT": "Chọn nhiều",
+      "MEMBER": "Người",
+      "DATE": "Ngày",
+      "CHECKBOX": "Đánh dấu"
+    },
+    "add": "Thêm trường",
+    "namePlaceholder": "Tên trường",
+    "none": "Chưa có trường tuỳ chỉnh",
+    "delete": "Xoá trường",
+    "editOptions": "Sửa lựa chọn",
+    "addOption": "Thêm lựa chọn",
+    "removeOption": "Bỏ lựa chọn",
+    "optionPlaceholder": "Lựa chọn {{n}}",
+    "optionsRequired": "Trường chọn cần ít nhất một lựa chọn",
+    "color": "Đổi màu",
+    "yes": "Có",
+    "no": "Không",
+    "pickPeople": "Chọn người"
+  },
+  "automation": {
+    "hint": "Khi một việc trong danh sách thoả điều kiện thì tự làm một thao tác. Luật chạy dưới tên người tạo luật.",
+    "none": "Chưa có luật nào",
+    "add": "Thêm luật",
+    "save": "Lưu luật",
+    "delete": "Xoá luật",
+    "enabled": "Bật / tắt luật",
+    "namePlaceholder": "Tên luật (không bắt buộc)",
+    "whenLabel": "Khi",
+    "thenLabel": "Thì",
+    "runs": "Đã chạy {{count}} lần",
+    "someone": "một người",
+    "anyValue": "giá trị bất kỳ",
+    "days": "ngày",
+    "assigneeNoKpi": "Chỉ áp cho việc không gắn KPI.",
+    "pickSection": "Chọn nhóm",
+    "pickStatus": "Chọn trạng thái",
+    "pickField": "Chọn trường",
+    "pickPerson": "Chọn người",
+    "pickPriority": "Chọn mức ưu tiên",
+    "pickTarget": "Báo cho ai",
+    "pickValue": "Chọn giá trị",
+    "trigger": {
+      "TASK_ADDED": "Việc được thêm vào danh sách",
+      "SECTION_ENTERED": "Việc vào một nhóm",
+      "STATUS_CHANGED": "Trạng thái đổi thành",
+      "COMPLETED": "Việc hoàn thành",
+      "FIELD_CHANGED": "Trường thay đổi"
+    },
+    "action": {
+      "SET_STATUS": "Đặt trạng thái",
+      "MOVE_SECTION": "Chuyển sang nhóm",
+      "ADD_ASSIGNEE": "Thêm người thực hiện",
+      "ADD_FOLLOWER": "Thêm người theo dõi",
+      "SET_PRIORITY": "Đặt mức ưu tiên",
+      "SET_FIELD": "Đặt giá trị trường",
+      "SET_DUE_IN_DAYS": "Đặt hạn sau N ngày",
+      "NOTIFY": "Gửi thông báo"
+    },
+    "when": {
+      "TASK_ADDED": "Khi việc được thêm vào danh sách",
+      "SECTION_ENTERED": "Khi việc vào nhóm \"{{section}}\"",
+      "STATUS_CHANGED": "Khi trạng thái thành {{status}}",
+      "COMPLETED": "Khi việc hoàn thành",
+      "FIELD_CHANGED": "Khi trường \"{{field}}\" đổi thành {{option}}"
+    },
+    "then": {
+      "SET_STATUS": "đặt trạng thái {{status}}",
+      "MOVE_SECTION": "chuyển sang nhóm \"{{section}}\"",
+      "ADD_ASSIGNEE": "thêm {{person}} làm người thực hiện",
+      "ADD_FOLLOWER": "thêm {{person}} theo dõi",
+      "SET_PRIORITY": "đặt ưu tiên {{priority}}",
+      "SET_FIELD": "đặt \"{{field}}\" = {{value}}",
+      "SET_DUE_IN_DAYS": "đặt hạn sau {{days}} ngày",
+      "NOTIFY": "báo cho {{target}}"
+    },
+    "target": {
+      "ASSIGNEES": "người thực hiện",
+      "CREATOR": "người tạo việc"
+    }
+  },
+  "tags": {
+    "add": "Nhãn",
+    "search": "Tìm hoặc tạo nhãn",
+    "create": "Tạo nhãn \"{{name}}\"",
+    "none": "Chưa có nhãn nào, gõ tên để tạo",
+    "addLark": "Thêm nhãn"
+  },
+  "views": {
+    "save": "Lưu chế độ xem",
+    "saveHint": "Lưu chế độ xem, cách nhóm, sắp xếp và bộ lọc hiện tại để mở lại nhanh.",
+    "namePlaceholder": "Tên chế độ xem",
+    "shared": "Chia sẻ với thành viên danh sách",
+    "saveSubmit": "Lưu",
+    "saved": "Đã lưu chế độ xem",
+    "delete": "Xoá chế độ xem"
+  },
+  "batch": {
+    "select": "Chọn việc",
+    "selected": "Đã chọn {{count}} việc",
+    "complete": "Hoàn thành",
+    "reopen": "Mở lại",
+    "statusPriority": "Trạng thái / ưu tiên",
+    "due": "Hạn",
+    "setDue": "Đặt hạn",
+    "apply": "Áp dụng",
+    "clearDue": "Xoá hạn",
+    "shiftDue": "Dời hạn (số ngày, âm = lùi)",
+    "days": "ngày",
+    "people": "Người",
+    "addAssignee": "Thêm người thực hiện (việc không gắn KPI)",
+    "addFollower": "Thêm người theo dõi",
+    "lists": "Danh sách",
+    "moveSection": "Chuyển sang nhóm",
+    "removeFromList": "Bỏ khỏi danh sách này",
+    "addToList": "Thêm vào danh sách",
+    "noLists": "Bạn chưa sửa được danh sách nào",
+    "tags": "Nhãn",
+    "addTagHint": "Bấm nhãn để thêm, bấm × để bỏ",
+    "removeTag": "Bỏ nhãn",
+    "delete": "Xoá",
+    "clear": "Bỏ chọn",
+    "deleteTitle": "Xoá {{count}} việc?",
+    "deleteDescription": "Các việc cùng việc con của chúng sẽ bị xoá. Việc bạn không có quyền xoá sẽ được bỏ qua.",
+    "done": "Đã cập nhật {{count}} việc",
+    "partial": "Xong {{ok}} việc, {{failed}} việc không đổi được"
+  },
+  "gantt": {
+    "day": "Ngày",
+    "week": "Tuần",
+    "empty": "Không có việc nào có ngày trong khoảng này.",
+    "noDates": "{{count}} việc chưa có ngày, đặt hạn để hiện trên Gantt:",
+    "start": "Bắt đầu",
+    "due": "Hạn",
+    "month": "Tháng",
+    "quarter": "Quý",
+    "linkHint": "Kéo sang việc khác để tạo phụ thuộc (việc kia chờ việc này)",
+    "linked": "\"{{to}}\" giờ chờ \"{{from}}\" xong"
+  },
+  "stats": {
+    "total": "Tổng số việc",
+    "open": "Chưa xong",
+    "done": "Đã xong",
+    "overdue": "Quá hạn",
+    "noDue": "Chưa có hạn",
+    "weeklyTitle": "Theo tuần: việc tạo mới và việc hoàn thành",
+    "created": "Tạo mới",
+    "completed": "Hoàn thành",
+    "tasksUnit": "việc",
+    "weekOf": "Tuần từ {{date}}",
+    "byAssignee": "Từng người thực hiện",
+    "person": "Người",
+    "bySection": "Từng nhóm: tiến độ",
+    "doneOf": "{{done}}/{{total}} xong"
+  },
+  "import": {
+    "button": "Nhập Excel",
+    "title": "Nhập việc từ Excel",
+    "description": "Mỗi dòng một việc. Người thực hiện ghi email, cách nhau dấu phẩy; nhóm và nhãn chưa có sẽ được tạo. Việc nhập vào không gắn KPI.",
+    "template": "Tải tệp mẫu",
+    "drop": "Kéo tệp .xlsx vào đây hoặc bấm để chọn",
+    "hint": "Tệp .xlsx, tối đa 5 MB, tối đa 500 dòng",
+    "reading": "Đang đọc tệp…",
+    "summary": "{{valid}} dòng hợp lệ, {{errors}} dòng lỗi (tô đỏ, sẽ bỏ qua).",
+    "chooseAnother": "Chọn tệp khác",
+    "commit": "Tạo {{count}} việc",
+    "done": "Đã tạo {{count}} việc",
+    "partial": "Đã tạo {{created}} việc, {{failed}} dòng không tạo được",
+    "col": {
+      "title": "Tên việc",
+      "assignees": "Người thực hiện",
+      "start": "Bắt đầu",
+      "due": "Hạn",
+      "section": "Nhóm",
+      "tags": "Nhãn"
+    }
+  },
+  "source": {
+    "COMMENT": "Bình luận",
+    "DOCUMENT": "Tài liệu",
+    "AI": "K.AI",
+    "createTask": "Tạo công việc",
+    "created": "Đã tạo công việc",
+    "openTask": "Mở"
+  },
+  "dashboard": {
+    "customize": "Tuỳ chỉnh bảng",
+    "customizeHint": "Bật / tắt và sắp thứ tự các ô. Lưu cho mọi người xem danh sách.",
+    "empty": "Chưa có ô nào. Bấm \"Tuỳ chỉnh bảng\" để thêm.",
+    "fieldTitle": "{{name}}: việc chưa xong theo lựa chọn",
+    "saved": "Đã lưu bảng điều khiển",
+    "w": {
+      "summary": "Số liệu chính",
+      "weekly": "Theo tuần: việc tạo mới và hoàn thành",
+      "status": "Trạng thái: tỉ lệ việc",
+      "priority": "Ưu tiên: việc chưa xong",
+      "assignee": "Từng người thực hiện",
+      "section": "Từng nhóm: tiến độ",
+      "tags": "Nhãn: việc chưa xong"
+    }
+  },
+  "kanban": {
+    "collapse": "Thu gọn cột",
+    "expand": "Mở cột",
+    "moveLeft": "Sang trái",
+    "moveRight": "Sang phải",
+    "rename": "Đổi tên"
+  },
+  "menu": {
+    "more": "Thao tác khác",
+    "open": "Mở"
+  },
+  "mySections": {
+    "deleteHint": "Việc trong nhóm này về \"Chưa xếp nhóm\". Nhóm này chỉ của riêng bạn.",
+    "moveTo": "Xếp vào nhóm của tôi",
+    "none": "Chưa có nhóm. Nhóm theo \"Nhóm của tôi\" để tạo.",
+    "title": "Nhóm của tôi",
+    "searchOrCreate": "Tìm hoặc tạo nhóm",
+    "createNamed": "Tạo nhóm \"{{name}}\""
+  },
+  "palette": {
+    "title": "Tìm nhanh",
+    "placeholder": "Tìm việc hoặc danh sách…",
+    "hint": "Gõ tên việc hoặc danh sách",
+    "empty": "Không tìm thấy",
+    "list": "Danh sách"
+  },
+  "undo": {
+    "deletedOne": "Đã xoá \"{{title}}\"",
+    "deletedMany": "Đã xoá {{count}} việc"
+  },
+  "time": {
+    "startOptional": "Ngày bắt đầu (không bắt buộc)",
+    "due": "Hạn",
+    "time": "Giờ",
+    "addTime": "Thêm giờ",
+    "clearAll": "Xoá tất cả",
+    "clearField": "Xoá ngày này"
+  },
+  "alert": {
+    "none": "Không nhắc",
+    "atDue": "Khi đến hạn",
+    "b5": "Trước 5 phút",
+    "b15": "Trước 15 phút",
+    "b30": "Trước 30 phút",
+    "b60": "Trước 1 giờ",
+    "b120": "Trước 2 giờ",
+    "b1440": "Trước 1 ngày",
+    "b2880": "Trước 2 ngày"
+  },
+  "activity": {
+    "empty": "Chưa có hoạt động nào"
+  },
+  "statusPreset": {
+    "ongoing": "Đang làm",
+    "completed": "Đã hoàn thành",
+    "all": "Tất cả việc",
+    "custom": "Trạng thái đã chọn"
+  },
+  "structure": {
+    "setParent": "Đặt việc cha",
+    "setParentHint": "Việc này (kèm việc con của nó) sẽ thành việc con của việc bạn chọn.",
+    "convert": "Chuyển thành việc độc lập",
+    "converted": "Đã chuyển thành việc độc lập",
+    "parentSet": "Đã đặt việc cha",
+    "milestone": "Đánh dấu mốc"
   }
 }

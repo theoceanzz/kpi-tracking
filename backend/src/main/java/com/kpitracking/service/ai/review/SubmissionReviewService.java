@@ -224,7 +224,7 @@ public class SubmissionReviewService {
         List<com.kpitracking.entity.AiSubmissionReviewItem> items = allItems.stream()
                 .filter(i -> i.getKpiSubmissionId() == null || !returned.contains(i.getKpiSubmissionId()))
                 .toList();
-        // Điểm AI tính LẠI lúc đọc theo THANG ĐIỂM AI hiện hành (V48): điểm = điểm của mức AI đã chọn — kết quả cũ (chấm
+        // Điểm AI tính LẠI lúc đọc theo THANG ĐIỂM AI hiện hành (V51): điểm = điểm của mức AI đã chọn — kết quả cũ (chấm
         // theo 60/30/10) cũng ra đúng thang mới, và sửa thang thì mọi ô đổi theo mà không phải chấm lại.
         AiReviewSettingsResolver.AiScale aiScale = settingsResolver.aiScale(review.getOrganizationId());
         List<ReviewContext.QualityLevel> scale = aiScale.levels();

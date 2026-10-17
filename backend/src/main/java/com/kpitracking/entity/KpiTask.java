@@ -1,6 +1,7 @@
 package com.kpitracking.entity;
 
 import com.kpitracking.enums.KpiTaskPriority;
+import com.kpitracking.enums.TaskCompletionMode;
 import com.kpitracking.enums.KpiTaskStatus;
 import com.kpitracking.enums.KpiTaskVisibility;
 import jakarta.persistence.*;
@@ -15,10 +16,12 @@ import java.time.LocalTime;
 import java.util.UUID;
 
 /**
- * Công việc cá nhân gắn với một KPI (V37__kpi_discussion_tasks.sql). Chỉ để theo dõi — không đổi kết quả KPI.
+ * Công việc kiểu Lark (V37, V42 — docs/TASKS_DESIGN.md). Chỉ để theo dõi — không đổi kết quả KPI.
  *
- * <p>{@link #kpiCriteriaId} giữ dạng id thay vì quan hệ: KPI bị xoá mềm thì {@code KpiCriteria} có
+ * <p>{@link #kpiCriteriaId} TUỲ CHỌN và giữ dạng id thay vì quan hệ: KPI bị xoá mềm thì {@code KpiCriteria} có
  * {@code @SQLRestriction} sẽ không nạp được, còn task vẫn phải mở ra được (hiện "KPI đã xoá" + {@link #kpiNameSnapshot}).
+ * Ba trạng thái (không KPI / KPI đã xoá / KPI còn) chỉ được đọc qua {@code TaskKpiLinks}.
+ * {@link #owner} là người phụ trách CHÍNH; danh sách đầy đủ ở {@code kpi_task_assignees}.
  * {@link #version} chống sửa đè khi hai người / hai tab cùng sửa.
  */
 @Entity
@@ -34,7 +37,7 @@ public class KpiTask {
     @Column(name = "organization_id", nullable = false)
     private UUID organizationId;
 
-    @Column(name = "kpi_criteria_id", nullable = false)
+    @Column(name = "kpi_criteria_id")
     private UUID kpiCriteriaId;
 
     @Column(name = "title", nullable = false)
@@ -50,9 +53,46 @@ public class KpiTask {
     @Column(name = "due_time")
     private LocalTime dueTime;
 
-    /** Việc con (1 cấp) — trỏ tới task cha, cùng KPI. */
+    /** Ngày / giờ bắt đầu (Gantt, lịch nhiều ngày). */
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "start_time")
+    private LocalTime startTime;
+
+    /** Việc con — trỏ tới việc cha; cả cây dùng KPI của việc gốc. */
     @Column(name = "parent_task_id")
     private UUID parentTaskId;
+
+    /** Việc gốc của cây; null = chính nó là gốc. */
+    @Column(name = "root_task_id")
+    private UUID rootTaskId;
+
+    /** Id tổ tiên theo thứ tự gốc → cha (rỗng với việc gốc). */
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "ancestor_ids", columnDefinition = "uuid[]", nullable = false)
+    @Builder.Default
+    private UUID[] ancestorIds = new UUID[0];
+
+    /** 0 = gốc; tối đa {@code KpiTaskService.MAX_DEPTH}. */
+    @Column(name = "depth", nullable = false)
+    @Builder.Default
+    private Short depth = 0;
+
+    /** Lark "Mark as Milestone": việc mốc (hình thoi) — V42 §6. */
+    @Column(name = "milestone", nullable = false)
+    @Builder.Default
+    private boolean milestone = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "completion_mode", nullable = false, length = 10)
+    @Builder.Default
+    private TaskCompletionMode completionMode = TaskCompletionMode.ANY;
+
+    /** Nguồn tạo việc (bình luận / tài liệu / K.AI) — chỉ để hiện "Tạo từ …". */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "source_ref", columnDefinition = "jsonb")
+    private TaskSourceRef sourceRef;
 
     /** Mô tả có định dạng: JSON của trình soạn tiptap (không phải HTML). {@link #description} là bản chữ thuần. */
     @JdbcTypeCode(SqlTypes.JSON)
@@ -129,5 +169,14 @@ public class KpiTask {
     @PreUpdate
     void touch() {
         updatedAt = Instant.now();
+    }
+
+    /** Id việc gốc của cây (chính nó nếu là gốc). */
+    public UUID rootId() {
+        return rootTaskId != null ? rootTaskId : id;
+    }
+
+    public boolean isRoot() {
+        return parentTaskId == null;
     }
 }

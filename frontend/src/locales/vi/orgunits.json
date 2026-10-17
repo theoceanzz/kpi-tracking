@@ -499,5 +499,18 @@
   "useOrganization": {
     "anErrorOccurredWhileUpdating": "Có lỗi xảy ra khi cập nhật",
     "companyInformationUpdatedSuccessfully": "Cập nhật thông tin công ty thành công"
+  },
+  "BscBandsEditor": {
+    "title": "Đổi khung theo kết quả BSC của đơn vị",
+    "hint": "Đơn vị làm BSC tốt được nhiều suất mức cao hơn, kém thì bị siết. Tính trên điểm BSC đơn vị của kỳ sau trần.",
+    "exceedAt": "Vượt khi ≥",
+    "meetAt": "Đạt khi ≥",
+    "thresholdOrder": "Ngưỡng \"Đạt\" phải thấp hơn ngưỡng \"Vượt\".",
+    "level": "Mức",
+    "exceedFrame": "Vượt (≥ {{value}}%)",
+    "meetFrame": "Đạt (khung chính)",
+    "belowFrame": "Chưa đạt (< {{value}}%)",
+    "total": "Tổng",
+    "finalizedOnly": "Chỉ đổi khung khi BSC của đơn vị đã CHỐT ở mọi đợt trong kỳ. Chưa chốt thì màn đánh giá kỳ hiện khung dự kiến để tham khảo, còn kiểm tra vẫn theo khung chính."
   }
 }

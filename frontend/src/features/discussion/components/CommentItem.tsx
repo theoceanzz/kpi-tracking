@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import {
@@ -14,24 +14,15 @@ import { formatDateTime } from '@/i18n/format'
 import { cn } from '@/lib/utils'
 import { discussionApi } from '../api/discussionApi'
 import type { DiscussionComment, DiscussionReactionType } from '../types'
-import { REACTIONS, timeAgo } from '../utils'
+import { REACTIONS, commentTime } from '../utils'
 import CommentComposer, { type ComposerSubmit } from './CommentComposer'
+import MentionText from './MentionText'
+import CreateTaskButton from '@/features/tasks/components/CreateTaskButton'
+import { titleFrom } from '@/features/tasks/taskUtils'
 
-/** Tô đậm "@Tên" của những người thực sự được nhắc trong bình luận. */
+/** Tô màu "@Tên" của những người thực sự được nhắc trong bình luận. */
 function CommentBody({ text, mentions }: { text: string; mentions: { fullName: string | null }[] }) {
-  const names = mentions.map((m) => m.fullName).filter((n): n is string => !!n).sort((a, b) => b.length - a.length)
-  if (!names.length) return <>{text}</>
-  const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-  const parts = text.split(new RegExp(`(@(?:${escaped.join('|')}))`, 'g'))
-  return (
-    <>
-      {parts.map((p, i) =>
-        p.startsWith('@') && names.includes(p.slice(1))
-          ? <span key={i} className="font-medium text-[var(--color-primary)]">{p}</span>
-          : <Fragment key={i}>{p}</Fragment>,
-      )}
-    </>
-  )
+  return <MentionText text={text} names={mentions.map((m) => m.fullName)} />
 }
 
 interface Handlers {
@@ -84,7 +75,7 @@ export function UserComment({ comment: c, isReply, highlighted, canComment, onRe
             </span>
           )}
           <span className="text-xs text-[var(--color-subtle-foreground)]" title={formatDateTime(c.createdAt)}>
-            {timeAgo(c.createdAt)}
+            {commentTime(c.createdAt)}
           </span>
           {c.editedAt && <span className="text-xs text-[var(--color-subtle-foreground)]">{t('item.edited')}</span>}
         </div>
@@ -195,6 +186,15 @@ export function UserComment({ comment: c, isReply, highlighted, canComment, onRe
                   <Reply size={13} /> {t('item.reply')}
                 </button>
               )}
+              {c.body && (
+                <CreateTaskButton
+                  className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs text-[var(--color-subtle-foreground)] hover:bg-[var(--color-muted)]"
+                  defaults={() => ({
+                    title: titleFrom(c.body),
+                    description: c.body ?? undefined,
+                    sourceRef: { type: 'COMMENT', id: c.id, label: c.author?.fullName ?? null },
+                  })} />
+              )}
               {(c.canEdit || c.canDelete) && (
                 <Popover>
                   <PopoverTrigger asChild>
@@ -282,7 +282,7 @@ export function SystemLine({ comment: c, highlighted }: { comment: DiscussionCom
             </Link>
           </>
         )}
-        <span className="ml-2 text-[var(--color-subtle-foreground)]" title={formatDateTime(c.createdAt)}>{timeAgo(c.createdAt)}</span>
+        <span className="ml-2 text-[var(--color-subtle-foreground)]" title={formatDateTime(c.createdAt)}>{commentTime(c.createdAt)}</span>
       </span>
     </div>
   )

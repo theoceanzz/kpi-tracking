@@ -193,7 +193,7 @@ public record ReviewContext(
     }
 
     /**
-     * Một mức trong THANG ĐIỂM AI (V48): {@code points} là điểm của mức, {@code scorePercent} = điểm / điểm tối đa × 100
+     * Một mức trong THANG ĐIỂM AI (V51): {@code points} là điểm của mức, {@code scorePercent} = điểm / điểm tối đa × 100
      * (dùng cho mức tin cậy và báo cáo lệch), {@code description} đi vào lời nhắc.
      */
     public record QualityLevel(String name, Double scorePercent, int position, Double points, String description) {

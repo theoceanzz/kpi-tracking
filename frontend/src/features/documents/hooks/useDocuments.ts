@@ -6,7 +6,8 @@ import { toastUploadError } from '@/lib/upload'
 import { documentApi } from '../api/documentApi'
 import { autoConvert } from '../editor/autoConvert'
 import type {
-  CreateOnlineDocumentInput, DocumentListParams, DocumentScope, KbDocument, SharePermission, UpdateDocumentInput,
+  CreateOnlineDocumentInput, DocumentListParams, DocumentScope, KbDocument, SendDocumentEmailInput, SharePermission,
+  UpdateDocumentInput,
   UploadDocumentInput,
 } from '../types'
 
@@ -109,6 +110,25 @@ export function useToggleDocumentAi() {
 export function useCreateOnlineDocument() {
   const { t } = useTranslation('documents')
   return useDocMutation((input: CreateOnlineDocumentInput) => documentApi.createOnline(input), null, t('toast.saveFailed'))
+}
+
+/**
+ * "Tạo bản sao" kiểu Lark cho tài liệu / bảng tính trực tuyến: đọc nội dung đã lưu rồi tạo tài liệu mới cùng chỗ
+ * (phạm vi, đơn vị, thư mục), tên "… (bản sao)". Máy chủ vẫn kiểm mình có được tạo ở chỗ đó không.
+ */
+export function useCopyDocument() {
+  const { t } = useTranslation('documents')
+  return useDocMutation(async (doc: KbDocument) => {
+    const content = await documentApi.content(doc.id)
+    return documentApi.createOnline({
+      scope: doc.scope,
+      orgUnitId: doc.orgUnitId,
+      folderId: doc.folderId,
+      title: t('actions.copyTitle', { title: doc.title }),
+      content: content.content,
+      kind: content.format === 'sheet' ? 'sheet' : 'doc',
+    })
+  }, t('toast.copied'), t('toast.saveFailed'))
 }
 
 /**
@@ -221,10 +241,20 @@ export function useDeleteFolder() {
   return useDocMutation((id: string) => documentApi.deleteFolder(id), t('toast.folderDeleted'), t('toast.deleteFailed'))
 }
 
+/** Di chuyển một hoặc nhiều tài liệu (chọn nhiều ở Drive) vào cùng một thư mục — lần lượt từng cái. */
 export function useMoveDocument() {
   const { t } = useTranslation('documents')
-  return useDocMutation(({ id, folderId }: { id: string; folderId: string | null }) => documentApi.move(id, folderId),
-    t('toast.moved'), t('toast.saveFailed'))
+  return useDocMutation(async ({ ids, folderId }: { ids: string[]; folderId: string | null }) => {
+    for (const id of ids) await documentApi.move(id, folderId)
+  }, t('toast.moved'), t('toast.saveFailed'))
+}
+
+/** Xoá nhiều tài liệu một lượt (vào thùng rác) — thanh chọn nhiều ở Drive. */
+export function useDeleteDocuments() {
+  const { t } = useTranslation('documents')
+  return useDocMutation(async (ids: string[]) => {
+    for (const id of ids) await documentApi.remove(id)
+  }, t('toast.deleted'), t('toast.deleteFailed'))
 }
 
 // ── Thùng rác ────────────────────────────────────────────────────────────────────────────────────
@@ -303,6 +333,24 @@ export function useUnshareDocument() {
   const { t } = useTranslation('documents')
   return useDocMutation(({ id, shareId }: { id: string; shareId: string }) => documentApi.unshare(id, shareId),
     t('toast.unshared'), t('toast.shareFailed'))
+}
+
+// ── Gửi qua email ────────────────────────────────────────────────────────────────────────────────
+
+export function useDocumentPublicLinks(id: string, enabled: boolean) {
+  return useQuery({ queryKey: [KEY, 'public-links', id], queryFn: () => documentApi.publicLinks(id), enabled })
+}
+
+export function useSendDocumentEmail() {
+  const { t } = useTranslation('documents')
+  return useDocMutation(({ id, input }: { id: string; input: SendDocumentEmailInput }) => documentApi.sendEmail(id, input),
+    t('toast.emailSent'), t('toast.emailFailed'))
+}
+
+export function useRevokePublicLink() {
+  const { t } = useTranslation('documents')
+  return useDocMutation(({ id, linkId }: { id: string; linkId: string }) => documentApi.revokePublicLink(id, linkId),
+    t('toast.linkRevoked'), t('toast.saveFailed'))
 }
 
 export function useEmptyTrash() {

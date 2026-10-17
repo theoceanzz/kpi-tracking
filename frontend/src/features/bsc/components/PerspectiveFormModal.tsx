@@ -1,4 +1,5 @@
 import { LocaleNumberInput } from '@/components/ui/number-input'
+import { Textarea } from '@/components/ui/textarea'
 import { useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -262,14 +263,17 @@ export default function PerspectiveFormModal({
 
         <div className="space-y-1.5">
           <label className="text-label">{t('PerspectiveFormModal.description')}</label>
-          <textarea
+          {/* Cao theo nội dung (tới ~8 dòng) thay vì 2 dòng cố định: mô tả nhiều dòng không phải cuộn
+              trong ô nhỏ, và không có thanh cuộn đè lên bút chì "sửa được". */}
+          <Textarea
             {...register('description')}
             placeholder={t('PerspectiveFormModal.groupsRelatedKpis')}
             rows={2}
-            className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all resize-none"
+            className="[field-sizing:content] min-h-[4.5rem] max-h-56 rounded-card bg-[var(--color-muted)] px-4"
           />
         </div>
 
+        {/* Một cách chấm duy nhất: theo mục tiêu — mục tiêu, tối thiểu, đơn vị đều bắt buộc. */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <label className="text-label ml-1 flex items-end gap-1 min-h-[26px] leading-tight">
@@ -339,7 +343,7 @@ export default function PerspectiveFormModal({
                 max={100}
                 step={0.1}
                 {...register('weightPercentage', { setValueAs: numOrUndefined })}
-                className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-semibold text-right focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
+                className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-semibold focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
               />
               {errors.weightPercentage && <p className="text-caption text-[var(--color-error)]">{errors.weightPercentage.message}</p>}
             </div>
@@ -348,12 +352,17 @@ export default function PerspectiveFormModal({
         {showWeight && (
           <p className="text-caption ml-1">
             {t('PerspectiveFormModal.theItemsWeightInTheOpen')}
-            {' '}{t('PerspectiveFormModal.totalAfterSaving')} <span className={cn('font-semibold', Math.abs(totalAfterSave - 100) <= 0.01 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]')}>{totalAfterSave}%</span>.
-            {missingWeight > 0 && (
-              <Button variant="ghost" className="ml-1" type="button" onClick={() => setValue('weightPercentage', missingWeight, { shouldValidate: true })}>
-                {t('PerspectiveFormModal.use')} {missingWeight}{t('PerspectiveFormModal.remaining')}
-              </Button>
-            )}
+            <span className="mt-1 flex flex-wrap items-center gap-x-1">
+              <span>
+                {t('PerspectiveFormModal.totalAfterSaving')} <span className={cn('font-semibold', Math.abs(totalAfterSave - 100) <= 0.01 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]')}>{totalAfterSave}%</span>.
+              </span>
+              {/* Tổng đã đủ 100% thì không gợi ý "dùng phần còn thiếu" nữa (phần đó chính là trọng số đang nhập). */}
+              {missingWeight > 0 && Math.abs(totalAfterSave - 100) > 0.01 && (
+                <Button variant="ghost" className="ml-1" type="button" onClick={() => setValue('weightPercentage', missingWeight, { shouldValidate: true })}>
+                  {t('PerspectiveFormModal.use')} {missingWeight}{t('PerspectiveFormModal.remaining')}
+                </Button>
+              )}
+            </span>
           </p>
         )}
 

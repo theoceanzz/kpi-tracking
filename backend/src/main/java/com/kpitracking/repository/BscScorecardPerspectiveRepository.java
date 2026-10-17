@@ -43,4 +43,9 @@ public interface BscScorecardPerspectiveRepository extends JpaRepository<BscScor
     @Query("SELECT sp FROM BscScorecardPerspective sp JOIN sp.scorecard s JOIN sp.perspective p "
             + "WHERE p.sourceScorecard.id = :sourceId AND s.deletedAt IS NULL")
     List<BscScorecardPerspective> findBySourceScorecardId(@Param("sourceId") UUID sourceId);
+
+    /** Các dòng "giao cả bộ" kiểu mới mà đơn vị nhận từ thẻ {@code sourceId} (thẻ còn sống). */
+    @Query("SELECT sp FROM BscScorecardPerspective sp JOIN sp.scorecard s JOIN sp.parentItem pi "
+            + "WHERE pi.scorecard.id = :sourceId AND sp.wholeSharePercent IS NOT NULL AND s.deletedAt IS NULL")
+    List<BscScorecardPerspective> findWholeRowsFromSource(@Param("sourceId") UUID sourceId);
 }

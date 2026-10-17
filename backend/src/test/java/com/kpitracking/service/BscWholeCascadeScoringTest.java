@@ -146,6 +146,22 @@ class BscWholeCascadeScoringTest {
     }
 
     @Test
+    @DisplayName("Thẻ của đơn vị còn nháp / chờ duyệt ⇒ chưa chấm điểm; đã duyệt (kể cả APPROVED cũ) thì chấm")
+    void onlyApprovedScorecardScores() {
+        stubResult(dept, 80.0, BscUnitResultStatus.FINALIZED);
+        for (var status : List.of(com.kpitracking.enums.BscScorecardStatus.DRAFT, com.kpitracking.enums.BscScorecardStatus.SUBMITTED,
+                com.kpitracking.enums.BscScorecardStatus.CLOSED)) {
+            team.setStatus(status);
+            assertThat(service.computeForUser(USER, PERIOD, ORG, false)).as(status.name()).isNull();
+            assertThat(service.resolveScorecardForUser(USER, ORG, PERIOD)).as(status.name()).isNull();
+        }
+        team.setStatus(com.kpitracking.enums.BscScorecardStatus.APPROVED);
+        assertThat(service.computeForUser(USER, PERIOD, ORG, false)).isNotNull();
+        team.setStatus(com.kpitracking.enums.BscScorecardStatus.ACTIVE);
+        assertThat(service.computeForUser(USER, PERIOD, ORG, false).getBscScore()).isEqualTo(80.0);
+    }
+
+    @Test
     @DisplayName("Đơn vị chưa có bộ riêng ⇒ chưa áp dụng BSC, KHÔNG mượn bộ của đơn vị cha / toàn tổ chức")
     void noOwnScorecardMeansNoBsc() {
         OrgUnit parentUnit = OrgUnit.builder().id(UUID.randomUUID()).name("Công ty").build();
@@ -156,6 +172,21 @@ class BscWholeCascadeScoringTest {
 
         assertThat(service.computeForUser(USER, PERIOD, ORG, false)).isNull();
         assertThat(service.resolveScorecardForUser(USER, ORG, PERIOD)).isNull();
+    }
+
+    @Test
+    @DisplayName("Thuộc cả gốc công ty lẫn tổ (cùng rank) ⇒ chấm theo thẻ của đơn vị SÂU NHẤT, không theo thứ tự vai trò")
+    void memberOfRootAndTeamIsScoredByTeamCard() {
+        OrgUnit root = OrgUnit.builder().id(UUID.randomUUID()).name("Công ty").path("/KPC/").build();
+        teamUnit.setPath("/KPC/" + teamUnit.getId() + "/");
+        UserRoleOrgUnit atRoot = mock(UserRoleOrgUnit.class), atTeam = mock(UserRoleOrgUnit.class);
+        when(atRoot.getOrgUnit()).thenReturn(root);
+        when(atTeam.getOrgUnit()).thenReturn(teamUnit);
+        // findByUserId sắp theo rank rồi path ⇒ cùng rank thì gốc ("/KPC/") đứng TRƯỚC — đúng ca từng lấy nhầm thẻ công ty.
+        when(userRoleOrgUnitRepository.findByUserId(USER)).thenReturn(List.of(atRoot, atTeam));
+        when(scorecardRepository.findByOrgUnitAndPeriod(ORG, root.getId(), PERIOD)).thenReturn(List.of(company));
+
+        assertThat(service.resolveScorecardForUser(USER, ORG, PERIOD)).isSameAs(team);
     }
 
     // ------------------------------------------------------------
@@ -170,7 +201,9 @@ class BscWholeCascadeScoringTest {
     }
 
     static BscScorecard card(String name, BscScorecard parent) {
+        // Thẻ ĐANG ÁP DỤNG: chỉ thẻ đã duyệt mới chấm điểm (BscScorecardStatus.isScoring).
         return BscScorecard.builder().id(UUID.randomUUID()).name(name).parentScorecard(parent)
+                .status(com.kpitracking.enums.BscScorecardStatus.ACTIVE)
                 .scoringMode(BscScoringMode.OFFICIAL)
                 .emptyPerspectivePolicy(BscEmptyPerspectivePolicy.RENORMALIZE)
                 .scorecardPerspectives(new ArrayList<>())

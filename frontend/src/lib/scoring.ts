@@ -100,6 +100,39 @@ export function usesPerformanceMatrix(
  * Hạng mục đặt "mục tiêu mong muốn" tự chấm theo mục tiêu của chính nó (kiểu OKR) nên cần nói rõ
  * con số thực đạt/mục tiêu; hạng mục còn lại vẫn là trung bình có trọng số các KPI con.
  */
+/**
+ * Điểm BSC đang phủ bao nhiêu trọng số của thẻ.
+ *
+ * Thẻ để "Bỏ qua hạng mục rỗng" (RENORMALIZE, mặc định) thì điểm = Σ(% đạt × trọng số) / Σ trọng số
+ * của các hạng mục ĐÃ CÓ số — một hạng mục 20% có số thì điểm BSC bằng đúng % đạt của nó, trông như
+ * điểm cả thẻ. `renormalized` cho biết đang ở trường hợp đó để giao diện ghi rõ "tính trên X%".
+ * Suy từ chính breakdown (Σ đóng góp ≠ điểm) nên dùng được cả cho phiếu đã lưu, không cần biết
+ * chính sách của thẻ; thẻ "Tính 0" hoặc đã đủ số thì Σ đóng góp = điểm.
+ */
+export function bscCoverage(perspectives: PerspectiveScoreResponse[], bscScore: number | null | undefined) {
+  let totalWeight = 0, presentWeight = 0, contribution = 0, present = 0
+  for (const p of perspectives) {
+    const w = p.weightPercentage ?? 0
+    totalWeight += w
+    if (p.achievementPercent == null) continue
+    present++
+    presentWeight += w
+    contribution += p.weightedScore ?? (w * p.achievementPercent) / 100
+  }
+  const round1 = (n: number) => Math.round(n * 10) / 10
+  const renormalized = bscScore != null && presentWeight > 0 && presentWeight < totalWeight - 0.01
+    && Math.abs(bscScore - contribution) > 0.05
+  return {
+    totalWeight: round1(totalWeight),
+    presentWeight: round1(presentWeight),
+    /** Σ(% đạt × trọng số) — điểm nếu hạng mục chưa có số tính 0. */
+    contribution: round1(contribution),
+    present,
+    count: perspectives.length,
+    renormalized,
+  }
+}
+
 export function describePerspectiveScore(p: PerspectiveScoreResponse): string {
   const unit = p.unit ? ` ${p.unit}` : ''
   const achieved = p.achievementPercent != null ? `${p.achievementPercent.toFixed(1)}%` : null

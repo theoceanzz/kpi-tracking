@@ -13,7 +13,13 @@ export interface DocumentActions {
   /** Xem trước tệp ngay trong trình duyệt (§16.1). */
   preview: (doc: KbDocument) => void
   move: (doc: KbDocument) => void
+  /** Chọn nhiều ở Drive → "Di chuyển đến" một lượt (thanh dưới đáy kiểu Lark). */
+  moveMany: (docs: KbDocument[]) => void
+  rename: (doc: KbDocument) => void
+  /** Soạn email gửi tài liệu (link công khai) cho người khác, kể cả người ngoài hệ thống. */
+  email: (doc: KbDocument) => void
   remove: (doc: KbDocument) => void
+  removeMany: (docs: KbDocument[]) => void
   openFolder: (folder: DocumentFolder) => void
   renameFolder: (folder: DocumentFolder) => void
   deleteFolder: (folder: DocumentFolder) => void
@@ -22,6 +28,11 @@ export interface DocumentActions {
 const Ctx = createContext<DocumentActions | null>(null)
 
 export const DocumentActionsProvider = Ctx.Provider
+
+/** Như `useDocumentActions` nhưng không bắt buộc có provider (vd. hộp Chia sẻ mở từ trình soạn). */
+export function useOptionalDocumentActions(): DocumentActions | null {
+  return useContext(Ctx)
+}
 
 export function useDocumentActions(): DocumentActions {
   const v = useContext(Ctx)

@@ -149,8 +149,10 @@
     "scoreRating": "Score · Rating",
     "searchEmployees": "Search employees…",
     "selfScore": "Self-score",
+    "selfAssess": "Self-assess",
+    "selfAssessHint": "This is you — your period is scored by the head of the parent unit; here you can only self-assess.",
     "theUnitHasNoMembersYet": "The unit has no members yet",
-    "thisPeriodHasEndedPeopleWho": "This period has ended — people who did not submit are marked \"Not submitted\".",
+    "thisPeriodHasEndedPeopleWho": "This period has ended — people who did not submit are marked \"Not submitted\". You can now score everyone; KPIs not submitted score 0.",
     "tryAnotherKeywordOrClearThe": "Try another keyword or clear the search.",
     "unit": "Unit",
     "viewEvaluation": "View evaluation"
@@ -461,6 +463,55 @@
     "saved": "AI score suggestion settings saved.",
     "saveFailed": "Could not save the AI settings."
   },
+  "AiUnitWeights": {
+    "title": "Units with AI off",
+    "description": "Turn AI off for specific units (sub-units included).",
+    "companyOff": "AI is off for the company, so every unit is off.",
+    "add": "Add unit",
+    "empty": "None yet. All units follow the company setting.",
+    "aiOff": "AI off",
+    "removeAria": "Turn AI back on for {{unit}}",
+    "removeTitle": "Turn AI back on for this unit?",
+    "removeDescription": "{{unit}} will follow the company setting again.",
+    "removeConfirm": "Turn AI back on",
+    "saved": "AI is now off for the unit.",
+    "saveFailed": "Could not turn AI off for the unit.",
+    "removed": "AI is back on for the unit.",
+    "removeFailed": "Could not turn AI back on for the unit.",
+    "dialog": {
+      "addTitle": "Turn AI off for a unit",
+      "unit": "Unit",
+      "chooseUnit": "Choose a unit",
+      "turnOff": "Turn off AI score suggestions",
+      "turnOffExplain": "Managers of this unit (and its sub-units) will not see the AI “Suggest” button when reviewing, and employees cannot use the AI pre-submission check.",
+      "cancel": "Cancel"
+    }
+  },
+  "AiReviewPanel": {
+    "title": "AI pre-read",
+    "disclaimer": "AI suggestion — needs manager confirmation",
+    "running": "The AI is reading the reports… You can close this screen; the result will be kept.",
+    "failed": "The AI could not analyse this run.",
+    "missingData": "Missing for a more certain evaluation",
+    "criteriaSetVersion": "scored with criteria set version {{version}}",
+    "unreadable": "The AI could not read {{count}} file(s) — please open them yourself:",
+    "kpi": "KPI",
+    "qualityLabel": "Quality:",
+    "qualityUnknown": "not determined",
+    "qualityComment": "Quality comment:",
+    "strengths": "Strengths",
+    "gaps": "To add",
+    "suggestions": "Suggested edits",
+    "introPerKpi": "No AI results yet. Open the evaluation sheet and click Suggest on the KPI you want scored."
+  },
+  "ScoringReadiness": {
+    "submitted": "Submitted {{submitted}}/{{required}} KPIs",
+    "noKpi": "No KPIs in this period",
+    "selfEvalMissing": "Self-assessment not done",
+    "missing": "Missing: {{names}}",
+    "rule": "You can score once the employee has submitted every KPI for the period and completed the self-assessment, or after the period ends (KPIs not submitted score 0).",
+    "title": "Cannot score yet"
+  },
   "AiScale": {
     "title": "AI scale",
     "hint": "The AI picks one level for the quality of a submission. The AI score is that level’s points; the maximum is the top level’s points. Level descriptions help the AI pick correctly.",
@@ -510,47 +561,6 @@
         "description": "Complete, with figures and comparison with the plan"
       }
     }
-  },
-  "AiUnitWeights": {
-    "title": "Units with AI off",
-    "description": "Turn AI off for specific units (sub-units included).",
-    "companyOff": "AI is off for the company, so every unit is off.",
-    "add": "Add unit",
-    "empty": "None yet. All units follow the company setting.",
-    "aiOff": "AI off",
-    "removeAria": "Turn AI back on for {{unit}}",
-    "removeTitle": "Turn AI back on for this unit?",
-    "removeDescription": "{{unit}} will follow the company setting again.",
-    "removeConfirm": "Turn AI back on",
-    "saved": "AI is now off for the unit.",
-    "saveFailed": "Could not turn AI off for the unit.",
-    "removed": "AI is back on for the unit.",
-    "removeFailed": "Could not turn AI back on for the unit.",
-    "dialog": {
-      "addTitle": "Turn AI off for a unit",
-      "unit": "Unit",
-      "chooseUnit": "Choose a unit",
-      "turnOff": "Turn off AI score suggestions",
-      "turnOffExplain": "Managers of this unit (and its sub-units) will not see the AI “Suggest” button when reviewing, and employees cannot use the AI pre-submission check.",
-      "cancel": "Cancel"
-    }
-  },
-  "AiReviewPanel": {
-    "title": "AI pre-read",
-    "disclaimer": "AI suggestion — needs manager confirmation",
-    "running": "The AI is reading the reports… You can close this screen; the result will be kept.",
-    "failed": "The AI could not analyse this run.",
-    "missingData": "Missing for a more certain evaluation",
-    "criteriaSetVersion": "scored with criteria set version {{version}}",
-    "unreadable": "The AI could not read {{count}} file(s) — please open them yourself:",
-    "kpi": "KPI",
-    "qualityLabel": "Quality:",
-    "qualityUnknown": "not determined",
-    "qualityComment": "Quality comment:",
-    "strengths": "Strengths",
-    "gaps": "To add",
-    "suggestions": "Suggested edits",
-    "introPerKpi": "No AI results yet. Open the evaluation sheet and click Suggest on the KPI you want scored."
   },
   "ScorerColumns": {
     "system": "System",

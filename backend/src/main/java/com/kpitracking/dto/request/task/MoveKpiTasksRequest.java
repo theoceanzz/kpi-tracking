@@ -18,4 +18,6 @@ public class MoveKpiTasksRequest {
     @NotNull
     private UUID toKpiId;
     private List<UUID> taskIds;
+    /** Như {@link AssignKpiTaskRequest#getConfirmedFollowerRemovals()} — lấy từ {@code GET /kpi-tasks/move-impact}. */
+    private List<FollowerRemovalRef> confirmedFollowerRemovals;
 }

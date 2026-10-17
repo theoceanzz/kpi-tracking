@@ -17,6 +17,12 @@ public class EvaluationScorePreview {
     private Double bonusScore;
     /** Trần điểm được phép lưu cho người này ở đợt này = thang điểm + bonusScore. */
     private Double maxAllowedScore;
+    /** Tổng trọng số KPI định lượng (không tính KPI thưởng) dùng để quy điểm hệ thống về thang 100 —
+     *  tính trên MỌI KPI được giao, kể cả KPI chưa nộp (tính 0). Phiếu chấm dùng số này để không
+     *  quy đổi chỉ trên các bài đã nộp (làm 35% trọng số vẫn ra 100 điểm). */
+    private Double quantitativeWeight;
+    /** Quản lý đã chấm được người này chưa (chỉ có khi xem điểm của người khác). */
+    private ScoringReadinessResponse scoringReadiness;
 
     // ── BSC (chỉ có giá trị khi org bật BSC và kỳ đã có bộ tiêu chí) ──────────────
     /** Điểm BSC (0..100). Luôn được tính kể cả ở chế độ SHADOW. */

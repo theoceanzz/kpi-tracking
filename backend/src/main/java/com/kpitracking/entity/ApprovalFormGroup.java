@@ -11,7 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** Nhóm đơn từ (Nhân sự, Chấm công…). Tên theo ngôn ngữ ({@code {"vi": …, "en": …}}). Xem V52. */
+/** Nhóm đơn từ (Nhân sự, Chấm công…). Tên theo ngôn ngữ ({@code {"vi": …, "en": …}}). Xem V55. */
 @Entity
 @Table(name = "approval_form_groups")
 @SQLRestriction("deleted_at IS NULL")

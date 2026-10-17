@@ -5,7 +5,6 @@ import {
   BscGateEffect,
   BscGateScope,
   BscItemOrigin,
-  BscMeasurementSource,
   BscScorecardApplyScope,
   BscScorecardStatus,
 } from '../types'
@@ -32,7 +31,6 @@ const weightRowSchema = z.object({
   parentScorecardName: z.string().nullable().optional(),
   // Dòng "Kết quả cấp trên" (phân rã cả bộ): điểm = kết quả tổng của thẻ này, không gắn KPI.
   sourceScorecardName: z.string().nullable().optional(),
-  measurementSource: z.enum(BscMeasurementSource).optional(),
   // Hạng mục chặn: áp trần xếp loại, KHÔNG trừ điểm.
   isGate: z.boolean().optional(),
   gateMinPercent: z.number().nullable().optional(),
@@ -83,6 +81,15 @@ export const scorecardSchema = perLanguage(() => (z.object({
   // Mục tiêu riêng của từng dòng: sàn không được cao hơn mức cần đạt, nếu không hạng mục
   // vĩnh viễn 0 điểm mà không ai hiểu vì sao. Backend cũng chặn, kiểm ở đây để báo sớm.
   for (const r of enabled) {
+    // Một cách chấm: theo mục tiêu — mọi dòng (trừ dòng được giao đã khoá và dòng "Kết quả cấp trên")
+    // phải có mục tiêu > 0.
+    if (!r.locked && !r.sourceScorecardName && !(r.targetValue != null && r.targetValue > 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['rows'],
+        message: i18n.t('bsc:scorecardSchema.itemNeedsTarget', { name: r.name }),
+      })
+    }
     if (r.targetValue != null && r.minimumValue != null && r.minimumValue > r.targetValue) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -104,7 +111,9 @@ export const scorecardSchema = perLanguage(() => (z.object({
   }
 
   const total = enabled.reduce((sum, r) => sum + (Number(r.weight) || 0), 0)
-  if (Math.abs(total - 100) > 0.01) {
+  // Nháp được lưu dở khi chưa đủ 100% (backend cũng cho) — đủ 100% mới trình được. Thẻ đã vào luồng
+  // (chờ duyệt / đang áp dụng) hoặc tạo thẳng ở trạng thái áp dụng thì phải đủ ngay khi lưu.
+  if (data.status !== BscScorecardStatus.DRAFT && Math.abs(total - 100) > 0.01) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['rows'],

@@ -140,7 +140,7 @@ const setupToolsTours = perLanguage((): Record<TourKey, TourDef> => ({
   },
 
   'setup-tools/bsc': {
-    version: V3,
+    version: 4,
     next: BSC_FORM,
     steps: [
       s('bsc.tree', tourTarget('bsc.tree'), 'top'),

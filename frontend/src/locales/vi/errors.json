@@ -6,6 +6,12 @@
     "help": "Trợ giúp",
     "reportASystemError": "Báo lỗi hệ thống",
     "thePageYouAreLookingFor": "Trang bạn đang tìm kiếm không tồn tại hoặc đã được chuyển sang địa chỉ mới.",
-    "youDoNotHaveAccessTo": "Bạn không có quyền truy cập vào tài nguyên này. Đây là khu vực hạn chế."
+    "youDoNotHaveAccessTo": "Bạn không có quyền truy cập vào tài nguyên này. Đây là khu vực hạn chế.",
+    "titleForbidden": "Không có quyền truy cập",
+    "subTitleForbidden": "Lỗi 403",
+    "titleNotFound": "Không tìm thấy trang",
+    "subTitleNotFound": "Lỗi 404",
+    "titleServerError": "Lỗi máy chủ",
+    "subTitleServerError": "Lỗi 500"
   }
 }

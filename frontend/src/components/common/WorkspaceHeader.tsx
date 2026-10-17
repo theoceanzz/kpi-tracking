@@ -89,7 +89,7 @@ export default function WorkspaceHeader({
           id="tour-workspace-tabs"
           {...tourAnchor('ws.tabs')}
           aria-label={t('WorkspaceHeader.subSections')}
-          className="flex items-stretch px-2 border-b border-[var(--color-border)] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          className="flex items-stretch px-2 border-b border-[var(--color-border)] overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
           {tabs.map(tab => {
             const Icon = tab.icon

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
@@ -10,8 +11,13 @@ import { Button } from '@/components/ui/button'
 import StaffEvaluationModal from '../components/StaffEvaluationModal'
 import AwaitingApprovalPanel from '../components/AwaitingApprovalPanel'
 import EvaluationDetailModal from '@/features/evaluations/components/EvaluationDetailModal'
+import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 import { useOrgUnitSubmissions } from '../hooks/useOrgUnitSubmissions'
 import { useEvaluations } from '@/features/evaluations/hooks/useEvaluations'
+import { evaluationApi } from '@/features/evaluations/api/evaluationApi'
+import { useApiAllowed } from '@/hooks/useApiAllowed'
+import { scoringBlockReasons } from '../utils/scoringReadiness'
+import type { ScoringReadiness } from '@/types/evaluation'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { cn } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
@@ -27,7 +33,7 @@ import { usePermission } from '@/hooks/usePermission'
 import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
 import { aiShortcuts } from '@/features/analytics/aiShortcuts'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Users, Clock, ClipboardCheck, ArrowRight, Eye, PenLine, Inbox } from 'lucide-react'
+import { Users, Clock, ClipboardCheck, ArrowRight, Eye, PenLine, Inbox, Star } from 'lucide-react'
 import { useWorkflowNavigator } from '@/features/kpi/workflow/hooks/useWorkflowNavigator'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
@@ -211,6 +217,24 @@ export default function OrgUnitSubmissionsPage() {
     organizationId: orgId,
   })
 
+  // Ai đã đủ điều kiện để mình chấm (nộp đủ KPI + tự đánh giá, hoặc đợt đã hết) — luật ở backend
+  // (EvaluationReadinessService), backend cũng chặn khi chốt nên đây chỉ để khoá nút kèm lý do.
+  const canReadReadiness = useApiAllowed('GET', '/evaluations/scoring-readiness')
+  const readinessPeriodId = selectedPeriodId && selectedPeriodId !== 'ALL' ? selectedPeriodId : ''
+  const readinessUnitId = selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId
+  const { data: readinessData } = useQuery({
+    queryKey: ['evaluations', 'scoring-readiness', readinessPeriodId, readinessUnitId],
+    queryFn: () => evaluationApi.getScoringReadiness(readinessPeriodId, readinessUnitId),
+    enabled: !!readinessPeriodId && !!isManager && canReadReadiness,
+  })
+  const readinessByUserId = useMemo(() => {
+    const map: Record<string, ScoringReadiness> = {}
+    readinessData?.forEach(r => { map[r.userId] = r })
+    return map
+  }, [readinessData])
+  /** Lý do chưa chấm được người này; rỗng = chấm được (hoặc chưa tải xong — backend vẫn chặn). */
+  const blockReasonsFor = (userId: string) => scoringBlockReasons(readinessByUserId[userId], t)
+
   const evaluationsByUserId = useMemo(() => {
     const map: Record<string, any> = {}
     if (!evaluationsData?.content) return map
@@ -306,17 +330,34 @@ export default function OrgUnitSubmissionsPage() {
 
   const [staffEvalUser, setStaffEvalUser] = useState<any>(null)
   const [detailEval, setDetailEval] = useState<any>(null)
+  const [selfEvalOpen, setSelfEvalOpen] = useState(false)
   // Bài hướng dẫn mở phiếu chấm của người đầu danh sách (cần chọn một đợt cụ thể).
-  useTourModal('subs.staffEval', () => { const first = employees[0]; if (first && isManager) setStaffEvalUser(first) }, () => setStaffEvalUser(null))
+  useTourModal('subs.staffEval', () => { const first = employees.find(e => e.id !== user?.id); if (first && isManager) setStaffEvalUser(first) }, () => setStaffEvalUser(null))
+
+  /**
+   * Dòng của CHÍNH mình (trưởng đơn vị cũng là thành viên đơn vị nên có mặt trong danh sách). Mình
+   * không chấm đợt cho mình được — backend coi đó là tự đánh giá và ghi đè phiếu tự đánh giá; người
+   * chấm mình là trưởng đơn vị cấp trên. Nên dòng này mở hộp TỰ đánh giá, không mở phiếu của quản lý.
+   */
+  const isMe = (emp: any) => !!user?.id && emp.id === user.id
 
   const handleRowClick = (emp: any) => {
     if (!selectedPeriodId || selectedPeriodId === 'ALL') return;
     
     const evaluation = evaluationsByUserId[emp.id]
-    if (evaluation) {
+    if (isMe(emp)) {
+      if (evaluation) setDetailEval(evaluation)
+      else setSelfEvalOpen(true)
+      return
+    }
+    // Chỉ có bản tự đánh giá ⇒ quản lý chưa chấm: mở phiếu chấm nếu đã đủ điều kiện.
+    const managerEvaluated = evaluation && evaluation.evaluatorRole !== 'SELF'
+    if (managerEvaluated) {
       setDetailEval(evaluation)
-    } else if (isManager) {
+    } else if (isManager && blockReasonsFor(emp.id).length === 0) {
       setStaffEvalUser(emp)
+    } else if (evaluation) {
+      setDetailEval(evaluation)
     }
   }
 
@@ -368,21 +409,44 @@ export default function OrgUnitSubmissionsPage() {
 
   const renderAction = (emp: any, evaluation: any) => {
     if (!periodChosen) return null
-    if (evaluation) {
+    const viewButton = evaluation && (
+      <Button {...tourAnchor('subs.view-eval')} variant="ghost" size="icon-sm" aria-label={t('OrgUnitSubmissionsPage.viewEvaluation')} title={t('OrgUnitSubmissionsPage.viewEvaluation')} onClick={e => { e.stopPropagation(); setDetailEval(evaluation) }}>
+        <Eye aria-hidden="true" />
+      </Button>
+    )
+    if (isMe(emp)) {
+      // Đã tự đánh giá (hoặc cấp trên đã chấm) ⇒ chỉ xem — cùng luật với trang "Của tôi", nơi nút
+      // "Tự đánh giá đợt này" biến mất sau khi gửi. Chưa có gì thì mới mời tự đánh giá.
+      if (evaluation) return viewButton || null
       return (
-        <Button {...tourAnchor('subs.view-eval')} variant="ghost" size="icon-sm" aria-label={t('OrgUnitSubmissionsPage.viewEvaluation')} title={t('OrgUnitSubmissionsPage.viewEvaluation')} onClick={e => { e.stopPropagation(); setDetailEval(evaluation) }}>
-          <Eye aria-hidden="true" />
+        <Button variant="outline" size="sm" title={t('OrgUnitSubmissionsPage.selfAssessHint')} onClick={e => { e.stopPropagation(); setSelfEvalOpen(true) }}>
+          <Star aria-hidden="true" /> {t('OrgUnitSubmissionsPage.selfAssess')}
         </Button>
       )
     }
-    if (isManager) {
-      return (
-        <Button {...tourAnchor('subs.score')} variant="outline" size="sm" onClick={e => { e.stopPropagation(); setStaffEvalUser(emp) }}>
+    // Quản lý đã chấm ⇒ chỉ xem. Mới có bản tự đánh giá thì vẫn còn việc chấm của quản lý.
+    if (!isManager || (evaluation && evaluation.evaluatorRole !== 'SELF')) return viewButton || null
+
+    const reasons = blockReasonsFor(emp.id)
+    const missing = readinessByUserId[emp.id]?.missingKpiNames ?? []
+    const scoreButton = reasons.length > 0 ? (
+      // Nút bị khoá không nhận hover ở mọi trình duyệt ⇒ đặt title lên khối bọc ngoài.
+      <div className="flex flex-col items-end gap-0.5 text-right"
+        title={[t('ScoringReadiness.rule'), missing.length > 0 ? t('ScoringReadiness.missing', { names: missing.join(', ') }) : null].filter(Boolean).join('\n')}
+      >
+        <Button {...tourAnchor('subs.score')} variant="outline" size="sm" disabled onClick={e => e.stopPropagation()}>
           <PenLine aria-hidden="true" /> {t('OrgUnitSubmissionsPage.score')}
         </Button>
-      )
-    }
-    return null
+        <span className="text-caption">{reasons.join(' · ')}</span>
+      </div>
+    ) : (
+      <Button {...tourAnchor('subs.score')} variant="outline" size="sm" onClick={e => { e.stopPropagation(); setStaffEvalUser(emp) }}>
+        <PenLine aria-hidden="true" /> {t('OrgUnitSubmissionsPage.score')}
+      </Button>
+    )
+    return viewButton
+      ? <div className="flex items-start justify-end gap-1">{viewButton}{scoreButton}</div>
+      : scoreButton
   }
 
   return (
@@ -534,7 +598,7 @@ export default function OrgUnitSubmissionsPage() {
         </>
         )}
 
-        {staffEvalUser && isManager && selectedPeriodId !== 'ALL' && (
+        {staffEvalUser && isManager && !isMe(staffEvalUser) && selectedPeriodId !== 'ALL' && (
           <StaffEvaluationModal
             open={!!staffEvalUser}
             onClose={() => setStaffEvalUser(null)}
@@ -546,6 +610,8 @@ export default function OrgUnitSubmissionsPage() {
           />
         )}
         
+        <EvaluationFormModal open={selfEvalOpen} onClose={() => setSelfEvalOpen(false)} initialPeriodId={periodChosen ? selectedPeriodId : undefined} />
+
         {detailEval && (
         <EvaluationDetailModal open={!!detailEval} onClose={() => setDetailEval(null)} evaluation={detailEval} />
         )}

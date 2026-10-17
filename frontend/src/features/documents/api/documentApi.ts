@@ -4,7 +4,7 @@ import { ENV } from '@/config/env'
 import type { ApiResponse, PageResponse } from '@/types/api'
 import type { RagChunk, RagSearchHit } from '@/features/analytics/api/aiApi'
 import type {
-  CreateOnlineDocumentInput, DocumentContent,
+  CreateOnlineDocumentInput, DocumentPublicLink, SendDocumentEmailInput, DocumentContent,
   DocumentCapabilities, DocumentFolder, DocumentFolderList, DocumentListParams, DocumentScope, DocumentShare,
   DocumentUsage, DocumentVersion, KbDocument, PersonalSummary, ShareTarget, UpdateDocumentInput, UploadDocumentInput,
   DocumentPromotion, DocumentStorageStats, ShareUnit, SharePermission,
@@ -175,4 +175,19 @@ export const documentApi = {
     axiosInstance.get<ApiResponse<ShareTarget[]>>(`${BASE}/share-units/${unitId}/members`).then(r => r.data.data),
   shareTargets: (q: string) =>
     axiosInstance.get<ApiResponse<ShareTarget[]>>(`${BASE}/share-targets`, { params: { q } }).then(r => r.data.data),
+
+  /** Ảnh chèn vào trình soạn (tài liệu / thư) — trả URL công khai. */
+  uploadImage: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return sendMultipart<ApiResponse<{ url: string }>>(`${BASE}/images`, form).then(r => r.data.data.url)
+  },
+
+  // Gửi qua email kèm link công khai
+  sendEmail: (id: string, input: SendDocumentEmailInput) =>
+    axiosInstance.post<ApiResponse<DocumentPublicLink>>(`${BASE}/${id}/email`, input).then(r => r.data.data),
+  publicLinks: (id: string) =>
+    axiosInstance.get<ApiResponse<DocumentPublicLink[]>>(`${BASE}/${id}/public-links`).then(r => r.data.data),
+  revokePublicLink: (id: string, linkId: string) =>
+    axiosInstance.delete<ApiResponse<DocumentPublicLink>>(`${BASE}/${id}/public-links/${linkId}`).then(r => r.data.data),
 }

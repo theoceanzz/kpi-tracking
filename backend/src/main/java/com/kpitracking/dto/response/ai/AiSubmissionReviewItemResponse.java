@@ -53,7 +53,7 @@ public class AiSubmissionReviewItemResponse {
     private Double actualValue;
     /** Định tính: mức người nộp tự đánh giá ở bài mới nhất. */
     private String selfLevel;
-    /** Mức tin cậy RIÊNG của chỉ tiêu (CAO | TRUNG_BINH | THAP), mã nguồn tính; {@code null} với lượt trước V43. */
+    /** Mức tin cậy RIÊNG của chỉ tiêu (CAO | TRUNG_BINH | THAP), mã nguồn tính; {@code null} với lượt trước V46. */
     private String confidence;
     /** Mã lý do của mức tin cậy ({@code ReviewResultValidator.REASON_*}) — giao diện dịch. */
     private List<String> confidenceReasons;

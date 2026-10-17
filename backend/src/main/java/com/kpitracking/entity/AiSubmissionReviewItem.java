@@ -106,7 +106,7 @@ public class AiSubmissionReviewItem {
     @Column(name = "basis_citations", columnDefinition = "jsonb")
     private String basisCitations;
 
-    /** Mức tin cậy riêng của chỉ tiêu (CAO / TRUNG_BINH / THAP), do mã nguồn tính — null với lượt trước V43. */
+    /** Mức tin cậy riêng của chỉ tiêu (CAO / TRUNG_BINH / THAP), do mã nguồn tính — null với lượt trước V46. */
     @Column(name = "confidence", length = 20)
     private String confidence;
 

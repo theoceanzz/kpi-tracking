@@ -26,7 +26,7 @@
     "open": "Open",
     "favorite": "Add to favorites",
     "unfavorite": "Remove from favorites",
-    "pin": "Pin to sidebar",
+    "pin": "Pin",
     "unpin": "Unpin",
     "share": "Share",
     "move": "Move",
@@ -35,7 +35,17 @@
     "readOnline": "Read online",
     "convertOnline": "Convert to online document",
     "details": "Details",
-    "newSheet": "New sheet"
+    "newSheet": "New sheet",
+    "email": "Send by email",
+    "moveTo": "Move to",
+    "openNewTab": "Open in new tab",
+    "copyLink": "Copy link",
+    "makeCopy": "Make a copy",
+    "copyTitle": "{{title}} (copy)",
+    "aiOn": "Let K.AI read it",
+    "aiOff": "Stop K.AI reading it",
+    "confirm": "Confirm",
+    "moreSub": "More"
   },
   "common": {
     "cancel": "Cancel",
@@ -65,7 +75,8 @@
     "category": "Category",
     "allCategories": "All categories",
     "aiStatus": "AI status",
-    "allAiStatuses": "All AI statuses"
+    "allAiStatuses": "All AI statuses",
+    "button": "Filter"
   },
   "empty": {
     "notMemberTitle": "You are not in an organization yet",
@@ -151,7 +162,8 @@
   },
   "ai": {
     "readyDetail_one": "{{count}} chunk · indexed at {{time}}",
-    "readyDetail_other": "{{count}} chunks · indexed at {{time}}"
+    "readyDetail_other": "{{count}} chunks · indexed at {{time}}",
+    "off": "K.AI can’t read it"
   },
   "edit": {
     "heading": "Details and visibility",
@@ -166,7 +178,9 @@
   "delete": {
     "title": "Delete “{{title}}”?",
     "description": "K.AI stops using this document immediately. It goes to the trash and can be restored within {{days}} days. Answers K.AI previously quoted from it remain in chat history.",
-    "legacyDescription": "K.AI stops using this document immediately. Legacy documents have no original file, so they do not go to the trash — deleting is permanent."
+    "legacyDescription": "K.AI stops using this document immediately. Legacy documents have no original file, so they do not go to the trash — deleting is permanent.",
+    "titleMany_one": "Delete {{count}} document?",
+    "titleMany_other": "Delete {{count}} documents?"
   },
   "badge": {
     "noOriginal": "No original file",
@@ -180,19 +194,19 @@
     "expired": "Expired"
   },
   "table": {
-    "name": "Document",
+    "name": "Name",
     "category": "Category",
     "unit": "Unit",
     "uploadedBy": "Uploaded by",
     "updated": "Updated",
     "size": "Size",
-    "ai": "AI",
+    "ai": "K.AI",
     "actions": "Actions",
     "location": "Location",
     "owner": "Created by",
     "createdAt": "Created",
     "openedAt": "Last opened",
-    "updatedAt": "Updated"
+    "updatedAt": "Modified"
   },
   "toast": {
     "uploaded": "Uploaded — the AI is reading the document",
@@ -222,7 +236,12 @@
     "convertedOnline": "Converted to an online document — the old file is in the Versions tab",
     "convertFailed": "Could not convert the document",
     "sharePermissionUpdated": "Sharing access updated",
-    "autoConvertFailed": "Uploaded, but it could not be turned into an online document — you can still view and download it."
+    "autoConvertFailed": "Uploaded, but it could not be turned into an online document — you can still view and download it.",
+    "emailSent": "Email sent with the document link",
+    "emailFailed": "Could not send the email",
+    "linkRevoked": "Link revoked — recipients can no longer open it",
+    "linkCopied": "Link copied",
+    "copied": "Copy created"
   },
   "settingsCard": {
     "title": "AI assistant documents have moved to the Documents page",
@@ -258,7 +277,8 @@
     "pinned": "Pinned",
     "pinnedEmpty": "Pin documents you use often to open them quickly from here.",
     "requests": "Proposals",
-    "storage": "Storage"
+    "storage": "Storage",
+    "search": "Search"
   },
   "location": {
     "mine": "My documents",
@@ -279,11 +299,15 @@
     "description": "Choose a folder in the same scope. To change who can view it, change “Scope” in the document details.",
     "alreadyHere": "The document is already here",
     "here": "Move here",
-    "noSubfolders": "No subfolders"
+    "noSubfolders": "No subfolders",
+    "titleMany_one": "Move {{count}} document",
+    "titleMany_other": "Move {{count}} documents"
   },
   "drive": {
     "breadcrumb": "Folder path",
-    "searchScope": "Search in {{name}}…"
+    "searchScope": "Search in {{name}}…",
+    "folders": "Folders",
+    "documents": "Documents"
   },
   "share": {
     "intro": {
@@ -321,7 +345,12 @@
     "newPermission": "Access for people you add",
     "permissionHint": "Editors can change the content, like Google Docs — they cannot delete, move or re-share it.",
     "permissionOf": "Access for {{name}}",
-    "youAreEditor": "{{name}} shared this document with you — you can view and edit its content."
+    "youAreEditor": "{{name}} shared this document with you — you can view and edit its content.",
+    "browseUnits": "Pick from the unit tree",
+    "collaborators": "Collaborators",
+    "dialogTitle": "Share the document",
+    "inviteHeading": "Invite collaborators",
+    "removeOption": "Remove"
   },
   "versions": {
     "intro": "Every time the file is replaced, the old one is kept (up to 10 versions). Restoring an old version does not lose the current one.",
@@ -360,7 +389,8 @@
     "empty": "Empty trash",
     "emptyConfirmTitle": "Empty the trash?",
     "emptyConfirmDescription_one": "Permanently delete {{count}} document and all its earlier versions. This cannot be undone.",
-    "emptyConfirmDescription_other": "Permanently delete {{count}} documents and all their earlier versions. This cannot be undone."
+    "emptyConfirmDescription_other": "Permanently delete {{count}} documents and all their earlier versions. This cannot be undone.",
+    "timeRemaining": "Time remaining"
   },
   "home": {
     "tabs": "Document lists",
@@ -371,7 +401,7 @@
       "favorites": "Favorites"
     },
     "cardUpload": "Upload",
-    "cardUploadHint": "Word, Excel, PDF… edit right away",
+    "cardUploadHint": "Upload local files",
     "cardAsk": "Ask K.AI about documents",
     "cardAskHint": "Answers from documents you can see",
     "empty": {
@@ -384,8 +414,8 @@
       "favoritesTitle": "No favorite documents yet",
       "favoritesDescription": "Click ⋯ → “Add to favorites” on a document to collect it here."
     },
-    "cardCreate": "Create",
-    "cardCreateHint": "Document, sheet or folder"
+    "cardCreate": "New",
+    "cardCreateHint": "Create a new document"
   },
   "layout": {
     "label": "View",
@@ -509,6 +539,100 @@
     "markdownNotice": "A .md file only keeps Markdown formatting — text colors, highlights and alignment are lost on save. Convert to an online document to keep full formatting (the .md file stays in the Versions tab).",
     "sheetTitlePlaceholder": "Untitled sheet",
     "exportXlsx": "Download Excel (.xlsx)",
-    "exportCsv": "Download CSV (first sheet)"
+    "exportCsv": "Download CSV (first sheet)",
+    "lastModified": "Last modified: {{time}}",
+    "modifiedAt": "Modified {{time}}",
+    "print": "Print",
+    "toc": "Contents",
+    "tocCollapse": "Collapse contents",
+    "tocExpand": "Show contents",
+    "versions": "Version history",
+    "mode": {
+      "edit": "Editing",
+      "editHint": "Edit the content directly",
+      "read": "Reading",
+      "readHint": "View only, no accidental edits"
+    }
+  },
+  "email": {
+    "title": "Send document by email",
+    "description": "Write it like a normal email — the document goes along as a link that recipients can open even without a KeyGo account.",
+    "to": "To",
+    "cc": "Cc",
+    "toPlaceholder": "Type an email and press Enter — or a colleague's name",
+    "subject": "Subject",
+    "message": "Message",
+    "messagePlaceholder": "Write a message to the recipients…",
+    "attachment": "Attached document",
+    "kind": {
+      "doc": "Online document",
+      "sheet": "Online spreadsheet"
+    },
+    "expiry": "Link valid for",
+    "expiryDays_one": "{{count}} day",
+    "expiryDays_other": "{{count}} days",
+    "publicNote": "Anyone with the link in this email can open the document (latest version) without an account until it expires. Revoke it any time from the document's Share tab.",
+    "send": "Send",
+    "invalidAddress": "Invalid email: {{email}}",
+    "tooMany": "At most {{max}} recipients per email",
+    "removeRecipient": "Remove {{email}}",
+    "suggestions": "Recipient suggestions",
+    "sectionTitle": "Send by email",
+    "sectionHint": "Send to anyone, including people outside the company — with a link that opens without an account.",
+    "compose": "Compose email",
+    "sentLine": "Sent by {{name}} at {{time}}",
+    "views_one": "opened {{count}} time",
+    "views_other": "opened {{count}} times",
+    "notOpened": "not opened yet",
+    "expiresAt": "Link valid until {{time}}",
+    "expiredAt": "Link expired at {{time}}",
+    "revokedAt": "Revoked at {{time}}",
+    "revoke": "Revoke",
+    "revoked": "Revoked",
+    "expired": "Expired",
+    "revokeTitle": "Revoke link?",
+    "revokeDescription": "The link in the email sent to {{recipients}} will stop working. The email itself stays in their inbox.",
+    "removeCc": "Remove Cc",
+    "messageTooLong": "The message can be at most {{max}} characters"
+  },
+  "public": {
+    "tagline": "Document shared via KeyGo",
+    "unavailableTitle": "Cannot open this document",
+    "unavailable": "This link can no longer be opened — it may have expired, been revoked, or the document was deleted. Please contact the sender.",
+    "sentBy": "{{name}} sent you this",
+    "sentByOrg": "{{name}} · {{org}} sent you this",
+    "updatedAt": "Updated {{time}}",
+    "expiresAt": "link valid until {{time}}"
+  },
+  "time": {
+    "today": "Today",
+    "yesterday": "Yesterday"
+  },
+  "select": {
+    "all": "Select all",
+    "one": "Select “{{title}}”",
+    "count_one": "{{count}} selected",
+    "count_other": "{{count}} selected",
+    "clear": "Clear selection"
+  },
+  "newMenu": {
+    "doc": "Doc",
+    "sheet": "Sheet",
+    "folder": "Folder"
+  },
+  "heading": {
+    "home": "Home",
+    "mine": "My files",
+    "unit": "Unit",
+    "company": "Company",
+    "trash": "Trash",
+    "requests": "Requests",
+    "storage": "Storage",
+    "search": "Search"
+  },
+  "search": {
+    "resultCount_one": "{{count}} result for “{{q}}”",
+    "resultCount_other": "{{count}} results for “{{q}}”",
+    "searching": "Searching “{{q}}”…"
   }
 }

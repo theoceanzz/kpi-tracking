@@ -100,6 +100,7 @@ public class ToolRegistry {
     private final EvaluationFormFillTool evaluationFormFillTool;
     private final KpiAdjustmentFormFillTool kpiAdjustmentFormFillTool;
     private final OrgUnitDrawerFormFillTool orgUnitDrawerFormFillTool;
+    private final TaskFormFillTool taskFormFillTool;
     private final PermissionChecker permissionChecker;
 
     /** Quyền bắt buộc để mở một nhóm; {@code null} = không đòi quyền riêng. */
@@ -172,7 +173,8 @@ public class ToolRegistry {
                 "suggest_submission_form", submissionFormFillTool,
                 "suggest_evaluation_form", evaluationFormFillTool,
                 "suggest_kpi_adjustment_form", kpiAdjustmentFormFillTool,
-                "suggest_org_unit_drawer_form", orgUnitDrawerFormFillTool);
+                "suggest_org_unit_drawer_form", orgUnitDrawerFormFillTool,
+                "suggest_task_form", taskFormFillTool);
     }
 
     /**
@@ -240,7 +242,8 @@ public class ToolRegistry {
             Map.entry("suggest_submission_form", Group.FORM),
             Map.entry("suggest_evaluation_form", Group.FORM),
             Map.entry("suggest_kpi_adjustment_form", Group.FORM),
-            Map.entry("suggest_org_unit_drawer_form", Group.FORM));
+            Map.entry("suggest_org_unit_drawer_form", Group.FORM),
+            Map.entry("suggest_task_form", Group.FORM));
 
     /** Nhóm cần mở để gọi được các tool này. Tên lạ bị bỏ qua, không làm hỏng lượt hỏi. */
     public static Set<Group> groupsForTools(Collection<String> toolNames) {
@@ -369,7 +372,7 @@ public class ToolRegistry {
                 EscapeHatchTool.class, EvidenceRequestTool.class, AttachFilesTool.class,
                 KpiFormFillTool.class,
                 SubmissionFormFillTool.class, EvaluationFormFillTool.class,
-                KpiAdjustmentFormFillTool.class, OrgUnitDrawerFormFillTool.class
+                KpiAdjustmentFormFillTool.class, OrgUnitDrawerFormFillTool.class, TaskFormFillTool.class
         };
     }
 }

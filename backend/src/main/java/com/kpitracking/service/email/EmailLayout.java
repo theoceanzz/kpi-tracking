@@ -21,6 +21,14 @@ public final class EmailLayout {
 
     /** Bọc đoạn HTML thân mail vào khung chuẩn, chân thư theo ngôn ngữ người nhận. */
     public static String wrap(String title, String content, Locale locale) {
+        return wrap(title, content, locale, false);
+    }
+
+    /**
+     * {@code replyable = true}: thư do một người dùng tự soạn, gửi kèm Reply-To của họ — chân thư mời trả lời thẳng người
+     * gửi thay cho câu "thư tự động, vui lòng không phản hồi".
+     */
+    public static String wrap(String title, String content, Locale locale, boolean replyable) {
         return "<!DOCTYPE html>" +
                "<html lang='" + locale.getLanguage() + "'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
                "<style>" +
@@ -49,7 +57,7 @@ public final class EmailLayout {
                "    <div class='body'>" + content + "</div>" +
                "    <div class='footer'>" +
                "      <p>" + ErrorMessages.text(locale, "email.footer.copyright", "") + "</p>" +
-               "      <p style='margin-top: 8px;'>" + ErrorMessages.text(locale, "email.footer.autoSent", "") + "</p>" +
+               "      <p style='margin-top: 8px;'>" + ErrorMessages.text(locale, replyable ? "email.footer.replyToSender" : "email.footer.autoSent", "") + "</p>" +
                "    </div>" +
                "  </div>" +
                "</div>" +

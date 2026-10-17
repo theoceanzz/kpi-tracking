@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Building2, ChevronRight, Loader2, Search, UserRound, X } from 'lucide-react'
+import { Building2, ChevronRight, Loader2, Search, UserRound } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import UserAvatar from '@/components/common/UserAvatar'
 import { useDebounce } from '@/hooks/useDebounce'
 import { formatDateTime } from '@/i18n/format'
 import { cn } from '@/lib/utils'
@@ -15,6 +16,7 @@ import {
 } from '../hooks/useDocuments'
 import type { DocumentShare, KbDocument, SharePermission, ShareTarget, ShareUnit } from '../types'
 import { onlineFormat } from '../utils'
+import PublicLinksSection from './PublicLinksSection'
 
 /** Trạng thái tích của một đơn vị / một người trong cây. */
 interface ShareState {
@@ -27,14 +29,16 @@ interface ShareState {
 }
 
 /**
- * Chia sẻ quyền XEM theo cây đơn vị (docs/DOCUMENTS_DESIGN.md §15.3): tích một đơn vị = mọi người trong đơn vị đó VÀ
- * các đơn vị con xem được; mở đơn vị ra để tích từng người. Gõ tìm thì hiện kết quả phẳng (đơn vị + người). Đơn vị gốc
+ * Chia sẻ theo thứ tự hộp "Share the document" của Lark (docs/DOCUMENTS_LARK_REFERENCE.md §7): ô Mời người cộng tác (tìm
+ * người / đơn vị + mức quyền) — danh sách Người cộng tác (chủ sở hữu có nhãn, mỗi người một ô quyền có "Gỡ quyền") — gửi
+ * link qua email ở cuối (chỗ "Link sharing" của Lark). Riêng KeyGo: chọn theo cây đơn vị (docs/DOCUMENTS_DESIGN.md §15.3) —
+ * tích một đơn vị = mọi người trong đơn vị đó VÀ các đơn vị con xem được; mở đơn vị ra để tích từng người. Đơn vị gốc
  * không có trong cây — chia sẻ cho cả công ty là việc của "Đề xuất lên Công ty".
  *
  * Người nhận đọc, tải về và K.AI đọc tài liệu khi trả lời họ. Tài liệu soạn trực tuyến có thêm mức "Chỉnh sửa" như Google
  * Docs: người nhận sửa được NỘI DUNG — vẫn không xoá, không di chuyển, không chia sẻ tiếp.
  */
-export default function SharePanel({ doc }: { doc: KbDocument }) {
+export default function SharePanel({ doc, onEmail }: { doc: KbDocument; onEmail?: () => void }) {
   const { t } = useTranslation('documents')
   const me = useAuthStore(s => s.user?.id)
   const [q, setQ] = useState('')
@@ -49,6 +53,7 @@ export default function SharePanel({ doc }: { doc: KbDocument }) {
   // Chỉ tài liệu soạn trực tuyến mới có quyền "Chỉnh sửa"; tệp khác (PDF, Excel…) chia sẻ là để xem.
   const editable = !!onlineFormat(doc)
   const [permission, setPermission] = useState<SharePermission>('VIEW')
+  const [browsing, setBrowsing] = useState(false)
 
   // Tích / bỏ tích hiện NGAY (lạc quan), yêu cầu chạy ngầm. Trước đây khoá mọi ô trong lúc chờ nên ô nháy sang con trỏ
   // "cấm" rồi mới tích. Giữ trạng thái chờ tới khi danh sách chia sẻ tải lại xong — xoá sớm hơn thì ô nháy về trạng
@@ -101,103 +106,125 @@ export default function SharePanel({ doc }: { doc: KbDocument }) {
   }
 
   const ctx: TreeCtx = { tree, unitState, userState, toggle, ownerId: doc.ownerId, me }
+  const changePermission = (s: DocumentShare, v: string) => {
+    if (v === REMOVE) unshare.mutate({ id: doc.id, shareId: s.id })
+    else updatePermission.mutate({ id: doc.id, shareId: s.id, permission: v as SharePermission })
+  }
 
   return (
-    <div className="space-y-4">
-      <p className="text-caption">{t(`share.intro.${doc.scope}`)}</p>
+    <div className="space-y-5">
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold text-[var(--color-foreground)]">{t('share.inviteHeading')}</h3>
+        <p className="text-caption">{t(`share.intro.${doc.scope}`)}</p>
+        <div className="flex gap-2">
+          <Input
+            type="search"
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder={t('share.searchPlaceholder')}
+            aria-label={t('share.searchPlaceholder')}
+            prefix={<Search aria-hidden="true" />}
+            suffix={busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : undefined}
+          />
+          {editable && (
+            <Select value={permission} onValueChange={v => setPermission(v as SharePermission)}>
+              <SelectTrigger className="w-44 shrink-0" aria-label={t('share.newPermission')}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="VIEW">{t('share.permission.VIEW')}</SelectItem>
+                <SelectItem value="EDIT">{t('share.permission.EDIT')}</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+        {editable && <p className="text-caption">{t('share.permissionHint')}</p>}
 
-      <div className="flex gap-2">
-        <Input
-          type="search"
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          placeholder={t('share.searchPlaceholder')}
-          aria-label={t('share.searchPlaceholder')}
-          prefix={<Search aria-hidden="true" />}
-          suffix={busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : undefined}
-        />
-        {editable && (
-          <Select value={permission} onValueChange={v => setPermission(v as SharePermission)}>
-            <SelectTrigger className="w-44 shrink-0" aria-label={t('share.newPermission')}><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="VIEW">{t('share.permission.VIEW')}</SelectItem>
-              <SelectItem value="EDIT">{t('share.permission.EDIT')}</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
-      </div>
-      {editable && <p className="-mt-2 text-caption">{t('share.permissionHint')}</p>}
-
-      <div className="max-h-[420px] overflow-y-auto rounded-card border border-[var(--color-border)]">
         {debounced ? (
-          search.isLoading ? <div className="p-3"><LoadingSkeleton type="table" rows={3} /></div>
-            : (search.data ?? []).length === 0 ? <p className="p-4 text-center text-caption">{t('share.noTargets')}</p>
-              : (
-                <ul className="divide-y divide-[var(--color-border)]" aria-label={t('share.results')}>
-                  {search.data!.map(o => (
-                    <li key={`${o.type}:${o.id}`}>
-                      {o.type === 'UNIT'
-                        ? <UnitRow ctx={ctx} unit={tree.byId.get(o.id) ?? { id: o.id, name: o.name, parentId: null, memberCount: 0 }}
-                                   detail={o.detail} depth={0} expandable={false} />
-                        : <UserRow ctx={ctx} user={o} unitId={null} depth={0} />}
-                    </li>
-                  ))}
-                </ul>
-              )
-        ) : units.isLoading ? (
-          <div className="p-3"><LoadingSkeleton type="table" rows={4} /></div>
-        ) : tree.roots.length === 0 ? (
-          <p className="p-4 text-center text-caption">{t('share.noUnits')}</p>
+          <div className="max-h-[320px] overflow-y-auto rounded-card border border-[var(--color-border)]">
+            {search.isLoading ? <div className="p-3"><LoadingSkeleton type="table" rows={3} /></div>
+              : (search.data ?? []).length === 0 ? <p className="p-4 text-center text-caption">{t('share.noTargets')}</p>
+                : (
+                  <ul className="divide-y divide-[var(--color-border)]" aria-label={t('share.results')}>
+                    {search.data!.map(o => (
+                      <li key={`${o.type}:${o.id}`}>
+                        {o.type === 'UNIT'
+                          ? <UnitRow ctx={ctx} unit={tree.byId.get(o.id) ?? { id: o.id, name: o.name, parentId: null, memberCount: 0 }}
+                                     detail={o.detail} depth={0} expandable={false} />
+                          : <UserRow ctx={ctx} user={o} unitId={null} depth={0} />}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+          </div>
         ) : (
-          <ul aria-label={t('share.unitTree')}>
-            {tree.roots.map(u => <UnitNode key={u.id} ctx={ctx} unit={u} depth={0} />)}
-          </ul>
-        )}
-      </div>
-
-      <section>
-        <h3 className="mb-2 text-sm font-semibold text-[var(--color-foreground)]">{t('share.listHeading')}</h3>
-        {shares.isLoading ? (
-          <LoadingSkeleton type="table" rows={2} />
-        ) : (shares.data?.length ?? 0) === 0 ? (
-          <p className="rounded-card border border-dashed border-[var(--color-border)] p-4 text-center text-caption">{t('share.none')}</p>
-        ) : (
-          <ul className="divide-y divide-[var(--color-border)] rounded-card border border-[var(--color-border)]">
-            {shares.data!.map(s => (
-              <li key={s.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                <TargetIcon type={s.type} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-[var(--color-foreground)]">
-                    {s.name ?? '—'}
-                    {s.type === 'UNIT' && <span className="ml-1.5 font-normal text-[var(--color-muted-foreground)]">{t('share.unitIncludesChildren')}</span>}
-                  </span>
-                  <span className="block truncate text-caption">
-                    {t('share.grantedBy', { name: s.grantedByName ?? '—', time: formatDateTime(s.createdAt) })}
-                  </span>
-                </span>
-                {editable ? (
-                  <Select value={s.permission} disabled={busy}
-                          onValueChange={v => updatePermission.mutate({ id: doc.id, shareId: s.id, permission: v as SharePermission })}>
-                    <SelectTrigger className="h-8 w-36 shrink-0" aria-label={t('share.permissionOf', { name: s.name ?? '' })}><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="VIEW">{t('share.permission.VIEW')}</SelectItem>
-                      <SelectItem value="EDIT">{t('share.permission.EDIT')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : <span className="shrink-0 text-caption">{t('share.canView')}</span>}
-                <button type="button" onClick={() => unshare.mutate({ id: doc.id, shareId: s.id })} disabled={busy}
-                        aria-label={t('share.remove', { name: s.name ?? '' })} title={t('share.remove', { name: s.name ?? '' })}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]">
-                  <X size={14} aria-hidden="true" />
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div>
+            <button type="button" onClick={() => setBrowsing(b => !b)} aria-expanded={browsing}
+                    className="flex items-center gap-1 text-sm text-[var(--color-primary)] hover:underline">
+              <ChevronRight size={14} className={cn('transition-transform', browsing && 'rotate-90')} aria-hidden="true" />
+              {t('share.browseUnits')}
+            </button>
+            {browsing && (
+              <div className="mt-2 max-h-[360px] overflow-y-auto rounded-card border border-[var(--color-border)]">
+                {units.isLoading ? (
+                  <div className="p-3"><LoadingSkeleton type="table" rows={4} /></div>
+                ) : tree.roots.length === 0 ? (
+                  <p className="p-4 text-center text-caption">{t('share.noUnits')}</p>
+                ) : (
+                  <ul aria-label={t('share.unitTree')}>
+                    {tree.roots.map(u => <UnitNode key={u.id} ctx={ctx} unit={u} depth={0} />)}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </section>
+
+      <section>
+        <h3 className="mb-2 text-sm font-semibold text-[var(--color-foreground)]">{t('share.collaborators')}</h3>
+        <ul className="divide-y divide-[var(--color-border)] rounded-card border border-[var(--color-border)]">
+          <li className="flex items-center gap-3 px-3 py-2 text-sm">
+            <UserAvatar fullName={doc.createdByName ?? ''} className="h-7 w-7 rounded-full text-[11px]"
+                        fallbackClassName="bg-[var(--color-primary)] font-semibold text-[var(--color-primary-foreground)]" />
+            <span className="min-w-0 flex-1 truncate font-medium text-[var(--color-foreground)]">{doc.createdByName ?? '—'}</span>
+            <span className="shrink-0 rounded-full bg-[var(--color-muted)] px-2 py-0.5 text-xs text-[var(--color-muted-foreground)]">{t('share.owner')}</span>
+          </li>
+          {shares.isLoading ? (
+            <li className="p-3"><LoadingSkeleton type="table" rows={2} /></li>
+          ) : (shares.data ?? []).map(s => (
+            <li key={s.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+              <TargetIcon type={s.type} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium text-[var(--color-foreground)]">
+                  {s.name ?? '—'}
+                  {s.type === 'UNIT' && <span className="ml-1.5 font-normal text-[var(--color-muted-foreground)]">{t('share.unitIncludesChildren')}</span>}
+                </span>
+                <span className="block truncate text-caption">
+                  {t('share.grantedBy', { name: s.grantedByName ?? '—', time: formatDateTime(s.createdAt) })}
+                </span>
+              </span>
+              <Select value={s.permission} disabled={busy} onValueChange={v => changePermission(s, v)}>
+                <SelectTrigger className="h-8 w-40 shrink-0 border-transparent shadow-none hover:border-[var(--color-border)]"
+                               aria-label={t('share.permissionOf', { name: s.name ?? '' })}><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="VIEW">{t('share.permission.VIEW')}</SelectItem>
+                  {editable && <SelectItem value="EDIT">{t('share.permission.EDIT')}</SelectItem>}
+                  <SelectItem value={REMOVE} className="text-[var(--color-error)]">{t('share.removeOption')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </li>
+          ))}
+        </ul>
+        {!shares.isLoading && (shares.data?.length ?? 0) === 0 && <p className="mt-2 text-caption">{t('share.none')}</p>}
+      </section>
+
+      <hr className="border-[var(--color-border)]" />
+      <PublicLinksSection doc={doc} onEmail={onEmail} />
     </div>
   )
 }
+
+/** Mục "Gỡ quyền" trong ô quyền của một người cộng tác (như "Remove" của Lark). */
+const REMOVE = '__remove__'
 
 // ── Cây ───────────────────────────────────────────────────────────────────────────────────────────
 

@@ -7,7 +7,23 @@
     "mine": "Mine",
     "team": "Unit",
     "byKpi": "By KPI",
-    "noKpis": "No KPIs in the current period"
+    "noKpis": "No KPIs in the current period",
+    "lists": "Lists",
+    "noLists": "Create your first list",
+    "archived": "Archived ({{count}})",
+    "savedViews": "Saved views",
+    "listsHint": "Hover a list and click \"…\" to pin it or move it into a folder.",
+    "moveToFolder": "Move to folder",
+    "newFolder": "New folder, press Enter",
+    "pin": "Pin to top",
+    "pinned": "Pinned",
+    "removeFromFolder": "Remove from folder",
+    "unpin": "Unpin",
+    "title": "Tasks",
+    "quickAccess": "Quick access",
+    "newList": "New list",
+    "newFolderItem": "New folder",
+    "showArchived": "Show archived lists ({{count}})"
   },
   "view": {
     "ASSIGNED": "Assigned to me",
@@ -16,19 +32,33 @@
     "DELEGATED": "Assigned to others",
     "DONE": "Completed",
     "ALL": "All",
-    "TEAM": "Unit tasks"
+    "TEAM": "Unit tasks",
+    "NOKPI": "Not linked to a KPI",
+    "ACTIVITY": "Activities"
   },
   "mode": {
     "list": "List",
     "kanban": "Kanban",
-    "calendar": "Calendar"
+    "calendar": "Calendar",
+    "gantt": "Gantt",
+    "stats": "Dashboard",
+    "activity": "Activities"
   },
   "toolbar": {
     "groupBy": "Group by",
     "sort": "Sort",
     "filter": "Filter",
     "create": "New task",
-    "createHint": "Shortcut: N"
+    "createHint": "Shortcut: N",
+    "export": "Export Excel",
+    "select": "Select",
+    "selectHint": "Select several tasks to edit at once (Shift + click selects a range)",
+    "createMore": "More create options",
+    "newGroup": "New group",
+    "createGroup": "Create group",
+    "groupName": "Group name",
+    "customize": "Customize",
+    "more": "More"
   },
   "groupBy": {
     "due": "Due date",
@@ -36,13 +66,20 @@
     "status": "Status",
     "owner": "Assignee",
     "priority": "Priority",
-    "none": "No grouping"
+    "none": "No grouping",
+    "section": "Section",
+    "tag": "Tag",
+    "fields": "Custom fields",
+    "mysection": "My sections"
   },
   "sort": {
     "due": "Due date",
     "priority": "Priority",
     "created": "Created date",
-    "manual": "Manual (drag and drop)"
+    "manual": "Custom",
+    "start": "Start date",
+    "title": "Title",
+    "updated": "Last updated"
   },
   "filter": {
     "search": "Search by task name",
@@ -56,7 +93,11 @@
     "remove": "Remove filter",
     "clearAll": "Clear all",
     "allKpis": "All KPIs",
-    "kpi": "KPI"
+    "kpi": "KPI",
+    "kpiLink": "KPI link",
+    "withKpi": "Linked to a KPI",
+    "withoutKpi": "Not linked to a KPI",
+    "tags": "Tags"
   },
   "dueFilter": {
     "OVERDUE": "Overdue",
@@ -76,7 +117,14 @@
   },
   "group": {
     "all": "All tasks",
-    "completed": "Completed"
+    "completed": "Completed",
+    "noSection": "No section",
+    "noValue": "No value",
+    "checked": "Checked",
+    "unchecked": "Unchecked",
+    "noTag": "No tag",
+    "noKpi": "Not linked to a KPI",
+    "noMySection": "Not in a section"
   },
   "status": {
     "TODO": "To do",
@@ -103,7 +151,12 @@
     "done": "Done",
     "hour": "Hour",
     "minute": "Min",
-    "setTime": "Set time"
+    "setTime": "Set time",
+    "minutes": "{{count}} min",
+    "hours": "{{count}} h",
+    "left": "{{amount}} left",
+    "ago": "{{amount}} overdue",
+    "other": "Other"
   },
   "row": {
     "markDone": "Mark as done",
@@ -114,18 +167,37 @@
     "subtasks": "Subtasks",
     "recurring": "Recurring task",
     "openSubtasksTitle": "Subtasks are not done",
-    "completeAnyway": "Complete anyway"
+    "completeAnyway": "Complete anyway",
+    "partCompleted": "Your part of \"{{title}}\" is done",
+    "markMyPart": "Mark my part done",
+    "blocked": "Waiting for {{count}} task(s) to finish first",
+    "collapseSubtasks": "Hide subtasks",
+    "expandSubtasks": "Show subtasks",
+    "renameHint": "Double-click to rename"
   },
   "quickAdd": {
     "label": "Add task",
     "placeholder": "Task name, press Enter to create",
     "kpiPlaceholder": "Select a KPI",
-    "pickKpi": "Select a KPI for this task"
+    "pickKpi": "Select a KPI for this task",
+    "syntaxHint": "Quick syntax: @person · tomorrow 3pm · !high · #tag",
+    "labelLark": "New task"
   },
   "list": {
     "empty": "No tasks.",
     "cannotDrop": "Tasks cannot be dropped into this group (its value is not defined)",
-    "subtaskKpiFixed": "A subtask always stays on the KPI of its parent task"
+    "subtaskKpiFixed": "A subtask always stays on the KPI of its parent task",
+    "colTitle": "Task",
+    "colCreated": "Created",
+    "columns": "Visible fields",
+    "resetColumns": "Reset to default",
+    "resizeColumn": "Drag to resize the column",
+    "dragGroupHint": "Drag to reorder sections",
+    "shownOf": "Showing {{shown}} of {{total}} tasks",
+    "loadMore": "Load more",
+    "colCreator": "Creator",
+    "hideColumn": "Hide field",
+    "showColumn": "Show field"
   },
   "progress": {
     "label": "{{done}}/{{total}} tasks done",
@@ -140,7 +212,7 @@
     "moved": "Moved {{count}} tasks"
   },
   "readOnly": {
-    "NOT_OWNER": "You can only view this task (only the assignee and the creator can edit it).",
+    "NOT_OWNER": "You can only view this task (only its assignees and creator can edit it).",
     "CYCLE_LOCKED": "The KPI cycle is locked, so the task is read-only.",
     "KPI_DELETED": "The KPI of this task was deleted: you can only move the task to another KPI or delete it."
   },
@@ -148,7 +220,8 @@
     "title": "Task details",
     "tab": {
       "comments": "Comments",
-      "activity": "Activity"
+      "activity": "Activity",
+      "all": "All"
     },
     "owner": "Assignee",
     "assignedBy": "assigned by {{name}}",
@@ -198,7 +271,40 @@
     "backToParent": "Parent task",
     "close": "Close",
     "removeLink": "Remove link",
-    "applyLink": "Apply"
+    "applyLink": "Apply",
+    "assignees": "Assignees",
+    "startDate": "Start date",
+    "completionMode": "Completion rule",
+    "lists": "Lists",
+    "tags": "Tags",
+    "source": "Created from",
+    "reassignWithKpi": "Reassign with KPI",
+    "time": "Dates",
+    "moreProps": "More fields ({{count}})",
+    "lessProps": "Hide empty fields",
+    "addDescription": "Add a description…",
+    "add": "Add",
+    "completed": "Completed",
+    "myPartDone": "My part is done",
+    "expand": "Expand",
+    "shrink": "Shrink",
+    "prevTask": "Previous task",
+    "nextTask": "Next task",
+    "viewing": "Viewing now: {{names}}",
+    "followingAsAssignee": "You are an assignee, so you always get updates on this task",
+    "share": "Share (copy link)",
+    "privateToggle": "Only people involved can view",
+    "viewHistory": "View history",
+    "historyTitle": "Change history",
+    "commentTitle": "Comments",
+    "addDescriptionLark": "Add description",
+    "addSubtaskLark": "Add sub-task",
+    "addChecklistLark": "Add checklist",
+    "addAttachmentLark": "Add attachment",
+    "followersCount": "{{count}} followers",
+    "noFollowers": "Add followers",
+    "noFollowersYet": "No followers yet",
+    "listFields": "List fields"
   },
   "scope": {
     "title": "Edit recurring task",
@@ -228,7 +334,8 @@
     "unit": {
       "DAILY": "days",
       "WEEKLY": "weeks",
-      "MONTHLY": "months"
+      "MONTHLY": "months",
+      "YEARLY": "year(s)"
     },
     "onDay": "On day",
     "endDate": "End date (optional)",
@@ -237,7 +344,29 @@
     "needDue": "A recurring task needs a due date.",
     "summaryDaily": "Every {{count}} days",
     "summaryWeekly": "Every {{count}} weeks: {{days}}",
-    "summaryMonthly": "Every {{count}} months, on day {{day}}"
+    "summaryMonthly": "Every {{count}} months, on day {{day}}",
+    "yearly": "Yearly",
+    "workdays": "Weekdays (Mon–Fri)",
+    "byDay": "On a day of the month",
+    "byNth": "On a weekday of the month",
+    "month": "Month",
+    "ends": "Ends",
+    "times": "times",
+    "countSummary": "{{count}} times",
+    "summaryMonthlyNth": "Every {{count}} month(s), {{pos}} {{day}}",
+    "summaryYearly": "Every {{count}} year(s), on {{day}}/{{month}}",
+    "pos": {
+      "1": "first",
+      "2": "second",
+      "3": "third",
+      "4": "fourth",
+      "-1": "last"
+    },
+    "end": {
+      "never": "Never",
+      "date": "On date",
+      "count": "After a number of times"
+    }
   },
   "weekday": {
     "1": "Mon",
@@ -257,7 +386,24 @@
     "weekOf": "Week of",
     "noDue": "No due date",
     "noDueHint": "Drag onto the calendar to set a due date; drag a task here to clear it.",
-    "clickToCreate": "Click an empty cell to create a task due on this day"
+    "clickToCreate": "Click an empty cell to create a task due on this day",
+    "dragStart": "Drag to change the start date",
+    "dragEnd": "Drag to change the due date",
+    "allDay": "All day",
+    "clickToCreateAt": "Click an empty slot to create a task at that time",
+    "dragStartTime": "Drag to change the start time",
+    "dragEndTime": "Drag to change the due time",
+    "threeDays": "3 days",
+    "threeDaysOf": "3 days from"
+  },
+  "followerRemoval": {
+    "title": "Remove followers when changing the KPI?",
+    "description": "The people below cannot view the new KPI, so they can no longer follow these tasks.",
+    "subtask": "Subtask",
+    "peopleOf": "People removed from \"{{title}}\"",
+    "note": "They are removed only from the tasks listed, get one notification, and each removal is recorded in that task's history.",
+    "cancel": "Cancel",
+    "confirm": "Remove and change KPI"
   },
   "assign": {
     "title": "Assign task",
@@ -270,7 +416,8 @@
     "noKpis": "This person has no KPIs that you can assign tasks on.",
     "subtaskKpi": "A subtask always stays on the KPI of its parent task: \"{{name}}\".",
     "confirm": "Confirm",
-    "done": "Assignee / KPI updated"
+    "done": "Assignee / KPI updated",
+    "noKpiHint": "This task is not linked to a KPI, so it can go to anyone in the organization. To link a KPI, change it in the task's KPI field."
   },
   "new": {
     "title": "New task",
@@ -281,7 +428,14 @@
     "me": "{{name}} (me)",
     "moreDetails": "More details",
     "checklistLines": "Checklist (one step per line)",
-    "checklistPlaceholder": "Step 1\nStep 2"
+    "checklistPlaceholder": "Step 1\nStep 2",
+    "kpiOptional": "KPI (optional)",
+    "kpiPlaceholderOptional": "Not linked to a KPI",
+    "noKpiOptions": "The assignee has no KPI that accepts more tasks, so the task will not be linked to a KPI.",
+    "list": "List",
+    "noList": "Not in a list",
+    "section": "Section",
+    "anyoneHint": "A task without a KPI can go to anyone in the organization. With a KPI, only people on that KPI can be assigned."
   },
   "history": {
     "CREATED": "created the task",
@@ -296,12 +450,34 @@
     "REASSIGNED": "reassigned it: {{from}} → {{to}}",
     "FOLLOWER_ADDED": "added follower {{to}}",
     "FOLLOWER_REMOVED": "removed follower {{from}}",
+    "FOLLOWER_REMOVED_KPI_CHANGED": "removed follower {{from}} because the task moved to a KPI they cannot view",
     "SUBTASK_ADDED": "added subtask \"{{to}}\"",
     "RECURRENCE_CHANGED": "changed the recurrence",
     "RECURRED": "created occurrence {{to}}",
     "REMINDERS_CHANGED": "changed the reminders",
     "DUPLICATED": "duplicated it from another task",
-    "DELETED": "deleted the task"
+    "DELETED": "deleted the task",
+    "KPI_LINKED": "linked a KPI",
+    "KPI_UNLINKED": "unlinked the KPI",
+    "DECLINED": "declined the task",
+    "DECLINED_REASON": "declined the task, reason: {{to}}",
+    "ASSIGNEE_ADDED": "added assignee {{to}}",
+    "ASSIGNEE_REMOVED": "removed assignee {{from}}",
+    "PART_COMPLETED": "finished their part",
+    "PART_REOPENED": "reopened their part",
+    "START_CHANGED": "changed start date: {{from}} → {{to}}",
+    "COMPLETION_MODE_CHANGED": "changed the completion rule",
+    "LIST_ADDED": "added to list \"{{to}}\"",
+    "LIST_REMOVED": "removed from list \"{{from}}\"",
+    "SECTION_CHANGED": "moved section: {{from}} → {{to}}",
+    "TAGS_CHANGED": "changed tags",
+    "FIELD_CHANGED": "edited field \"{{to}}\"",
+    "DEPENDENCY_ADDED": "added a task that must finish first: \"{{to}}\"",
+    "DEPENDENCY_REMOVED": "removed the dependency on \"{{from}}\"",
+    "AUTOMATION_RAN": "automation rule \"{{to}}\" ran",
+    "IMPORTED": "imported from Excel into list \"{{to}}\"",
+    "MILESTONE_CHANGED": "changed the milestone mark",
+    "PARENT_CHANGED": "changed the parent task from \"{{from}}\" to \"{{to}}\""
   },
   "picker": {
     "pickPerson": "Select a person",
@@ -313,5 +489,390 @@
     "noGroup": "Other",
     "empty": "No results",
     "latestPeriod": "Latest period"
+  },
+  "validation": {
+    "titleRequired": "Enter a task title",
+    "startAfterDue": "Start date must be on or before the due date"
+  },
+  "assignees": {
+    "add": "Add person",
+    "change": "Change person",
+    "makePrimary": "Make primary assignee",
+    "remove": "Remove this person",
+    "count": "{{count}} assignees",
+    "addLark": "Add assignees"
+  },
+  "completion": {
+    "ANY": "Done when anyone finishes",
+    "ALL": "Done when everyone finishes",
+    "whenAny": "Task completed when anyone completes",
+    "whenAll": "Task completed when everyone completes"
+  },
+  "decline": {
+    "action": "Decline task",
+    "title": "Decline this task?",
+    "description": "You will no longer be an assignee. The task goes back to whoever assigned it (or you are just removed if others are still on it).",
+    "reasonPlaceholder": "Reason (optional)",
+    "done": "Task declined"
+  },
+  "deps": {
+    "title": "Dependencies",
+    "addBlocker": "Add a task that must finish first",
+    "search": "Search tasks",
+    "noCandidates": "No matching tasks",
+    "BLOCKED_BY": "Waiting on",
+    "BLOCKING": "Blocking",
+    "hidden": "A task you cannot view",
+    "remove": "Remove dependency",
+    "menuBlockedBy": "Blocked by",
+    "menuBlocking": "Blocking",
+    "pickBlockedByHint": "Pick the task that must finish before this one.",
+    "pickBlockingHint": "Pick the task that waits for this one."
+  },
+  "kpiLink": {
+    "none": "Not linked to a KPI",
+    "link": "Link KPI",
+    "change": "Change KPI",
+    "unlink": "Unlink KPI",
+    "pick": "Choose a KPI",
+    "linked": "KPI linked",
+    "unlinked": "KPI unlinked",
+    "followsRoot": "Follows the top-level task's KPI",
+    "notAllowed": "You cannot change this task's KPI"
+  },
+  "lists": {
+    "create": "New list",
+    "createSubmit": "Create",
+    "namePlaceholder": "List name",
+    "nameRequired": "Enter a list name",
+    "descriptionPlaceholder": "Description (optional)",
+    "template": "Start from",
+    "blank": "Blank list",
+    "blankHint": "Add sections, fields and tasks yourself",
+    "builtin": "Built-in",
+    "templateMeta": "{{sections}} sections · {{fields}} fields · {{tasks}} sample tasks",
+    "includeSampleTasks": "Also create {{count}} sample task(s)",
+    "deleteTemplate": "Delete template",
+    "settings": "Settings",
+    "settingsTitle": "List settings: \"{{name}}\"",
+    "tab": {
+      "general": "General",
+      "members": "Members",
+      "sections": "Sections",
+      "fields": "Fields",
+      "automations": "Automations"
+    },
+    "ownerOnly": "Only list owners can change settings.",
+    "name": "Name",
+    "description": "Description",
+    "color": "Color",
+    "save": "Save",
+    "saveAsTemplate": "Save as template",
+    "templateIncludeTasks": "Include tasks (title, section, checklist, relative due date)",
+    "templateSaved": "List template saved",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archivedBadge": "Archived",
+    "delete": "Delete list",
+    "deleteTitle": "Delete list?",
+    "deleteBody": "The list \"{{name}}\" and its sections, fields and automation rules will be deleted. The tasks stay, they just leave this list.",
+    "addPerson": "Add person",
+    "addUnit": "Add a whole unit",
+    "searchUnit": "Search units",
+    "wholeUnit": "(whole unit)",
+    "removeMember": "Remove from list",
+    "rolesHint": "Owner: change settings and invite people. Editor: add and arrange tasks in the list. Viewer: view only. KPI-linked tasks still follow the KPI's visibility rules.",
+    "role": {
+      "OWNER": "Owner",
+      "EDITOR": "Editor",
+      "VIEWER": "Viewer"
+    },
+    "noSections": "No sections yet",
+    "sectionPlaceholder": "New section name",
+    "addSection": "Add section",
+    "deleteSection": "Delete section",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "sectionDeleteHint": "Deleting a section moves its tasks to \"No section\".",
+    "addTo": "Add to list",
+    "removeFrom": "Remove from list",
+    "membersCount": "{{count}} member(s)",
+    "icon": "Icon",
+    "removeIcon": "Remove icon",
+    "addToLark": "Add to task list",
+    "addToAnother": "Add to another list",
+    "noneToAdd": "No other list you can edit",
+    "share": "Share"
+  },
+  "field": {
+    "type": {
+      "TEXT": "Text",
+      "NUMBER": "Number",
+      "SINGLE_SELECT": "Single select",
+      "MULTI_SELECT": "Multi select",
+      "MEMBER": "Person",
+      "DATE": "Date",
+      "CHECKBOX": "Checkbox"
+    },
+    "add": "Add field",
+    "namePlaceholder": "Field name",
+    "none": "No custom fields yet",
+    "delete": "Delete field",
+    "editOptions": "Edit options",
+    "addOption": "Add option",
+    "removeOption": "Remove option",
+    "optionPlaceholder": "Option {{n}}",
+    "optionsRequired": "A select field needs at least one option",
+    "color": "Change color",
+    "yes": "Yes",
+    "no": "No",
+    "pickPeople": "Choose people"
+  },
+  "automation": {
+    "hint": "When a task in this list meets the condition, an action runs automatically. Rules run as the person who created them.",
+    "none": "No rules yet",
+    "add": "Add rule",
+    "save": "Save rule",
+    "delete": "Delete rule",
+    "enabled": "Turn rule on or off",
+    "namePlaceholder": "Rule name (optional)",
+    "whenLabel": "When",
+    "thenLabel": "Then",
+    "runs": "Ran {{count}} time(s)",
+    "someone": "someone",
+    "anyValue": "any value",
+    "days": "days",
+    "assigneeNoKpi": "Only applies to tasks not linked to a KPI.",
+    "pickSection": "Choose a section",
+    "pickStatus": "Choose a status",
+    "pickField": "Choose a field",
+    "pickPerson": "Choose a person",
+    "pickPriority": "Choose a priority",
+    "pickTarget": "Who to notify",
+    "pickValue": "Choose a value",
+    "trigger": {
+      "TASK_ADDED": "A task is added to the list",
+      "SECTION_ENTERED": "A task enters a section",
+      "STATUS_CHANGED": "Status changes to",
+      "COMPLETED": "A task is completed",
+      "FIELD_CHANGED": "A field changes"
+    },
+    "action": {
+      "SET_STATUS": "Set status",
+      "MOVE_SECTION": "Move to section",
+      "ADD_ASSIGNEE": "Add assignee",
+      "ADD_FOLLOWER": "Add follower",
+      "SET_PRIORITY": "Set priority",
+      "SET_FIELD": "Set field value",
+      "SET_DUE_IN_DAYS": "Set due date N days out",
+      "NOTIFY": "Send a notification"
+    },
+    "when": {
+      "TASK_ADDED": "When a task is added to the list",
+      "SECTION_ENTERED": "When a task enters \"{{section}}\"",
+      "STATUS_CHANGED": "When status becomes {{status}}",
+      "COMPLETED": "When a task is completed",
+      "FIELD_CHANGED": "When \"{{field}}\" changes to {{option}}"
+    },
+    "then": {
+      "SET_STATUS": "set status to {{status}}",
+      "MOVE_SECTION": "move to \"{{section}}\"",
+      "ADD_ASSIGNEE": "add {{person}} as assignee",
+      "ADD_FOLLOWER": "add {{person}} as follower",
+      "SET_PRIORITY": "set priority to {{priority}}",
+      "SET_FIELD": "set \"{{field}}\" to {{value}}",
+      "SET_DUE_IN_DAYS": "set the due date {{days}} days out",
+      "NOTIFY": "notify {{target}}"
+    },
+    "target": {
+      "ASSIGNEES": "the assignees",
+      "CREATOR": "the task creator"
+    }
+  },
+  "tags": {
+    "add": "Tag",
+    "search": "Find or create a tag",
+    "create": "Create tag \"{{name}}\"",
+    "none": "No tags yet, type a name to create one",
+    "addLark": "Add tags"
+  },
+  "views": {
+    "save": "Save view",
+    "saveHint": "Save the current mode, grouping, sorting and filters so you can reopen them quickly.",
+    "namePlaceholder": "View name",
+    "shared": "Share with list members",
+    "saveSubmit": "Save",
+    "saved": "View saved",
+    "delete": "Delete view"
+  },
+  "batch": {
+    "select": "Select task",
+    "selected": "{{count}} task(s) selected",
+    "complete": "Complete",
+    "reopen": "Reopen",
+    "statusPriority": "Status / priority",
+    "due": "Due date",
+    "setDue": "Set due date",
+    "apply": "Apply",
+    "clearDue": "Clear due date",
+    "shiftDue": "Shift due date (days, negative = earlier)",
+    "days": "days",
+    "people": "People",
+    "addAssignee": "Add assignee (tasks not linked to a KPI)",
+    "addFollower": "Add follower",
+    "lists": "Lists",
+    "moveSection": "Move to section",
+    "removeFromList": "Remove from this list",
+    "addToList": "Add to list",
+    "noLists": "You cannot edit any list yet",
+    "tags": "Tags",
+    "addTagHint": "Click a tag to add it, × to remove it",
+    "removeTag": "Remove tag",
+    "delete": "Delete",
+    "clear": "Clear selection",
+    "deleteTitle": "Delete {{count}} task(s)?",
+    "deleteDescription": "The tasks and their subtasks will be deleted. Tasks you are not allowed to delete are skipped.",
+    "done": "Updated {{count}} task(s)",
+    "partial": "{{ok}} task(s) updated, {{failed}} could not be changed"
+  },
+  "gantt": {
+    "day": "Day",
+    "week": "Week",
+    "empty": "No tasks with dates in this range.",
+    "noDates": "{{count}} task(s) have no dates yet. Set a due date to show them on the Gantt:",
+    "start": "Start",
+    "due": "Due",
+    "month": "Month",
+    "quarter": "Quarter",
+    "linkHint": "Drag onto another task to add a dependency (that task waits for this one)",
+    "linked": "\"{{to}}\" now waits for \"{{from}}\""
+  },
+  "stats": {
+    "total": "Total tasks",
+    "open": "Open",
+    "done": "Done",
+    "overdue": "Overdue",
+    "noDue": "No due date",
+    "weeklyTitle": "By week: tasks created and completed",
+    "created": "Created",
+    "completed": "Completed",
+    "tasksUnit": "tasks",
+    "weekOf": "Week of {{date}}",
+    "byAssignee": "Per assignee",
+    "person": "Person",
+    "bySection": "Per section: progress",
+    "doneOf": "{{done}}/{{total}} done"
+  },
+  "import": {
+    "button": "Import Excel",
+    "title": "Import tasks from Excel",
+    "description": "One task per row. Put assignee emails separated by commas; missing sections and tags are created. Imported tasks are not linked to a KPI.",
+    "template": "Download template",
+    "drop": "Drop an .xlsx file here or click to choose",
+    "hint": ".xlsx file, up to 5 MB and 500 rows",
+    "reading": "Reading file…",
+    "summary": "{{valid}} valid row(s), {{errors}} row(s) with errors (highlighted, will be skipped).",
+    "chooseAnother": "Choose another file",
+    "commit": "Create {{count}} task(s)",
+    "done": "Created {{count}} task(s)",
+    "partial": "Created {{created}} task(s), {{failed}} row(s) could not be created",
+    "col": {
+      "title": "Title",
+      "assignees": "Assignees",
+      "start": "Start",
+      "due": "Due",
+      "section": "Section",
+      "tags": "Tags"
+    }
+  },
+  "source": {
+    "COMMENT": "Comment",
+    "DOCUMENT": "Document",
+    "AI": "K.AI",
+    "createTask": "Create task",
+    "created": "Task created",
+    "openTask": "Open"
+  },
+  "dashboard": {
+    "customize": "Customize dashboard",
+    "customizeHint": "Turn widgets on or off and reorder them. Saved for everyone viewing the list.",
+    "empty": "No widgets yet. Click \"Customize dashboard\" to add some.",
+    "fieldTitle": "{{name}}: open tasks by option",
+    "saved": "Dashboard saved",
+    "w": {
+      "summary": "Key numbers",
+      "weekly": "By week: tasks created and completed",
+      "status": "Status: share of tasks",
+      "priority": "Priority: open tasks",
+      "assignee": "Per assignee",
+      "section": "Per section: progress",
+      "tags": "Tags: open tasks"
+    }
+  },
+  "kanban": {
+    "collapse": "Collapse column",
+    "expand": "Expand column",
+    "moveLeft": "Move left",
+    "moveRight": "Move right",
+    "rename": "Rename"
+  },
+  "menu": {
+    "more": "More actions",
+    "open": "Open"
+  },
+  "mySections": {
+    "deleteHint": "Tasks in this section go back to \"Not in a section\". This section is only yours.",
+    "moveTo": "Move to my section",
+    "none": "No sections yet. Group by \"My sections\" to create one.",
+    "title": "My sections",
+    "searchOrCreate": "Search or create a section",
+    "createNamed": "Create section \"{{name}}\""
+  },
+  "palette": {
+    "title": "Quick search",
+    "placeholder": "Search tasks or lists…",
+    "hint": "Type a task or list name",
+    "empty": "Nothing found",
+    "list": "List"
+  },
+  "undo": {
+    "deletedOne": "Deleted \"{{title}}\"",
+    "deletedMany": "Deleted {{count}} task(s)"
+  },
+  "time": {
+    "startOptional": "Start date (optional)",
+    "due": "Due date",
+    "time": "Time",
+    "addTime": "Add time",
+    "clearAll": "Clear all",
+    "clearField": "Clear this date"
+  },
+  "alert": {
+    "none": "No alert",
+    "atDue": "When it's due",
+    "b5": "5 minutes before",
+    "b15": "15 minutes before",
+    "b30": "30 minutes before",
+    "b60": "1 hour before",
+    "b120": "2 hours before",
+    "b1440": "1 day before",
+    "b2880": "2 days before"
+  },
+  "activity": {
+    "empty": "No activity yet"
+  },
+  "statusPreset": {
+    "ongoing": "Ongoing",
+    "completed": "Completed",
+    "all": "All tasks",
+    "custom": "Selected statuses"
+  },
+  "structure": {
+    "setParent": "Set parent task",
+    "setParentHint": "This task (with its sub-tasks) becomes a sub-task of the task you pick.",
+    "convert": "Convert to task",
+    "converted": "Converted to an independent task",
+    "parentSet": "Parent task set",
+    "milestone": "Mark as milestone"
   }
 }

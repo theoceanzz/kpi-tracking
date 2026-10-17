@@ -61,7 +61,7 @@ class ActionToolPermissionTest {
                 mock(AttachFilesTool.class), mock(KpiFormFillTool.class),
                 mock(SubmissionFormFillTool.class), mock(EvaluationFormFillTool.class),
                 mock(KpiAdjustmentFormFillTool.class),
-                mock(OrgUnitDrawerFormFillTool.class), permissionChecker);
+                mock(OrgUnitDrawerFormFillTool.class), mock(TaskFormFillTool.class), permissionChecker);
     }
 
     /** Tên các @Tool thực sự được gửi cho model khi mở nhóm GHI. */

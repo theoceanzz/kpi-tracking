@@ -40,7 +40,7 @@ public final class ReviewPrompts {
                 } else if (l.scorePercent() != null) {
                     sb.append(" (").append(num(l.scorePercent())).append("%)");
                 }
-                // Mô tả của mức (thang điểm AI, V48) — để AI biết mức đó nghĩa là gì.
+                // Mô tả của mức (thang điểm AI, V51) — để AI biết mức đó nghĩa là gì.
                 if (l.description() != null && !l.description().isBlank()) sb.append(": ").append(l.description().strip());
                 sb.append('\n');
             }
