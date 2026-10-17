@@ -1,8 +1,8 @@
 package com.kpitracking.mapper;
 
 import com.kpitracking.dto.response.discussion.DiscussionCommentResponse;
-import com.kpitracking.entity.DiscussionAttachment;
-import com.kpitracking.entity.DiscussionComment;
+import com.kpitracking.entity.discussion.DiscussionAttachment;
+import com.kpitracking.entity.discussion.DiscussionComment;
 import com.kpitracking.service.discussion.CollabAttachmentPolicy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

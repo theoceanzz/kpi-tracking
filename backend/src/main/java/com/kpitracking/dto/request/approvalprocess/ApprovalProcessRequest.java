@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.approvalprocess;
 
-import com.kpitracking.enums.ApprovalObjectType;
+import com.kpitracking.enums.approvalprocess.ApprovalObjectType;
 import com.kpitracking.service.approvalprocess.ProcessGraph;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

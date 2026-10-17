@@ -1,10 +1,10 @@
 package com.kpitracking.service.kpi.approval;
 
-import com.kpitracking.entity.KpiApprovalFlow;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.ApprovalSubjectType;
-import com.kpitracking.repository.KpiCycleRepository;
-import com.kpitracking.service.KpiCycleEvaluationService;
+import com.kpitracking.entity.kpi.KpiApprovalFlow;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.kpi.ApprovalSubjectType;
+import com.kpitracking.repository.kpi.KpiCycleRepository;
+import com.kpitracking.service.evaluation.KpiCycleEvaluationService;
 import com.kpitracking.service.kpi.CycleStatusGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

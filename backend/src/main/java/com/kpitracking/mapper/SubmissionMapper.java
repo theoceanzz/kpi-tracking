@@ -2,8 +2,8 @@ package com.kpitracking.mapper;
 
 import com.kpitracking.dto.response.submission.AttachmentResponse;
 import com.kpitracking.dto.response.submission.SubmissionResponse;
-import com.kpitracking.entity.KpiSubmission;
-import com.kpitracking.entity.SubmissionAttachment;
+import com.kpitracking.entity.submission.KpiSubmission;
+import com.kpitracking.entity.submission.SubmissionAttachment;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

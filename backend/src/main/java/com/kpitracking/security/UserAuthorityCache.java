@@ -2,9 +2,9 @@ package com.kpitracking.security;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.repository.RolePermissionRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.access.RolePermissionRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;

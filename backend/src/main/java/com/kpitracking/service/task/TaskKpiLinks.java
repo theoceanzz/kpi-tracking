@@ -1,10 +1,10 @@
 package com.kpitracking.service.task;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.KpiTask;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.task.KpiTask;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.repository.KpiCriteriaRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
 import com.kpitracking.service.kpi.CycleStatusGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

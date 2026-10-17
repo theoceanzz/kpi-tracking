@@ -6,11 +6,11 @@ import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.dto.response.email.EmailTemplateResponse;
-import com.kpitracking.entity.EmailTemplate;
-import com.kpitracking.entity.Organization;
+import com.kpitracking.entity.email.EmailTemplate;
+import com.kpitracking.entity.organization.Organization;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.i18n.Terms;
-import com.kpitracking.repository.EmailTemplateRepository;
+import com.kpitracking.repository.email.EmailTemplateRepository;
 import com.kpitracking.service.email.EmailTemplateCatalog.TemplateDef;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,8 +60,8 @@ public class EmailTemplateService {
     );
 
     private final EmailTemplateRepository repository;
-    private final com.kpitracking.repository.UserRepository userRepository;
-    private final com.kpitracking.repository.UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.repository.user.UserRepository userRepository;
+    private final com.kpitracking.repository.user.UserRoleOrgUnitRepository userRoleOrgUnitRepository;
 
     private String frontendUrl;
 

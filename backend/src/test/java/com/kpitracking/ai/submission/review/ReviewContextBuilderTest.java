@@ -1,24 +1,24 @@
 package com.kpitracking.ai.submission.review;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.KpiPeriod;
-import com.kpitracking.entity.KpiSubmission;
-import com.kpitracking.entity.OrgHierarchyLevel;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.Organization;
-import com.kpitracking.entity.SubmissionAttachment;
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.enums.KpiType;
-import com.kpitracking.enums.SubmissionStatus;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.submission.KpiSubmission;
+import com.kpitracking.entity.organization.OrgHierarchyLevel;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.submission.SubmissionAttachment;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.enums.kpi.KpiType;
+import com.kpitracking.enums.submission.SubmissionStatus;
 import com.kpitracking.exception.ForbiddenException;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.KpiPeriodRepository;
-import com.kpitracking.repository.KpiSubmissionRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.kpi.KpiPeriodRepository;
+import com.kpitracking.repository.submission.KpiSubmissionRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.security.PermissionChecker;
-import com.kpitracking.service.KpiAchievementCalculator;
+import com.kpitracking.service.kpi.KpiAchievementCalculator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -51,7 +51,7 @@ class ReviewContextBuilderTest {
     private KpiSubmissionRepository submissions;
     private AiReviewSettingsResolver resolver;
     private ReviewContextBuilder builder;
-    private com.kpitracking.repository.KpiAdjustmentRequestRepository adjustments;
+    private com.kpitracking.repository.kpi.KpiAdjustmentRequestRepository adjustments;
 
     private final UUID managerId = UUID.randomUUID();
     private final UUID staffId = UUID.randomUUID();
@@ -72,15 +72,15 @@ class ReviewContextBuilderTest {
         KpiPeriodRepository periods = mock(KpiPeriodRepository.class);
         submissions = mock(KpiSubmissionRepository.class);
         resolver = mock(AiReviewSettingsResolver.class);
-        adjustments = mock(com.kpitracking.repository.KpiAdjustmentRequestRepository.class);
+        adjustments = mock(com.kpitracking.repository.kpi.KpiAdjustmentRequestRepository.class);
         builder = new ReviewContextBuilder(kpiRepository, periods, users, assignments, permissions, calculator,
                 submissions, resolver, mock(ReviewConductSource.class), adjustments);
         when(resolver.resolve(any(), any())).thenReturn(
                 new AiReviewSettingsResolver.Effective(true, null, "đơn vị"));
         // Thang điểm AI của công ty: hai mức, tối đa 10.
         when(resolver.aiScale(any())).thenReturn(AiReviewSettingsResolver.scaleOf(List.of(
-                com.kpitracking.entity.AiReviewLevel.builder().name("Yếu").position(1).points(java.math.BigDecimal.ZERO).build(),
-                com.kpitracking.entity.AiReviewLevel.builder().name("Tốt").position(2).points(java.math.BigDecimal.TEN).build())));
+                com.kpitracking.entity.ai.AiReviewLevel.builder().name("Yếu").position(1).points(java.math.BigDecimal.ZERO).build(),
+                com.kpitracking.entity.ai.AiReviewLevel.builder().name("Tốt").position(2).points(java.math.BigDecimal.TEN).build())));
 
         org.setId(UUID.randomUUID());
         OrgHierarchyLevel level = new OrgHierarchyLevel();
@@ -187,7 +187,7 @@ class ReviewContextBuilderTest {
         assertThat(ctx.aiMaxPoints()).isEqualByComparingTo("10");
     }
 
-    private static KpiCriteria kpi(String name, double weight, com.kpitracking.enums.KpiStatus status) {
+    private static KpiCriteria kpi(String name, double weight, com.kpitracking.enums.kpi.KpiStatus status) {
         KpiCriteria k = new KpiCriteria();
         k.setId(UUID.randomUUID());
         k.setName(name);
@@ -202,14 +202,14 @@ class ReviewContextBuilderTest {
     @Test
     @DisplayName("chỉ tiêu xin tạm dừng (đã duyệt hoặc đang chờ) không vào phiếu AI và không vào mẫu số: 4 KPI 25 -> tối đa 25, không phải 19,2")
     void pausedCriteriaLeaveTheSheetAndTheScale() {
-        KpiCriteria a = kpi("Kiểm thử phần mềm", 25, com.kpitracking.enums.KpiStatus.APPROVED);
-        KpiCriteria b = kpi("Mức độ bao phủ", 25, com.kpitracking.enums.KpiStatus.APPROVED);
-        KpiCriteria c = kpi("Tỷ lệ nhiệm vụ A", 25, com.kpitracking.enums.KpiStatus.EDITED);
+        KpiCriteria a = kpi("Kiểm thử phần mềm", 25, com.kpitracking.enums.kpi.KpiStatus.APPROVED);
+        KpiCriteria b = kpi("Mức độ bao phủ", 25, com.kpitracking.enums.kpi.KpiStatus.APPROVED);
+        KpiCriteria c = kpi("Tỷ lệ nhiệm vụ A", 25, com.kpitracking.enums.kpi.KpiStatus.EDITED);
         // Đang chờ duyệt ĐỔI CHỈ TIÊU (không phải tạm dừng) — vẫn chấm như thường.
-        KpiCriteria d = kpi("Tỷ lệ nhiệm vụ B", 25, com.kpitracking.enums.KpiStatus.EDIT);
-        KpiCriteria pausedApproved = kpi("Phát triển thêm tính năng mới", 30, com.kpitracking.enums.KpiStatus.INACTIVE);
+        KpiCriteria d = kpi("Tỷ lệ nhiệm vụ B", 25, com.kpitracking.enums.kpi.KpiStatus.EDIT);
+        KpiCriteria pausedApproved = kpi("Phát triển thêm tính năng mới", 30, com.kpitracking.enums.kpi.KpiStatus.INACTIVE);
         pausedApproved.setCompensatedAchievementPercent(15.0);   // core vẫn tính theo % bù — AI thì không
-        KpiCriteria pausePending = kpi("Đang xin tạm dừng", 20, com.kpitracking.enums.KpiStatus.EDIT);
+        KpiCriteria pausePending = kpi("Đang xin tạm dừng", 20, com.kpitracking.enums.kpi.KpiStatus.EDIT);
         when(kpiRepository.findByUserIdInAssigneesAndKpiPeriodId(eq(staffId), eq(periodId), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(a, b, c, d, pausedApproved, pausePending)));
         when(adjustments.findPendingDeactivationCriteriaIds(any())).thenReturn(List.of(pausePending.getId()));
@@ -227,7 +227,7 @@ class ReviewContextBuilderTest {
     void returnedSubmissionIsLeftOut() {
         User staff = new User();
         staff.setId(staffId);
-        KpiCriteria kpi = kpi("Số task hoàn thành", 25, com.kpitracking.enums.KpiStatus.APPROVED);
+        KpiCriteria kpi = kpi("Số task hoàn thành", 25, com.kpitracking.enums.kpi.KpiStatus.APPROVED);
 
         KpiSubmission returned = new KpiSubmission();
         returned.setId(UUID.randomUUID());

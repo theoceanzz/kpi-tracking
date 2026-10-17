@@ -7,26 +7,26 @@ import com.kpitracking.dto.request.ai.AiSubmissionReviewRequest;
 import com.kpitracking.dto.response.ai.AiReviewSettingsResponse;
 import com.kpitracking.dto.response.ai.AiSubmissionReviewItemResponse;
 import com.kpitracking.dto.response.ai.AiSubmissionReviewResponse;
-import com.kpitracking.entity.AiSubmissionReview;
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.Organization;
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.enums.AiReviewStatus;
+import com.kpitracking.entity.ai.AiSubmissionReview;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.enums.ai.AiReviewStatus;
 import com.kpitracking.event.AiReviewEvents;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.mapper.AiSubmissionReviewMapper;
-import com.kpitracking.repository.AiSubmissionReviewItemRepository;
-import com.kpitracking.repository.AiSubmissionReviewRepository;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.OrganizationRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
-import com.kpitracking.service.AiQuotaService;
-import com.kpitracking.service.AiRateLimiter;
+import com.kpitracking.repository.ai.AiSubmissionReviewItemRepository;
+import com.kpitracking.repository.ai.AiSubmissionReviewRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.organization.OrganizationRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
+import com.kpitracking.service.ai.AiQuotaService;
+import com.kpitracking.service.ai.AiRateLimiter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -76,8 +76,8 @@ public class SubmissionReviewService {
     private final AiRateLimiter aiRateLimiter;
     private final AiQuotaService aiQuotaService;
     private final ApplicationEventPublisher events;
-    private final com.kpitracking.repository.KpiSubmissionRepository kpiSubmissionRepository;
-    private final com.kpitracking.repository.AiReviewLevelRepository levelRepository;
+    private final com.kpitracking.repository.submission.KpiSubmissionRepository kpiSubmissionRepository;
+    private final com.kpitracking.repository.ai.AiReviewLevelRepository levelRepository;
     private final AiReviewLatestView latestView;
 
     @Value("${app.ai.review.enabled:true}")
@@ -200,7 +200,7 @@ public class SubmissionReviewService {
      * @param runOf lượt đã chấm item của từng chỉ tiêu (ghi {@code reviewedAt})
      */
     private AiSubmissionReviewResponse assemble(AiSubmissionReview review, AiReviewStatus status,
-                                                List<com.kpitracking.entity.AiSubmissionReviewItem> allItems,
+                                                List<com.kpitracking.entity.ai.AiSubmissionReviewItem> allItems,
                                                 Map<UUID, AiSubmissionReview> runOf) {
         AiSubmissionReviewResponse r = mapper.toResponse(review);
         r.setStatus(status);
@@ -217,11 +217,11 @@ public class SubmissionReviewService {
                 .forEach(s -> {
                     actual.put(s.getId(), s.getActualValue());
                     if (s.getQualitativeLevel() != null) selfLevel.put(s.getId(), s.getQualitativeLevel().getName());
-                    if (s.getStatus() == com.kpitracking.enums.SubmissionStatus.RETURNED) returned.add(s.getId());
+                    if (s.getStatus() == com.kpitracking.enums.submission.SubmissionStatus.RETURNED) returned.add(s.getId());
                 });
         // Kết quả AI của bài đã TRẢ LẠI không còn là kết quả hiện hành: nhân viên nộp lại là bài mới, AI phải chấm lại —
         // để nguyên thì phiếu chấm và khối Xem đánh giá hiện điểm cũ như thể AI đã chấm bài mới (07/10).
-        List<com.kpitracking.entity.AiSubmissionReviewItem> items = allItems.stream()
+        List<com.kpitracking.entity.ai.AiSubmissionReviewItem> items = allItems.stream()
                 .filter(i -> i.getKpiSubmissionId() == null || !returned.contains(i.getKpiSubmissionId()))
                 .toList();
         // Điểm AI tính LẠI lúc đọc theo THANG ĐIỂM AI hiện hành (V51): điểm = điểm của mức AI đã chọn — kết quả cũ (chấm
@@ -237,7 +237,7 @@ public class SubmissionReviewService {
             if (k != null) {
                 ir.setKpiCriteriaName(k.getName());
                 ir.setWeight(k.getWeight());
-                ir.setQualitative(k.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE);
+                ir.setQualitative(k.getKpiType() == com.kpitracking.enums.kpi.KpiType.QUALITATIVE);
                 ir.setTargetValue(k.getTargetValue());
                 ir.setUnit(k.getUnit());
             }
@@ -321,7 +321,7 @@ public class SubmissionReviewService {
                 .sorted(java.util.Comparator.comparing(AiReviewSettingsRequest.Level::getPoints)).toList();
         for (int i = 0; i < sorted.size(); i++) {
             AiReviewSettingsRequest.Level l = sorted.get(i);
-            levelRepository.save(com.kpitracking.entity.AiReviewLevel.builder()
+            levelRepository.save(com.kpitracking.entity.ai.AiReviewLevel.builder()
                     .organizationId(org.getId()).position(i + 1).name(l.getName().strip()).points(l.getPoints())
                     .color(l.getColor()).description(l.getDescription() == null || l.getDescription().isBlank()
                             ? null : l.getDescription().strip())

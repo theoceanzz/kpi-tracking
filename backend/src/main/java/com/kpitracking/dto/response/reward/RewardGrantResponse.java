@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.reward;
 
-import com.kpitracking.enums.RewardApprovalMode;
-import com.kpitracking.enums.RewardGrantStatus;
+import com.kpitracking.enums.reward.RewardApprovalMode;
+import com.kpitracking.enums.reward.RewardGrantStatus;
 import lombok.Builder;
 import lombok.Data;
 

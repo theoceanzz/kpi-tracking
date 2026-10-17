@@ -2,13 +2,13 @@ package com.kpitracking.service.task;
 
 import com.kpitracking.dto.request.task.TaskListRequests;
 import com.kpitracking.dto.response.task.TaskListResponses;
-import com.kpitracking.entity.TaskTag;
-import com.kpitracking.entity.User;
+import com.kpitracking.entity.task.TaskTag;
+import com.kpitracking.entity.user.User;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.mapper.TaskListMapper;
-import com.kpitracking.repository.TaskTagRepository;
+import com.kpitracking.repository.task.TaskTagRepository;
 import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

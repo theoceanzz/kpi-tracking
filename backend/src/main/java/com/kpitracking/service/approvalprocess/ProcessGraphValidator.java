@@ -1,6 +1,6 @@
 package com.kpitracking.service.approvalprocess;
 
-import com.kpitracking.enums.ApprovalObjectType;
+import com.kpitracking.enums.approvalprocess.ApprovalObjectType;
 import com.kpitracking.service.approvalprocess.ProcessGraph.*;
 
 import java.math.BigDecimal;

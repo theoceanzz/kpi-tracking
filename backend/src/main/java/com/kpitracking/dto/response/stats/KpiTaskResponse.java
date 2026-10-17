@@ -30,6 +30,6 @@ public class KpiTaskResponse {
      */
     private Double attainmentPercent;
     private String managerName;
-    private com.kpitracking.enums.KpiType kpiType;
+    private com.kpitracking.enums.kpi.KpiType kpiType;
     private String qualitativeLevelName;
 }

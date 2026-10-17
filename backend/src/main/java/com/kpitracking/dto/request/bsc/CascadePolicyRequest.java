@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.bsc;
 
-import com.kpitracking.enums.BscLinkedWeightEnforce;
+import com.kpitracking.enums.bsc.BscLinkedWeightEnforce;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 

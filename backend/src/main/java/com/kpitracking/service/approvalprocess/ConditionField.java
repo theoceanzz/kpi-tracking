@@ -1,8 +1,8 @@
 package com.kpitracking.service.approvalprocess;
 
-import com.kpitracking.enums.ApprovalObjectType;
-import com.kpitracking.enums.KpiFrequency;
-import com.kpitracking.enums.KpiType;
+import com.kpitracking.enums.approvalprocess.ApprovalObjectType;
+import com.kpitracking.enums.kpi.KpiFrequency;
+import com.kpitracking.enums.kpi.KpiType;
 
 import java.util.Arrays;
 import java.util.List;

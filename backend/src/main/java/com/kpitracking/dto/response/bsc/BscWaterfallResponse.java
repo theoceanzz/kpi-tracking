@@ -53,7 +53,7 @@ public class BscWaterfallResponse {
      * màn hình diễn giải phải nói ra: RENORMALIZE loại hạng mục rỗng khỏi cả tử lẫn mẫu (một
      * hạng mục đạt 150% mà ba hạng mục kia rỗng ⇒ điểm vẫn là 150), ZERO_FILL tính chúng bằng 0.
      */
-    private com.kpitracking.enums.BscEmptyPerspectivePolicy emptyPerspectivePolicy;
+    private com.kpitracking.enums.bsc.BscEmptyPerspectivePolicy emptyPerspectivePolicy;
 
     /** Tỉ lệ trọng số KPI liên kết BSC (QĐ-8) và ngưỡng tối thiểu. */
     private Double linkedWeightPercent;

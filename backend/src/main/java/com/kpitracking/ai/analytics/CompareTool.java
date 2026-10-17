@@ -4,7 +4,7 @@ package com.kpitracking.ai.analytics;
 import com.kpitracking.ai.core.tool.FollowupContextStore;
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests;
 import com.kpitracking.ai.core.tool.ToolSupport;
-import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.service.analytics.OrgUnitStatisticService;
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests.CompareOrgUnitsRequest;
 import lombok.RequiredArgsConstructor;
 import dev.langchain4j.invocation.InvocationParameters;

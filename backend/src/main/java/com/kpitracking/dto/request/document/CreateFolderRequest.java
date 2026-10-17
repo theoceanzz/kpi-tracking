@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.document;
 
-import com.kpitracking.enums.DocumentScope;
+import com.kpitracking.enums.document.DocumentScope;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 

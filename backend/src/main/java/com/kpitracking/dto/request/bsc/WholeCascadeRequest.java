@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.bsc;
 
-import com.kpitracking.enums.BscFixedPerspective;
+import com.kpitracking.enums.bsc.BscFixedPerspective;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;

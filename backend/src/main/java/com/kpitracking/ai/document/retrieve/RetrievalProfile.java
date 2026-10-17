@@ -1,6 +1,6 @@
 package com.kpitracking.ai.document.retrieve;
 
-import com.kpitracking.entity.RagDocument;
+import com.kpitracking.entity.ai.RagDocument;
 
 import java.util.List;
 

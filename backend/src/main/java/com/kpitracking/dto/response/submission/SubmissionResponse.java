@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.submission;
 
-import com.kpitracking.enums.SubmissionStatus;
-import com.kpitracking.enums.KpiType;
+import com.kpitracking.enums.submission.SubmissionStatus;
+import com.kpitracking.enums.kpi.KpiType;
 import lombok.*;
 
 import java.time.Instant;
@@ -54,7 +54,7 @@ public class SubmissionResponse {
     /** Lý do người chấm đã trả lại bài trước đó (khi {@code resubmission}). */
     private String previousReturnReason;
     /** Trạng thái chỉ tiêu — {@code INACTIVE} = đã duyệt xin tạm dừng (AI không chấm). */
-    private com.kpitracking.enums.KpiStatus kpiCriteriaStatus;
+    private com.kpitracking.enums.kpi.KpiStatus kpiCriteriaStatus;
     /** Chỉ tiêu đang có yêu cầu xin tạm dừng chờ duyệt (AI không chấm). */
     private boolean kpiPausePending;
     /** Bài đang đi quy trình duyệt "Báo cáo kết quả KPI": bước hiện tại, tính cho người đang xem. */

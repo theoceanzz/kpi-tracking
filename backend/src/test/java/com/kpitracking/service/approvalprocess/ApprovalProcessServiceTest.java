@@ -2,16 +2,16 @@ package com.kpitracking.service.approvalprocess;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.dto.request.approvalprocess.ApprovalProcessRequest;
-import com.kpitracking.entity.ApprovalProcess;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.ApprovalObjectType;
+import com.kpitracking.entity.approvalprocess.ApprovalProcess;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.approvalprocess.ApprovalObjectType;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.StaleStateException;
-import com.kpitracking.repository.ApprovalProcessRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.RoleRepository;
-import com.kpitracking.repository.UserRepository;
+import com.kpitracking.repository.approvalprocess.ApprovalProcessRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.access.RoleRepository;
+import com.kpitracking.repository.user.UserRepository;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.kpi.approval.KpiApprovalChainService;
 import com.kpitracking.workflow.KpiWorkflowConfigService;
@@ -57,8 +57,8 @@ class ApprovalProcessServiceTest {
     void setUp() {
         service = new ApprovalProcessService(repository, codec, workflowConfigService, chainService, permissionChecker,
                 userRepository, roleRepository, orgUnitRepository,
-                org.mockito.Mockito.mock(com.kpitracking.repository.ApprovalFormRepository.class),
-                org.mockito.Mockito.mock(com.kpitracking.repository.ApprovalFormGroupRepository.class));
+                org.mockito.Mockito.mock(com.kpitracking.repository.approvalform.ApprovalFormRepository.class),
+                org.mockito.Mockito.mock(com.kpitracking.repository.approvalform.ApprovalFormGroupRepository.class));
         when(workflowConfigService.currentOrganizationId()).thenReturn(orgId);
         when(workflowConfigService.currentUser()).thenReturn(admin);
         when(permissionChecker.hasPermission(any(), eq("WORKFLOW:MANAGE"))).thenReturn(true);

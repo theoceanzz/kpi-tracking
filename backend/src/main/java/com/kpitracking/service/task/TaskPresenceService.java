@@ -1,11 +1,11 @@
 package com.kpitracking.service.task;
 
-import com.kpitracking.entity.KpiTask;
-import com.kpitracking.entity.User;
+import com.kpitracking.entity.task.KpiTask;
+import com.kpitracking.entity.user.User;
 import com.kpitracking.event.TaskNotificationListener;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
-import com.kpitracking.repository.UserRepository;
+import com.kpitracking.repository.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;

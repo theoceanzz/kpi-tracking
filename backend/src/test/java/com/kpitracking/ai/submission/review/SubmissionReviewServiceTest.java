@@ -7,24 +7,24 @@ import com.kpitracking.ai.submission.review.SubmissionReviewWorkflow;
 import com.kpitracking.dto.request.ai.AiSubmissionReviewRequest;
 import com.kpitracking.dto.response.ai.AiSubmissionReviewItemResponse;
 import com.kpitracking.dto.response.ai.AiSubmissionReviewResponse;
-import com.kpitracking.entity.AiSubmissionReview;
-import com.kpitracking.entity.AiSubmissionReviewItem;
-import com.kpitracking.entity.Organization;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.AiReviewStatus;
+import com.kpitracking.entity.ai.AiSubmissionReview;
+import com.kpitracking.entity.ai.AiSubmissionReviewItem;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.ai.AiReviewStatus;
 import com.kpitracking.event.AiReviewEvents;
 import com.kpitracking.exception.AiTokenQuotaExceededException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.mapper.AiSubmissionReviewMapper;
-import com.kpitracking.repository.AiSubmissionReviewItemRepository;
-import com.kpitracking.repository.AiSubmissionReviewRepository;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.OrganizationRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
-import com.kpitracking.service.AiQuotaService;
-import com.kpitracking.service.AiRateLimiter;
+import com.kpitracking.repository.ai.AiSubmissionReviewItemRepository;
+import com.kpitracking.repository.ai.AiSubmissionReviewRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.organization.OrganizationRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
+import com.kpitracking.service.ai.AiQuotaService;
+import com.kpitracking.service.ai.AiRateLimiter;
 import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,8 +73,8 @@ class SubmissionReviewServiceTest {
     private AiReviewSettingsResolver resolver;
     private UserRoleOrgUnitRepository assignments;
     private AiSubmissionReviewItemRepository itemRepository;
-    private com.kpitracking.repository.AiReviewLevelRepository levelRepository;
-    private com.kpitracking.repository.KpiSubmissionRepository submissionRepository;
+    private com.kpitracking.repository.ai.AiReviewLevelRepository levelRepository;
+    private com.kpitracking.repository.submission.KpiSubmissionRepository submissionRepository;
     /** Item theo lượt — giả lập bảng ai_submission_review_items cho {@code findAllByReviewIdIn}. */
     private final java.util.Map<UUID, List<AiSubmissionReviewItem>> itemsByRun = new java.util.HashMap<>();
 
@@ -100,8 +100,8 @@ class SubmissionReviewServiceTest {
         assignments = mock(UserRoleOrgUnitRepository.class);
 
         itemRepository = mock(AiSubmissionReviewItemRepository.class);
-        levelRepository = mock(com.kpitracking.repository.AiReviewLevelRepository.class);
-        submissionRepository = mock(com.kpitracking.repository.KpiSubmissionRepository.class);
+        levelRepository = mock(com.kpitracking.repository.ai.AiReviewLevelRepository.class);
+        submissionRepository = mock(com.kpitracking.repository.submission.KpiSubmissionRepository.class);
         when(itemRepository.findAllByReviewIdIn(anyCollection())).thenAnswer(inv -> {
             java.util.Collection<UUID> ids = inv.getArgument(0);
             return ids.stream().flatMap(id -> itemsByRun.getOrDefault(id, List.of()).stream()).toList();
@@ -455,9 +455,9 @@ class SubmissionReviewServiceTest {
     private static AiReviewSettingsResolver.AiScale dbScale(double max) {
         String[] names = {"KÉM", "TRUNG BÌNH", "TỐT"};
         double[] share = {0, 0.5, 1};
-        java.util.List<com.kpitracking.entity.AiReviewLevel> rows = new java.util.ArrayList<>();
+        java.util.List<com.kpitracking.entity.ai.AiReviewLevel> rows = new java.util.ArrayList<>();
         for (int i = 0; i < names.length; i++) {
-            rows.add(com.kpitracking.entity.AiReviewLevel.builder().name(names[i]).position(i + 1)
+            rows.add(com.kpitracking.entity.ai.AiReviewLevel.builder().name(names[i]).position(i + 1)
                     .points(java.math.BigDecimal.valueOf(share[i] * max)).build());
         }
         return AiReviewSettingsResolver.scaleOf(rows);
@@ -515,12 +515,12 @@ class SubmissionReviewServiceTest {
         old.setKpiSubmissionId(UUID.randomUUID());
         AiSubmissionReviewItem live = item(done, kpiB, 20);
         live.setKpiSubmissionId(UUID.randomUUID());
-        com.kpitracking.entity.KpiSubmission returned = new com.kpitracking.entity.KpiSubmission();
+        com.kpitracking.entity.submission.KpiSubmission returned = new com.kpitracking.entity.submission.KpiSubmission();
         returned.setId(old.getKpiSubmissionId());
-        returned.setStatus(com.kpitracking.enums.SubmissionStatus.RETURNED);
-        com.kpitracking.entity.KpiSubmission pending = new com.kpitracking.entity.KpiSubmission();
+        returned.setStatus(com.kpitracking.enums.submission.SubmissionStatus.RETURNED);
+        com.kpitracking.entity.submission.KpiSubmission pending = new com.kpitracking.entity.submission.KpiSubmission();
         pending.setId(live.getKpiSubmissionId());
-        pending.setStatus(com.kpitracking.enums.SubmissionStatus.PENDING);
+        pending.setStatus(com.kpitracking.enums.submission.SubmissionStatus.PENDING);
         when(submissionRepository.findAllById(any())).thenReturn(List.of(returned, pending));
         when(reviewRepository.findByKpiPeriodIdAndUserIdOrderByCreatedAtDesc(periodId, staffId)).thenReturn(List.of(done));
 

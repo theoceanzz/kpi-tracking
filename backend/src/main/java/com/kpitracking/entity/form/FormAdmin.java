@@ -1,7 +1,7 @@
 package com.kpitracking.entity.form;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.kpitracking.enums.FormAdminPermission;
+import com.kpitracking.enums.approvalform.FormAdminPermission;
 
 import java.util.List;
 import java.util.UUID;

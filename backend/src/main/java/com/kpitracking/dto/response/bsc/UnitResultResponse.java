@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.bsc;
 
-import com.kpitracking.enums.BscUnitResultStatus;
+import com.kpitracking.enums.bsc.BscUnitResultStatus;
 import lombok.*;
 
 import java.time.Instant;

@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.orgunit;
 
-import com.kpitracking.enums.OrgUnitStatus;
+import com.kpitracking.enums.organization.OrgUnitStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

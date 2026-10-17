@@ -1,14 +1,14 @@
 package com.kpitracking.service.analytics;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.KpiSubmission;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.KpiParentRelationType;
-import com.kpitracking.enums.KpiStatus;
-import com.kpitracking.enums.KpiType;
-import com.kpitracking.enums.SubmissionStatus;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.service.KpiAchievementCalculator;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.submission.KpiSubmission;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.kpi.KpiParentRelationType;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.enums.kpi.KpiType;
+import com.kpitracking.enums.submission.SubmissionStatus;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.service.kpi.KpiAchievementCalculator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

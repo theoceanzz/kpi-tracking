@@ -1,11 +1,11 @@
 package com.kpitracking.service.feedback360;
 
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.F360CampaignStatus;
+
+import com.kpitracking.enums.feedback360.F360CampaignStatus;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.security.PermissionChecker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +22,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.kpitracking.entity.feedback360.F360Campaign;
+import com.kpitracking.entity.feedback360.F360Subject;
+import com.kpitracking.entity.organization.OrgHierarchyLevel;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
 /**
  * Luật quan trọng nhất của 360: người được đánh giá không đi đường tắt qua quyền quản lý — trưởng
  * đơn vị có VIEW trên chính đơn vị mình, HR có MANAGE, nhưng báo cáo của CHÍNH HỌ chỉ xem được khi

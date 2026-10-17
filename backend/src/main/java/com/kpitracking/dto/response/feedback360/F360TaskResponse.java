@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.feedback360;
 
-import com.kpitracking.enums.F360AssignmentStatus;
-import com.kpitracking.enums.F360Relationship;
+import com.kpitracking.enums.feedback360.F360AssignmentStatus;
+import com.kpitracking.enums.feedback360.F360Relationship;
 import lombok.*;
 
 import java.time.Instant;

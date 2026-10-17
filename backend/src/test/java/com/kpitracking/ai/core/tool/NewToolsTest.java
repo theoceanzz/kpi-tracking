@@ -8,19 +8,19 @@ import com.kpitracking.ai.org.OrgUnitStatisticToolRequests;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.kpi.KpiCriteriaResponse;
-import com.kpitracking.entity.KpiCycle;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.enums.KpiStatus;
-import com.kpitracking.repository.ConversationMessageRepository;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.KpiCycleRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.entity.kpi.KpiCycle;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.repository.ai.ConversationMessageRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.kpi.KpiCycleRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.security.PermissionChecker;
-import com.kpitracking.service.KpiCriteriaService;
-import com.kpitracking.service.KpiCycleEvaluationService;
-import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.service.kpi.KpiCriteriaService;
+import com.kpitracking.service.evaluation.KpiCycleEvaluationService;
+import com.kpitracking.service.analytics.OrgUnitStatisticService;
 import com.kpitracking.ai.core.action.ActionSupport;
 import com.kpitracking.ai.core.action.PendingAction;
 import com.kpitracking.ai.core.action.PendingActionStore;
@@ -255,8 +255,8 @@ class NewToolsTest {
         when(permissions.hasPermission(eq(me), eq("REMINDER:SEND"))).thenReturn(true);
         when(stats.getNonSubmitters(eq(myUnitId), any(), any(), any(), anyInt()))
                 .thenReturn(Map.of("nonSubmitters", List.of(Map.of("fullName", "A", "missingKpiCount", 2))));
-        MyTasksTool tool = new MyTasksTool(mock(com.kpitracking.service.KpiSubmissionService.class), kpiCriteriaService,
-                mock(com.kpitracking.service.KpiAdjustmentService.class), stats,
+        MyTasksTool tool = new MyTasksTool(mock(com.kpitracking.service.submission.KpiSubmissionService.class), kpiCriteriaService,
+                mock(com.kpitracking.service.kpi.KpiAdjustmentService.class), stats,
                 mock(KpiCycleEvaluationService.class), mock(CycleEvaluationTool.class), permissions, support);
 
         String out = tool.getMyTasks(new OrgUnitStatisticToolRequests.MyTasksRequest(null, null, null), ctx());

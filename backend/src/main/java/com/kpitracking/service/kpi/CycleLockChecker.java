@@ -1,9 +1,9 @@
 package com.kpitracking.service.kpi;
 
-import com.kpitracking.entity.CycleUnitEvaluation;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.enums.CycleUnitEvalStatus;
-import com.kpitracking.repository.CycleUnitEvaluationRepository;
+import com.kpitracking.entity.evaluation.CycleUnitEvaluation;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.enums.evaluation.CycleUnitEvalStatus;
+import com.kpitracking.repository.evaluation.CycleUnitEvaluationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

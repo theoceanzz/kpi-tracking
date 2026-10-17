@@ -1,7 +1,7 @@
 package com.kpitracking.service.discussion;
 
-import com.kpitracking.entity.Document;
-import com.kpitracking.repository.DocumentRepository;
+import com.kpitracking.entity.document.Document;
+import com.kpitracking.repository.document.DocumentRepository;
 import com.kpitracking.service.document.DocumentAccess;
 import com.kpitracking.service.document.DocumentAccessResolver;
 import lombok.RequiredArgsConstructor;

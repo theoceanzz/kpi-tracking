@@ -3,7 +3,7 @@ package com.kpitracking.ai.submission.review;
 import com.kpitracking.ai.submission.review.ReviewFixtures;
 import com.kpitracking.ai.submission.review.CriterionReviewAgent;
 import com.kpitracking.ai.submission.review.ReviewSummaryAgent;
-import com.kpitracking.entity.Organization;
+import com.kpitracking.entity.organization.Organization;
 import com.kpitracking.ai.submission.review.ReviewContext;
 import com.kpitracking.ai.submission.review.ReviewContextBuilder;
 import com.kpitracking.ai.submission.review.ReviewDocumentSource;

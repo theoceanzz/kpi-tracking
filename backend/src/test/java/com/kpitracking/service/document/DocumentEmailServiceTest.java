@@ -1,19 +1,19 @@
 package com.kpitracking.service.document;
 
 import com.kpitracking.dto.request.document.SendDocumentEmailRequest;
-import com.kpitracking.entity.Document;
-import com.kpitracking.entity.DocumentPublicLink;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.DocumentScope;
+import com.kpitracking.entity.document.Document;
+import com.kpitracking.entity.document.DocumentPublicLink;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.document.DocumentScope;
 import com.kpitracking.enums.StorageProvider;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.CodedException;
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.repository.DocumentPublicLinkRepository;
-import com.kpitracking.repository.DocumentRepository;
-import com.kpitracking.repository.OrganizationRepository;
+import com.kpitracking.repository.document.DocumentPublicLinkRepository;
+import com.kpitracking.repository.document.DocumentRepository;
+import com.kpitracking.repository.organization.OrganizationRepository;
 import com.kpitracking.security.audit.SecurityAuditService;
-import com.kpitracking.service.EmailService;
+import com.kpitracking.service.email.EmailService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

@@ -1,10 +1,10 @@
 package com.kpitracking.service.reward.urbox;
 
 import com.kpitracking.config.UrboxProperties;
-import com.kpitracking.entity.RewardGiftItem;
-import com.kpitracking.entity.RewardRedemption;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.GiftItemType;
+import com.kpitracking.entity.reward.RewardGiftItem;
+import com.kpitracking.entity.reward.RewardRedemption;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.reward.GiftItemType;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.service.reward.fulfillment.RewardFulfillmentProvider;
 import com.kpitracking.service.reward.urbox.UrboxApiModels.UrboxOrder;

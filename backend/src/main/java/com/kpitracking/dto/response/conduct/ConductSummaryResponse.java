@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.conduct;
 
-import com.kpitracking.enums.ConductStatus;
+import com.kpitracking.enums.conduct.ConductStatus;
 import lombok.*;
 
 import java.util.UUID;

@@ -2,7 +2,7 @@ package com.kpitracking.service.task;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kpitracking.entity.TaskListField;
+import com.kpitracking.entity.task.TaskListField;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 

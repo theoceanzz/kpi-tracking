@@ -1,9 +1,9 @@
 package com.kpitracking.ai.submission.review;
 
-import com.kpitracking.entity.AiSubmissionReview;
-import com.kpitracking.entity.AiSubmissionReviewItem;
-import com.kpitracking.enums.AiReviewStatus;
-import com.kpitracking.repository.AiSubmissionReviewItemRepository;
+import com.kpitracking.entity.ai.AiSubmissionReview;
+import com.kpitracking.entity.ai.AiSubmissionReviewItem;
+import com.kpitracking.enums.ai.AiReviewStatus;
+import com.kpitracking.repository.ai.AiSubmissionReviewItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

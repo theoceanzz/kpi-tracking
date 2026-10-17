@@ -1,0 +1,1496 @@
+package com.kpitracking.service.analytics;
+
+import com.kpitracking.i18n.ErrorMessages;
+import com.kpitracking.dto.response.stats.PersonalObjectiveResponses.*;
+
+import com.kpitracking.enums.submission.SubmissionStatus;
+import com.kpitracking.enums.user.UserStatus;
+
+import com.kpitracking.security.PermissionChecker;
+import com.kpitracking.service.analytics.AnalyticsKpiMetrics;
+import com.kpitracking.service.analytics.KpiMetricsCalculator;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.okr.KeyResult;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.submission.KpiSubmission;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
+import com.kpitracking.service.evaluation.EvaluationService;
+import com.kpitracking.service.kpi.KpiAchievementCalculator;
+import com.kpitracking.service.kpi.KpiCriteriaService;
+/**
+ * Analytics service for standalone KPIs (no KeyResult) scoped to an org unit and its children.
+ * Powers the "KPI đơn vị" tab.
+ */
+@Service
+@RequiredArgsConstructor
+public class OrgUnitKpiAnalyticsService {
+
+    private final UserRepository userRepository;
+    private final OrgUnitRepository orgUnitRepository;
+    private final KpiCriteriaRepository kpiCriteriaRepository;
+    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final PermissionChecker permissionChecker;
+    private final EvaluationService evaluationService;
+    /** Mọi con số về KPI đi qua đây — xem {@link AnalyticsKpiMetrics}. */
+    private final AnalyticsKpiMetrics metrics;
+    private final KpiCriteriaService kpiCriteriaService;
+    private final com.kpitracking.mapper.SoftDeletedRefs softDeletedRefs;
+
+    /** ID MỌI nhân sự trong phạm vi (subtree) — để tính hiệu suất đánh giá cấp đơn vị (khớp thẻ Ma trận). */
+    private java.util.Set<UUID> memberIdsInScope(UUID orgUnitId) {
+        List<OrgUnit> units = resolveOrgUnitSubtree(orgUnitId);
+        if (units.isEmpty()) return java.util.Collections.emptySet();
+        List<UUID> unitIds = units.stream().map(OrgUnit::getId).toList();
+        java.util.Set<UUID> ids = new java.util.LinkedHashSet<>();
+        userRoleOrgUnitRepository.findByOrgUnitIdIn(unitIds).forEach(uro -> ids.add(uro.getUser().getId()));
+        return ids;
+    }
+
+    /** Tập đợt liên quan: đợt đang chọn, hoặc tất cả đợt của các KPI. */
+    private java.util.Set<UUID> relevantPeriodIds(List<KpiCriteria> kpis, java.util.Collection<UUID> periodIds) {
+        if (periodIds != null && !periodIds.isEmpty()) return new java.util.LinkedHashSet<>(periodIds);
+        return kpis.stream().map(KpiCriteria::getKpiPeriod).filter(java.util.Objects::nonNull)
+                .map(KpiPeriod::getId).collect(Collectors.toSet());
+    }
+
+    private User getCurrentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    private UUID getCurrentUserOrganizationId(User user) {
+        List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(user.getId());
+        if (roles.isEmpty()) return null;
+        return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
+    }
+
+    private List<OrgUnit> resolveOrgUnitSubtree(UUID orgUnitId) {
+        User user = getCurrentUser();
+        UUID orgId = getCurrentUserOrganizationId(user);
+        
+        if (orgUnitId != null) {
+            Optional<OrgUnit> root = orgUnitRepository.findById(orgUnitId);
+            if (root.isEmpty()) return Collections.emptyList();
+            // Validate that the requested orgUnitId belongs to the user's organization
+            if (!root.get().getOrgHierarchyLevel().getOrganization().getId().equals(orgId)) {
+                return Collections.emptyList();
+            }
+            return orgUnitRepository.findSubtree(root.get().getPath(), orgId);
+        }
+        
+        List<UUID> rootIds = permissionChecker.getOrgUnitsWithPermission(user.getId(), "DASHBOARD:VIEW");
+        if (rootIds.isEmpty()) {
+            List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
+            rootIds = assignments.stream().map(a -> a.getOrgUnit().getId()).distinct().toList();
+        }
+        if (rootIds.isEmpty()) return Collections.emptyList();
+        return orgUnitRepository.findAllInSubtrees(rootIds, orgId);
+    }
+
+    /**
+     * "Đơn vị mình quản lý" — phạm vi riêng cho các bảng Rủi ro: chỉ lấy subtree gốc ở đơn vị nơi
+     * người dùng giữ vai trò LÃNH ĐẠO (rank Head=0 / Deputy=1), KHÔNG mở rộng theo toàn bộ quyền
+     * DASHBOARD:VIEW. Nhờ vậy không lọt đơn vị/người ở nhánh ngang hàng (đơn vị khác). Nếu không giữ
+     * vai trò lãnh đạo nào → lấy đúng (các) đơn vị được phân công, không suy rộng lên trên.
+     */
+    private List<OrgUnit> resolveManagedSubtree() {
+        User user = getCurrentUser();
+        UUID orgId = getCurrentUserOrganizationId(user);
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
+
+        List<UUID> roots = assignments.stream()
+                .filter(a -> a.getRole() != null && a.getRole().getRank() != null && a.getRole().getRank() <= 1)
+                .map(a -> a.getOrgUnit().getId())
+                .distinct()
+                .collect(Collectors.toList());
+        if (roots.isEmpty()) {
+            roots = assignments.stream()
+                    .map(a -> a.getOrgUnit().getId())
+                    .distinct()
+                    .collect(Collectors.toList());
+        }
+        if (roots.isEmpty()) return Collections.emptyList();
+        return orgUnitRepository.findAllInSubtrees(roots, orgId);
+    }
+
+    /**
+     * Chọn KPI approved theo chế độ OKR của org:
+     * - BẬT OKR: KPI gắn KeyResult thuộc tab Mục tiêu (OKR) → chỉ lấy KPI đơn lẻ (keyResult IS NULL).
+     * - TẮT OKR: không có tab OKR → mọi KPI approved (kể cả còn gắn KeyResult từ dữ liệu cũ) đều là KPI của
+     *   đơn vị; nếu vẫn lọc keyResult IS NULL sẽ ra rỗng ⇒ tiến độ/hiệu suất/đếm KPI/bảng chi tiết = 0.
+     */
+    private List<KpiCriteria> approvedKpisForScope(List<OrgUnit> units, List<UUID> unitIds) {
+        Organization org = units.isEmpty() ? null : units.get(0).getOrgHierarchyLevel().getOrganization();
+        boolean okrOn = org != null && Boolean.TRUE.equals(org.getEnableOkr());
+        return withLivePeriod(okrOn
+                ? kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds)
+                : kpiCriteriaRepository.findByOrgUnitIdsAndStatusIn(unitIds, AnalyticsKpiMetrics.SCORING_STATUSES));
+    }
+
+    /**
+     * Bỏ KPI trỏ tới đợt đã XOÁ MỀM. {@code KpiPeriod} có {@code @SQLRestriction("deleted_at IS NULL")}
+     * nên proxy của đợt đã xoá khác null nhưng chạm {@code getStartDate()} là ném
+     * {@code EntityNotFoundException} — cả thẻ số liệu và biểu đồ của đơn vị đổ 500 vì một đợt cũ
+     * đã bị xoá (prod 2026-09-22). Đợt đã xoá thì KPI của nó cũng không còn gì để thống kê.
+     */
+    private List<KpiCriteria> withLivePeriod(List<KpiCriteria> kpis) {
+        return kpis.stream()
+                .filter(k -> k.getKpiPeriod() == null || softDeletedRefs.periodAlive(k.getKpiPeriod()))
+                .collect(Collectors.toList());
+    }
+
+    private List<KpiCriteria> getStandaloneKpis(UUID orgUnitId) {
+        List<OrgUnit> units = resolveOrgUnitSubtree(orgUnitId);
+        if (units.isEmpty()) return Collections.emptyList();
+        List<UUID> unitIds = units.stream().map(OrgUnit::getId).toList();
+        // Chỉ giữ KPI top-level (cha/thác nước/đơn lẻ); KPI con hiện inline qua trường children.
+        return approvedKpisForScope(units, unitIds).stream()
+                .filter(k -> k.getParent() == null)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * KPI làm cơ sở cho các bảng rủi ro THEO NGƯỜI.
+     *
+     * <p>{@code everyKpi = false} (mặc định, dành cho bảng "Rủi ro thành viên" bên tab KPI đơn vị):
+     * chỉ KPI đơn lẻ — giữ nguyên hành vi cũ.
+     *
+     * <p>{@code everyKpi = true}: mọi KPI approved của phạm vi, kể cả KPI gắn KeyResult. Ô
+     * "Nhân sự cần can thiệp" ở trang chủ cần bản này: nó trả lời "ai đang có vấn đề", mà vấn
+     * đề của một người thì không phân biệt KPI đó thuộc mục tiêu hay đứng riêng. Tổ chức BẬT
+     * OKR gần như toàn bộ KPI đều nằm dưới KeyResult, lọc theo bản đơn lẻ sẽ ra bảng rỗng.
+     */
+    private List<KpiCriteria> memberRiskSource(List<UUID> unitIds, boolean everyKpi) {
+        return withLivePeriod(everyKpi
+                ? kpiCriteriaRepository.findByOrgUnitIdsAndStatusIn(unitIds, AnalyticsKpiMetrics.SCORING_STATUSES)
+                : kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds));
+    }
+
+    /** Khi người dùng chọn (các) đợt cụ thể, chỉ giữ các KPI thuộc những đợt đó. */
+    private List<KpiCriteria> applyPeriodFilter(List<KpiCriteria> kpis, java.util.Collection<UUID> periodIds) {
+        if (periodIds == null || periodIds.isEmpty()) return kpis;
+        return kpis.stream()
+                .filter(k -> k.getKpiPeriod() != null && periodIds.contains(k.getKpiPeriod().getId()))
+                .collect(Collectors.toList());
+    }
+
+    // ── Metrics calculation (same algorithm as PersonalKpiAnalyticsService) ────
+
+    private double[] calculateKpiMetrics(KpiCriteria kpi, Instant A, Instant B, Boolean onlyApproved) {
+        // KPI cha (decomposition): tiến độ/hiệu suất = bình quân có trọng số chuẩn hoá của các con.
+        if (KpiMetricsCalculator.hasDecompositionChildren(kpi)) {
+            double wSum = 0, compSum = 0, perfSum = 0, actualSum = 0;
+            boolean anyActive = false;
+            for (KpiCriteria child : KpiMetricsCalculator.decompositionChildren(kpi)) {
+                double[] cm = calculateKpiMetrics(child, A, B, onlyApproved);
+                if (cm[2] == 0) continue;
+                double w = child.getWeight() != null ? child.getWeight() : 0.0;
+                if (w <= 0) continue;
+                wSum += w;
+                compSum += cm[0] * w;
+                perfSum += cm[1] * w;
+                actualSum += cm[3];
+                anyActive = true;
+            }
+            if (!anyActive || wSum == 0) return new double[]{0, 0, anyActive ? 1 : 0, 0};
+            return new double[]{compSum / wSum, perfSum / wSum, 1.0, actualSum};
+        }
+
+        Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null
+                ? kpi.getKpiPeriod().getStartDate() : Instant.EPOCH;
+        Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null
+                ? kpi.getKpiPeriod().getEndDate() : Instant.now().plus(365, ChronoUnit.DAYS);
+
+        Instant startCalc = A != null && A.isAfter(kpiStart) ? A : kpiStart;
+        Instant endCalc   = B != null && B.isBefore(kpiEnd)  ? B : kpiEnd;
+
+        if (startCalc.isAfter(endCalc)) return new double[]{0, 0, 0, 0};
+
+        double totalKpiTime = Math.max(1, kpiEnd.toEpochMilli() - kpiStart.toEpochMilli());
+        double validFilterTime = endCalc.toEpochMilli() - startCalc.toEpochMilli();
+        double timeRatio = Math.min(1.0, validFilterTime / totalKpiTime);
+        boolean approvedOnly = Boolean.TRUE.equals(onlyApproved);
+
+        /*
+          Công thức là của lõi ({@link AnalyticsKpiMetrics} → {@code KpiAchievementCalculator});
+          ở đây chỉ chọn KHOẢNG. Tiến độ cộng dồn từ đầu kỳ KPI, nhịp tính trong khoảng người dùng
+          chọn rồi chia cho phần thời gian đã trôi.
+
+          `null` = KPI không tham gia tính điểm (thưởng, cha phân rã, thiếu trọng số, định lượng
+          thiếu chỉ tiêu, huỷ không bù, khoá kỳ) hoặc định tính chưa chấm ⇒ cờ "active" = 0, KPI
+          rụng khỏi mọi trung bình. Trước đây KPI thiếu chỉ tiêu bị gán `target = 1.0` nên một KPI
+          không có chỉ tiêu kéo trung bình của cả đơn vị lên trần 150%.
+         */
+        var complWindow = new AnalyticsKpiMetrics.Window(kpiStart, B, approvedOnly);
+        var paceWindow = new AnalyticsKpiMetrics.Window(A, B, approvedOnly);
+
+        Double completion = metrics.attainmentPercent(kpi, null, complWindow, false);
+        if (completion == null) return new double[]{0, 0, 0, 0};
+        Double pace = metrics.pacePercent(kpi, null, paceWindow, false, timeRatio);
+        double actualReturn = metrics.actualValue(kpi, null, complWindow, false);
+
+        return new double[]{completion, pace == null ? 0 : pace, 1.0, actualReturn};
+    }
+
+    /** Mức định tính đại diện của KPI: ưu tiên bài nộp ĐÃ DUYỆT mới nhất có mức; nếu không có → bài mới nhất có mức. */
+    private String qualitativeLevelNameOf(KpiCriteria kpi) {
+        if (kpi.getSubmissions() == null) return null;
+        java.util.Comparator<KpiSubmission> byTime = java.util.Comparator.comparing(
+                (KpiSubmission s) -> s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(),
+                java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder()));
+        return kpi.getSubmissions().stream()
+                .filter(s -> s.getQualitativeLevel() != null && s.getStatus() == SubmissionStatus.APPROVED)
+                .max(byTime)
+                .or(() -> kpi.getSubmissions().stream()
+                        .filter(s -> s.getQualitativeLevel() != null)
+                        .max(byTime))
+                .map(s -> s.getQualitativeLevel().getName())
+                .orElse(null);
+    }
+
+    /**
+     * Bản đồ: id KPI MỚI → KPI CŨ mà nó thay thế.
+     *
+     * <p>Một truy vấn cho cả lô. Gọi trên TOÀN BỘ phạm vi (kể cả KPI con) chứ không chỉ các KPI
+     * top-level, nếu không KPI con sẽ không có nhãn thay thế.
+     */
+    private Map<UUID, KpiCriteria> predecessorMap(Collection<KpiCriteria> scope) {
+        List<UUID> ids = scope.stream().map(KpiCriteria::getId).toList();
+        if (ids.isEmpty()) return Map.of();
+        Map<UUID, KpiCriteria> out = new HashMap<>();
+        for (KpiCriteria old : kpiCriteriaRepository.findPredecessorsOf(ids)) {
+            // Chuỗi thay thế nhiều đời: giữ bản gần nhất, đó là thứ người dùng vừa thấy biến mất.
+            out.putIfAbsent(old.getReplacedBy().getId(), old);
+        }
+        return out;
+    }
+
+    /**
+     * Ngân sách trọng số theo (đơn vị, đợt): con số đem so với mốc 100%.
+     *
+     * <p>Gọi thẳng {@code KpiCriteriaService.calculateTotalWeightByOrgUnit} chứ KHÔNG tự cộng lại.
+     * Đây là cùng một con số mà bước gửi duyệt đem ra chặn, nên hai nơi mà lệch thì người dùng
+     * thấy biểu đồ báo "đủ" rồi bị hệ thống từ chối — hoặc ngược lại.
+     *
+     * <p>Luật đó KHÔNG phải phép cộng: nó bỏ KPI thưởng, bỏ KPI cha phân rã, nhân trọng số với
+     * phần trăm hạng mục khi bật BSC, rồi lấy MAX theo từng người đảm nhiệm cộng phần chưa giao ai.
+     */
+    @Transactional(readOnly = true)
+    public List<UnitWeightBudget> getWeightBudget(UUID orgUnitId, Collection<UUID> periodIds) {
+        List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
+        if (subtree.isEmpty()) return List.of();
+
+        List<UUID> unitIds = subtree.stream().map(OrgUnit::getId).toList();
+        // Lấy đúng tập KPI mà widget đang vẽ (cùng `approvedKpisForScope` + `applyPeriodFilter` như
+        // getDetailedKpis), rồi suy ra các cặp (đơn vị, đợt) từ đó. Nhờ vậy dải ngân sách phủ đúng
+        // những đợt đang hiện trên màn hình, kể cả khi người dùng không lọc đợt nào.
+        Map<UUID, Map<UUID, Integer>> present = new HashMap<>();
+        Map<UUID, KpiPeriod> periodById = new HashMap<>();
+        for (KpiCriteria k : applyPeriodFilter(approvedKpisForScope(subtree, unitIds), periodIds)) {
+            if (k.getOrgUnit() == null || k.getKpiPeriod() == null) continue;
+            periodById.putIfAbsent(k.getKpiPeriod().getId(), k.getKpiPeriod());
+            present.computeIfAbsent(k.getOrgUnit().getId(), x -> new HashMap<>())
+                   .merge(k.getKpiPeriod().getId(), 1, Integer::sum);
+        }
+
+        List<UnitWeightBudget> out = new ArrayList<>();
+        for (OrgUnit u : subtree) {
+            Map<UUID, Integer> byPeriod = present.get(u.getId());
+            if (byPeriod == null) continue;
+            for (Map.Entry<UUID, Integer> e : byPeriod.entrySet()) {
+                KpiPeriod p = periodById.get(e.getKey());
+                Double total = kpiCriteriaService.calculateTotalWeightByOrgUnit(u.getId(), e.getKey());
+                out.add(UnitWeightBudget.builder()
+                        .orgUnitId(u.getId()).orgUnitName(u.getName())
+                        .periodId(e.getKey()).periodName(p != null ? p.getName() : null)
+                        .totalWeight(total != null ? total : 0.0)
+                        .kpiCount(e.getValue())
+                        .build());
+            }
+        }
+        return out;
+    }
+
+    /** Dựng danh sách KPI con (kèm metrics) cho KPI cha/thác nước để FE expand. Trả null nếu không có con. */
+    private List<OrgUnitKpiDetail> buildChildDetails(KpiCriteria kpi, Instant from, Instant to, Boolean onlyApproved,
+                                                     Map<UUID, KpiCriteria> predecessorOf) {
+        List<KpiCriteria> kids = KpiMetricsCalculator.children(kpi);
+        if (kids.isEmpty()) return null;
+        List<OrgUnitKpiDetail> result = new ArrayList<>();
+        for (KpiCriteria child : kids) {
+            double[] cm = calculateKpiMetrics(child, from, to, onlyApproved);
+            boolean childBonus = Boolean.TRUE.equals(child.getIsBonusKpi());
+            boolean childQual = child.getKpiType() == com.kpitracking.enums.kpi.KpiType.QUALITATIVE;
+            result.add(OrgUnitKpiDetail.builder()
+                    .kpiId(child.getId())
+                    .kpiName(child.getName())
+                    .targetValue(child.getTargetValue())
+                    .actualValue(cm[3])
+                    .unit(child.getUnit())
+                    .progress(childBonus || childQual ? null : cm[0])
+                    .performance(childBonus || childQual ? null : cm[1])
+                    .orgUnitId(child.getOrgUnit() != null ? child.getOrgUnit().getId() : null)
+                    .orgUnitName(child.getOrgUnit() != null ? child.getOrgUnit().getName() : "")
+                    .periodStart(child.getKpiPeriod() != null ? child.getKpiPeriod().getStartDate() : null)
+                    .periodEnd(child.getKpiPeriod() != null ? child.getKpiPeriod().getEndDate() : null)
+                    .periodName(child.getKpiPeriod() != null ? child.getKpiPeriod().getName() : null)
+                    .weight(child.getWeight())
+                    .assigneeName(KpiMetricsCalculator.assigneeNames(child))
+                    .assignees(assigneeBriefs(child))
+                    .isShared(child.getAssignees() != null && child.getAssignees().size() > 1)
+                    .participantCount(child.getAssignees() != null ? child.getAssignees().size() : 1)
+                    .isReverseKpi(Boolean.TRUE.equals(child.getIsReverseKpi()))
+                    .isBonusKpi(childBonus)
+                    .kpiType(child.getKpiType())
+                    .qualitativeLevelName(childQual ? qualitativeLevelNameOf(child) : null)
+                    .parentId(kpi.getId())
+                    .parentRelationType(child.getParentRelationType())
+                    .childRelationType(KpiMetricsCalculator.childRelationType(child))
+                    .children(buildChildDetails(child, from, to, onlyApproved, predecessorOf)) // cây nhiều tầng
+                    .replacedKpiId(replacedIdOf(predecessorOf, child))
+                    .replacedKpiName(replacedNameOf(predecessorOf, child))
+                    .replacementReason(replacementReasonOf(predecessorOf, child))
+                    .build());
+        }
+        return result;
+    }
+
+    private static UUID replacedIdOf(Map<UUID, KpiCriteria> m, KpiCriteria k) {
+        KpiCriteria old = m.get(k.getId());
+        return old != null ? old.getId() : null;
+    }
+
+    private static String replacedNameOf(Map<UUID, KpiCriteria> m, KpiCriteria k) {
+        KpiCriteria old = m.get(k.getId());
+        return old != null ? old.getName() : null;
+    }
+
+    private static String replacementReasonOf(Map<UUID, KpiCriteria> m, KpiCriteria k) {
+        KpiCriteria old = m.get(k.getId());
+        return old != null ? old.getReplacementReason() : null;
+    }
+
+    // ── Public endpoints ──────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public Metrics getMetrics(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, java.util.Collection<UUID> periodIds) {
+        List<KpiCriteria> kpis = applyPeriodFilter(getStandaloneKpis(orgUnitId), periodIds);
+        double totalComp = 0, totalPerf = 0;
+        int activeCount = 0, completedCount = 0, runningCount = 0, riskCount = 0;
+        Instant now = Instant.now();
+
+        for (KpiCriteria kpi : kpis) {
+            // KPI thưởng không phản ánh tiến độ/hiệu suất → không tính vào số trung bình & các bộ đếm.
+            if (Boolean.TRUE.equals(kpi.getIsBonusKpi()) || kpi.getKpiType() == com.kpitracking.enums.kpi.KpiType.QUALITATIVE) continue;
+            double[] m = calculateKpiMetrics(kpi, from, to, onlyApproved);
+            if (m[2] > 0) {
+                totalComp += m[0];
+                totalPerf += m[1];
+                activeCount++;
+                if (m[0] >= 100) completedCount++; else runningCount++;
+                Instant kpiEnd = kpi.getEffectiveDeadline();
+                if (kpiEnd != null) {
+                    long daysLeft = (kpiEnd.toEpochMilli() - now.toEpochMilli()) / (1000 * 60 * 60 * 24);
+                    if (daysLeft <= 7 && m[0] < 50) riskCount++;
+                }
+            }
+        }
+
+        // Hiệu suất TB = TB đánh giá của MỌI nhân sự trong phạm vi đơn vị (subtree) — cùng cách với thẻ
+        // "Ma trận xếp loại" (đếm đánh giá theo đơn vị), KHÔNG chỉ giới hạn người được giao KPI. Nhờ vậy
+        // hai nơi hiển thị cùng một con số (tránh lệch khi có người có đánh giá nhưng chưa được giao KPI).
+        Double evalPerf = evaluationService.averagePerformance(
+                memberIdsInScope(orgUnitId), relevantPeriodIds(kpis, periodIds));
+
+        return Metrics.builder()
+                .averageProgress(activeCount > 0 ? totalComp / activeCount : 0)
+                .averagePerformance(evalPerf != null ? evalPerf : 0)
+                .runningKpis(runningCount)
+                .completedKpis(completedCount)
+                .riskKpis(riskCount)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public ComboChartData getComboChart(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, java.util.Collection<UUID> periodIds, String groupBy) {
+        // groupBy=PERIOD → mỗi cột = 1 đợt; mặc định TIME → theo khoảng thời gian (tuần/tháng). Hiệu suất theo đánh giá.
+        if ("PERIOD".equalsIgnoreCase(groupBy)) return getComboChartByPeriod(orgUnitId, onlyApproved, periodIds);
+        return getComboChartByInterval(orgUnitId, from, to, onlyApproved, periodIds);
+    }
+
+    // Xu hướng THEO ĐỢT: mỗi cột = 1 đợt (chỉ KPI thuộc đợt đó); hiệu suất = TB đánh giá người thực hiện trong đợt.
+    private ComboChartData getComboChartByPeriod(UUID orgUnitId, Boolean onlyApproved, java.util.Collection<UUID> periodIds) {
+        List<KpiCriteria> kpis = applyPeriodFilter(getStandaloneKpis(orgUnitId), periodIds);
+        java.util.Map<UUID, KpiPeriod> periodMap = new java.util.LinkedHashMap<>();
+        for (KpiCriteria kpi : kpis) {
+            if (kpi.getKpiPeriod() != null) periodMap.putIfAbsent(kpi.getKpiPeriod().getId(), kpi.getKpiPeriod());
+        }
+        List<KpiPeriod> periods = periodMap.values().stream()
+                .sorted(java.util.Comparator.comparing(p -> p.getStartDate() != null ? p.getStartDate() : Instant.EPOCH))
+                .collect(Collectors.toList());
+
+        List<ChartPoint> points = new ArrayList<>();
+        for (KpiPeriod p : periods) {
+            double totalComp = 0; int cnt = 0;
+            java.util.Set<UUID> userIds = new java.util.LinkedHashSet<>();
+            for (KpiCriteria kpi : kpis) {
+                if (kpi.getKpiPeriod() == null || !p.getId().equals(kpi.getKpiPeriod().getId())) continue;
+                if (Boolean.TRUE.equals(kpi.getIsBonusKpi()) || kpi.getKpiType() == com.kpitracking.enums.kpi.KpiType.QUALITATIVE) continue;
+                double[] m = calculateKpiMetrics(kpi, p.getStartDate(), p.getEndDate(), onlyApproved);
+                if (m[2] > 0) { totalComp += m[0]; cnt++; }
+                if (kpi.getAssignees() != null) kpi.getAssignees().forEach(u -> userIds.add(u.getId()));
+            }
+            double avgComp = cnt > 0 ? totalComp / cnt : 0;
+            Double perf = userIds.isEmpty() ? null : evaluationService.averagePerformance(userIds, java.util.Set.of(p.getId()));
+            points.add(ChartPoint.builder()
+                    .label(p.getName())
+                    .oldItems(0)
+                    .newItems(cnt)
+                    .completionTrend(Math.round(avgComp * 100.0) / 100.0)
+                    .performanceTrend(perf != null ? Math.round(perf * 100.0) / 100.0 : 0)
+                    .build());
+        }
+        return new ComboChartData(points);
+    }
+
+    private ComboChartData getComboChartByInterval(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, java.util.Collection<UUID> periodIds) {
+        List<KpiCriteria> kpis = applyPeriodFilter(getStandaloneKpis(orgUnitId), periodIds);
+        Instant effectiveFrom = from != null ? from : Instant.now().minus(180, ChronoUnit.DAYS);
+        Instant effectiveTo   = to   != null ? to   : Instant.now();
+
+        List<IntervalPoint> intervalPoints = generateIntervalPoints(effectiveFrom, effectiveTo);
+        List<ChartPoint> points = new ArrayList<>();
+
+        for (IntervalPoint ip : intervalPoints) {
+            int oldItems = 0, newItems = 0;
+            double totalComp = 0;
+            int assignedCount = 0;
+            // Hiệu suất theo ĐÁNH GIÁ: gom người thực hiện + đợt của các KPI tính đến hết mốc này.
+            java.util.Set<UUID> userIds = new java.util.LinkedHashSet<>();
+            java.util.Set<UUID> evalPeriodIds = new java.util.LinkedHashSet<>();
+
+            for (KpiCriteria kpi : kpis) {
+                // KPI thưởng không tính vào xu hướng tiến độ/hiệu suất.
+                if (Boolean.TRUE.equals(kpi.getIsBonusKpi()) || kpi.getKpiType() == com.kpitracking.enums.kpi.KpiType.QUALITATIVE) continue;
+                Instant kpiRef = (kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null)
+                        ? kpi.getKpiPeriod().getStartDate() : kpi.getCreatedAt();
+                if (kpiRef != null && kpiRef.isBefore(ip.end)) {
+                    assignedCount++;
+                    if (kpiRef.isBefore(ip.start)) oldItems++; else newItems++;
+                    double[] m = calculateKpiMetrics(kpi, effectiveFrom, ip.end, onlyApproved);
+                    totalComp += m[0];
+                    if (kpi.getAssignees() != null) kpi.getAssignees().forEach(u -> userIds.add(u.getId()));
+                    if (kpi.getKpiPeriod() != null) evalPeriodIds.add(kpi.getKpiPeriod().getId());
+                }
+            }
+
+            double avgComp = assignedCount > 0 ? totalComp / assignedCount : 0;
+            // Hiệu suất = TB điểm đánh giá của người thực hiện trong các đợt liên quan (công thức đánh giá).
+            Double evalPerf = (userIds.isEmpty() || evalPeriodIds.isEmpty())
+                    ? null : evaluationService.averagePerformance(userIds, evalPeriodIds);
+            double avgPerf = evalPerf != null ? evalPerf : 0;
+            points.add(ChartPoint.builder()
+                    .label(ip.label)
+                    .oldItems(oldItems)
+                    .newItems(newItems)
+                    .completionTrend(Math.round(avgComp * 100.0) / 100.0)
+                    .performanceTrend(Math.round(avgPerf * 100.0) / 100.0)
+                    .build());
+        }
+
+        return new ComboChartData(points);
+    }
+
+    @Transactional(readOnly = true)
+    public OrgUnitKpiPagedResponse getDetailedKpis(
+            UUID orgUnitId, UUID filterOrgUnitId,
+            Instant from, Instant to, Boolean onlyApproved,
+            String sortBy, String sortDir,
+            String sharedType,
+            int page, int size, java.util.Collection<UUID> periodIds) {
+
+        List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
+        if (subtree.isEmpty()) return emptyPagedResponse(page, size);
+
+        List<UUID> allUnitIds = subtree.stream().map(OrgUnit::getId).toList();
+        // Chọn KPI theo chế độ OKR của org (tắt OKR ⇒ lấy cả KPI gắn KeyResult) — nhất quán với thẻ metrics.
+        List<KpiCriteria> inScope = applyPeriodFilter(approvedKpisForScope(subtree, allUnitIds), periodIds);
+        // Tra map thay thế TRƯỚC khi lọc top-level — KPI con cũng cần nhãn, mà chúng bị lọc ra ở dòng dưới.
+        Map<UUID, KpiCriteria> predecessorOf = predecessorMap(inScope);
+        // Chỉ liệt kê KPI top-level (cha/thác nước/đơn lẻ); KPI con hiện inline trong children.
+        List<KpiCriteria> kpis = inScope.stream().filter(k -> k.getParent() == null).collect(Collectors.toList());
+
+        // Build available org unit filter options (only units that actually have KPIs)
+        Set<UUID> unitsWithKpis = kpis.stream()
+                .filter(k -> k.getOrgUnit() != null)
+                .map(k -> k.getOrgUnit().getId())
+                .collect(Collectors.toSet());
+        List<FilterOption> availableOrgUnits = buildHierarchicalFilterOptions(subtree, unitsWithKpis, getCurrentUserUnitIds());
+
+        // Apply unit filter
+        if (filterOrgUnitId != null) {
+            kpis = kpis.stream()
+                    .filter(k -> k.getOrgUnit() != null && k.getOrgUnit().getId().equals(filterOrgUnitId))
+                    .toList();
+        }
+
+        List<OrgUnitKpiDetail> details = new ArrayList<>();
+
+        for (KpiCriteria kpi : kpis) {
+            double[] m = calculateKpiMetrics(kpi, from, to, onlyApproved);
+            if (m[2] == 0) continue;
+
+            boolean isShared   = kpi.getAssignees() != null && kpi.getAssignees().size() > 1;
+            double totalTarget = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
+            String orgUnitName = kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : "";
+            UUID   kpiOrgUnitId = kpi.getOrgUnit() != null ? kpi.getOrgUnit().getId() : null;
+            // KPI thưởng / định tính vẫn được liệt kê nhưng không hiển thị tiến độ/hiệu suất số.
+            boolean isBonus = Boolean.TRUE.equals(kpi.getIsBonusKpi());
+            boolean isQual  = kpi.getKpiType() == com.kpitracking.enums.kpi.KpiType.QUALITATIVE;
+
+            details.add(OrgUnitKpiDetail.builder()
+                    .kpiId(kpi.getId())
+                    .kpiName(kpi.getName())
+                    .targetValue(totalTarget)
+                    .actualValue(m[3])
+                    .unit(kpi.getUnit())
+                    .progress(isBonus || isQual ? null : m[0])
+                    .performance(isBonus || isQual ? null : m[1])
+                    .orgUnitId(kpiOrgUnitId)
+                    .orgUnitName(orgUnitName)
+                    .periodStart(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getStartDate() : null)
+                    .periodEnd(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getEndDate() : null)
+                    .periodName(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getName() : null)
+                    .weight(kpi.getWeight())
+                    .assigneeName(KpiMetricsCalculator.assigneeNames(kpi))
+                    .assignees(assigneeBriefs(kpi))
+                    .isShared(isShared)
+                    .participantCount(kpi.getAssignees() != null ? kpi.getAssignees().size() : 1)
+                    .isReverseKpi(Boolean.TRUE.equals(kpi.getIsReverseKpi()))
+                    .isBonusKpi(isBonus)
+                    .kpiType(kpi.getKpiType())
+                    .qualitativeLevelName(isQual ? qualitativeLevelNameOf(kpi) : null)
+                    .parentId(kpi.getParent() != null ? kpi.getParent().getId() : null)
+                    .parentRelationType(kpi.getParentRelationType())
+                    .childRelationType(KpiMetricsCalculator.childRelationType(kpi))
+                    .children(buildChildDetails(kpi, from, to, onlyApproved, predecessorOf))
+                    .replacedKpiId(replacedIdOf(predecessorOf, kpi))
+                    .replacedKpiName(replacedNameOf(predecessorOf, kpi))
+                    .replacementReason(replacementReasonOf(predecessorOf, kpi))
+                    .build());
+        }
+
+        // Filter by shared type
+        if ("SHARED".equalsIgnoreCase(sharedType))    details.removeIf(d -> !d.isShared());
+        else if ("PERSONAL".equalsIgnoreCase(sharedType)) details.removeIf(OrgUnitKpiDetail::isShared);
+
+        // Sort
+        Comparator<OrgUnitKpiDetail> comparator = null;
+        if ("progress".equalsIgnoreCase(sortBy))
+            comparator = Comparator.comparingDouble(d -> d.getProgress() != null ? d.getProgress() : 0.0);
+        else if ("performance".equalsIgnoreCase(sortBy))
+            comparator = Comparator.comparingDouble(d -> d.getPerformance() != null ? d.getPerformance() : 0.0);
+        else if ("period".equalsIgnoreCase(sortBy))
+            comparator = Comparator.comparing(d -> d.getPeriodStart() != null ? d.getPeriodStart() : Instant.EPOCH);
+        if (comparator != null && "desc".equalsIgnoreCase(sortDir)) comparator = comparator.reversed();
+        if (comparator != null) details.sort(comparator);
+
+        // Paginate
+        long total      = details.size();
+        int totalPages  = size > 0 ? (int) Math.ceil((double) total / size) : 1;
+        int safeStart   = Math.min(page * size, (int) total);
+        int safeEnd     = Math.min(safeStart + size, (int) total);
+
+        return OrgUnitKpiPagedResponse.builder()
+                .content(details.subList(safeStart, safeEnd))
+                .page(page).size(size)
+                .totalElements(total).totalPages(totalPages)
+                .first(page == 0).last(page >= totalPages - 1)
+                .availableOrgUnits(availableOrgUnits)
+                .build();
+    }
+
+    // ── Drawer ────────────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public OrgUnitKpiDrawerData getKpiDrawerData(UUID kpiId, Instant from, Instant to, Boolean onlyApproved) {
+        KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
+                .orElseThrow(() -> new RuntimeException("KPI not found: " + kpiId));
+
+        double targetValue  = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
+        boolean isShared    = kpi.getAssignees() != null && kpi.getAssignees().size() > 1;
+        boolean reverseKpi  = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+
+        Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null
+                ? kpi.getKpiPeriod().getStartDate() : Instant.EPOCH;
+        Instant kpiEnd   = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null
+                ? kpi.getKpiPeriod().getEndDate() : Instant.now().plus(365, ChronoUnit.DAYS);
+
+        // Overall totals
+        double[] overall = calculateKpiMetrics(kpi, from, to, onlyApproved);
+        double totalActual      = overall[3];
+        double totalProgress    = overall[0];
+        double teamPerformance  = overall[1];
+
+        // Assignee-level stats for the dual bar chart
+        UUID kpiOrgUnitId = kpi.getOrgUnit() != null ? kpi.getOrgUnit().getId() : null;
+        List<AssigneeStat> assigneeStats = new ArrayList<>();
+        if (kpi.getAssignees() != null) {
+            Instant effectiveFrom = from;
+            Instant effectiveTo   = to;
+            for (User assignee : kpi.getAssignees()) {
+                double startCalcMs = effectiveFrom != null && effectiveFrom.isAfter(kpiStart)
+                        ? effectiveFrom.toEpochMilli() : kpiStart.toEpochMilli();
+                double endCalcMs   = effectiveTo != null && effectiveTo.isBefore(kpiEnd)
+                        ? effectiveTo.toEpochMilli() : kpiEnd.toEpochMilli();
+                double totalKpiMs  = Math.max(1, kpiEnd.toEpochMilli() - kpiStart.toEpochMilli());
+                double timeRatio   = Math.min(1.0, (endCalcMs - startCalcMs) / totalKpiMs);
+                double expected    = targetValue * timeRatio;
+
+                List<KpiSubmission> assigneeComplSubs = kpi.getSubmissions() == null ? Collections.emptyList() : kpi.getSubmissions().stream()
+                        .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
+                                : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                        .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
+                        .filter(s -> { Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(); return !t.isBefore(kpiStart) && (to == null || !t.isAfter(to)); })
+                        .collect(Collectors.toList());
+
+                List<KpiSubmission> assigneePerfSubs = kpi.getSubmissions() == null ? Collections.emptyList() : kpi.getSubmissions().stream()
+                        .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
+                                : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                        .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
+                        .filter(s -> { Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(); return (from == null || !t.isBefore(from)) && (to == null || !t.isAfter(to)); })
+                        .collect(Collectors.toList());
+
+                double assigneeCompletion = KpiMetricsCalculator.sum(assigneeComplSubs);
+                double assigneeCompletionRate = nz(metrics.attainmentPercentFromActual(kpi, assigneeCompletion));
+                double assigneePerformanceRate = nz(metrics.pacePercentFromActual(
+                        kpi, KpiMetricsCalculator.sum(assigneePerfSubs), targetValue > 0 ? expected / targetValue : 0));
+
+                // Resolve org unit and role for this assignee
+                List<UserRoleOrgUnit> assignments = kpiOrgUnitId != null
+                        ? userRoleOrgUnitRepository.findByUserIdAndOrgUnitId(assignee.getId(), kpiOrgUnitId)
+                        : Collections.emptyList();
+                if (assignments.isEmpty())
+                    assignments = userRoleOrgUnitRepository.findByUserId(assignee.getId());
+                String assigneeOrgUnitName = assignments.isEmpty() ? null : assignments.get(0).getOrgUnit().getName();
+                String assigneeRoleName    = assignments.isEmpty() ? null : assignments.get(0).getRole().getName();
+
+                assigneeStats.add(AssigneeStat.builder()
+                        .userId(assignee.getId())
+                        .fullName(assignee.getFullName())
+                        .avatarUrl(assignee.getAvatarUrl())
+                        .orgUnitName(assigneeOrgUnitName)
+                        .roleName(assigneeRoleName)
+                        .actualValue(assigneeCompletion)
+                        .completionRate(assigneeCompletionRate)
+                        .performanceRate(assigneePerformanceRate)
+                        .build());
+            }
+        }
+
+        // Time-series chart data
+        Instant ef = from != null ? from : Instant.now().minus(180, ChronoUnit.DAYS);
+        Instant et = to   != null ? to   : Instant.now();
+        List<IntervalPoint> pts = generateIntervalPoints(ef, et);
+        List<DrawerChartPoint> chartPoints = new ArrayList<>();
+
+        List<User> assigneeList = kpi.getAssignees() != null ? new ArrayList<>(kpi.getAssignees()) : Collections.emptyList();
+
+        for (IntervalPoint ip : pts) {
+            // Team cumulative submissions up to ip.end
+            List<KpiSubmission> teamCumSubs = kpi.getSubmissions() == null ? Collections.emptyList() : kpi.getSubmissions().stream()
+                    .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
+                            : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                    .filter(s -> { Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(); return !t.isBefore(kpiStart) && !t.isAfter(ip.end); })
+                    .collect(Collectors.toList());
+
+            double periodActual = kpi.getSubmissions() == null ? 0 : kpi.getSubmissions().stream()
+                    .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
+                            : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                    .filter(s -> { Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(); return !t.isBefore(ip.start) && !t.isAfter(ip.end); })
+                    .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0).sum();
+
+            double totalKpiMs  = Math.max(1, kpiEnd.toEpochMilli() - kpiStart.toEpochMilli());
+            double periodMs    = ip.end.toEpochMilli() - ip.start.toEpochMilli();
+            double ratio       = Math.min(1.0, periodMs / totalKpiMs);
+            double expectedPeriod = targetValue * ratio;
+            // KPI ngược: actual hiển thị = bài nộp mới nhất; hiệu suất = reversePercent
+            double cumActual = KpiMetricsCalculator.sum(teamCumSubs);
+            double perf = nz(metrics.pacePercentFromActual(kpi, periodActual, ratio));
+
+            // Per-assignee values for this interval
+            Map<String, AssigneeChartValues> assigneeValues = new HashMap<>();
+            for (User assignee : assigneeList) {
+                String uid = assignee.getId().toString();
+                List<KpiSubmission> aCumSubs = kpi.getSubmissions() == null ? Collections.emptyList() : kpi.getSubmissions().stream()
+                        .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
+                                : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                        .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
+                        .filter(s -> { Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(); return !t.isBefore(kpiStart) && !t.isAfter(ip.end); })
+                        .collect(Collectors.toList());
+                double aPeriod = kpi.getSubmissions() == null ? 0 : kpi.getSubmissions().stream()
+                        .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
+                                : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                        .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
+                        .filter(s -> { Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(); return !t.isBefore(ip.start) && !t.isAfter(ip.end); })
+                        .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0).sum();
+                double aCum  = KpiMetricsCalculator.sum(aCumSubs);
+                double aPerf = nz(metrics.pacePercentFromActual(kpi, aPeriod, ratio));
+                assigneeValues.put(uid, AssigneeChartValues.builder()
+                        .actual(aCum)
+                        .performance(Math.round(aPerf * 100.0) / 100.0)
+                        .build());
+            }
+
+            chartPoints.add(DrawerChartPoint.builder()
+                    .label(ip.label)
+                    .targetValue(targetValue)
+                    .teamTotalActual(cumActual)
+                    .teamPerformance(Math.round(perf * 100.0) / 100.0)
+                    .assigneeValues(assigneeValues)
+                    .build());
+        }
+
+        List<AssigneeInfo> availableAssignees = assigneeList.stream()
+                .map(a -> AssigneeInfo.builder().userId(a.getId().toString()).fullName(a.getFullName()).build())
+                .toList();
+
+        // Top submissions
+        List<KpiSubmission> qualifyingSubmissions = kpi.getSubmissions() == null ? Collections.emptyList() :
+                kpi.getSubmissions().stream()
+                        .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
+                                : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                        .filter(s -> {
+                            Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                            return (from == null || !t.isBefore(from)) && (to == null || !t.isAfter(to));
+                        })
+                        .toList();
+        int subCount = Math.max(1, qualifyingSubmissions.size());
+        double expectedPerSub = targetValue / subCount;
+
+        List<SubmissionStat> topSubmissions = qualifyingSubmissions.stream()
+                .map(s -> {
+                    double actualVal = s.getActualValue() != null ? s.getActualValue() : 0.0;
+                    double contribPct = nz(metrics.attainmentPercentFromActual(kpi, actualVal));
+                    // Mỗi bài nộp "đáng lẽ" gánh 1/N chỉ tiêu ⇒ tỉ lệ kỳ vọng = 1/N.
+                    double perf       = nz(metrics.pacePercentFromActual(kpi, actualVal, 1.0 / subCount));
+                    User submitter    = s.getSubmittedBy();
+                    String name       = submitter != null ? submitter.getFullName() : "—";
+                    Instant subTime   = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                    String datePart   = subTime != null
+                            ? " (" + subTime.atZone(ZoneId.systemDefault()).toLocalDate().getDayOfMonth()
+                            + "/" + subTime.atZone(ZoneId.systemDefault()).toLocalDate().getMonthValue() + ")"
+                            : "";
+                    return SubmissionStat.builder()
+                            .label(name + datePart)
+                            .submitterName(name)
+                            .actualValue(actualVal)
+                            .contributionProgress(Math.round(contribPct * 100.0) / 100.0)
+                            .performance(Math.round(perf * 100.0) / 100.0)
+                            .submittedAt(subTime)
+                            .qualitativeLevelName(s.getQualitativeLevel() != null ? s.getQualitativeLevel().getName() : null)
+                            .build();
+                })
+                .sorted(Comparator.comparingDouble(SubmissionStat::getActualValue).reversed())
+                .limit(10)
+                .toList();
+
+        return OrgUnitKpiDrawerData.builder()
+                .kpiName(kpi.getName())
+                .unit(kpi.getUnit())
+                .isShared(isShared)
+                .isReverseKpi(reverseKpi)
+                .isBonusKpi(Boolean.TRUE.equals(kpi.getIsBonusKpi()))
+                .periodName(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getName() : null)
+                .orgUnitName(kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : null)
+                .weight(kpi.getWeight())
+                .targetValue(targetValue)
+                .totalActualValue(totalActual)
+                .totalProgress(totalProgress)
+                .teamPerformance(teamPerformance)
+                .chartPoints(chartPoints)
+                .assigneeStats(assigneeStats)
+                .availableAssignees(availableAssignees)
+                .topSubmissions(topSubmissions)
+                .kpiType(kpi.getKpiType())
+                .qualitativeLevelName(kpi.getKpiType() == com.kpitracking.enums.kpi.KpiType.QUALITATIVE ? qualitativeLevelNameOf(kpi) : null)
+                .qualitativeDistribution(kpi.getKpiType() == com.kpitracking.enums.kpi.KpiType.QUALITATIVE
+                        ? com.kpitracking.util.QualitativeKpiUtil.distribution(kpi) : null)
+                .build();
+    }
+
+    private OrgUnitKpiPagedResponse emptyPagedResponse(int page, int size) {
+        return OrgUnitKpiPagedResponse.builder()
+                .content(Collections.emptyList())
+                .page(page).size(size)
+                .totalElements(0).totalPages(0)
+                .first(true).last(true)
+                .availableOrgUnits(Collections.emptyList())
+                .build();
+    }
+
+    /**
+     * Người đảm nhiệm của một KPI. Quan hệ `assignees` đã được nạp sẵn ở chỗ gọi (đang dùng cho
+     * `isShared`/`participantCount`) nên đây không phát sinh truy vấn mới.
+     */
+    private static List<OrgUnitKpiDetail.AssigneeBrief> assigneeBriefs(KpiCriteria kpi) {
+        if (kpi.getAssignees() == null || kpi.getAssignees().isEmpty()) return List.of();
+        return kpi.getAssignees().stream()
+                .map(u -> OrgUnitKpiDetail.AssigneeBrief.builder()
+                        .userId(u.getId())
+                        .fullName(u.getFullName())
+                        .avatarUrl(u.getAvatarUrl())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    // ── Response DTOs ─────────────────────────────────────────────────────────
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class OrgUnitKpiDetail {
+        private UUID kpiId;
+        private String kpiName;
+        private Double targetValue;
+        private Double actualValue;
+        private String unit;
+        private Double progress;
+        private Double performance;
+        private UUID orgUnitId;
+        private String orgUnitName;
+        private Instant periodStart;
+        private Instant periodEnd;
+        private String periodName;   // tên đợt, vd "Tháng 6/2026"
+        private Double weight;        // trọng số KPI
+        private String assigneeName;  // người đảm nhiệm (ghép tên, dùng cho chế độ bảng)
+        /**
+         * Danh sách người đảm nhiệm kèm ảnh — biểu đồ cần vẽ avatar chứ không tách được từ chuỗi
+         * {@code assigneeName}. Rỗng khi KPI chưa gán ai.
+         */
+        private List<AssigneeBrief> assignees;
+        private boolean isShared;
+        private int participantCount;
+
+        // Nhận diện loại KPI (tag: thường/thưởng/ngược/cha/con/thác nước) + KPI con kèm metrics
+        private Boolean isReverseKpi;
+        private Boolean isBonusKpi;
+        // KPI định tính: kpiType=QUALITATIVE, không có mục tiêu số; kết quả là 1 MỨC (qualitativeLevelName).
+        private com.kpitracking.enums.kpi.KpiType kpiType;
+        private String qualitativeLevelName;
+        private UUID parentId;
+        private com.kpitracking.enums.kpi.KpiParentRelationType parentRelationType;
+        private com.kpitracking.enums.kpi.KpiParentRelationType childRelationType;
+        private List<OrgUnitKpiDetail> children;
+
+        // KPI mà bản này thay thế. Không phải quan hệ cha-con: bản thay thế kế thừa trọng số của
+        // bản cũ chứ không phải một lát cắt của nó, và bản cũ đã rời khỏi phạm vi tính điểm.
+        private UUID replacedKpiId;
+        private String replacedKpiName;
+        private String replacementReason;
+
+        /** Người đảm nhiệm ở mức tối thiểu để vẽ avatar — không kèm gì thêm vì đây là dữ liệu biểu đồ. */
+        @lombok.Data
+        @lombok.Builder
+        @lombok.NoArgsConstructor
+        @lombok.AllArgsConstructor
+        public static class AssigneeBrief {
+            private UUID userId;
+            private String fullName;
+            private String avatarUrl;
+        }
+    }
+
+    /** Một dòng của dải "Ngân sách trọng số": đơn vị này ở đợt này đang ở bao nhiêu phần trăm. */
+    @lombok.Data
+    @lombok.Builder
+    public static class UnitWeightBudget {
+        private UUID orgUnitId;
+        private String orgUnitName;
+        private UUID periodId;
+        private String periodName;
+        /** Con số đem so với 100 — xem doc của `getWeightBudget` để biết nó KHÔNG phải phép cộng. */
+        private double totalWeight;
+        private int kpiCount;
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class OrgUnitKpiPagedResponse {
+        private List<OrgUnitKpiDetail> content;
+        private int page;
+        private int size;
+        private long totalElements;
+        private int totalPages;
+        private boolean first;
+        private boolean last;
+        private List<FilterOption> availableOrgUnits;
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class AssigneeStat {
+        private UUID userId;
+        private String fullName;
+        private String avatarUrl;
+        private String orgUnitName;
+        private String roleName;
+        private double actualValue;
+        private double completionRate;
+        private double performanceRate;
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class AssigneeChartValues {
+        private double actual;
+        private double performance;
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class AssigneeInfo {
+        private String userId;
+        private String fullName;
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class DrawerChartPoint {
+        private String label;
+        private double targetValue;
+        private double teamTotalActual;
+        private double teamPerformance;
+        private Map<String, AssigneeChartValues> assigneeValues;
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class SubmissionStat {
+        private String label;
+        private String submitterName;
+        private double actualValue;
+        private double contributionProgress;
+        private double performance;
+        private Instant submittedAt;
+        private String qualitativeLevelName; // KPI định tính: mức của bài nộp
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class OrgUnitKpiDrawerData {
+        private String kpiName;
+        private String unit;
+        private boolean isShared;
+        private Boolean isReverseKpi;
+        private Boolean isBonusKpi;
+        private String periodName;
+        private String orgUnitName;
+        private Double weight;
+        private double targetValue;
+        private double totalActualValue;
+        private double totalProgress;
+        private double teamPerformance;
+        private List<DrawerChartPoint> chartPoints;
+        private List<AssigneeStat> assigneeStats;
+        private List<AssigneeInfo> availableAssignees;
+        private List<SubmissionStat> topSubmissions;
+        // KPI định tính: đầu ra là MỨC → biểu đồ phân bố mức thay cho biểu đồ số.
+        private com.kpitracking.enums.kpi.KpiType kpiType;
+        private String qualitativeLevelName;
+        private List<com.kpitracking.util.QualitativeKpiUtil.LevelBucket> qualitativeDistribution;
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class UnitRiskRow {
+        private UUID unitId;
+        private String unitName;
+        private int totalKpis;
+        private int overdueCount;
+        private double overdueRate;
+        private double avgProgress;
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class UnitRiskPagedResponse {
+        private List<UnitRiskRow> content;
+        private int page;
+        private int size;
+        private long totalElements;
+        private int totalPages;
+        private boolean first;
+        private boolean last;
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class MemberRiskRow {
+        private UUID userId;
+        private String fullName;
+        private String avatarUrl;
+        private String orgUnitName;
+        private int totalKpis;
+        private int overdueCount;
+        private double overdueRate;
+        private double avgProgress;
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class MemberRiskPagedResponse {
+        private List<MemberRiskRow> content;
+        private int page;
+        private int size;
+        private long totalElements;
+        private int totalPages;
+        private boolean first;
+        private boolean last;
+        private List<FilterOption> availableOrgUnits;
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class OverdueKpiForUnit {
+        private UUID kpiId;
+        private String kpiName;
+        private Instant deadline;
+        private List<String> assigneeNames;
+        private double targetValue;
+        private String unit;
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class MemberSubmissionItem {
+        private double actualValue;
+        private Instant submittedAt;
+        private String status;
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class OverdueKpiForMember {
+        private UUID kpiId;
+        private String kpiName;
+        private Instant deadline;
+        private double targetValue;
+        private String unit;
+        private List<MemberSubmissionItem> submissions;
+    }
+
+    // ── Risk methods ──────────────────────────────────────────────────────────
+
+    /**
+     * Người còn đang làm việc — chỉ những người này mới được đưa vào các bảng cảnh báo.
+     *
+     * <p>Nhân sự đã tạm dừng (INACTIVE) hoặc bị tạm khóa (SUSPENDED) không thể nộp kết quả nữa,
+     * nên tiến độ đứng yên và hạn nộp trôi qua là hệ quả tất yếu của việc dừng, không phải vấn đề
+     * cần quản lý can thiệp. Giữ họ lại chỉ tạo báo động giả và đẩy người thật sự cần giúp xuống
+     * dưới. Người PENDING thì vẫn giữ: họ đang được giao chỉ tiêu và việc tài khoản chưa kích hoạt
+     * chính là thứ cần can thiệp.
+     */
+    private boolean isActiveMember(User u) {
+        return u != null && u.getStatus() != UserStatus.INACTIVE && u.getStatus() != UserStatus.SUSPENDED;
+    }
+
+    @Transactional(readOnly = true)
+    public UnitRiskPagedResponse getUnitRisks(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, java.util.Collection<UUID> periodIds) {
+        List<OrgUnit> subtree = orgUnitId != null ? resolveOrgUnitSubtree(orgUnitId) : resolveManagedSubtree();
+        if (subtree.isEmpty()) return UnitRiskPagedResponse.builder()
+            .content(Collections.emptyList()).page(page).size(size)
+            .totalElements(0).totalPages(0).first(true).last(true).build();
+
+        List<UnitRiskRow> rows = new ArrayList<>();
+
+        for (OrgUnit unit : subtree) {
+            List<KpiCriteria> unitKpis = applyPeriodFilter(
+                    kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(List.of(unit.getId())), periodIds);
+            if (unitKpis.isEmpty()) continue;
+
+            int totalKpis = unitKpis.size();
+            int overdueCount = 0;
+            double totalProgress = 0;
+
+            for (KpiCriteria kpi : unitKpis) {
+                double[] m = calculateKpiMetrics(kpi, from, to, onlyApproved);
+                totalProgress += m[0];
+                if (isKpiOverdueOverall(kpi)) overdueCount++;
+            }
+
+            double avgProgress = totalProgress / totalKpis;
+            double overdueRate = (double) overdueCount / totalKpis * 100;
+            rows.add(UnitRiskRow.builder()
+                .unitId(unit.getId()).unitName(unit.getName())
+                .totalKpis(totalKpis).overdueCount(overdueCount)
+                .overdueRate(Math.round(overdueRate * 100.0) / 100.0)
+                .avgProgress(Math.round(avgProgress * 100.0) / 100.0)
+                .build());
+        }
+
+        Comparator<UnitRiskRow> comp = switch (sortBy != null ? sortBy.toLowerCase() : "") {
+            case "overduecount" -> Comparator.comparingInt(UnitRiskRow::getOverdueCount);
+            case "overduerate"  -> Comparator.comparingDouble(UnitRiskRow::getOverdueRate);
+            default             -> Comparator.comparingDouble(UnitRiskRow::getAvgProgress);
+        };
+        if ("desc".equalsIgnoreCase(sortDir)) comp = comp.reversed();
+        rows.sort(comp);
+
+        int total = rows.size();
+        int totalPages = size > 0 ? (int) Math.ceil((double) total / size) : 1;
+        int s = Math.min(page * size, total), e = Math.min(s + size, total);
+        return UnitRiskPagedResponse.builder()
+            .content(rows.subList(s, e)).page(page).size(size)
+            .totalElements(total).totalPages(totalPages)
+            .first(page == 0).last(page >= totalPages - 1).build();
+    }
+
+    @Transactional(readOnly = true)
+    public MemberRiskPagedResponse getMemberRisks(UUID orgUnitId, UUID filterOrgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, java.util.Collection<UUID> periodIds, boolean everyKpi) {
+        List<OrgUnit> subtree = orgUnitId != null ? resolveOrgUnitSubtree(orgUnitId) : resolveManagedSubtree();
+        if (subtree.isEmpty()) return MemberRiskPagedResponse.builder()
+            .content(Collections.emptyList()).page(page).size(size)
+            .totalElements(0).totalPages(0).first(true).last(true)
+            .availableOrgUnits(Collections.emptyList()).build();
+
+        List<UUID> allUnitIds = subtree.stream().map(OrgUnit::getId).toList();
+        List<KpiCriteria> allKpis = applyPeriodFilter(memberRiskSource(allUnitIds, everyKpi), periodIds);
+
+        Set<UUID> unitsWithKpis = allKpis.stream()
+            // Cùng điều kiện với vòng gộp bên dưới, nếu không đơn vị chỉ còn người đã nghỉ/khóa vẫn
+            // nằm trong ô lọc rồi chọn vào lại ra rỗng.
+            .filter(k -> k.getOrgUnit() != null && k.getAssignees() != null
+                    && k.getAssignees().stream().anyMatch(this::isActiveMember))
+            .map(k -> k.getOrgUnit().getId()).collect(Collectors.toSet());
+        Set<UUID> currentUserUnitIds = getCurrentUserUnitIds();
+        List<FilterOption> availableOrgUnits = buildHierarchicalFilterOptions(subtree, unitsWithKpis, currentUserUnitIds);
+
+        List<KpiCriteria> filtered = filterOrgUnitId != null
+            ? allKpis.stream().filter(k -> k.getOrgUnit() != null && k.getOrgUnit().getId().equals(filterOrgUnitId)).toList()
+            : allKpis;
+
+        Map<UUID, MemberRiskAccumulator> accum = new java.util.LinkedHashMap<>();
+
+        for (KpiCriteria kpi : filtered) {
+            if (kpi.getAssignees() == null || kpi.getAssignees().isEmpty()) continue;
+            double target = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
+            String unitName = kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : "—";
+
+            boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+            for (User assignee : kpi.getAssignees()) {
+                if (!isActiveMember(assignee)) continue;
+                List<KpiSubmission> assigneeSubs = kpi.getSubmissions() == null ? Collections.emptyList() : kpi.getSubmissions().stream()
+                    .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
+                        : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                    .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
+                    .filter(s -> {
+                        Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                        return (from == null || !t.isBefore(from)) && (to == null || !t.isAfter(to));
+                    })
+                    .collect(Collectors.toList());
+                // Công thức tiến độ CHUẨN (cap 150% + xử lý KPI ngược) — nhất quán với bảng Rủi ro đơn vị & Xếp hạng.
+                double completion = nz(metrics.attainmentPercentFromActual(kpi, KpiMetricsCalculator.sum(assigneeSubs)));
+                boolean overdue = isKpiOverdueForUser(kpi, assignee.getId());
+
+                MemberRiskAccumulator a = accum.computeIfAbsent(assignee.getId(),
+                    id -> new MemberRiskAccumulator(id, assignee.getFullName(), assignee.getAvatarUrl(), unitName));
+                a.totalKpis++;
+                a.totalProgress += completion;
+                if (overdue) a.overdueCount++;
+            }
+        }
+
+        List<MemberRiskRow> rows = accum.values().stream().map(a -> {
+            double avg = a.totalKpis > 0 ? a.totalProgress / a.totalKpis : 0;
+            double rate = a.totalKpis > 0 ? (double) a.overdueCount / a.totalKpis * 100 : 0;
+            return MemberRiskRow.builder()
+                .userId(a.userId).fullName(a.fullName).avatarUrl(a.avatarUrl).orgUnitName(a.orgUnitName)
+                .totalKpis(a.totalKpis).overdueCount(a.overdueCount)
+                .overdueRate(Math.round(rate * 100.0) / 100.0)
+                .avgProgress(Math.round(avg * 100.0) / 100.0)
+                .build();
+        }).collect(Collectors.toList());
+
+        Comparator<MemberRiskRow> comp = switch (sortBy != null ? sortBy.toLowerCase() : "") {
+            case "overduecount" -> Comparator.comparingInt(MemberRiskRow::getOverdueCount);
+            case "overduerate"  -> Comparator.comparingDouble(MemberRiskRow::getOverdueRate);
+            default             -> Comparator.comparingDouble(MemberRiskRow::getAvgProgress);
+        };
+        if ("desc".equalsIgnoreCase(sortDir)) comp = comp.reversed();
+        rows.sort(comp);
+
+        int total = rows.size();
+        int totalPages = size > 0 ? (int) Math.ceil((double) total / size) : 1;
+        int s = Math.min(page * size, total), e = Math.min(s + size, total);
+        return MemberRiskPagedResponse.builder()
+            .content(rows.subList(s, e)).page(page).size(size)
+            .totalElements(total).totalPages(totalPages)
+            .first(page == 0).last(page >= totalPages - 1)
+            .availableOrgUnits(availableOrgUnits).build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<OverdueKpiForUnit> getUnitOverdueKpis(UUID unitId) {
+        List<KpiCriteria> kpis = kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(List.of(unitId));
+        List<OverdueKpiForUnit> result = new ArrayList<>();
+        for (KpiCriteria kpi : kpis) {
+            if (!isKpiOverdueOverall(kpi)) continue;
+            Instant kpiEnd = kpi.getEffectiveDeadline();
+            List<String> assigneeNames = kpi.getAssignees() == null ? Collections.emptyList()
+                    : kpi.getAssignees().stream().map(User::getFullName).toList();
+            result.add(OverdueKpiForUnit.builder()
+                    .kpiId(kpi.getId())
+                    .kpiName(kpi.getName())
+                    .deadline(kpiEnd)
+                    .assigneeNames(assigneeNames)
+                    .targetValue(kpi.getTargetValue() != null ? kpi.getTargetValue() : 0.0)
+                    .unit(kpi.getUnit())
+                    .build());
+        }
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public List<OverdueKpiForMember> getMemberOverdueKpis(UUID userId, UUID orgUnitId, java.util.Collection<UUID> periodIds, boolean everyKpi) {
+        List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
+        if (subtree.isEmpty()) return Collections.emptyList();
+        List<UUID> unitIds = subtree.stream().map(OrgUnit::getId).toList();
+        // `periodIds` = lựa chọn đợt/kỳ của người xem; null (không lọc) giữ nguyên hành vi cũ.
+        // `everyKpi` phải khớp với bảng gọi nó, nếu không chi tiết bung ra sẽ lệch dòng tổng.
+        List<KpiCriteria> allKpis = applyPeriodFilter(memberRiskSource(unitIds, everyKpi), periodIds);
+        List<OverdueKpiForMember> result = new ArrayList<>();
+        for (KpiCriteria kpi : allKpis) {
+            if (kpi.getAssignees() == null) continue;
+            boolean assignedToUser = kpi.getAssignees().stream().anyMatch(a -> a.getId().equals(userId));
+            if (!assignedToUser) continue;
+            if (!isKpiOverdueForUser(kpi, userId)) continue;
+            Instant kpiEnd = kpi.getEffectiveDeadline();
+            List<MemberSubmissionItem> submissions = kpi.getSubmissions() == null ? Collections.emptyList()
+                    : kpi.getSubmissions().stream()
+                        .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(userId))
+                        .filter(s -> s.getStatus() == SubmissionStatus.APPROVED
+                                || s.getStatus() == SubmissionStatus.PENDING
+                                || s.getStatus() == SubmissionStatus.REJECTED)
+                        .sorted(Comparator.comparing(s -> {
+                            Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                            return t != null ? t : Instant.EPOCH;
+                        }))
+                        .map(s -> {
+                            Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                            return MemberSubmissionItem.builder()
+                                    .actualValue(s.getActualValue() != null ? s.getActualValue() : 0.0)
+                                    .submittedAt(t)
+                                    .status(s.getStatus() != null ? s.getStatus().name() : "")
+                                    .build();
+                        }).toList();
+            result.add(OverdueKpiForMember.builder()
+                    .kpiId(kpi.getId())
+                    .kpiName(kpi.getName())
+                    .deadline(kpiEnd)
+                    .targetValue(kpi.getTargetValue() != null ? kpi.getTargetValue() : 0.0)
+                    .unit(kpi.getUnit())
+                    .submissions(submissions)
+                    .build());
+        }
+        return result;
+    }
+
+    private List<FilterOption> buildHierarchicalFilterOptions(List<OrgUnit> subtree, Set<UUID> eligibleIds, Set<UUID> currentUserUnitIds) {
+        List<OrgUnit> eligible = subtree.stream()
+            .filter(u -> eligibleIds.contains(u.getId()))
+            .sorted(Comparator.comparing(OrgUnit::getPath))
+            .toList();
+        if (eligible.isEmpty()) return Collections.emptyList();
+        int minSlashes = eligible.stream()
+            .mapToInt(u -> (int) u.getPath().chars().filter(c -> c == '/').count())
+            .min().orElse(0);
+        return eligible.stream().map(u -> {
+            int depth = (int) u.getPath().chars().filter(c -> c == '/').count() - minSlashes;
+            String displayName = currentUserUnitIds.contains(u.getId()) ? ErrorMessages.text("analytics.currentUnit", "", u.getName()) : u.getName();
+            return FilterOption.builder().code(u.getId().toString()).name(displayName).depth(depth).build();
+        }).toList();
+    }
+
+    private Set<UUID> getCurrentUserUnitIds() {
+        User user = getCurrentUser();
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
+        return assignments.stream().map(a -> a.getOrgUnit().getId()).collect(Collectors.toSet());
+    }
+
+    /**
+     * "Trễ hạn" = đã quá hạn mà CHƯA nộp, hoặc bài nộp cuối rơi sau hạn.
+     *
+     * <p>Trước đây chỉ tính vế sau, nên người bỏ trống cả loạt chỉ tiêu quá hạn lại hiện "0 trễ
+     * hạn" ở widget "Nhân sự cần can thiệp" trong khi hồ sơ hiệu suất của chính họ báo hàng chục
+     * bài quá hạn — hai màn hình nói ngược nhau về cùng một người.
+     */
+    private boolean isKpiOverdueOverall(KpiCriteria kpi) {
+        return isOverdue(kpi, null);
+    }
+
+    private boolean isKpiOverdueForUser(KpiCriteria kpi, UUID userId) {
+        return isOverdue(kpi, userId);
+    }
+
+    /** {@code userId == null} = xét bài nộp của mọi người được giao. */
+    private boolean isOverdue(KpiCriteria kpi, UUID userId) {
+        Instant kpiEnd = kpi.getEffectiveDeadline();
+        if (kpiEnd == null) return false;
+        java.util.Optional<Instant> last = (kpi.getSubmissions() == null ? java.util.stream.Stream.<KpiSubmission>empty() : kpi.getSubmissions().stream())
+            .filter(s -> userId == null || (s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(userId)))
+            .filter(s -> s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED)
+            .map(s -> s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt())
+            .filter(java.util.Objects::nonNull)
+            .max(Comparator.naturalOrder());
+        // Chưa nộp gì: trễ khi hạn đã qua.
+        return last.map(t -> t.isAfter(kpiEnd)).orElseGet(() -> kpiEnd.isBefore(Instant.now()));
+    }
+
+    private static class MemberRiskAccumulator {
+        UUID userId; String fullName; String avatarUrl; String orgUnitName;
+        int totalKpis = 0; int overdueCount = 0; double totalProgress = 0.0;
+        MemberRiskAccumulator(UUID id, String name, String avatar, String unit) {
+            this.userId = id; this.fullName = name; this.avatarUrl = avatar; this.orgUnitName = unit;
+        }
+    }
+
+    // ── Chart helpers ─────────────────────────────────────────────────────────
+
+    private static class ChartConfig {
+        String groupingType; int periods;
+        ChartConfig(String g, int p) { groupingType = g; periods = p; }
+    }
+
+    private static class IntervalPoint {
+        Instant start, end; String label;
+        IntervalPoint(Instant s, Instant e, String l) { start = s; end = e; label = l; }
+    }
+
+    private ChartConfig determineChartConfig(Instant from, Instant to) {
+        long N = Math.max(1, (to.toEpochMilli() - from.toEpochMilli()) / (1000 * 60 * 60 * 24));
+        if (N <= 7)    return new ChartConfig("Ngày",  (int) N);
+        if (N <= 70)   return new ChartConfig("Tuần",  (int) Math.ceil((double) N / 7.0));
+        if (N <= 300)  return new ChartConfig("Tháng", (int) Math.ceil((double) N / 30.0));
+        if (N <= 1200) return new ChartConfig("Quý",   (int) Math.ceil((double) N / 90.0));
+        return             new ChartConfig("Năm",   (int) Math.ceil((double) N / 365.0));
+    }
+
+    private List<IntervalPoint> generateIntervalPoints(Instant from, Instant to) {
+        Instant ef = from != null ? from : Instant.now().minus(180, ChronoUnit.DAYS);
+        Instant et = to   != null ? to   : Instant.now();
+        ChartConfig cfg = determineChartConfig(ef, et);
+        List<IntervalPoint> pts = new ArrayList<>();
+        LocalDate start = ef.atZone(ZoneId.systemDefault()).toLocalDate();
+        LocalDate end   = et.atZone(ZoneId.systemDefault()).toLocalDate();
+
+        switch (cfg.groupingType) {
+            case "Ngày" -> {
+                for (LocalDate c = start; !c.isAfter(end); c = c.plusDays(1))
+                    pts.add(new IntervalPoint(
+                            c.atStartOfDay(ZoneId.systemDefault()).toInstant(),
+                            c.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant(),
+                            ErrorMessages.text("analytics.bucket.day", "", c.getDayOfMonth(), c.getMonthValue())));
+            }
+            case "Tuần" -> {
+                int w = 1;
+                for (LocalDate c = start; c.isBefore(end); c = c.plusWeeks(1), w++) {
+                    LocalDate next = c.plusWeeks(1);
+                    pts.add(new IntervalPoint(
+                            c.atStartOfDay(ZoneId.systemDefault()).toInstant(),
+                            (next.isAfter(end) ? end.plusDays(1) : next).atStartOfDay(ZoneId.systemDefault()).toInstant(),
+                            ErrorMessages.text("analytics.bucket.week", "", w)));
+                }
+            }
+            case "Tháng" -> {
+                for (LocalDate c = start.withDayOfMonth(1); !c.isAfter(end.withDayOfMonth(1)); c = c.plusMonths(1)) {
+                    LocalDate next = c.plusMonths(1);
+                    LocalDate aS   = c.isBefore(start) ? start : c;
+                    LocalDate aE   = next.isAfter(end.plusDays(1)) ? end.plusDays(1) : next;
+                    pts.add(new IntervalPoint(
+                            aS.atStartOfDay(ZoneId.systemDefault()).toInstant(),
+                            aE.atStartOfDay(ZoneId.systemDefault()).toInstant(),
+                            ErrorMessages.text("analytics.bucket.month", "", c.getMonthValue(), c.getYear())));
+                }
+            }
+            case "Quý" -> {
+                int sqm = ((start.getMonthValue() - 1) / 3) * 3 + 1;
+                for (LocalDate c = start.withMonth(sqm).withDayOfMonth(1); !c.isAfter(end); c = c.plusMonths(3)) {
+                    LocalDate next = c.plusMonths(3);
+                    LocalDate aS   = c.isBefore(start) ? start : c;
+                    LocalDate aE   = next.isAfter(end.plusDays(1)) ? end.plusDays(1) : next;
+                    pts.add(new IntervalPoint(
+                            aS.atStartOfDay(ZoneId.systemDefault()).toInstant(),
+                            aE.atStartOfDay(ZoneId.systemDefault()).toInstant(),
+                            ErrorMessages.text("analytics.bucket.quarter", "", (c.getMonthValue() - 1) / 3 + 1, c.getYear())));
+                }
+            }
+            default -> {
+                for (LocalDate c = start.withDayOfYear(1); !c.isAfter(end); c = c.plusYears(1)) {
+                    LocalDate next = c.plusYears(1);
+                    LocalDate aS   = c.isBefore(start) ? start : c;
+                    LocalDate aE   = next.isAfter(end.plusDays(1)) ? end.plusDays(1) : next;
+                    pts.add(new IntervalPoint(
+                            aS.atStartOfDay(ZoneId.systemDefault()).toInstant(),
+                            aE.atStartOfDay(ZoneId.systemDefault()).toInstant(),
+                            ErrorMessages.text("analytics.bucket.year", "", c.getYear())));
+                }
+            }
+        }
+        return pts;
+    }
+    /** null (KPI không tham gia tính điểm) → 0 cho các ô chỉ hiện một con số. */
+    private static double nz(Double v) {
+        return v == null ? 0.0 : v;
+    }
+
+}

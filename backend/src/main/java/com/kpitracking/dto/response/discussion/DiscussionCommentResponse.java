@@ -1,8 +1,8 @@
 package com.kpitracking.dto.response.discussion;
 
-import com.kpitracking.enums.DiscussionCommentKind;
-import com.kpitracking.enums.DiscussionReactionType;
-import com.kpitracking.enums.DiscussionTargetType;
+import com.kpitracking.enums.discussion.DiscussionCommentKind;
+import com.kpitracking.enums.discussion.DiscussionReactionType;
+import com.kpitracking.enums.discussion.DiscussionTargetType;
 import lombok.*;
 
 import java.time.Instant;

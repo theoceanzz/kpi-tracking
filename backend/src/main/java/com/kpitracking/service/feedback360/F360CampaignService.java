@@ -4,15 +4,15 @@ import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.dto.request.feedback360.*;
 import com.kpitracking.dto.response.feedback360.*;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.*;
+
+
 import com.kpitracking.event.F360Events;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.i18n.Terms;
 import com.kpitracking.mapper.F360Mapper;
-import com.kpitracking.repository.*;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -23,6 +23,35 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.kpitracking.entity.feedback360.F360Assignment;
+import com.kpitracking.entity.feedback360.F360Campaign;
+import com.kpitracking.entity.feedback360.F360CampaignQuestion;
+import com.kpitracking.entity.feedback360.F360Event;
+import com.kpitracking.entity.feedback360.F360Question;
+import com.kpitracking.entity.feedback360.F360Subject;
+import com.kpitracking.entity.feedback360.F360Template;
+import com.kpitracking.entity.kpi.KpiCycle;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.feedback360.F360AssignmentStatus;
+import com.kpitracking.enums.feedback360.F360CampaignStatus;
+import com.kpitracking.enums.feedback360.F360QuestionType;
+import com.kpitracking.enums.feedback360.F360RaterSource;
+import com.kpitracking.enums.feedback360.F360Relationship;
+import com.kpitracking.enums.feedback360.F360ScoringMode;
+import com.kpitracking.enums.feedback360.F360SubjectStatus;
+import com.kpitracking.repository.feedback360.F360AnswerRepository;
+import com.kpitracking.repository.feedback360.F360AssignmentRepository;
+import com.kpitracking.repository.feedback360.F360CampaignQuestionRepository;
+import com.kpitracking.repository.feedback360.F360CampaignRepository;
+import com.kpitracking.repository.feedback360.F360EventRepository;
+import com.kpitracking.repository.feedback360.F360SubjectRepository;
+import com.kpitracking.repository.feedback360.F360TemplateRepository;
+import com.kpitracking.repository.kpi.KpiCycleRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.organization.OrganizationRepository;
+import com.kpitracking.repository.user.UserRepository;
 /**
  * Vòng đời chiến dịch 360 (§4.1): DRAFT → (NOMINATING →) OPEN → CLOSED → RELEASED, kèm quản lý
  * người được đánh giá và phiếu. Chiến dịch có ảnh hưởng điểm (§7.2) đi qua {@link F360CycleGuard}

@@ -1,7 +1,7 @@
 package com.kpitracking.ai.core.memory;
 
-import com.kpitracking.entity.ConversationMessage;
-import com.kpitracking.repository.ConversationMessageRepository;
+import com.kpitracking.entity.ai.ConversationMessage;
+import com.kpitracking.repository.ai.ConversationMessageRepository;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;

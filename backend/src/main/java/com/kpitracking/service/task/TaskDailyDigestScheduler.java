@@ -1,14 +1,14 @@
 package com.kpitracking.service.task;
 
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.enums.UserStatus;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.enums.user.UserStatus;
 import com.kpitracking.i18n.LocalizedText;
-import com.kpitracking.repository.KpiTaskRepository;
-import com.kpitracking.repository.NotificationRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.repository.task.KpiTaskRepository;
+import com.kpitracking.repository.notification.NotificationRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.service.notification.NotificationDispatcher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

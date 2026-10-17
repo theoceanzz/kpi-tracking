@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.reward;
 
-import com.kpitracking.enums.RedemptionStatus;
+import com.kpitracking.enums.reward.RedemptionStatus;
 import lombok.Builder;
 import lombok.Data;
 

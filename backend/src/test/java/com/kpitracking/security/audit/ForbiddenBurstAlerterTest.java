@@ -1,9 +1,9 @@
 package com.kpitracking.security.audit;
 
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.UserStatus;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.service.EmailService;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.user.UserStatus;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.service.email.EmailService;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

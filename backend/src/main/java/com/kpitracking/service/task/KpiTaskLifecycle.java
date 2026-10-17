@@ -1,8 +1,8 @@
 package com.kpitracking.service.task;
 
-import com.kpitracking.entity.KpiCriteria;
+import com.kpitracking.entity.kpi.KpiCriteria;
 import com.kpitracking.event.TaskEvents;
-import com.kpitracking.repository.KpiTaskRepository;
+import com.kpitracking.repository.task.KpiTaskRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;

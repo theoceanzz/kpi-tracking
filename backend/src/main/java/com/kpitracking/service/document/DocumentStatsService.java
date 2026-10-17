@@ -5,13 +5,13 @@ import com.kpitracking.dto.response.document.DocumentStorageStatsResponse.OwnerR
 import com.kpitracking.dto.response.document.DocumentStorageStatsResponse.ScopeRow;
 import com.kpitracking.dto.response.document.DocumentStorageStatsResponse.UnitRow;
 import com.kpitracking.dto.response.document.DocumentStorageStatsResponse.Usage;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.DocumentScope;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.document.DocumentScope;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
-import com.kpitracking.repository.DocumentRepository;
-import com.kpitracking.repository.UserRepository;
+import com.kpitracking.repository.document.DocumentRepository;
+import com.kpitracking.repository.user.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.*;

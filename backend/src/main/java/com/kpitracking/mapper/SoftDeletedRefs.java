@@ -1,7 +1,7 @@
 package com.kpitracking.mapper;
 
-import com.kpitracking.entity.KpiPeriod;
-import com.kpitracking.entity.User;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.user.User;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.proxy.HibernateProxy;

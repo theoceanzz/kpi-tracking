@@ -1,7 +1,7 @@
 package com.kpitracking.service.analytics;
 
-import com.kpitracking.entity.KpiCycle;
-import com.kpitracking.entity.KpiPeriod;
+import com.kpitracking.entity.kpi.KpiCycle;
+import com.kpitracking.entity.kpi.KpiPeriod;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

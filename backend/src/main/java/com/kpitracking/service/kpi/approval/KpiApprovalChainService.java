@@ -2,8 +2,8 @@ package com.kpitracking.service.kpi.approval;
 
 import com.kpitracking.i18n.SupportedLanguages;
 import com.kpitracking.i18n.LocalizedText;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.*;
+
+
 import com.kpitracking.event.ApprovalChainEvents;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
@@ -11,7 +11,7 @@ import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.exception.StaleStateException;
 import com.kpitracking.i18n.Terms;
-import com.kpitracking.repository.*;
+
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.approvalprocess.ApprovalProcessPlanner;
 import com.kpitracking.service.approvalprocess.ApprovalSubjectFacts;
@@ -30,6 +30,30 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.*;
 
+import com.kpitracking.entity.access.RolePermission;
+import com.kpitracking.entity.kpi.KpiAdjustmentRequest;
+import com.kpitracking.entity.kpi.KpiApprovalEvent;
+import com.kpitracking.entity.kpi.KpiApprovalFlow;
+import com.kpitracking.entity.kpi.KpiApprovalStep;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.submission.KpiSubmission;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.enums.approvalprocess.ApprovalObjectType;
+import com.kpitracking.enums.kpi.ApprovalEventAction;
+import com.kpitracking.enums.kpi.ApprovalFlowStatus;
+import com.kpitracking.enums.kpi.ApprovalOutcome;
+import com.kpitracking.enums.kpi.ApprovalStepKind;
+import com.kpitracking.enums.kpi.ApprovalStepStatus;
+import com.kpitracking.enums.kpi.ApprovalSubjectType;
+import com.kpitracking.repository.access.RolePermissionRepository;
+import com.kpitracking.repository.kpi.KpiApprovalEventRepository;
+import com.kpitracking.repository.kpi.KpiApprovalFlowRepository;
+import com.kpitracking.repository.kpi.KpiApprovalStepRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 /**
  * Chuỗi duyệt KPI theo phân cấp — phần GHI.
  *

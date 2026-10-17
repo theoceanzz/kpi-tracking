@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.task;
 
-import com.kpitracking.enums.TaskCompletionMode;
+import com.kpitracking.enums.task.TaskCompletionMode;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 

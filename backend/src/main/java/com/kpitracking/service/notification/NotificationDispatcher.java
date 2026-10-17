@@ -1,12 +1,12 @@
 package com.kpitracking.service.notification;
 
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.User;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.User;
 import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.i18n.UserLanguageResolver;
-import com.kpitracking.service.EmailService;
-import com.kpitracking.service.NotificationService;
-import com.kpitracking.service.OrgNotificationConfigService;
+import com.kpitracking.service.email.EmailService;
+import com.kpitracking.service.notification.NotificationService;
+import com.kpitracking.service.notification.OrgNotificationConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

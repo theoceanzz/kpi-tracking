@@ -1,10 +1,10 @@
 package com.kpitracking.ai.help;
 
 import com.kpitracking.dto.response.ai.DocumentSourceResponse;
-import com.kpitracking.entity.AiTokenUsage;
-import com.kpitracking.service.AiQuotaService;
-import com.kpitracking.service.AiRateLimiter;
-import com.kpitracking.service.AiTokenUsageRecorder;
+import com.kpitracking.entity.ai.AiTokenUsage;
+import com.kpitracking.service.ai.AiQuotaService;
+import com.kpitracking.service.ai.AiRateLimiter;
+import com.kpitracking.service.ai.AiTokenUsageRecorder;
 import com.kpitracking.service.reward.RewardContext;
 import dev.langchain4j.rag.content.Content;
 import dev.langchain4j.service.Result;

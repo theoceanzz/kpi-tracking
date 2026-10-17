@@ -1,9 +1,9 @@
 package com.kpitracking.dto.request.task;
 
-import com.kpitracking.enums.KpiTaskPriority;
-import com.kpitracking.enums.KpiTaskStatus;
-import com.kpitracking.enums.TaskFieldType;
-import com.kpitracking.enums.TaskListRole;
+import com.kpitracking.enums.task.KpiTaskPriority;
+import com.kpitracking.enums.task.KpiTaskStatus;
+import com.kpitracking.enums.task.TaskFieldType;
+import com.kpitracking.enums.task.TaskListRole;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;

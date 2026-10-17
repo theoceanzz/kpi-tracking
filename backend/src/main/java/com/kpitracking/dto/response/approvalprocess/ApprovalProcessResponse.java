@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.approvalprocess;
 
-import com.kpitracking.enums.ApprovalObjectType;
+import com.kpitracking.enums.approvalprocess.ApprovalObjectType;
 import com.kpitracking.service.approvalprocess.ProcessGraph;
 import lombok.*;
 

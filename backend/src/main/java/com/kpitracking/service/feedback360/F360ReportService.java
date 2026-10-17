@@ -4,13 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.dto.response.feedback360.F360MyReportResponse;
 import com.kpitracking.dto.response.feedback360.F360ReportResponse;
 import com.kpitracking.dto.response.feedback360.F360ResultSnapshot;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.*;
+
+
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.i18n.Terms;
-import com.kpitracking.repository.*;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,6 +20,23 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.kpitracking.entity.feedback360.F360Answer;
+import com.kpitracking.entity.feedback360.F360Assignment;
+import com.kpitracking.entity.feedback360.F360Campaign;
+import com.kpitracking.entity.feedback360.F360CampaignQuestion;
+import com.kpitracking.entity.feedback360.F360Event;
+import com.kpitracking.entity.feedback360.F360Subject;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.feedback360.F360AssignmentStatus;
+import com.kpitracking.enums.feedback360.F360CampaignStatus;
+import com.kpitracking.enums.feedback360.F360QuestionType;
+import com.kpitracking.enums.feedback360.F360Relationship;
+import com.kpitracking.enums.feedback360.F360SubjectStatus;
+import com.kpitracking.repository.feedback360.F360AnswerRepository;
+import com.kpitracking.repository.feedback360.F360AssignmentRepository;
+import com.kpitracking.repository.feedback360.F360CampaignQuestionRepository;
+import com.kpitracking.repository.feedback360.F360EventRepository;
+import com.kpitracking.repository.feedback360.F360SubjectRepository;
 /**
  * Tính + chụp kết quả lúc đóng chiến dịch, dựng báo cáo, ẩn nhận xét vi phạm.
  *

@@ -1,8 +1,8 @@
 package com.kpitracking.workflow;
 
-import com.kpitracking.enums.AdjustmentStatus;
-import com.kpitracking.enums.KpiStatus;
-import com.kpitracking.enums.SubmissionStatus;
+import com.kpitracking.enums.kpi.AdjustmentStatus;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.enums.submission.SubmissionStatus;
 import com.kpitracking.workflow.def.Transition;
 import com.kpitracking.workflow.def.WorkflowDefinition;
 import com.kpitracking.workflow.def.WorkflowDefinitionFactory;

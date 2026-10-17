@@ -1,7 +1,7 @@
 package com.kpitracking.event;
 
-import com.kpitracking.entity.TopupOrder;
-import com.kpitracking.entity.User;
+import com.kpitracking.entity.wallet.TopupOrder;
+import com.kpitracking.entity.user.User;
 import java.util.UUID;
 import lombok.Getter;
 import org.springframework.context.ApplicationEvent;

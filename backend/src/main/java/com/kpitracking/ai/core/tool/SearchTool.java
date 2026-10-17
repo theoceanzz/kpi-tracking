@@ -2,7 +2,7 @@ package com.kpitracking.ai.core.tool;
 
 
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests;
-import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.service.analytics.OrgUnitStatisticService;
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests.SearchRequest;
 import lombok.RequiredArgsConstructor;
 import dev.langchain4j.invocation.InvocationParameters;

@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.kpi.lock;
 
-import com.kpitracking.enums.PeriodLockAction;
+import com.kpitracking.enums.kpi.PeriodLockAction;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;

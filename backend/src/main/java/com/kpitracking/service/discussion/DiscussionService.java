@@ -5,10 +5,10 @@ import com.kpitracking.dto.response.discussion.DiscussionCommentResponse;
 import com.kpitracking.dto.response.discussion.DiscussionLocateResponse;
 import com.kpitracking.dto.response.discussion.DiscussionPageResponse;
 import com.kpitracking.dto.response.discussion.MentionCandidateResponse;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.DiscussionCommentKind;
-import com.kpitracking.enums.DiscussionReactionType;
-import com.kpitracking.enums.DiscussionTargetType;
+
+import com.kpitracking.enums.discussion.DiscussionCommentKind;
+import com.kpitracking.enums.discussion.DiscussionReactionType;
+import com.kpitracking.enums.discussion.DiscussionTargetType;
 import com.kpitracking.enums.StorageProvider;
 import com.kpitracking.event.DiscussionEvents;
 import com.kpitracking.exception.BusinessException;
@@ -18,7 +18,7 @@ import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.i18n.Terms;
 import com.kpitracking.mapper.DiscussionMapper;
-import com.kpitracking.repository.*;
+
 import com.kpitracking.service.CloudinaryStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +34,20 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.kpitracking.entity.discussion.DiscussionAttachment;
+import com.kpitracking.entity.discussion.DiscussionComment;
+import com.kpitracking.entity.discussion.DiscussionMention;
+import com.kpitracking.entity.discussion.DiscussionReaction;
+import com.kpitracking.entity.document.Document;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.discussion.DiscussionAttachmentRepository;
+import com.kpitracking.repository.discussion.DiscussionCommentRepository;
+import com.kpitracking.repository.discussion.DiscussionMentionRepository;
+import com.kpitracking.repository.discussion.DiscussionReactionRepository;
+import com.kpitracking.repository.discussion.DiscussionReadStateRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 /**
  * Khung thảo luận dùng chung cho KPI và công việc: bình luận, trả lời một cấp, @tag, cảm xúc, tệp đính kèm,
  * sửa/xoá, đã đọc, dòng hệ thống. Quyền đi qua {@link DiscussionTargets}; mọi thay đổi phát

@@ -2,8 +2,8 @@ package com.kpitracking.mapper;
 
 import com.kpitracking.dto.response.policy.PolicyConditionResponse;
 import com.kpitracking.dto.response.policy.PolicyResponse;
-import com.kpitracking.entity.Policy;
-import com.kpitracking.entity.PolicyCondition;
+import com.kpitracking.entity.access.Policy;
+import com.kpitracking.entity.access.PolicyCondition;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

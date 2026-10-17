@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.organization;
 
-import com.kpitracking.enums.LarkConnectionMode;
+import com.kpitracking.enums.auth.LarkConnectionMode;
 import lombok.*;
 
 import java.util.UUID;

@@ -1,0 +1,333 @@
+package com.kpitracking.controller.analytics;
+
+import com.kpitracking.dto.response.ApiResponse;
+import com.kpitracking.dto.response.stats.advanced.CompositionResponses.*;
+import com.kpitracking.dto.response.stats.advanced.CorrelationResponses.BehaviorCompletionResponse;
+import com.kpitracking.dto.response.stats.advanced.DistributionResponses.*;
+import com.kpitracking.dto.response.stats.advanced.FlowResponses.SankeyResponse;
+import com.kpitracking.dto.response.stats.advanced.LeaderboardResponses.*;
+import com.kpitracking.dto.response.stats.advanced.PersonDetailResponses.*;
+import com.kpitracking.dto.response.stats.advanced.RankingResponses.*;
+import com.kpitracking.dto.response.stats.advanced.UnitDetailResponses.UnitDetailResponse;
+import com.kpitracking.service.analytics.AnalyticsPeriodHelper;
+import com.kpitracking.service.analytics.CompositionAnalyticsService;
+import com.kpitracking.service.analytics.CorrelationAnalyticsService;
+import com.kpitracking.service.analytics.LeaderboardService;
+import com.kpitracking.service.analytics.PersonDetailService;
+import com.kpitracking.service.analytics.DistributionAnalyticsService;
+import com.kpitracking.service.analytics.FlowAnalyticsService;
+import com.kpitracking.service.analytics.RankingAnalyticsService;
+import com.kpitracking.service.analytics.UnitDetailService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.time.Instant;
+import java.util.UUID;
+
+/**
+ * Biểu đồ chuyên sâu cho trang Thống kê.
+ *
+ * <p>Gác quyền hai tầng:
+ * <ol>
+ *   <li>{@code @PreAuthorize} chỉ mở cổng cho người có ít nhất một quyền thống kê.</li>
+ *   <li>{@code StatsTierResolver} trong service quyết định người đó thấy được DỮ LIỆU nào
+ *       (toàn tổ chức / cây đơn vị của mình / chỉ mình).</li>
+ * </ol>
+ * Bỏ tầng thứ hai là mất sạch phân cấp, vì authority nạp bởi {@code CustomUserDetailsService}
+ * được gộp phẳng, không mang theo thông tin đơn vị.
+ */
+@RestController
+@RequestMapping("/api/v1/stats/advanced")
+@RequiredArgsConstructor
+@Tag(name = "Advanced Analytics", description = "Biểu đồ chuyên sâu theo ba cấp vai trò")
+public class AdvancedAnalyticsController {
+
+    private static final String ANY_STATS_PERMISSION =
+            "hasAnyAuthority('STATS:VIEW_ORG','STATS:VIEW_EMPLOYEE','STATS:VIEW_MY')";
+
+    private final CorrelationAnalyticsService correlationService;
+    private final DistributionAnalyticsService distributionService;
+    private final CompositionAnalyticsService compositionService;
+    private final FlowAnalyticsService flowService;
+    private final RankingAnalyticsService rankingService;
+    private final LeaderboardService leaderboardService;
+    private final PersonDetailService personDetailService;
+    private final UnitDetailService unitDetailService;
+    private final AnalyticsPeriodHelper periodHelper;
+
+    // ============================================================
+    // Tương quan
+    // ============================================================
+
+    @GetMapping("/correlation/behavior-completion")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Phân tán điểm hành vi × % hoàn thành KPI (mỗi chấm một người)")
+    public ResponseEntity<ApiResponse<BehaviorCompletionResponse>> behaviorCompletion(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(
+                correlationService.getBehaviorCompletion(orgUnitId, periods(periodId, periodIdTo))));
+    }
+
+    // ============================================================
+    // Phân phối
+    // ============================================================
+
+    @GetMapping("/distribution/score-histogram")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Histogram phân phối điểm đánh giá kèm vạch ngưỡng xếp loại")
+    public ResponseEntity<ApiResponse<ScoreHistogramResponse>> scoreHistogram(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(
+                distributionService.getScoreHistogram(orgUnitId, periods(periodId, periodIdTo))));
+    }
+
+    @GetMapping("/distribution/unit-boxplot")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Hộp phân tán điểm theo đơn vị (min–Q1–trung vị–Q3–max)")
+    public ResponseEntity<ApiResponse<UnitBoxplotResponse>> unitBoxplot(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(
+                distributionService.getUnitBoxplot(orgUnitId, periods(periodId, periodIdTo))));
+    }
+
+    @GetMapping("/distribution/headcount-pyramid")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Tháp cơ cấu nhân sự theo cấp và chức vụ")
+    public ResponseEntity<ApiResponse<HeadcountPyramidResponse>> headcountPyramid(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(
+                distributionService.getHeadcountPyramid(orgUnitId, periods(periodId, periodIdTo))));
+    }
+
+    // ============================================================
+    // Thành phần & thời gian
+    // ============================================================
+
+    @GetMapping("/timeline/submission-composition")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Cơ cấu bài nộp theo tháng (vùng chồng)")
+    public ResponseEntity<ApiResponse<SubmissionCompositionResponse>> submissionComposition(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
+        return ResponseEntity.ok(ApiResponse.success(
+                compositionService.getSubmissionComposition(
+                        orgUnitId, periods(periodId, periodIdTo), w.from(), w.to())));
+    }
+
+    @GetMapping("/part/submission-share")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Cơ cấu trạng thái bài nộp theo đơn vị, chuẩn hoá 100%")
+    public ResponseEntity<ApiResponse<SubmissionShareResponse>> submissionShare(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(
+                compositionService.getSubmissionShare(orgUnitId, periods(periodId, periodIdTo))));
+    }
+
+    // ============================================================
+    // Luồng
+    // ============================================================
+
+    @GetMapping("/flow/kpi-cascade")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Sankey phân rã / uỷ quyền KPI theo cây đơn vị")
+    public ResponseEntity<ApiResponse<SankeyResponse>> kpiCascade(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(
+                flowService.getKpiCascade(orgUnitId, periods(periodId, periodIdTo))));
+    }
+
+    @GetMapping("/flow/kpi-lifecycle")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Sankey vòng đời KPI: nháp → duyệt → hiệu lực / bị thay thế")
+    public ResponseEntity<ApiResponse<SankeyResponse>> kpiLifecycle(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(
+                flowService.getKpiLifecycle(orgUnitId, periods(periodId, periodIdTo))));
+    }
+
+    @GetMapping("/flow/okr")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Sankey OKR: Mục tiêu → Key Result → Đơn vị")
+    public ResponseEntity<ApiResponse<SankeyResponse>> okrFlow(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(
+                flowService.getOkrFlow(orgUnitId, periods(periodId, periodIdTo))));
+    }
+
+    // ============================================================
+    // Xếp hạng & so sánh
+    // ============================================================
+
+    @GetMapping("/comparison/deviation")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Biểu đồ phân kỳ: chênh lệch điểm so với trung bình")
+    public ResponseEntity<ApiResponse<DeviationResponse>> deviation(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(
+                rankingService.getScoreDeviation(orgUnitId, periods(periodId, periodIdTo))));
+    }
+
+    @GetMapping("/comparison/self-vs-manager")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Cột nhóm: điểm tự đánh giá vs điểm quản lý đánh giá theo đơn vị")
+    public ResponseEntity<ApiResponse<SelfVsManagerResponse>> selfVsManager(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo,
+            @RequestParam(required = false) UUID cycleId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                rankingService.getSelfVsManager(orgUnitId, periods(periodId, periodIdTo), cycleId)));
+    }
+
+    @GetMapping("/ranking/rank-delta")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Biến động thứ hạng đơn vị giữa hai kỳ gần nhất")
+    public ResponseEntity<ApiResponse<RankDeltaResponse>> rankDelta(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(
+                rankingService.getRankDelta(orgUnitId, periods(periodId, periodIdTo))));
+    }
+
+    // ============================================================
+    // Bảng xếp hạng mở đầu trang Thống kê
+    // ============================================================
+
+    /*
+      Gác bằng ANY_STATS_PERMISSION chứ KHÔNG phải BSC:MANAGE: ba ô này là ô mặc định của trang
+      Thống kê, phải chạy cả ở tổ chức không bật BSC (cột BSC khi đó để trống). Phân cấp thật do
+      StatsTierResolver quyết trong service — cấp SELF nhận bảng đã ẩn tên.
+
+      `cycleId` có mặt thì xếp theo KỲ và bỏ qua hẳn periodId/periodIdTo.
+    */
+
+    @GetMapping("/leaderboard/people")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Top nhân sự trong đơn vị và các đơn vị cấp dưới")
+    public ResponseEntity<ApiResponse<PeopleLeaderboardResponse>> leaderboardPeople(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo,
+            @RequestParam(required = false) UUID cycleId,
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortDir) {
+        return ResponseEntity.ok(ApiResponse.success(
+                leaderboardService.people(orgUnitId, periods(periodId, periodIdTo), cycleId, limit,
+                        sortBy, sortDir)));
+    }
+
+    @GetMapping("/leaderboard/units")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Top đơn vị trong đơn vị đang xem và các đơn vị cấp dưới")
+    public ResponseEntity<ApiResponse<UnitLeaderboardResponse>> leaderboardUnits(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo,
+            @RequestParam(required = false) UUID cycleId,
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortDir) {
+        return ResponseEntity.ok(ApiResponse.success(
+                leaderboardService.units(orgUnitId, periods(periodId, periodIdTo), cycleId, limit,
+                        sortBy, sortDir)));
+    }
+
+    @GetMapping("/heatmap/unit-period")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Lưới nhiệt %đạt theo đơn vị × đợt")
+    public ResponseEntity<ApiResponse<UnitPeriodHeatmapResponse>> unitPeriodHeatmap(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(
+                leaderboardService.unitPeriodHeatmap(orgUnitId, periods(periodId, periodIdTo))));
+    }
+
+    // ============================================================
+    // Thống kê chi tiết một người
+    // ============================================================
+
+    /*
+      Cả trang chi tiết trong MỘT lời gọi. Gom lại vì bốn nguồn sẵn có nằm dưới bốn luật quyền khác
+      nhau — riêng điểm hạnh kiểm từng tiêu chí chỉ có ở `/conduct/sheet`, mà endpoint đó đòi quyền
+      CHẤM hạnh kiểm, nên người chỉ có quyền xem thống kê sẽ bị 403 đúng ở ô radar.
+
+      Ai xem được ai do `PersonDetailService` quyết: cấp SELF chỉ xem chính mình, cấp UNIT/ORG chỉ
+      xem người trong phạm vi đơn vị.
+
+      `light=true` bỏ phần sổ đánh giá (kỳ → đợt → KPI) — phần nặng nhất, mỗi kỳ một lượt tính điểm
+      chốt. Thẻ xem nhanh lúc rê chuột trên bảng xếp hạng chỉ cần chỉ số + radar + xu hướng, mà rê
+      chuột thì bắn nhiều lần hơn hẳn mở trang.
+    */
+    @GetMapping("/person/{userId}")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Thống kê chi tiết một người: chỉ số, giá trị cốt lõi, KPI, xu hướng")
+    public ResponseEntity<ApiResponse<PersonDetailResponse>> personDetail(
+            @PathVariable UUID userId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo,
+            @RequestParam(required = false) UUID cycleId,
+            @RequestParam(required = false) Boolean light) {
+        return ResponseEntity.ok(ApiResponse.success(personDetailService.detail(
+                userId, periods(periodId, periodIdTo), cycleId, !Boolean.TRUE.equals(light))));
+    }
+
+    /*
+      Trang chi tiết một đơn vị, cùng khuôn với trang người: một lời gọi cho cả trang, `light=true`
+      bỏ phần sổ đánh giá.
+
+      Luật "ai xem được đơn vị nào" nằm trong `UnitDetailService` — bắt buộc, vì service đó gọi
+      xuống `BscOverviewService`, chỗ tự giải phạm vi bằng bộ giải LỎNG hơn (chỉ kiểm cùng tổ chức).
+    */
+    @GetMapping("/unit/{orgUnitId}")
+    @PreAuthorize(ANY_STATS_PERMISSION)
+    @Operation(summary = "Thống kê chi tiết một đơn vị: chỉ số, radar BSC, xu hướng lĩnh vực, sổ đánh giá")
+    public ResponseEntity<ApiResponse<UnitDetailResponse>> unitDetail(
+            @PathVariable UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo,
+            @RequestParam(required = false) UUID cycleId,
+            @RequestParam(required = false) Boolean light) {
+        return ResponseEntity.ok(ApiResponse.success(unitDetailService.detail(
+                orgUnitId, periods(periodId, periodIdTo), cycleId, !Boolean.TRUE.equals(light))));
+    }
+
+    // ============================================================
+
+    private java.util.List<UUID> periods(UUID periodId, UUID periodIdTo) {
+        return periodHelper.resolvePeriodIds(periodId, periodIdTo);
+    }
+}

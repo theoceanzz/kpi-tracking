@@ -1,6 +1,6 @@
 package com.kpitracking.event;
 
-import com.kpitracking.enums.DiscussionTargetType;
+import com.kpitracking.enums.discussion.DiscussionTargetType;
 
 import java.util.List;
 import java.util.UUID;

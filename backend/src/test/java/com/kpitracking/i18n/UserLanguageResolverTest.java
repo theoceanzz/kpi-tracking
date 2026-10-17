@@ -1,10 +1,10 @@
 package com.kpitracking.i18n;
 
-import com.kpitracking.entity.OrgHierarchyLevel;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.Organization;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.entity.organization.OrgHierarchyLevel;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

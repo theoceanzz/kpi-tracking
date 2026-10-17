@@ -1,13 +1,13 @@
 package com.kpitracking.service.feedback360;
 
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.CycleUnitEvalStatus;
-import com.kpitracking.enums.F360CampaignStatus;
-import com.kpitracking.enums.F360ScoringMode;
+
+import com.kpitracking.enums.evaluation.CycleUnitEvalStatus;
+import com.kpitracking.enums.feedback360.F360CampaignStatus;
+import com.kpitracking.enums.feedback360.F360ScoringMode;
 import com.kpitracking.exception.BusinessException;
-import com.kpitracking.repository.F360CampaignRepository;
-import com.kpitracking.repository.F360SubjectRepository;
+import com.kpitracking.repository.feedback360.F360CampaignRepository;
+import com.kpitracking.repository.feedback360.F360SubjectRepository;
 import com.kpitracking.service.kpi.CycleLockChecker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,6 +23,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.kpitracking.entity.evaluation.CycleUnitEvaluation;
+import com.kpitracking.entity.feedback360.F360Campaign;
+import com.kpitracking.entity.feedback360.F360Subject;
+import com.kpitracking.entity.kpi.KpiCycle;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
 /** Guard hai chiều giữa chiến dịch 360 có ảnh hưởng điểm và việc khoá kỳ (§7.2-5). */
 class F360CycleGuardTest {
 

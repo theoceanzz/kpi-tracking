@@ -1,13 +1,13 @@
 package com.kpitracking.service.task;
 
 import com.kpitracking.dto.response.task.KpiTaskResponse;
-import com.kpitracking.entity.KpiTask;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.KpiTaskEventAction;
+import com.kpitracking.entity.task.KpiTask;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.task.KpiTaskEventAction;
 import com.kpitracking.event.TaskEvents;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.repository.KpiTaskRepository;
+import com.kpitracking.repository.task.KpiTaskRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;

@@ -1,11 +1,11 @@
 package com.kpitracking.service.document;
 
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.repository.DocumentShareRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.RolePermissionRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.document.DocumentShareRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.access.RolePermissionRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

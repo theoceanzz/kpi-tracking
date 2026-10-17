@@ -1,0 +1,186 @@
+package com.kpitracking.controller.submission;
+
+import com.kpitracking.dto.request.submission.BulkReviewRequest;
+import com.kpitracking.dto.request.submission.CreateSubmissionRequest;
+import com.kpitracking.dto.request.submission.UpdateSubmissionRequest;
+import com.kpitracking.dto.request.submission.ReviewSubmissionRequest;
+import com.kpitracking.dto.request.submission.ReturnSubmissionRequest;
+import com.kpitracking.dto.response.ApiResponse;
+import com.kpitracking.dto.response.PageResponse;
+import com.kpitracking.dto.response.submission.AttachmentResponse;
+import com.kpitracking.dto.response.submission.SubmissionEvaluatorScoreResponse;
+import com.kpitracking.dto.response.submission.SubmissionResponse;
+import com.kpitracking.enums.submission.SubmissionStatus;
+import com.kpitracking.service.submission.KpiSubmissionService;
+import com.kpitracking.service.submission.SubmissionAttachmentService;
+import com.kpitracking.service.submission.SubmissionScoreLedger;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1/submissions")
+@RequiredArgsConstructor
+@Tag(name = "Submissions", description = "KPI Submission endpoints")
+public class KpiSubmissionController {
+
+    private final KpiSubmissionService submissionService;
+    private final SubmissionAttachmentService attachmentService;
+    private final SubmissionScoreLedger scoreLedger;
+
+    @PostMapping
+    @Operation(summary = "Create a new submission")
+    public ResponseEntity<ApiResponse<SubmissionResponse>> createSubmission(
+            @Valid @RequestBody CreateSubmissionRequest request) {
+        SubmissionResponse response = submissionService.createSubmission(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Submission created successfully", response));
+    }
+
+    @PutMapping("/{submissionId}")
+    @Operation(summary = "Update a submission (draft or rejected)")
+    public ResponseEntity<ApiResponse<SubmissionResponse>> updateSubmission(
+            @PathVariable UUID submissionId,
+            @Valid @RequestBody UpdateSubmissionRequest request) {
+        SubmissionResponse response = submissionService.updateSubmission(submissionId, request);
+        return ResponseEntity.ok(ApiResponse.success("Submission updated successfully", response));
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyAuthority('SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI')")
+    @Operation(summary = "List submissions with optional filters")
+    public ResponseEntity<ApiResponse<PageResponse<SubmissionResponse>>> getSubmissions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) SubmissionStatus status,
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(required = false) UUID kpiCriteriaId,
+            @RequestParam(required = false) UUID submittedById,
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        PageResponse<SubmissionResponse> response = submissionService.getSubmissions(page, size, status, kpiPeriodId, kpiCriteriaId, submittedById, orgUnitId, sortBy, sortDir);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/evaluator-scores")
+    @Operation(summary = "Per-evaluator KPI scores of one employee in a period, ordered by first scoring")
+    public ResponseEntity<ApiResponse<List<SubmissionEvaluatorScoreResponse>>> getEvaluatorScores(
+            @RequestParam UUID userId,
+            @RequestParam UUID kpiPeriodId) {
+        return ResponseEntity.ok(ApiResponse.success(scoreLedger.forUserPeriod(userId, kpiPeriodId)));
+    }
+
+    @GetMapping("/awaiting-my-approval")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Bài nộp đang chờ người gọi duyệt ở bước hiện tại của quy trình duyệt")
+    public ResponseEntity<ApiResponse<List<SubmissionResponse>>> awaitingMyApproval() {
+        return ResponseEntity.ok(ApiResponse.success(submissionService.awaitingMyApproval()));
+    }
+
+    @GetMapping("/{submissionId}/approval-chain")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Chuỗi duyệt (stepper + lịch sử) của bài nộp theo quy trình duyệt")
+    public ResponseEntity<ApiResponse<com.kpitracking.dto.response.kpi.approval.KpiApprovalChainResponse>> approvalChain(
+            @PathVariable UUID submissionId) {
+        return ResponseEntity.ok(ApiResponse.success(submissionService.approvalChain(submissionId)));
+    }
+
+    @GetMapping("/{submissionId}")
+    @Operation(summary = "Get submission by ID")
+    public ResponseEntity<ApiResponse<SubmissionResponse>> getSubmission(@PathVariable UUID submissionId) {
+        SubmissionResponse response = submissionService.getSubmissionById(submissionId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/{submissionId}/review")
+    @PreAuthorize("hasAuthority('SUBMISSION:REVIEW')")
+    @Operation(summary = "Review (approve/reject) a submission")
+    public ResponseEntity<ApiResponse<SubmissionResponse>> reviewSubmission(
+            @PathVariable UUID submissionId,
+            @Valid @RequestBody ReviewSubmissionRequest request) {
+        SubmissionResponse response = submissionService.reviewSubmission(submissionId, request);
+        return ResponseEntity.ok(ApiResponse.success("Submission reviewed successfully", response));
+    }
+
+    /**
+     * Hoàn duyệt: trả bài nộp về để nhân viên làm lại bằng bài nộp mới trước hạn nộp lại. Quyền
+     * chi tiết (trong đơn vị, đứng trên người nộp) do service kiểm như khi duyệt.
+     */
+    @PostMapping("/{submissionId}/return")
+    @PreAuthorize("hasAuthority('SUBMISSION:REVIEW')")
+    @Operation(summary = "Return a submission to the employee for rework")
+    public ResponseEntity<ApiResponse<SubmissionResponse>> returnSubmission(
+            @PathVariable UUID submissionId,
+            @Valid @RequestBody ReturnSubmissionRequest request) {
+        SubmissionResponse response = submissionService.returnSubmission(submissionId, request);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/my")
+    @Operation(summary = "Get current user's submissions")
+    public ResponseEntity<ApiResponse<PageResponse<SubmissionResponse>>> getMySubmissions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) SubmissionStatus status,
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        PageResponse<SubmissionResponse> response = submissionService.getMySubmissions(page, size, status, kpiPeriodId, sortBy, sortDir);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @DeleteMapping("/{submissionId}")
+    @Operation(summary = "Delete a pending submission")
+    public ResponseEntity<ApiResponse<Void>> deleteSubmission(@PathVariable UUID submissionId) {
+        submissionService.deleteSubmission(submissionId);
+        return ResponseEntity.ok(ApiResponse.success("Submission deleted successfully"));
+    }
+
+    @PostMapping(value = "/{submissionId}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload attachments to a submission")
+    public ResponseEntity<ApiResponse<List<AttachmentResponse>>> uploadAttachments(
+            @PathVariable UUID submissionId,
+            @RequestParam("files") MultipartFile[] files) throws IOException {
+        List<AttachmentResponse> response = attachmentService.uploadAttachments(submissionId, files);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Attachments uploaded successfully", response));
+    }
+
+    @GetMapping("/{submissionId}/attachments")
+    @Operation(summary = "Get attachments for a submission")
+    public ResponseEntity<ApiResponse<List<AttachmentResponse>>> getAttachments(@PathVariable UUID submissionId) {
+        List<AttachmentResponse> response = attachmentService.getAttachments(submissionId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @DeleteMapping("/attachments/{attachmentId}")
+    @Operation(summary = "Delete an attachment")
+    public ResponseEntity<ApiResponse<Void>> deleteAttachment(@PathVariable UUID attachmentId) {
+        attachmentService.deleteAttachment(attachmentId);
+        return ResponseEntity.ok(ApiResponse.success("Attachment deleted successfully"));
+    }
+
+    @PostMapping("/bulk-review")
+    // Cùng mức với /{submissionId}/review ngay trên. Thiếu dòng này thì bản HÀNG LOẠT là một đường
+    // vòng qua chính phép kiểm mà bản ĐƠN LẺ đang đòi — và nó từng thiếu thật.
+    // Đây mới là cổng thô; phép kiểm theo đơn vị và theo cấp bậc nằm trong
+    // KpiSubmissionService.requireCanReview, chạy cho TỪNG bản nộp.
+    @PreAuthorize("hasAuthority('SUBMISSION:REVIEW')")
+    @Operation(summary = "Review multiple submissions at once")
+    public ResponseEntity<ApiResponse<List<SubmissionResponse>>> bulkReview(@RequestBody BulkReviewRequest request) {
+        List<SubmissionResponse> response = submissionService.bulkReview(request);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+}

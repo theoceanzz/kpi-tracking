@@ -1,7 +1,7 @@
 package com.kpitracking.event;
 
 import com.kpitracking.event.F360Events.SummaryRequestedEvent;
-import com.kpitracking.repository.F360CampaignRepository;
+import com.kpitracking.repository.feedback360.F360CampaignRepository;
 import com.kpitracking.service.feedback360.F360AiSummaryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

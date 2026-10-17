@@ -2,15 +2,15 @@ package com.kpitracking.service.feedback360;
 
 import com.kpitracking.dto.request.feedback360.F360TemplateRequest;
 import com.kpitracking.dto.response.feedback360.F360TemplateResponse;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.F360QuestionType;
-import com.kpitracking.enums.F360Relationship;
+
+import com.kpitracking.enums.feedback360.F360QuestionType;
+import com.kpitracking.enums.feedback360.F360Relationship;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.i18n.Terms;
 import com.kpitracking.mapper.F360Mapper;
-import com.kpitracking.repository.*;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +18,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.*;
 
+import com.kpitracking.entity.feedback360.F360Campaign;
+import com.kpitracking.entity.feedback360.F360Competency;
+import com.kpitracking.entity.feedback360.F360Question;
+import com.kpitracking.entity.feedback360.F360Template;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.repository.feedback360.F360CompetencyRepository;
+import com.kpitracking.repository.feedback360.F360QuestionRepository;
+import com.kpitracking.repository.feedback360.F360TemplateRepository;
+import com.kpitracking.repository.organization.OrganizationRepository;
 /**
  * Bộ câu hỏi 360: CRUD, bộ mặc định và bộ mẫu sẵn (§9.6).
  *

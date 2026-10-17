@@ -1,10 +1,10 @@
 package com.kpitracking.service.task;
 
-import com.kpitracking.entity.TaskList;
-import com.kpitracking.enums.TaskListRole;
+import com.kpitracking.entity.task.TaskList;
+import com.kpitracking.enums.task.TaskListRole;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
-import com.kpitracking.repository.TaskListRepository;
+import com.kpitracking.repository.task.TaskListRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

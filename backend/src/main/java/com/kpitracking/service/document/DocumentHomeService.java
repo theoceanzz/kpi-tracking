@@ -1,10 +1,10 @@
 package com.kpitracking.service.document;
 
 import com.kpitracking.dto.response.document.DocumentResponse;
-import com.kpitracking.entity.Document;
-import com.kpitracking.entity.DocumentUserState;
-import com.kpitracking.repository.DocumentRepository;
-import com.kpitracking.repository.DocumentUserStateRepository;
+import com.kpitracking.entity.document.Document;
+import com.kpitracking.entity.document.DocumentUserState;
+import com.kpitracking.repository.document.DocumentRepository;
+import com.kpitracking.repository.document.DocumentUserStateRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;

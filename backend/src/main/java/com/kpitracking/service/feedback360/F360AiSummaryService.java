@@ -1,12 +1,12 @@
 package com.kpitracking.service.feedback360;
 
 import com.kpitracking.ai.feedback360.Feedback360SummaryAgent;
-import com.kpitracking.entity.AiTokenUsage;
-import com.kpitracking.entity.F360Campaign;
-import com.kpitracking.entity.F360Subject;
-import com.kpitracking.repository.F360CampaignRepository;
-import com.kpitracking.repository.F360SubjectRepository;
-import com.kpitracking.service.AiTokenUsageRecorder;
+import com.kpitracking.entity.ai.AiTokenUsage;
+import com.kpitracking.entity.feedback360.F360Campaign;
+import com.kpitracking.entity.feedback360.F360Subject;
+import com.kpitracking.repository.feedback360.F360CampaignRepository;
+import com.kpitracking.repository.feedback360.F360SubjectRepository;
+import com.kpitracking.service.ai.AiTokenUsageRecorder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

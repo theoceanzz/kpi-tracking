@@ -1,7 +1,7 @@
 package com.kpitracking.service.wallet;
 
 import com.kpitracking.event.WalletEvents;
-import com.kpitracking.repository.TopupOrderRepository;
+import com.kpitracking.repository.wallet.TopupOrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;

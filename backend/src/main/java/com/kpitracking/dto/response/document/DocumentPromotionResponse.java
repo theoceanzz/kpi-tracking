@@ -1,8 +1,8 @@
 package com.kpitracking.dto.response.document;
 
-import com.kpitracking.entity.DocumentPromotionRequest.Status;
-import com.kpitracking.enums.DocumentCategory;
-import com.kpitracking.enums.DocumentScope;
+import com.kpitracking.entity.document.DocumentPromotionRequest.Status;
+import com.kpitracking.enums.document.DocumentCategory;
+import com.kpitracking.enums.document.DocumentScope;
 
 import java.time.Instant;
 import java.util.UUID;

@@ -3,11 +3,11 @@ package com.kpitracking.service.discussion;
 import com.kpitracking.dto.request.discussion.UpdateCommentRequest;
 import com.kpitracking.dto.response.discussion.DiscussionCommentResponse;
 import com.kpitracking.dto.response.discussion.DiscussionPageResponse;
-import com.kpitracking.enums.DiscussionReactionType;
-import com.kpitracking.enums.DiscussionTargetType;
+import com.kpitracking.enums.discussion.DiscussionReactionType;
+import com.kpitracking.enums.discussion.DiscussionTargetType;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.service.CollabITSupport;
-import com.kpitracking.service.KpiCriteriaService;
+import com.kpitracking.service.kpi.KpiCriteriaService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -126,7 +126,7 @@ class DiscussionIT extends CollabITSupport {
         loginAs(employee);
         DiscussionPageResponse page = discussionService.page(DiscussionTargetType.KPI, kpiId, null, 20);
         DiscussionCommentResponse line = page.getContent().get(0);
-        assertThat(line.getKind()).isEqualTo(com.kpitracking.enums.DiscussionCommentKind.SYSTEM);
+        assertThat(line.getKind()).isEqualTo(com.kpitracking.enums.discussion.DiscussionCommentKind.SYSTEM);
         assertThat(line.getSystemText()).contains("từ chối").contains("Thiếu số liệu nền");
         assertThat(line.getSystemMeta()).containsEntry("action", "REJECTED");
         // Dòng từ chối tính vào số chưa đọc của người tạo KPI, không tính cho người khác.
@@ -136,17 +136,17 @@ class DiscussionIT extends CollabITSupport {
     }
 
     @Autowired KpiDiscussionTimeline timeline;
-    @Autowired com.kpitracking.repository.KpiCriteriaRepository kpiCriteriaRepository;
-    @Autowired com.kpitracking.repository.UserRepository users;
+    @Autowired com.kpitracking.repository.kpi.KpiCriteriaRepository kpiCriteriaRepository;
+    @Autowired com.kpitracking.repository.user.UserRepository users;
     @Autowired org.springframework.transaction.PlatformTransactionManager txManager;
 
     @Test
     void adjustmentChainLinesAreWordedAsAdjustmentNotKpiRejection() {
         new org.springframework.transaction.support.TransactionTemplate(txManager).executeWithoutResult(s -> {
             var kpi = kpiCriteriaRepository.findById(kpiId).orElseThrow();
-            var flow = com.kpitracking.entity.KpiApprovalFlow.builder()
-                    .subjectType(com.kpitracking.enums.ApprovalSubjectType.ADJUSTMENT).kpiCriteria(kpi).build();
-            timeline.onApprovalEvent(flow, null, com.kpitracking.enums.ApprovalEventAction.REJECTED,
+            var flow = com.kpitracking.entity.kpi.KpiApprovalFlow.builder()
+                    .subjectType(com.kpitracking.enums.kpi.ApprovalSubjectType.ADJUSTMENT).kpiCriteria(kpi).build();
+            timeline.onApprovalEvent(flow, null, com.kpitracking.enums.kpi.ApprovalEventAction.REJECTED,
                     users.findById(head).orElseThrow(), "Chưa đủ căn cứ");
         });
 

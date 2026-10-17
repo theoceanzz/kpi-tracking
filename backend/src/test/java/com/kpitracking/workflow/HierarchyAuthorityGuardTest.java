@@ -1,8 +1,8 @@
 package com.kpitracking.workflow;
 
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.KpiStatus;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.kpi.KpiStatus;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.workflow.engine.GuardResult;
 import com.kpitracking.workflow.engine.TransitionContext;

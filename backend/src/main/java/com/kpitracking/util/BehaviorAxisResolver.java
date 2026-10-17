@@ -1,6 +1,6 @@
 package com.kpitracking.util;
 
-import com.kpitracking.enums.F360ScoringMode;
+import com.kpitracking.enums.feedback360.F360ScoringMode;
 
 /**
  * Trục HÀNH VI của ma trận xếp loại khi có thêm nguồn đánh giá 360 (docs/FEEDBACK_360_DESIGN.md §7.2).

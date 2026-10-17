@@ -1,13 +1,13 @@
 package com.kpitracking.service.feedback360;
 
 import com.kpitracking.dto.response.feedback360.F360ResultSnapshot;
-import com.kpitracking.enums.F360Relationship;
+import com.kpitracking.enums.feedback360.F360Relationship;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
 
-import static com.kpitracking.enums.F360Relationship.*;
+import static com.kpitracking.enums.feedback360.F360Relationship.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**

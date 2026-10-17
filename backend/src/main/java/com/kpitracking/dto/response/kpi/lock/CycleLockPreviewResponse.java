@@ -1,10 +1,10 @@
 package com.kpitracking.dto.response.kpi.lock;
 
-import com.kpitracking.enums.KpiCycleStatus;
-import com.kpitracking.enums.KpiFrequency;
-import com.kpitracking.enums.KpiPeriodStatus;
-import com.kpitracking.enums.KpiProgressBucket;
-import com.kpitracking.enums.PeriodProgress;
+import com.kpitracking.enums.kpi.KpiCycleStatus;
+import com.kpitracking.enums.kpi.KpiFrequency;
+import com.kpitracking.enums.kpi.KpiPeriodStatus;
+import com.kpitracking.enums.kpi.KpiProgressBucket;
+import com.kpitracking.enums.kpi.PeriodProgress;
 import lombok.*;
 
 import java.time.Instant;

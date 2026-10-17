@@ -5,21 +5,21 @@ import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.approvalprocess.ApprovalProcessCatalogResponse;
 import com.kpitracking.dto.response.approvalprocess.ApprovalProcessResponse;
 import com.kpitracking.dto.response.approvalprocess.ProcessValidationResponse;
-import com.kpitracking.entity.ApprovalProcess;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.Role;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.ApprovalObjectType;
+import com.kpitracking.entity.approvalprocess.ApprovalProcess;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.access.Role;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.approvalprocess.ApprovalObjectType;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.exception.StaleStateException;
 import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.i18n.Terms;
-import com.kpitracking.repository.ApprovalProcessRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.RoleRepository;
-import com.kpitracking.repository.UserRepository;
+import com.kpitracking.repository.approvalprocess.ApprovalProcessRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.access.RoleRepository;
+import com.kpitracking.repository.user.UserRepository;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.approvalprocess.ProcessGraph.*;
 import com.kpitracking.service.kpi.approval.KpiApprovalChainService;
@@ -56,8 +56,8 @@ public class ApprovalProcessService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final OrgUnitRepository orgUnitRepository;
-    private final com.kpitracking.repository.ApprovalFormRepository formRepository;
-    private final com.kpitracking.repository.ApprovalFormGroupRepository formGroupRepository;
+    private final com.kpitracking.repository.approvalform.ApprovalFormRepository formRepository;
+    private final com.kpitracking.repository.approvalform.ApprovalFormGroupRepository formGroupRepository;
 
     // ── Đọc ─────────────────────────────────────────────────────────────────
 
@@ -122,7 +122,7 @@ public class ApprovalProcessService {
      */
     private List<ApprovalProcessCatalogResponse.FormOption> formOptions(UUID orgId) {
         String lang = ErrorMessages.currentLocale().getLanguage();
-        Map<UUID, com.kpitracking.entity.ApprovalFormGroup> groups = new LinkedHashMap<>();
+        Map<UUID, com.kpitracking.entity.approvalform.ApprovalFormGroup> groups = new LinkedHashMap<>();
         formGroupRepository.findByOrganizationIdOrderBySortOrderAscCreatedAtAsc(orgId).forEach(g -> groups.put(g.getId(), g));
         List<UUID> groupOrder = new ArrayList<>(groups.keySet());
         return formRepository.findByOrganizationIdOrderBySortOrderAscCreatedAtAsc(orgId).stream()

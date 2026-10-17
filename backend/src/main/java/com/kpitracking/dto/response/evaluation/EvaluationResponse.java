@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.evaluation;
 
 import com.kpitracking.dto.response.bsc.PerspectiveScoreResponse;
-import com.kpitracking.enums.BscScoringMode;
+import com.kpitracking.enums.bsc.BscScoringMode;
 import lombok.*;
 
 import java.time.Instant;

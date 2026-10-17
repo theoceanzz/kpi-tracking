@@ -4,7 +4,7 @@ package com.kpitracking.ai.okr;
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests;
 import com.kpitracking.ai.core.tool.ToolSupport;
 import com.kpitracking.dto.response.okr.ObjectiveResponse;
-import com.kpitracking.service.OkrService;
+import com.kpitracking.service.okr.OkrService;
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests.OkrRequest;
 import com.kpitracking.ai.core.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;

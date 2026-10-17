@@ -1,6 +1,6 @@
 package com.kpitracking.service.wallet;
 
-import com.kpitracking.entity.Organization;
+import com.kpitracking.entity.organization.Organization;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;

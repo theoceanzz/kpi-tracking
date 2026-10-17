@@ -1,12 +1,12 @@
 package com.kpitracking.service.feedback360;
 
-import com.kpitracking.entity.F360Campaign;
-import com.kpitracking.entity.F360Subject;
-import com.kpitracking.entity.KpiCycle;
-import com.kpitracking.enums.F360CampaignStatus;
-import com.kpitracking.enums.F360ScoringMode;
-import com.kpitracking.repository.F360CampaignRepository;
-import com.kpitracking.repository.F360SubjectRepository;
+import com.kpitracking.entity.feedback360.F360Campaign;
+import com.kpitracking.entity.feedback360.F360Subject;
+import com.kpitracking.entity.kpi.KpiCycle;
+import com.kpitracking.enums.feedback360.F360CampaignStatus;
+import com.kpitracking.enums.feedback360.F360ScoringMode;
+import com.kpitracking.repository.feedback360.F360CampaignRepository;
+import com.kpitracking.repository.feedback360.F360SubjectRepository;
 import com.kpitracking.util.BehaviorAxisResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

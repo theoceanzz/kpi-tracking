@@ -1,21 +1,21 @@
 package com.kpitracking.ai.submission.review;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.KpiPeriod;
-import com.kpitracking.entity.KpiSubmission;
-import com.kpitracking.entity.Organization;
-import com.kpitracking.entity.SubmissionAttachment;
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.enums.KpiStatus;
-import com.kpitracking.enums.KpiType;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.submission.KpiSubmission;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.submission.SubmissionAttachment;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.enums.kpi.KpiType;
 import com.kpitracking.exception.ForbiddenException;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.KpiPeriodRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.kpi.KpiPeriodRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.security.PermissionChecker;
-import com.kpitracking.service.KpiAchievementCalculator;
+import com.kpitracking.service.kpi.KpiAchievementCalculator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
@@ -50,10 +50,10 @@ public class ReviewContextBuilder {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final PermissionChecker permissionChecker;
     private final KpiAchievementCalculator achievementCalculator;
-    private final com.kpitracking.repository.KpiSubmissionRepository submissionRepository;
+    private final com.kpitracking.repository.submission.KpiSubmissionRepository submissionRepository;
     private final AiReviewSettingsResolver settingsResolver;
     private final ReviewConductSource conductSource;
-    private final com.kpitracking.repository.KpiAdjustmentRequestRepository adjustmentRepository;
+    private final com.kpitracking.repository.kpi.KpiAdjustmentRequestRepository adjustmentRepository;
 
     /** Số lần chấm đợt trước lấy làm lịch sử cho mỗi chỉ tiêu. */
     static final int HISTORY_SIZE = 3;
@@ -152,7 +152,7 @@ public class ReviewContextBuilder {
                     // AI không đọc, không trích, không tính đúng hạn trên nó; nhân viên nộp lại thì chấm bài mới.
                     .filter(s -> s.getDeletedAt() == null && s.getSubmittedBy() != null
                             && userId.equals(s.getSubmittedBy().getId())
-                            && s.getStatus() != com.kpitracking.enums.SubmissionStatus.RETURNED)
+                            && s.getStatus() != com.kpitracking.enums.submission.SubmissionStatus.RETURNED)
                     .sorted(Comparator.comparing(KpiSubmission::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
                     .forEach(s -> {
                         // Chỉ ghi tên + URL ở đây; bước "evidence" của luồng tải và đọc nội dung (ngoài

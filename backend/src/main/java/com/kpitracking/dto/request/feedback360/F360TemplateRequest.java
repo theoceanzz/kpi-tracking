@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.feedback360;
 
-import com.kpitracking.enums.F360Relationship;
+import com.kpitracking.enums.feedback360.F360Relationship;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

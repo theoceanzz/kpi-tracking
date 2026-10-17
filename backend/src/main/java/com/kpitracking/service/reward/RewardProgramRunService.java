@@ -2,19 +2,19 @@ package com.kpitracking.service.reward;
 
 import com.kpitracking.dto.request.reward.RewardProgramRequest;
 import com.kpitracking.dto.response.reward.RewardProgramRunResponse;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.RewardProgramScope;
-import com.kpitracking.enums.RewardRunStatus;
-import com.kpitracking.enums.RewardSourceType;
-import com.kpitracking.enums.RewardTiePolicy;
-import com.kpitracking.enums.RewardTransactionType;
+
+import com.kpitracking.enums.reward.RewardProgramScope;
+import com.kpitracking.enums.reward.RewardRunStatus;
+import com.kpitracking.enums.reward.RewardSourceType;
+import com.kpitracking.enums.reward.RewardTiePolicy;
+import com.kpitracking.enums.reward.RewardTransactionType;
 import com.kpitracking.event.RewardEvents;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.i18n.Terms;
-import com.kpitracking.repository.*;
-import com.kpitracking.service.RewardWalletService;
+
+import com.kpitracking.service.reward.RewardWalletService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -26,6 +26,16 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.*;
 
+import com.kpitracking.entity.reward.RewardProgram;
+import com.kpitracking.entity.reward.RewardProgramRun;
+import com.kpitracking.entity.reward.RewardProgramRunItem;
+import com.kpitracking.entity.reward.RewardTransaction;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.repository.kpi.KpiCycleRepository;
+import com.kpitracking.repository.kpi.KpiPeriodRepository;
+import com.kpitracking.repository.reward.RewardProgramRunItemRepository;
+import com.kpitracking.repository.reward.RewardProgramRunRepository;
+import com.kpitracking.repository.user.UserRepository;
 /**
  * Chạy chương trình thưởng: xem trước → phát → (nếu cần) thu hồi.
  *

@@ -1,7 +1,7 @@
 package com.kpitracking.service.feedback360;
 
-import com.kpitracking.entity.F360Subject;
-import com.kpitracking.entity.OrgUnit;
+import com.kpitracking.entity.feedback360.F360Subject;
+import com.kpitracking.entity.organization.OrgUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

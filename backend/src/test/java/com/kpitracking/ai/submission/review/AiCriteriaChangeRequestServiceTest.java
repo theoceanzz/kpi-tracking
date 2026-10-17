@@ -1,18 +1,18 @@
 package com.kpitracking.ai.submission.review;
 
 import com.kpitracking.dto.request.ai.AiCriteriaSetMetaRequest;
-import com.kpitracking.entity.AiCriteriaChangeRequest;
-import com.kpitracking.entity.AiCriteriaSet;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.Organization;
-import com.kpitracking.entity.User;
+import com.kpitracking.entity.ai.AiCriteriaChangeRequest;
+import com.kpitracking.entity.ai.AiCriteriaSet;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.user.User;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.i18n.LocalizedText;
-import com.kpitracking.repository.AiCriteriaChangeRequestRepository;
-import com.kpitracking.repository.AiCriteriaSetRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.UserRepository;
+import com.kpitracking.repository.ai.AiCriteriaChangeRequestRepository;
+import com.kpitracking.repository.ai.AiCriteriaSetRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.notification.NotificationDispatcher;
 import com.kpitracking.service.notification.NotificationRoutingService;

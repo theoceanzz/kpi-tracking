@@ -1,7 +1,7 @@
 package com.kpitracking.service.analytics;
 
 import com.kpitracking.dto.response.stats.advanced.LeaderboardResponses.PersonRow;
-import com.kpitracking.entity.EvaluationLevel;
+import com.kpitracking.entity.evaluation.EvaluationLevel;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

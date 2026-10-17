@@ -6,16 +6,16 @@ import com.kpitracking.dto.response.kpi.KpiCriteriaResponse;
 import com.kpitracking.dto.response.kpi.approval.ApprovalFlowResponse;
 import com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse;
 import com.kpitracking.dto.response.kpi.approval.KpiApprovalChainResponse;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.*;
+
+
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.i18n.Terms;
 import com.kpitracking.mapper.KpiCriteriaMapper;
-import com.kpitracking.repository.KpiApprovalEventRepository;
-import com.kpitracking.repository.KpiApprovalFlowRepository;
-import com.kpitracking.repository.KpiCriteriaRepository;
+import com.kpitracking.repository.kpi.KpiApprovalEventRepository;
+import com.kpitracking.repository.kpi.KpiApprovalFlowRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
 import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,6 +25,17 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.kpitracking.entity.kpi.KpiApprovalEvent;
+import com.kpitracking.entity.kpi.KpiApprovalFlow;
+import com.kpitracking.entity.kpi.KpiApprovalStep;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.kpi.ApprovalFlowStatus;
+import com.kpitracking.enums.kpi.ApprovalOutcome;
+import com.kpitracking.enums.kpi.ApprovalStepKind;
+import com.kpitracking.enums.kpi.ApprovalStepStatus;
+import com.kpitracking.enums.kpi.ApprovalSubjectType;
+import com.kpitracking.enums.kpi.KpiStatus;
 /**
  * Chuỗi duyệt KPI — phần ĐỌC: vị trí hiện tại cho bảng danh sách, stepper + lịch sử cho màn chi
  * tiết, và hộp "chờ tôi duyệt".
@@ -44,7 +55,7 @@ public class KpiApprovalViewService {
     private final KpiApprovalChainService chainService;
     private final com.kpitracking.service.kpi.KpiAccessPolicy kpiAccessPolicy;
 
-    private final com.kpitracking.repository.UserRepository userRepository;
+    private final com.kpitracking.repository.user.UserRepository userRepository;
 
     public User currentUser() {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();

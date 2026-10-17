@@ -1,13 +1,13 @@
 package com.kpitracking.service.kpi;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.Role;
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.enums.KpiStatus;
-import com.kpitracking.repository.KpiApprovalStepRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.access.Role;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.repository.kpi.KpiApprovalStepRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.security.PermissionChecker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -91,7 +91,7 @@ class KpiAccessPolicyTest {
     @Test
     void sideRelationIsDisplayOnlyAncestorManagerStillSees() {
         // Quan hệ tham mưu / giám sát chỉ để vẽ sơ đồ: trưởng-phó đơn vị tổ tiên vẫn thấy như trực tuyến.
-        for (var relation : com.kpitracking.enums.OrgUnitRelationType.values()) {
+        for (var relation : com.kpitracking.enums.organization.OrgUnitRelationType.values()) {
             team.setParentRelation(relation);
             dept.setParentRelation(relation);
             assertThat(policy.canView(manager(root), kpi(KpiStatus.APPROVED))).as(relation.name()).isTrue();

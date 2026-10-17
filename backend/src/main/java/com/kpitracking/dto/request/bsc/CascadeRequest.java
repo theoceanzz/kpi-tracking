@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.bsc;
 
-import com.kpitracking.enums.BscLinkType;
+import com.kpitracking.enums.bsc.BscLinkType;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 

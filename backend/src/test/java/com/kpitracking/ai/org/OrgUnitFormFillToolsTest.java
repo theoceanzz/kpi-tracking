@@ -3,7 +3,7 @@ package com.kpitracking.ai.org;
 
 import com.kpitracking.ai.kpi.KpiAdjustmentFormFillTool;
 import com.kpitracking.ai.core.tool.FormFillTestFixture;
-import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.service.analytics.OrgUnitStatisticService;
 import com.kpitracking.ai.core.form.FormPatch;
 import com.kpitracking.ai.core.form.FormRegistry;
 import com.kpitracking.ai.core.form.FormSpec.Field;

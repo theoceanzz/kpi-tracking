@@ -1,10 +1,10 @@
 package com.kpitracking.ai.submission.review;
 
-import com.kpitracking.entity.ConductCriteriaSet;
-import com.kpitracking.entity.KpiPeriod;
-import com.kpitracking.entity.Organization;
-import com.kpitracking.repository.ConductCriteriaRepository;
-import com.kpitracking.repository.ConductCriteriaSetRepository;
+import com.kpitracking.entity.conduct.ConductCriteriaSet;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.repository.conduct.ConductCriteriaRepository;
+import com.kpitracking.repository.conduct.ConductCriteriaSetRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

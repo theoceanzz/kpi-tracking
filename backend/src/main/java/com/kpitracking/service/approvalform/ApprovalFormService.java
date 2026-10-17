@@ -1,13 +1,13 @@
 package com.kpitracking.service.approvalform;
 
 import com.kpitracking.dto.approvalform.ApprovalFormDtos.*;
-import com.kpitracking.entity.*;
+
 import com.kpitracking.entity.form.FormAdmin;
 import com.kpitracking.entity.form.FormSchema;
 import com.kpitracking.entity.form.FormSubmitters;
-import com.kpitracking.enums.ApprovalObjectType;
-import com.kpitracking.enums.FormAdminPermission;
-import com.kpitracking.enums.FormSubmitterScope;
+import com.kpitracking.enums.approvalprocess.ApprovalObjectType;
+import com.kpitracking.enums.approvalform.FormAdminPermission;
+import com.kpitracking.enums.approvalform.FormSubmitterScope;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
@@ -16,7 +16,7 @@ import com.kpitracking.exception.StaleStateException;
 import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.i18n.SupportedLanguages;
 import com.kpitracking.i18n.Terms;
-import com.kpitracking.repository.*;
+
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.approvalprocess.ApprovalProcessService;
 import com.kpitracking.service.approvalprocess.ProcessGraph;
@@ -32,6 +32,20 @@ import java.time.Instant;
 import java.util.*;
 import java.util.regex.Pattern;
 
+import com.kpitracking.entity.access.Role;
+import com.kpitracking.entity.approvalform.ApprovalForm;
+import com.kpitracking.entity.approvalform.ApprovalFormGroup;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.access.RoleRepository;
+import com.kpitracking.repository.approvalform.ApprovalFormGroupRepository;
+import com.kpitracking.repository.approvalform.ApprovalFormRepository;
+import com.kpitracking.repository.approvalprocess.ApprovalProcessRepository;
+import com.kpitracking.repository.organization.OrgHierarchyLevelRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 /**
  * Quản trị đơn từ: nhóm đơn, đơn (thông tin, form, quy trình), thư viện mẫu.
  *
@@ -64,7 +78,7 @@ public class ApprovalFormService {
     private final RoleRepository roleRepository;
     private final OrgHierarchyLevelRepository levelRepository;
     private final UserRoleOrgUnitRepository assignmentRepository;
-    private final com.kpitracking.repository.ApprovalProcessRepository processRepository;
+    private final com.kpitracking.repository.approvalprocess.ApprovalProcessRepository processRepository;
 
     // ── Danh sách quản trị ──────────────────────────────────────────────────
 
@@ -483,7 +497,7 @@ public class ApprovalFormService {
         if (f.getId() == null) return null;
         String id = f.getId().toString();
         return processRepository.findByOrganizationIdAndObjectTypeAndActiveTrue(f.getOrganizationId(),
-                        com.kpitracking.enums.ApprovalObjectType.FORM_REQUEST).stream()
+                        com.kpitracking.enums.approvalprocess.ApprovalObjectType.FORM_REQUEST).stream()
                 .filter(p -> p.subObjectsOrEmpty().contains(id))
                 .findFirst().map(p -> new Ref(p.getId(), p.getTitle())).orElse(null);
     }

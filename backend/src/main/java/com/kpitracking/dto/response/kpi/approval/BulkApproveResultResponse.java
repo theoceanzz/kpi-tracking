@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.kpi.approval;
 
-import com.kpitracking.enums.ApprovalOutcome;
+import com.kpitracking.enums.kpi.ApprovalOutcome;
 import lombok.*;
 
 import java.util.UUID;

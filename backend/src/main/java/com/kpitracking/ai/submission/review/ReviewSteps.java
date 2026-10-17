@@ -2,8 +2,8 @@ package com.kpitracking.ai.submission.review;
 
 import com.kpitracking.ai.submission.review.CriterionReviewAgent;
 import com.kpitracking.ai.submission.review.ReviewSummaryAgent;
-import com.kpitracking.entity.AiTokenUsage;
-import com.kpitracking.service.AiTokenUsageRecorder;
+import com.kpitracking.entity.ai.AiTokenUsage;
+import com.kpitracking.service.ai.AiTokenUsageRecorder;
 import com.kpitracking.ai.submission.review.ReviewContext;
 import com.kpitracking.ai.submission.review.ReviewContextBuilder;
 import com.kpitracking.ai.submission.review.ReviewPrompts;

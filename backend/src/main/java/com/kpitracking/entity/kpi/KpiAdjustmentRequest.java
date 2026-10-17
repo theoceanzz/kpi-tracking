@@ -1,0 +1,82 @@
+package com.kpitracking.entity.kpi;
+
+import com.kpitracking.enums.kpi.AdjustmentStatus;
+import jakarta.persistence.*;
+import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.Instant;
+import java.util.UUID;
+
+import com.kpitracking.entity.user.User;
+@Entity
+@Table(name = "kpi_adjustment_requests")
+@EntityListeners(AuditingEntityListener.class)
+@Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+public class KpiAdjustmentRequest {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "kpi_criteria_id", nullable = false)
+    private KpiCriteria kpiCriteria;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "requester_id", nullable = false)
+    private User requester;
+
+    @Column(name = "requested_target_value")
+    private Double requestedTargetValue;
+
+    @Column(name = "requested_minimum_value")
+    private Double requestedMinimumValue;
+
+    @Column(name = "is_deactivation_request")
+    private boolean isDeactivationRequest;
+
+    @Column(name = "reason", columnDefinition = "TEXT")
+    private String reason;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    @Builder.Default
+    private AdjustmentStatus status = AdjustmentStatus.PENDING;
+
+    /**
+     * Memento: trạng thái của KPI ngay TRƯỚC khi yêu cầu này đẩy nó sang {@code EDIT}.
+     *
+     * <p>Từ chối một yêu cầu điều chỉnh trước đây luôn đặt KPI về {@code APPROVED} cứng, nên nếu
+     * KPI đang ở trạng thái khác thì trạng thái đó biến mất. Giữ lại ở đây để trả về đúng chỗ cũ;
+     * {@code null} (dữ liệu cũ) thì lui về {@code APPROVED} như trước.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "previous_kpi_status", length = 32)
+    private com.kpitracking.enums.kpi.KpiStatus previousKpiStatus;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reviewer_id")
+    private User reviewer;
+
+    @Column(name = "reviewer_note", columnDefinition = "TEXT")
+    private String reviewerNote;
+
+    /**
+     * % bù trừ do một bước TRUNG GIAN của chuỗi duyệt gợi ý cho yêu cầu dừng KPI. Chỉ người duyệt
+     * cuối chốt con số thật (vào {@code KpiCriteria.compensatedAchievementPercent}); đây chỉ là
+     * giá trị điền sẵn cho họ.
+     */
+    @Column(name = "suggested_compensation_percent")
+    private Double suggestedCompensationPercent;
+
+    @CreatedDate
+    @Column(name = "created_at", updatable = false)
+    private Instant createdAt;
+
+    @LastModifiedDate
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+}

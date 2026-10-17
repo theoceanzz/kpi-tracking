@@ -1,13 +1,13 @@
 package com.kpitracking.ai.core.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kpitracking.entity.ConversationMessage;
-import com.kpitracking.repository.ConversationMessageRepository;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
-import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.entity.ai.ConversationMessage;
+import com.kpitracking.repository.ai.ConversationMessageRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
+import com.kpitracking.service.analytics.OrgUnitStatisticService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

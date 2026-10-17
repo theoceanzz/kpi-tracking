@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.datasource;
 
-import com.kpitracking.enums.ColumnDataType;
-import com.kpitracking.enums.DatasourceStatus;
+import com.kpitracking.enums.report.ColumnDataType;
+import com.kpitracking.enums.report.DatasourceStatus;
 import lombok.*;
 
 import java.time.Instant;

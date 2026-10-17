@@ -4,7 +4,7 @@ package com.kpitracking.ai.submission;
 import com.kpitracking.ai.core.tool.ActionToolSupport;
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests;
 import com.kpitracking.ai.core.tool.ToolSupport;
-import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.service.analytics.OrgUnitStatisticService;
 import com.kpitracking.ai.core.action.ActionSupport;
 import com.kpitracking.ai.core.action.PendingAction.Item;
 import com.kpitracking.ai.core.action.PendingAction.Kind;

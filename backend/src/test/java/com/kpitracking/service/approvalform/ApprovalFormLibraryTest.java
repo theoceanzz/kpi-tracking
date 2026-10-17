@@ -5,7 +5,7 @@ import com.kpitracking.entity.form.FormOption;
 import com.kpitracking.entity.form.FormSchema;
 import com.kpitracking.entity.form.FormWidget;
 import com.kpitracking.entity.form.VisibilityRule;
-import com.kpitracking.enums.ApprovalObjectType;
+import com.kpitracking.enums.approvalprocess.ApprovalObjectType;
 import com.kpitracking.enums.WidgetType;
 import com.kpitracking.service.approvalprocess.*;
 import org.junit.jupiter.api.Test;

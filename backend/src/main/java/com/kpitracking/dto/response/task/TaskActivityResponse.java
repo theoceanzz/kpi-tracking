@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.task;
 
-import com.kpitracking.enums.KpiTaskEventAction;
+import com.kpitracking.enums.task.KpiTaskEventAction;
 import lombok.*;
 
 import java.time.Instant;

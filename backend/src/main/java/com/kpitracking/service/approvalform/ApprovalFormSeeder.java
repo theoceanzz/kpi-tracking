@@ -1,12 +1,12 @@
 package com.kpitracking.service.approvalform;
 
-import com.kpitracking.entity.ApprovalForm;
-import com.kpitracking.entity.ApprovalFormGroup;
-import com.kpitracking.entity.Organization;
+import com.kpitracking.entity.approvalform.ApprovalForm;
+import com.kpitracking.entity.approvalform.ApprovalFormGroup;
+import com.kpitracking.entity.organization.Organization;
 import com.kpitracking.i18n.SupportedLanguages;
-import com.kpitracking.repository.ApprovalFormGroupRepository;
-import com.kpitracking.repository.ApprovalFormRepository;
-import com.kpitracking.repository.OrganizationRepository;
+import com.kpitracking.repository.approvalform.ApprovalFormGroupRepository;
+import com.kpitracking.repository.approvalform.ApprovalFormRepository;
+import com.kpitracking.repository.organization.OrganizationRepository;
 import com.kpitracking.service.approvalprocess.ProcessGraphCodec;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

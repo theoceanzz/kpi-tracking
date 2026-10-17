@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.kpi;
 
-import com.kpitracking.enums.KpiFrequency;
+import com.kpitracking.enums.kpi.KpiFrequency;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 

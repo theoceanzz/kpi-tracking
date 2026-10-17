@@ -1,7 +1,7 @@
 package com.kpitracking.ai.submission;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.kpitracking.enums.KpiType;
+import com.kpitracking.enums.kpi.KpiType;
 import com.kpitracking.ai.core.form.FormFillSupport;
 import com.kpitracking.ai.core.form.FormPatch;
 import com.kpitracking.ai.core.form.FormRegistry;

@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.dashboard;
 
-import com.kpitracking.enums.DashboardScope;
+import com.kpitracking.enums.dashboard.DashboardScope;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;

@@ -3,22 +3,22 @@ package com.kpitracking.service.reward;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.dto.request.reward.CreateRedemptionRequest;
-import com.kpitracking.entity.RewardGiftItem;
-import com.kpitracking.entity.RewardRedemption;
-import com.kpitracking.entity.RewardTransaction;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.GiftItemStatus;
-import com.kpitracking.enums.RedemptionStatus;
-import com.kpitracking.enums.RewardSourceType;
-import com.kpitracking.enums.RewardTransactionType;
+import com.kpitracking.entity.reward.RewardGiftItem;
+import com.kpitracking.entity.reward.RewardRedemption;
+import com.kpitracking.entity.reward.RewardTransaction;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.reward.GiftItemStatus;
+import com.kpitracking.enums.reward.RedemptionStatus;
+import com.kpitracking.enums.reward.RewardSourceType;
+import com.kpitracking.enums.reward.RewardTransactionType;
 import com.kpitracking.event.RewardEvents;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.i18n.Terms;
-import com.kpitracking.repository.RewardGiftItemRepository;
-import com.kpitracking.repository.RewardRedemptionRepository;
-import com.kpitracking.service.RewardWalletService;
+import com.kpitracking.repository.reward.RewardGiftItemRepository;
+import com.kpitracking.repository.reward.RewardRedemptionRepository;
+import com.kpitracking.service.reward.RewardWalletService;
 import com.kpitracking.service.reward.fulfillment.RewardFulfillmentProviders;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -141,7 +141,7 @@ public class RewardRedemptionTx {
         // Quy trình "Duyệt đổi quà": chỉ quà NỘI BỘ phải giao tay (vốn nằm chờ). Quà nhận ngay và
         // voucher của nhà cung cấp đi như cũ. Điểm đã trừ + kho đã giữ; từ chối thì hoàn lại.
         if (saved.getStatus() == RedemptionStatus.PENDING && !waitForExternal) {
-            com.kpitracking.entity.OrgUnit unit = context.getPrimaryOrgUnit(me.getId());
+            com.kpitracking.entity.organization.OrgUnit unit = context.getPrimaryOrgUnit(me.getId());
             if (unit == null) unit = approvalChain.rootUnitOf(orgId);
             if (unit != null) {
                 Map<String, Object> payload = new java.util.LinkedHashMap<>();
@@ -151,7 +151,7 @@ public class RewardRedemptionTx {
                 payload.put("pointsSpent", totalCost);
                 payload.put("userName", me.getFullName());
                 payload.put("note", request.getNote());
-                approvalChain.startProposal(com.kpitracking.enums.ApprovalSubjectType.GIFT_REDEMPTION, saved.getId(),
+                approvalChain.startProposal(com.kpitracking.enums.kpi.ApprovalSubjectType.GIFT_REDEMPTION, saved.getId(),
                         gift.getName() + (qty > 1 ? " ×" + qty : "") + " · " + me.getFullName(), unit, null, me, null,
                         (double) totalCost, payload);
             }

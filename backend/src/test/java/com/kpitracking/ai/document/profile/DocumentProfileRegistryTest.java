@@ -6,7 +6,7 @@ import com.kpitracking.ai.document.section.HeadingSectioning;
 import com.kpitracking.ai.document.section.LegalStructureSectioning;
 import com.kpitracking.ai.document.section.SheetSectioning;
 import com.kpitracking.ai.document.section.SizeSectioning;
-import com.kpitracking.entity.RagDocument;
+import com.kpitracking.entity.ai.RagDocument;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

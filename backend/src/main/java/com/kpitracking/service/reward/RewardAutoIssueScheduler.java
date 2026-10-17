@@ -1,14 +1,14 @@
 package com.kpitracking.service.reward;
 
-import com.kpitracking.entity.KpiCycle;
-import com.kpitracking.entity.KpiPeriod;
-import com.kpitracking.entity.RewardProgram;
-import com.kpitracking.enums.RewardProgramScope;
-import com.kpitracking.enums.RewardRunStatus;
-import com.kpitracking.repository.KpiCycleRepository;
-import com.kpitracking.repository.KpiPeriodRepository;
-import com.kpitracking.repository.RewardProgramRepository;
-import com.kpitracking.repository.RewardProgramRunRepository;
+import com.kpitracking.entity.kpi.KpiCycle;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.reward.RewardProgram;
+import com.kpitracking.enums.reward.RewardProgramScope;
+import com.kpitracking.enums.reward.RewardRunStatus;
+import com.kpitracking.repository.kpi.KpiCycleRepository;
+import com.kpitracking.repository.kpi.KpiPeriodRepository;
+import com.kpitracking.repository.reward.RewardProgramRepository;
+import com.kpitracking.repository.reward.RewardProgramRunRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.kpitracking.dto.response.reward.RewardProgramRunResponse;

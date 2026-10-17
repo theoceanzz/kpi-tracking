@@ -1,13 +1,13 @@
 package com.kpitracking.service.kpi;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.enums.KpiStatus;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.enums.kpi.KpiStatus;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
-import com.kpitracking.repository.KpiApprovalStepRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.repository.kpi.KpiApprovalStepRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.security.PermissionChecker;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;

@@ -1,14 +1,14 @@
 package com.kpitracking.service.task;
 
 import com.kpitracking.dto.response.task.KpiTaskResponse;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.DiscussionTargetType;
-import com.kpitracking.enums.KpiCycleStatus;
-import com.kpitracking.enums.KpiStatus;
-import com.kpitracking.enums.KpiTaskStatus;
-import com.kpitracking.enums.TaskListRole;
+
+import com.kpitracking.enums.discussion.DiscussionTargetType;
+import com.kpitracking.enums.kpi.KpiCycleStatus;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.enums.task.KpiTaskStatus;
+import com.kpitracking.enums.task.TaskListRole;
 import com.kpitracking.mapper.KpiTaskMapper;
-import com.kpitracking.repository.*;
+
 import com.kpitracking.service.discussion.AttachmentLibrarySources;
 import com.kpitracking.service.discussion.DiscussionService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +20,42 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.kpitracking.entity.access.Scope;
+import com.kpitracking.entity.document.Document;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.task.KpiTask;
+import com.kpitracking.entity.task.KpiTaskAssignee;
+import com.kpitracking.entity.task.KpiTaskAttachment;
+import com.kpitracking.entity.task.KpiTaskChecklistItem;
+import com.kpitracking.entity.task.KpiTaskFollower;
+import com.kpitracking.entity.task.KpiTaskReminder;
+import com.kpitracking.entity.task.TaskDependency;
+import com.kpitracking.entity.task.TaskFieldValue;
+import com.kpitracking.entity.task.TaskList;
+import com.kpitracking.entity.task.TaskListField;
+import com.kpitracking.entity.task.TaskListItem;
+import com.kpitracking.entity.task.TaskListSection;
+import com.kpitracking.entity.task.TaskMySectionItem;
+import com.kpitracking.entity.task.TaskTag;
+import com.kpitracking.entity.task.TaskTagLink;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.repository.task.KpiTaskAssigneeRepository;
+import com.kpitracking.repository.task.KpiTaskAttachmentRepository;
+import com.kpitracking.repository.task.KpiTaskChecklistItemRepository;
+import com.kpitracking.repository.task.KpiTaskFollowerRepository;
+import com.kpitracking.repository.task.KpiTaskReminderRepository;
+import com.kpitracking.repository.task.KpiTaskRepository;
+import com.kpitracking.repository.task.TaskDependencyRepository;
+import com.kpitracking.repository.task.TaskFieldValueRepository;
+import com.kpitracking.repository.task.TaskListFieldRepository;
+import com.kpitracking.repository.task.TaskListItemRepository;
+import com.kpitracking.repository.task.TaskListRepository;
+import com.kpitracking.repository.task.TaskListSectionRepository;
+import com.kpitracking.repository.task.TaskMySectionItemRepository;
+import com.kpitracking.repository.task.TaskTagLinkRepository;
+import com.kpitracking.repository.task.TaskTagRepository;
+import com.kpitracking.repository.user.UserRepository;
 /**
  * Dựng {@link KpiTaskResponse} cho một trang việc: nạp theo LÔ (người thực hiện, người theo dõi, danh sách, nhãn, trường,
  * phụ thuộc, bình luận) rồi ghép — không truy vấn theo từng việc. Quyền / lý do chỉ đọc lấy từ {@link KpiTaskAccess.Scope}.

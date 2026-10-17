@@ -8,17 +8,17 @@ import com.kpitracking.ai.core.tool.ToolSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.dto.response.okr.KeyResultResponse;
 import com.kpitracking.dto.response.okr.ObjectiveResponse;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.enums.OkrStatus;
-import com.kpitracking.repository.ConversationMessageRepository;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
-import com.kpitracking.service.BscAnalyticsService;
-import com.kpitracking.service.BscOverviewService;
-import com.kpitracking.service.OkrService;
-import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.enums.okr.OkrStatus;
+import com.kpitracking.repository.ai.ConversationMessageRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
+import com.kpitracking.service.bsc.BscAnalyticsService;
+import com.kpitracking.service.bsc.BscOverviewService;
+import com.kpitracking.service.okr.OkrService;
+import com.kpitracking.service.analytics.OrgUnitStatisticService;
 import com.kpitracking.ai.core.agent.AgentState;
 import com.kpitracking.service.analytics.AnalyticsPeriodHelper;
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests.BscRequest;
@@ -88,7 +88,7 @@ class BscOkrToolTest {
                 new ObjectMapper());
         support.initToolMapper();
 
-        bscTool = new BscTool(bscService, mock(com.kpitracking.service.BscGoalGraphService.class), overviewService,
+        bscTool = new BscTool(bscService, mock(com.kpitracking.service.bsc.BscGoalGraphService.class), overviewService,
                 mock(AnalyticsPeriodHelper.class), support);
         okrTool = new OkrTool(okrService, support);
     }

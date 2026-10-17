@@ -2,7 +2,7 @@ package com.kpitracking.service;
 
 import com.kpitracking.exception.CodedException;
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.repository.UserRepository;
+import com.kpitracking.repository.user.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;

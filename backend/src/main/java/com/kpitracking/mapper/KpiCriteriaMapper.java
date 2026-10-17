@@ -2,8 +2,8 @@ package com.kpitracking.mapper;
 
 import com.kpitracking.dto.response.kpi.KpiCriteriaResponse;
 import com.kpitracking.dto.response.kpi.KpiCriteriaSummaryResponse;
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.KpiPeriod;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.kpi.KpiPeriod;
 import com.kpitracking.dto.response.kpi.KpiPeriodResponse;
 import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
@@ -14,7 +14,7 @@ import org.mapstruct.MappingTarget;
 @Mapper(componentModel = "spring", uses = SoftDeletedRefs.class)
 public interface KpiCriteriaMapper {
     @AfterMapping
-    default void mapOrgUnitIds(com.kpitracking.entity.KpiCriteria kpi, @MappingTarget KpiCriteriaResponse response) {
+    default void mapOrgUnitIds(com.kpitracking.entity.kpi.KpiCriteria kpi, @MappingTarget KpiCriteriaResponse response) {
         if (kpi.getOrgUnit() != null) {
             response.setOrgUnitIds(java.util.List.of(kpi.getOrgUnit().getId()));
         }
@@ -83,41 +83,41 @@ public interface KpiCriteriaMapper {
 
 
 
-    default int countActiveSubmissions(com.kpitracking.entity.KpiCriteria kpi) {
+    default int countActiveSubmissions(com.kpitracking.entity.kpi.KpiCriteria kpi) {
         if (kpi.getSubmissions() == null) return 0;
         return (int) kpi.getSubmissions().stream()
                 .filter(s -> s.getDeletedAt() == null && 
-                             (s.getStatus() == com.kpitracking.enums.SubmissionStatus.PENDING || 
-                              s.getStatus() == com.kpitracking.enums.SubmissionStatus.APPROVED ||
-                              s.getStatus() == com.kpitracking.enums.SubmissionStatus.REJECTED))
+                             (s.getStatus() == com.kpitracking.enums.submission.SubmissionStatus.PENDING || 
+                              s.getStatus() == com.kpitracking.enums.submission.SubmissionStatus.APPROVED ||
+                              s.getStatus() == com.kpitracking.enums.submission.SubmissionStatus.REJECTED))
                 .count();
     }
 
-    default int calculateExpected(com.kpitracking.entity.KpiCriteria kpi) {
+    default int calculateExpected(com.kpitracking.entity.kpi.KpiCriteria kpi) {
         if (kpi.getFrequency() == null || kpi.getKpiPeriod() == null || kpi.getKpiPeriod().getPeriodType() == null) {
             return 1;
         }
         return calculateExpected(kpi.getFrequency(), kpi.getKpiPeriod().getPeriodType());
     }
 
-    private int calculateExpected(com.kpitracking.enums.KpiFrequency kpiFreq, com.kpitracking.enums.KpiFrequency periodType) {
-        if (kpiFreq == com.kpitracking.enums.KpiFrequency.UNLIMITED) return Integer.MAX_VALUE;
+    private int calculateExpected(com.kpitracking.enums.kpi.KpiFrequency kpiFreq, com.kpitracking.enums.kpi.KpiFrequency periodType) {
+        if (kpiFreq == com.kpitracking.enums.kpi.KpiFrequency.UNLIMITED) return Integer.MAX_VALUE;
         if (kpiFreq == periodType) return 1;
-        if (kpiFreq == com.kpitracking.enums.KpiFrequency.DAILY) {
-            if (periodType == com.kpitracking.enums.KpiFrequency.MONTHLY) return 30;
-            if (periodType == com.kpitracking.enums.KpiFrequency.QUARTERLY) return 90;
-            if (periodType == com.kpitracking.enums.KpiFrequency.YEARLY) return 365;
+        if (kpiFreq == com.kpitracking.enums.kpi.KpiFrequency.DAILY) {
+            if (periodType == com.kpitracking.enums.kpi.KpiFrequency.MONTHLY) return 30;
+            if (periodType == com.kpitracking.enums.kpi.KpiFrequency.QUARTERLY) return 90;
+            if (periodType == com.kpitracking.enums.kpi.KpiFrequency.YEARLY) return 365;
         }
-        if (kpiFreq == com.kpitracking.enums.KpiFrequency.WEEKLY) {
-            if (periodType == com.kpitracking.enums.KpiFrequency.MONTHLY) return 4;
-            if (periodType == com.kpitracking.enums.KpiFrequency.QUARTERLY) return 13;
-            if (periodType == com.kpitracking.enums.KpiFrequency.YEARLY) return 52;
+        if (kpiFreq == com.kpitracking.enums.kpi.KpiFrequency.WEEKLY) {
+            if (periodType == com.kpitracking.enums.kpi.KpiFrequency.MONTHLY) return 4;
+            if (periodType == com.kpitracking.enums.kpi.KpiFrequency.QUARTERLY) return 13;
+            if (periodType == com.kpitracking.enums.kpi.KpiFrequency.YEARLY) return 52;
         }
-        if (kpiFreq == com.kpitracking.enums.KpiFrequency.MONTHLY) {
-            if (periodType == com.kpitracking.enums.KpiFrequency.QUARTERLY) return 3;
-            if (periodType == com.kpitracking.enums.KpiFrequency.YEARLY) return 12;
+        if (kpiFreq == com.kpitracking.enums.kpi.KpiFrequency.MONTHLY) {
+            if (periodType == com.kpitracking.enums.kpi.KpiFrequency.QUARTERLY) return 3;
+            if (periodType == com.kpitracking.enums.kpi.KpiFrequency.YEARLY) return 12;
         }
-        if (kpiFreq == com.kpitracking.enums.KpiFrequency.QUARTERLY && periodType == com.kpitracking.enums.KpiFrequency.YEARLY) return 4;
+        if (kpiFreq == com.kpitracking.enums.kpi.KpiFrequency.QUARTERLY && periodType == com.kpitracking.enums.kpi.KpiFrequency.YEARLY) return 4;
         return 1;
     }
 
@@ -132,72 +132,72 @@ public interface KpiCriteriaMapper {
     KpiPeriodResponse toKpiPeriodResponse(KpiPeriod kpiPeriod);
 
     @org.mapstruct.Named("mapAssigneeNames")
-    default java.util.List<String> mapAssigneeNames(java.util.List<com.kpitracking.entity.User> assignees) {
+    default java.util.List<String> mapAssigneeNames(java.util.List<com.kpitracking.entity.user.User> assignees) {
         if (assignees == null) return java.util.Collections.emptyList();
         return assignees.stream()
-                .map(com.kpitracking.entity.User::getFullName)
+                .map(com.kpitracking.entity.user.User::getFullName)
                 .toList();
     }
 
     @org.mapstruct.Named("mapAssigneeIds")
-    default java.util.List<java.util.UUID> mapAssigneeIds(java.util.List<com.kpitracking.entity.User> assignees) {
+    default java.util.List<java.util.UUID> mapAssigneeIds(java.util.List<com.kpitracking.entity.user.User> assignees) {
         if (assignees == null) return java.util.Collections.emptyList();
         return assignees.stream()
-                .map(com.kpitracking.entity.User::getId)
+                .map(com.kpitracking.entity.user.User::getId)
                 .toList();
     }
 
-    default java.util.List<String> mapDelegatedNames(com.kpitracking.entity.KpiCriteria kpi) {
+    default java.util.List<String> mapDelegatedNames(com.kpitracking.entity.kpi.KpiCriteria kpi) {
         if (kpi.getChildren() == null || kpi.getChildren().isEmpty()) return java.util.Collections.emptyList();
         return kpi.getChildren().stream()
                 .flatMap(child -> child.getAssignees().stream())
-                .map(com.kpitracking.entity.User::getFullName)
+                .map(com.kpitracking.entity.user.User::getFullName)
                 .distinct()
                 .toList();
     }
 
-    default java.util.List<java.util.UUID> mapDelegatedIds(com.kpitracking.entity.KpiCriteria kpi) {
+    default java.util.List<java.util.UUID> mapDelegatedIds(com.kpitracking.entity.kpi.KpiCriteria kpi) {
         if (kpi.getChildren() == null || kpi.getChildren().isEmpty()) return java.util.Collections.emptyList();
         return kpi.getChildren().stream()
                 .flatMap(child -> child.getAssignees().stream())
-                .map(com.kpitracking.entity.User::getId)
+                .map(com.kpitracking.entity.user.User::getId)
                 .distinct()
                 .toList();
     }
 
-    default java.util.UUID effectivePerspectiveId(com.kpitracking.entity.KpiCriteria kpi) {
+    default java.util.UUID effectivePerspectiveId(com.kpitracking.entity.kpi.KpiCriteria kpi) {
         return com.kpitracking.util.BscPerspectiveResolver.effectivePerspectiveId(kpi);
     }
 
-    default String effectivePerspectiveName(com.kpitracking.entity.KpiCriteria kpi) {
+    default String effectivePerspectiveName(com.kpitracking.entity.kpi.KpiCriteria kpi) {
         var p = com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
         return p != null ? p.getName() : null;
     }
 
-    default String effectivePerspectiveColor(com.kpitracking.entity.KpiCriteria kpi) {
+    default String effectivePerspectiveColor(com.kpitracking.entity.kpi.KpiCriteria kpi) {
         var p = com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
         return p != null ? p.getColor() : null;
     }
 
-    default String effectiveFixedPerspective(com.kpitracking.entity.KpiCriteria kpi) {
+    default String effectiveFixedPerspective(com.kpitracking.entity.kpi.KpiCriteria kpi) {
         var p = com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
         return p != null && p.getFixedPerspective() != null ? p.getFixedPerspective().name() : null;
     }
 
-    default String effectiveFixedPerspectiveName(com.kpitracking.entity.KpiCriteria kpi) {
+    default String effectiveFixedPerspectiveName(com.kpitracking.entity.kpi.KpiCriteria kpi) {
         var p = com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
         return p != null && p.getFixedPerspective() != null ? p.getFixedPerspective().getDisplayName() : null;
     }
 
-    default String effectiveFixedPerspectiveColor(com.kpitracking.entity.KpiCriteria kpi) {
+    default String effectiveFixedPerspectiveColor(com.kpitracking.entity.kpi.KpiCriteria kpi) {
         var p = com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
         return p != null && p.getFixedPerspective() != null ? p.getFixedPerspective().getColor() : null;
     }
 
-    default Double sumDecompositionChildrenWeight(com.kpitracking.entity.KpiCriteria kpi) {
+    default Double sumDecompositionChildrenWeight(com.kpitracking.entity.kpi.KpiCriteria kpi) {
         if (kpi.getChildren() == null || kpi.getChildren().isEmpty()) return 0.0;
         return kpi.getChildren().stream()
-                .filter(child -> child.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION)
+                .filter(child -> child.getParentRelationType() == com.kpitracking.enums.kpi.KpiParentRelationType.DECOMPOSITION)
                 .mapToDouble(child -> child.getWeight() != null ? child.getWeight() : 0.0)
                 .sum();
     }

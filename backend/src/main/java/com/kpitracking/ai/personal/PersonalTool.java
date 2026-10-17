@@ -12,16 +12,16 @@ import com.kpitracking.dto.response.reward.RewardGrantResponse;
 import com.kpitracking.dto.response.stats.KpiTaskResponse;
 import com.kpitracking.dto.response.stats.MyKpiProgressResponse;
 import com.kpitracking.dto.response.submission.SubmissionResponse;
-import com.kpitracking.entity.KpiPeriod;
-import com.kpitracking.entity.RewardWallet;
-import com.kpitracking.enums.SubmissionStatus;
-import com.kpitracking.repository.KpiPeriodRepository;
-import com.kpitracking.service.ConductService;
-import com.kpitracking.service.EvaluationService;
-import com.kpitracking.service.KpiCriteriaService;
-import com.kpitracking.service.KpiSubmissionService;
-import com.kpitracking.service.RewardWalletService;
-import com.kpitracking.service.StatsService;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.reward.RewardWallet;
+import com.kpitracking.enums.submission.SubmissionStatus;
+import com.kpitracking.repository.kpi.KpiPeriodRepository;
+import com.kpitracking.service.conduct.ConductService;
+import com.kpitracking.service.evaluation.EvaluationService;
+import com.kpitracking.service.kpi.KpiCriteriaService;
+import com.kpitracking.service.submission.KpiSubmissionService;
+import com.kpitracking.service.reward.RewardWalletService;
+import com.kpitracking.service.analytics.StatsService;
 import com.kpitracking.service.reward.RewardGrantService;
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests.PersonalRequest;
 import dev.langchain4j.agent.tool.Tool;
@@ -181,13 +181,13 @@ public class PersonalTool {
             if (ToolSupport.notBlank(request.periodName())) {
                 UUID periodId = support.resolvePeriodId(request.periodName(), context);
                 if (periodId == null) throw new IllegalArgumentException("Không tìm thấy kỳ '" + request.periodName().trim() + "'.");
-                t = new ConductTool.Target(com.kpitracking.enums.ConductScope.PERIOD, periodId, null, "kỳ " + request.periodName().trim());
+                t = new ConductTool.Target(com.kpitracking.enums.conduct.ConductScope.PERIOD, periodId, null, "kỳ " + request.periodName().trim());
             } else {
                 var cycle = cycleEvaluationTool.resolveCycle(null, support.getOrgId(context));
                 if (cycle == null) {
                     return support.respond(context, "get_my_conduct", Map.of("message", "Tổ chức chưa có đợt đánh giá nào."));
                 }
-                t = new ConductTool.Target(com.kpitracking.enums.ConductScope.CYCLE, null, cycle.getId(), "đợt " + cycle.getName());
+                t = new ConductTool.Target(com.kpitracking.enums.conduct.ConductScope.CYCLE, null, cycle.getId(), "đợt " + cycle.getName());
             }
             var sheet = conductService.getSheet(null, t.scope(), t.periodId(), t.cycleId());
             return support.respond(context, "get_my_conduct", Map.of("target", t.label(), "sheet", sheet));

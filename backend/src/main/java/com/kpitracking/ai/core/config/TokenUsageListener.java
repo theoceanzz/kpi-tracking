@@ -1,7 +1,7 @@
 package com.kpitracking.ai.core.config;
 
-import com.kpitracking.entity.AiTokenUsage;
-import com.kpitracking.service.AiTokenUsageRecorder;
+import com.kpitracking.entity.ai.AiTokenUsage;
+import com.kpitracking.service.ai.AiTokenUsageRecorder;
 import dev.langchain4j.model.chat.listener.ChatModelErrorContext;
 import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.model.chat.listener.ChatModelRequestContext;

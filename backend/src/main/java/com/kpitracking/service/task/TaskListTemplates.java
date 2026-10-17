@@ -1,7 +1,7 @@
 package com.kpitracking.service.task;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.kpitracking.enums.TaskFieldType;
+import com.kpitracking.enums.task.TaskFieldType;
 import com.kpitracking.i18n.ErrorMessages;
 
 import java.util.List;

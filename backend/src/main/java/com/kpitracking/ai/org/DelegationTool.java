@@ -3,9 +3,9 @@ package com.kpitracking.ai.org;
 
 import com.kpitracking.ai.core.tool.ToolSupport;
 import com.kpitracking.dto.response.delegation.DelegationResponse;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.service.OrgUnitDelegationService;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.service.organization.OrgUnitDelegationService;
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests.DelegationRequest;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.invocation.InvocationParameters;

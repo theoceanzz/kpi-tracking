@@ -1,8 +1,8 @@
 package com.kpitracking.service.kpi.approval;
 
-import com.kpitracking.entity.KpiApprovalFlow;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.ApprovalSubjectType;
+import com.kpitracking.entity.kpi.KpiApprovalFlow;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.kpi.ApprovalSubjectType;
 
 import java.util.Map;
 

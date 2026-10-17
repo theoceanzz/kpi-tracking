@@ -1,12 +1,12 @@
 package com.kpitracking.service.discussion;
 
-import com.kpitracking.entity.KpiApprovalFlow;
-import com.kpitracking.entity.KpiApprovalStep;
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.ApprovalEventAction;
-import com.kpitracking.enums.ApprovalSubjectType;
-import com.kpitracking.enums.DiscussionTargetType;
+import com.kpitracking.entity.kpi.KpiApprovalFlow;
+import com.kpitracking.entity.kpi.KpiApprovalStep;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.kpi.ApprovalEventAction;
+import com.kpitracking.enums.kpi.ApprovalSubjectType;
+import com.kpitracking.enums.discussion.DiscussionTargetType;
 import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.service.kpi.KpiAccessPolicy;
 import lombok.RequiredArgsConstructor;

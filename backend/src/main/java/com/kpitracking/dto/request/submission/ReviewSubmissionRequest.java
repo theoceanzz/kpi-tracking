@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.submission;
 
-import com.kpitracking.enums.SubmissionStatus;
+import com.kpitracking.enums.submission.SubmissionStatus;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 

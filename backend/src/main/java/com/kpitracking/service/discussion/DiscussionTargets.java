@@ -1,15 +1,15 @@
 package com.kpitracking.service.discussion;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.KpiTask;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.enums.DiscussionTargetType;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.task.KpiTask;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.enums.discussion.DiscussionTargetType;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.i18n.Terms;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.KpiTaskRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.task.KpiTaskRepository;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.kpi.KpiAccessPolicy;
 import com.kpitracking.service.task.KpiTaskAccess;
@@ -42,8 +42,8 @@ public class DiscussionTargets {
     private final KpiAccessPolicy kpiAccessPolicy;
     private final KpiTaskAccess taskAccess;
     private final PermissionChecker permissionChecker;
-    private final com.kpitracking.repository.KpiTaskFollowerRepository followerRepository;
-    private final com.kpitracking.repository.KpiTaskAssigneeRepository assigneeRepository;
+    private final com.kpitracking.repository.task.KpiTaskFollowerRepository followerRepository;
+    private final com.kpitracking.repository.task.KpiTaskAssigneeRepository assigneeRepository;
 
     /** Đối tượng đã nạp. {@code kpi} là KPI của chính nó (KPI) hoặc của task; có thể null khi KPI của task đã xoá. */
     public record Target(DiscussionTargetType type, UUID id, UUID organizationId, String title,
@@ -118,7 +118,7 @@ public class DiscussionTargets {
         ids.addAll(assigneeRepository.findUserIds(t.task().getId()));
         if (t.task().getCreatedBy() != null) ids.add(t.task().getCreatedBy());
         ids.addAll(followerRepository.findUserIds(t.task().getId()));
-        if (t.task().getVisibility() == com.kpitracking.enums.KpiTaskVisibility.KPI_SCOPE && t.kpi() != null) {
+        if (t.task().getVisibility() == com.kpitracking.enums.task.KpiTaskVisibility.KPI_SCOPE && t.kpi() != null) {
             ids.addAll(kpiAccessPolicy.viewerIds(t.kpi().getId(), KpiTaskAccess.VIEW_TEAM, query, limit));
         }
         return ids.stream().filter(id -> canView(id, t)).limit(limit).toList();

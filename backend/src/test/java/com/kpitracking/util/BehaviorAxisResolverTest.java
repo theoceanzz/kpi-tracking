@@ -1,6 +1,6 @@
 package com.kpitracking.util;
 
-import com.kpitracking.enums.F360ScoringMode;
+import com.kpitracking.enums.feedback360.F360ScoringMode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

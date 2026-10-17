@@ -1,8 +1,8 @@
 package com.kpitracking.event;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.KpiSubmission;
-import com.kpitracking.entity.User;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.submission.KpiSubmission;
+import com.kpitracking.entity.user.User;
 import lombok.Getter;
 import org.springframework.context.ApplicationEvent;
 

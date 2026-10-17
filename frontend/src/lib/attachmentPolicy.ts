@@ -3,7 +3,7 @@ import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
 
 /**
- * Bản soi gương của `com.kpitracking.service.AttachmentPolicy` phía máy chủ.
+ * Bản soi gương của `com.kpitracking.service.submission.AttachmentPolicy` phía máy chủ.
  *
  * Đây là chốt chặn LỊCH SỰ, không phải chốt chặn AN TOÀN: nó tồn tại để người dùng biết ngay tệp
  * hỏng, thay vì chờ tải xong 10MB rồi mới bị từ chối. Máy chủ vẫn là nơi quyết định — nó còn đối

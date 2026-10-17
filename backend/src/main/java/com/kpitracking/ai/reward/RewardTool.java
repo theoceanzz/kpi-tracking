@@ -6,7 +6,7 @@ import com.kpitracking.ai.core.tool.ToolSupport;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.reward.RewardBudgetResponse;
 import com.kpitracking.dto.response.reward.RewardGrantResponse;
-import com.kpitracking.enums.RewardGrantStatus;
+import com.kpitracking.enums.reward.RewardGrantStatus;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.security.PermissionChecker;

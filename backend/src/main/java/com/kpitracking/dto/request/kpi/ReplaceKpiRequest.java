@@ -1,7 +1,7 @@
 package com.kpitracking.dto.request.kpi;
 
-import com.kpitracking.enums.KpiFrequency;
-import com.kpitracking.enums.KpiType;
+import com.kpitracking.enums.kpi.KpiFrequency;
+import com.kpitracking.enums.kpi.KpiType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;

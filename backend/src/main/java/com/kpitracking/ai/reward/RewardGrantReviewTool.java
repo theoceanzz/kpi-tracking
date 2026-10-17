@@ -6,7 +6,7 @@ import com.kpitracking.ai.org.OrgUnitStatisticToolRequests;
 import com.kpitracking.ai.core.tool.ToolSupport;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.reward.RewardGrantResponse;
-import com.kpitracking.enums.RewardGrantStatus;
+import com.kpitracking.enums.reward.RewardGrantStatus;
 import com.kpitracking.ai.core.action.ActionSupport;
 import com.kpitracking.ai.core.action.PendingAction.Decision;
 import com.kpitracking.ai.core.action.PendingAction.Item;

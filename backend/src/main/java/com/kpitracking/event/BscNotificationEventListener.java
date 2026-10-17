@@ -1,17 +1,17 @@
 package com.kpitracking.event;
 
 import com.kpitracking.i18n.LocalizedText;
-import com.kpitracking.entity.BscScorecard;
-import com.kpitracking.entity.BscUnitResult;
-import com.kpitracking.entity.Evaluation;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.BscScorecardApplyScope;
-import com.kpitracking.repository.BscScorecardRepository;
-import com.kpitracking.repository.BscUnitResultRepository;
-import com.kpitracking.repository.EvaluationRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.UserRepository;
+import com.kpitracking.entity.bsc.BscScorecard;
+import com.kpitracking.entity.bsc.BscUnitResult;
+import com.kpitracking.entity.evaluation.Evaluation;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.bsc.BscScorecardApplyScope;
+import com.kpitracking.repository.bsc.BscScorecardRepository;
+import com.kpitracking.repository.bsc.BscUnitResultRepository;
+import com.kpitracking.repository.evaluation.EvaluationRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
 import com.kpitracking.service.notification.NotificationDispatcher;
 import com.kpitracking.service.notification.NotificationRoutingService;
 import lombok.RequiredArgsConstructor;
@@ -78,7 +78,7 @@ public class BscNotificationEventListener {
         BscScorecard s = find(event.scorecardId());
         if (s == null) return;
         // Thẻ đi theo quy trình duyệt: người giữ bước đầu đã được chuỗi duyệt báo riêng.
-        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.ApprovalSubjectType.BSC_SCORECARD, s.getId()).isPresent()) return;
+        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.kpi.ApprovalSubjectType.BSC_SCORECARD, s.getId()).isPresent()) return;
 
         Object actorName = nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.unit"));
         LocalizedText title = LocalizedText.of("notif.bsc.submitted.title");

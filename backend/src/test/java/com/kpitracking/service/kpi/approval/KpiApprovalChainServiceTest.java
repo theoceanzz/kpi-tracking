@@ -1,11 +1,11 @@
 package com.kpitracking.service.kpi.approval;
 
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.*;
+
+
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.StaleStateException;
-import com.kpitracking.repository.*;
+
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.approvalprocess.ApprovalProcessPlanner;
 import com.kpitracking.service.kpi.CycleStatusGuard;
@@ -34,6 +34,34 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.kpitracking.entity.access.Permission;
+import com.kpitracking.entity.access.Role;
+import com.kpitracking.entity.access.RolePermission;
+import com.kpitracking.entity.kpi.KpiAdjustmentRequest;
+import com.kpitracking.entity.kpi.KpiApprovalFlow;
+import com.kpitracking.entity.kpi.KpiApprovalStep;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.organization.OrgHierarchyLevel;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.enums.kpi.ApprovalEventAction;
+import com.kpitracking.enums.kpi.ApprovalFlowStatus;
+import com.kpitracking.enums.kpi.ApprovalOutcome;
+import com.kpitracking.enums.kpi.ApprovalStepKind;
+import com.kpitracking.enums.kpi.ApprovalStepStatus;
+import com.kpitracking.enums.kpi.ApprovalSubjectType;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.enums.organization.OrgUnitRelationType;
+import com.kpitracking.enums.user.UserStatus;
+import com.kpitracking.repository.access.RolePermissionRepository;
+import com.kpitracking.repository.kpi.KpiApprovalEventRepository;
+import com.kpitracking.repository.kpi.KpiApprovalFlowRepository;
+import com.kpitracking.repository.kpi.KpiApprovalStepRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 /**
  * Luật duyệt của chuỗi trên cây mẫu: Phòng A ⊂ Khối B ⊂ Công ty C (gốc).
  * Nhân viên thuộc Phòng A; trưởng A, trưởng B, giám đốc C; admin là người có SYSTEM:ADMIN ở gốc.
@@ -152,9 +180,9 @@ class KpiApprovalChainServiceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = com.kpitracking.enums.OrgUnitRelationType.class, names = {"ADVISORY", "SUPERVISORY"})
+    @EnumSource(value = com.kpitracking.enums.organization.OrgUnitRelationType.class, names = {"ADVISORY", "SUPERVISORY"})
     @DisplayName("Quan hệ tham mưu/giám sát CHỈ để vẽ sơ đồ: chuỗi duyệt vẫn đi lên đơn vị cha như trực tuyến")
-    void sideRelationStillFollowsParentChain(com.kpitracking.enums.OrgUnitRelationType relation) {
+    void sideRelationStillFollowsParentChain(com.kpitracking.enums.organization.OrgUnitRelationType relation) {
         unitA.setParentRelation(relation);
         unitB.setParentRelation(relation);
 

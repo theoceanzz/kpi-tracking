@@ -1,7 +1,7 @@
 package com.kpitracking.service.wallet;
 
 import com.kpitracking.dto.request.wallet.SepayWebhookPayload;
-import com.kpitracking.enums.SepayEventStatus;
+import com.kpitracking.enums.wallet.SepayEventStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

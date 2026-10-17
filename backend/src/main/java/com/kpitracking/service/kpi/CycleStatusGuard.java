@@ -1,13 +1,13 @@
 package com.kpitracking.service.kpi;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.KpiCycle;
-import com.kpitracking.entity.KpiPeriod;
-import com.kpitracking.enums.KpiCycleStatus;
-import com.kpitracking.enums.KpiStatus;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.kpi.KpiCycle;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.enums.kpi.KpiCycleStatus;
+import com.kpitracking.enums.kpi.KpiStatus;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.repository.KpiCycleRepository;
+import com.kpitracking.repository.kpi.KpiCycleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

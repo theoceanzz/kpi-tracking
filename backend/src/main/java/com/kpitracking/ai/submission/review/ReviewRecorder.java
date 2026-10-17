@@ -2,12 +2,12 @@ package com.kpitracking.ai.submission.review;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.ai.submission.review.ReviewRun;
-import com.kpitracking.entity.AiSubmissionReview;
-import com.kpitracking.entity.AiSubmissionReviewItem;
-import com.kpitracking.enums.AiReviewStatus;
+import com.kpitracking.entity.ai.AiSubmissionReview;
+import com.kpitracking.entity.ai.AiSubmissionReviewItem;
+import com.kpitracking.enums.ai.AiReviewStatus;
 import com.kpitracking.mapper.AiSubmissionReviewMapper;
-import com.kpitracking.repository.AiSubmissionReviewItemRepository;
-import com.kpitracking.repository.AiSubmissionReviewRepository;
+import com.kpitracking.repository.ai.AiSubmissionReviewItemRepository;
+import com.kpitracking.repository.ai.AiSubmissionReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

@@ -1,14 +1,14 @@
 package com.kpitracking.service.reward;
 
 import com.kpitracking.i18n.ErrorMessages;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.RewardProgram;
-import com.kpitracking.enums.RewardProgramScope;
-import com.kpitracking.enums.RewardRankingMetric;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.reward.RewardProgram;
+import com.kpitracking.enums.reward.RewardProgramScope;
+import com.kpitracking.enums.reward.RewardRankingMetric;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.repository.RewardRankingRepository;
-import com.kpitracking.service.EvaluationService;
+import com.kpitracking.repository.reward.RewardRankingRepository;
+import com.kpitracking.service.evaluation.EvaluationService;
 import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -12,7 +12,7 @@ import java.util.UUID;
  */
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class KpiApprovalChainResponse {
-    private com.kpitracking.enums.ApprovalSubjectType subjectType;
+    private com.kpitracking.enums.kpi.ApprovalSubjectType subjectType;
     private UUID subjectId;
     private UUID kpiCriteriaId;
     private String kpiName;

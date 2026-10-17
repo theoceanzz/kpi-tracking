@@ -6,9 +6,9 @@ import com.kpitracking.dto.response.approvalprocess.ApprovalProcessCatalogRespon
 import com.kpitracking.entity.form.FormAdmin;
 import com.kpitracking.entity.form.FormSchema;
 import com.kpitracking.entity.form.FormSubmitters;
-import com.kpitracking.enums.ApprovalRequestStatus;
-import com.kpitracking.enums.FormAdminPermission;
-import com.kpitracking.enums.FormSubmitterScope;
+import com.kpitracking.enums.approvalform.ApprovalRequestStatus;
+import com.kpitracking.enums.approvalform.FormAdminPermission;
+import com.kpitracking.enums.approvalform.FormSubmitterScope;
 import com.kpitracking.enums.WidgetType;
 import com.kpitracking.service.approvalprocess.ProcessGraph;
 import jakarta.validation.constraints.NotNull;

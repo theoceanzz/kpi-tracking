@@ -1,8 +1,8 @@
 package com.kpitracking.service.analytics;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.KpiSubmission;
-import com.kpitracking.enums.KpiParentRelationType;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.submission.KpiSubmission;
+import com.kpitracking.enums.kpi.KpiParentRelationType;
 
 import java.util.List;
 import java.util.stream.Collectors;

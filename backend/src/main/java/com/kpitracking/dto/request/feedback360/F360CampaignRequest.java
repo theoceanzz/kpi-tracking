@@ -64,7 +64,7 @@ public class F360CampaignRequest {
     private Boolean strictAnonymity;
 
     /** Điểm 360 có vào xếp loại kỳ không — chỉ khác DEVELOPMENT_ONLY khi tổ chức cho phép. */
-    private com.kpitracking.enums.F360ScoringMode scoringMode;
+    private com.kpitracking.enums.feedback360.F360ScoringMode scoringMode;
 
     @Min(value = 0, message = "{validation.conductRatioMustBetween0100}")
     @Max(value = 100, message = "{validation.conductRatioMustBetween0100}")

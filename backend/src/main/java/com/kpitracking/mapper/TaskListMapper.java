@@ -3,7 +3,7 @@ package com.kpitracking.mapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.dto.response.task.TaskListResponses;
-import com.kpitracking.entity.*;
+
 import com.kpitracking.service.task.TaskFieldCodec;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -11,6 +11,12 @@ import org.mapstruct.Mapping;
 import java.util.List;
 import java.util.Map;
 
+import com.kpitracking.entity.task.TaskList;
+import com.kpitracking.entity.task.TaskListAutomation;
+import com.kpitracking.entity.task.TaskListField;
+import com.kpitracking.entity.task.TaskListSection;
+import com.kpitracking.entity.task.TaskSavedView;
+import com.kpitracking.entity.task.TaskTag;
 /** Ánh xạ thuần của danh sách công việc. Vai trò người xem, thành viên, số đếm do {@code TaskListService} ghép. */
 @Mapper(componentModel = "spring")
 public interface TaskListMapper {

@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.bsc;
 
-import com.kpitracking.enums.BscLinkedWeightEnforce;
-import com.kpitracking.enums.BscPolicyStatus;
+import com.kpitracking.enums.bsc.BscLinkedWeightEnforce;
+import com.kpitracking.enums.bsc.BscPolicyStatus;
 import lombok.*;
 
 import java.util.List;

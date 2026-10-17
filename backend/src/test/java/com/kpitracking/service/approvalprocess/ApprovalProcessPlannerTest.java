@@ -1,11 +1,11 @@
 package com.kpitracking.service.approvalprocess;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.*;
-import com.kpitracking.repository.ApprovalProcessRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+
+
+import com.kpitracking.repository.approvalprocess.ApprovalProcessRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.service.approvalprocess.ProcessGraph.Branch;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,6 +25,19 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.kpitracking.entity.access.Role;
+import com.kpitracking.entity.approvalprocess.ApprovalProcess;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.organization.OrgHierarchyLevel;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.enums.approvalprocess.ApprovalObjectType;
+import com.kpitracking.enums.kpi.ApprovalSubjectType;
+import com.kpitracking.enums.kpi.KpiFrequency;
+import com.kpitracking.enums.kpi.KpiType;
+import com.kpitracking.enums.user.UserStatus;
 /**
  * Lập bước theo quy trình trên cây mẫu: Phòng A ⊂ Khối B ⊂ Công ty C (gốc). Nhân viên ở A; trưởng
  * A, trưởng B, giám đốc C; một "Thư ký" giữ chức vụ thư ký ở Khối B.

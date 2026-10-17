@@ -1,6 +1,6 @@
 package com.kpitracking.ai.submission.review;
 
-import com.kpitracking.entity.Organization;
+import com.kpitracking.entity.organization.Organization;
 import com.kpitracking.ai.submission.review.ReviewContext;
 import com.kpitracking.ai.submission.review.ReviewResults;
 import lombok.Getter;

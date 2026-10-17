@@ -1,6 +1,6 @@
 package com.kpitracking.service.approvalprocess;
 
-import com.kpitracking.enums.ApprovalObjectType;
+import com.kpitracking.enums.approvalprocess.ApprovalObjectType;
 import com.kpitracking.service.approvalprocess.ProcessGraph.Branch;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

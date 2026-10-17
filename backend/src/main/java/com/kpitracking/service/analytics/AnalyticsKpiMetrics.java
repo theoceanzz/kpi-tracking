@@ -1,11 +1,11 @@
 package com.kpitracking.service.analytics;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.KpiSubmission;
-import com.kpitracking.enums.KpiStatus;
-import com.kpitracking.enums.KpiType;
-import com.kpitracking.enums.SubmissionStatus;
-import com.kpitracking.service.KpiAchievementCalculator;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.submission.KpiSubmission;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.enums.kpi.KpiType;
+import com.kpitracking.enums.submission.SubmissionStatus;
+import com.kpitracking.service.kpi.KpiAchievementCalculator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

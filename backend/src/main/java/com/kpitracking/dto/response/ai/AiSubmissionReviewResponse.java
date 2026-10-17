@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.ai;
 
-import com.kpitracking.enums.AiReviewStatus;
+import com.kpitracking.enums.ai.AiReviewStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

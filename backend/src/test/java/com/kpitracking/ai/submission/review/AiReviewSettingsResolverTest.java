@@ -1,17 +1,17 @@
 package com.kpitracking.ai.submission.review;
 
-import com.kpitracking.entity.AiCriteriaSet;
-import com.kpitracking.entity.AiReviewUnitSetting;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.Organization;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.repository.AiCriteriaSetItemRepository;
-import com.kpitracking.entity.RagDocument;
-import com.kpitracking.repository.AiCriteriaSetRepository;
-import com.kpitracking.repository.RagDocumentRepository;
-import com.kpitracking.repository.AiReviewUnitSettingRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.entity.ai.AiCriteriaSet;
+import com.kpitracking.entity.ai.AiReviewUnitSetting;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.ai.AiCriteriaSetItemRepository;
+import com.kpitracking.entity.ai.RagDocument;
+import com.kpitracking.repository.ai.AiCriteriaSetRepository;
+import com.kpitracking.repository.ai.RagDocumentRepository;
+import com.kpitracking.repository.ai.AiReviewUnitSettingRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,7 +60,7 @@ class AiReviewSettingsResolverTest {
         OrgUnitRepository units = mock(OrgUnitRepository.class);
         ragDocs = mock(RagDocumentRepository.class);
         resolver = new AiReviewSettingsResolver(unitSettings, sets, mock(AiCriteriaSetItemRepository.class),
-                assignments, units, ragDocs, mock(com.kpitracking.repository.AiReviewLevelRepository.class));
+                assignments, units, ragDocs, mock(com.kpitracking.repository.ai.AiReviewLevelRepository.class));
 
         org.setId(UUID.randomUUID());
         org.setEnableAi(true);
@@ -167,9 +167,9 @@ class AiReviewSettingsResolverTest {
     @DisplayName("thang điểm AI: xếp theo điểm tăng dần, tối đa = điểm mức cao nhất, % = điểm / tối đa; thang toàn 0 -> trống")
     void aiScaleFromLevels() {
         var rows = List.of(
-                com.kpitracking.entity.AiReviewLevel.builder().name("Tốt").position(1).points(java.math.BigDecimal.valueOf(8)).description("Đủ số liệu").build(),
-                com.kpitracking.entity.AiReviewLevel.builder().name("Kém").position(2).points(java.math.BigDecimal.ZERO).build(),
-                com.kpitracking.entity.AiReviewLevel.builder().name("Khá").position(3).points(java.math.BigDecimal.valueOf(6)).build());
+                com.kpitracking.entity.ai.AiReviewLevel.builder().name("Tốt").position(1).points(java.math.BigDecimal.valueOf(8)).description("Đủ số liệu").build(),
+                com.kpitracking.entity.ai.AiReviewLevel.builder().name("Kém").position(2).points(java.math.BigDecimal.ZERO).build(),
+                com.kpitracking.entity.ai.AiReviewLevel.builder().name("Khá").position(3).points(java.math.BigDecimal.valueOf(6)).build());
 
         AiReviewSettingsResolver.AiScale s = AiReviewSettingsResolver.scaleOf(rows);
 

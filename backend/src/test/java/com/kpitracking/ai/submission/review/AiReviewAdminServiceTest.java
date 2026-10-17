@@ -1,23 +1,23 @@
 package com.kpitracking.ai.submission.review;
 
 import com.kpitracking.dto.response.ai.AiReviewReportResponse;
-import com.kpitracking.entity.AiSubmissionReview;
-import com.kpitracking.entity.AiSubmissionReviewItem;
-import com.kpitracking.entity.Evaluation;
-import com.kpitracking.entity.OrgHierarchyLevel;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.Organization;
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.enums.AiReviewStatus;
+import com.kpitracking.entity.ai.AiSubmissionReview;
+import com.kpitracking.entity.ai.AiSubmissionReviewItem;
+import com.kpitracking.entity.evaluation.Evaluation;
+import com.kpitracking.entity.organization.OrgHierarchyLevel;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.enums.ai.AiReviewStatus;
 import com.kpitracking.exception.ForbiddenException;
-import com.kpitracking.repository.AiReviewUnitSettingRepository;
-import com.kpitracking.repository.AiSubmissionReviewItemRepository;
-import com.kpitracking.repository.AiSubmissionReviewRepository;
-import com.kpitracking.repository.EvaluationRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.repository.ai.AiReviewUnitSettingRepository;
+import com.kpitracking.repository.ai.AiSubmissionReviewItemRepository;
+import com.kpitracking.repository.ai.AiSubmissionReviewRepository;
+import com.kpitracking.repository.evaluation.EvaluationRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.any;
 import org.junit.jupiter.api.AfterEach;
@@ -154,9 +154,9 @@ class AiReviewAdminServiceTest {
     private static AiReviewSettingsResolver.AiScale dbScale() {
         String[] names = {"KÉM", "TRUNG BÌNH", "TỐT"};
         double[] pts = {0, 5, 10};
-        java.util.List<com.kpitracking.entity.AiReviewLevel> rows = new java.util.ArrayList<>();
+        java.util.List<com.kpitracking.entity.ai.AiReviewLevel> rows = new java.util.ArrayList<>();
         for (int i = 0; i < names.length; i++) {
-            rows.add(com.kpitracking.entity.AiReviewLevel.builder().name(names[i]).position(i + 1)
+            rows.add(com.kpitracking.entity.ai.AiReviewLevel.builder().name(names[i]).position(i + 1)
                     .points(java.math.BigDecimal.valueOf(pts[i])).build());
         }
         return AiReviewSettingsResolver.scaleOf(rows);

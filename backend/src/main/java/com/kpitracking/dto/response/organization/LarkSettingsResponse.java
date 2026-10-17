@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.organization;
 
-import com.kpitracking.enums.LarkConnectionMode;
+import com.kpitracking.enums.auth.LarkConnectionMode;
 import lombok.*;
 
 import java.time.Instant;

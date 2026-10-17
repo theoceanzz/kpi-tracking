@@ -1,7 +1,7 @@
 package com.kpitracking.service.feedback360;
 
 import com.kpitracking.dto.response.feedback360.F360ResultSnapshot;
-import com.kpitracking.enums.F360Relationship;
+import com.kpitracking.enums.feedback360.F360Relationship;
 
 import java.util.*;
 

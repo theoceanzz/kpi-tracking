@@ -1,14 +1,14 @@
 package com.kpitracking.service.kpi.approval;
 
-import com.kpitracking.entity.KpiAdjustmentRequest;
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.Organization;
-import com.kpitracking.enums.ApprovalEventAction;
-import com.kpitracking.enums.KpiStatus;
-import com.kpitracking.repository.KpiAdjustmentRequestRepository;
-import com.kpitracking.repository.KpiApprovalFlowRepository;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.OrganizationRepository;
+import com.kpitracking.entity.kpi.KpiAdjustmentRequest;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.enums.kpi.ApprovalEventAction;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.repository.kpi.KpiAdjustmentRequestRepository;
+import com.kpitracking.repository.kpi.KpiApprovalFlowRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.organization.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.organization;
 
-import com.kpitracking.enums.CodeType;
+import com.kpitracking.enums.organization.CodeType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;

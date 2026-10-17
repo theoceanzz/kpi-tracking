@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.user;
 
-import com.kpitracking.enums.UserStatus;
+import com.kpitracking.enums.user.UserStatus;
 import lombok.*;
 
 import java.time.Instant;

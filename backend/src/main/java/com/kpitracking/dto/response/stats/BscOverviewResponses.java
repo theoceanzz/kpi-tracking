@@ -1,9 +1,9 @@
 package com.kpitracking.dto.response.stats;
 
-import com.kpitracking.enums.BscScorecardLevel;
-import com.kpitracking.enums.BscScorecardStatus;
-import com.kpitracking.enums.BscScoringMode;
-import com.kpitracking.enums.BscUnitResultStatus;
+import com.kpitracking.enums.bsc.BscScorecardLevel;
+import com.kpitracking.enums.bsc.BscScorecardStatus;
+import com.kpitracking.enums.bsc.BscScoringMode;
+import com.kpitracking.enums.bsc.BscUnitResultStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

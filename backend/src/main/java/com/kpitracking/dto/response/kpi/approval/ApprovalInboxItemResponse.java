@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.kpi.approval;
 
-import com.kpitracking.enums.ApprovalSubjectType;
+import com.kpitracking.enums.kpi.ApprovalSubjectType;
 import lombok.*;
 
 import java.time.Instant;

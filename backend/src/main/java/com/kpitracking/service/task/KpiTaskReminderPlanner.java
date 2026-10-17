@@ -1,12 +1,12 @@
 package com.kpitracking.service.task;
 
 import com.kpitracking.dto.request.task.KpiTaskReminderInput;
-import com.kpitracking.entity.KpiTask;
-import com.kpitracking.entity.KpiTaskReminder;
-import com.kpitracking.enums.KpiTaskReminderKind;
+import com.kpitracking.entity.task.KpiTask;
+import com.kpitracking.entity.task.KpiTaskReminder;
+import com.kpitracking.enums.task.KpiTaskReminderKind;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.repository.KpiTaskReminderRepository;
+import com.kpitracking.repository.task.KpiTaskReminderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

@@ -3,8 +3,8 @@ package com.kpitracking.service.task;
 import com.kpitracking.dto.request.task.*;
 import com.kpitracking.dto.response.task.KpiTaskEventResponse;
 import com.kpitracking.dto.response.task.KpiTaskResponse;
-import com.kpitracking.entity.TaskRecurrence;
-import com.kpitracking.enums.*;
+import com.kpitracking.entity.task.TaskRecurrence;
+
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.service.CollabITSupport;
 import com.kpitracking.service.discussion.DiscussionService;
@@ -21,6 +21,11 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.kpitracking.enums.discussion.DiscussionTargetType;
+import com.kpitracking.enums.task.KpiTaskEventAction;
+import com.kpitracking.enums.task.KpiTaskReminderKind;
+import com.kpitracking.enums.task.KpiTaskStatus;
+import com.kpitracking.enums.task.KpiTaskVisibility;
 /**
  * Công việc kiểu Lark trên PostgreSQL THẬT — 13 test của phần D. Fixture ({@link CollabITSupport}): trưởng đơn vị
  * {@code head} (có TASK:ASSIGN), hai nhân viên {@code employee}, {@code colleague} (không có), người ngoài tổ chức;

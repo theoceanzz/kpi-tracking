@@ -3,8 +3,8 @@ package com.kpitracking.ai.kpi;
 
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests;
 import com.kpitracking.ai.core.tool.ToolSupport;
-import com.kpitracking.service.OrgUnitKpiAnalyticsService;
-import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.service.analytics.OrgUnitKpiAnalyticsService;
+import com.kpitracking.service.analytics.OrgUnitStatisticService;
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests.KpiRequest;
 import com.kpitracking.ai.core.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
@@ -89,11 +89,11 @@ public class KpiTool {
     private static void requireKnownStatus(String raw) {
         if (!ToolSupport.notBlank(raw)) return;
         String v = raw.trim().toUpperCase(java.util.Locale.ROOT);
-        for (com.kpitracking.enums.KpiStatus known : com.kpitracking.enums.KpiStatus.values()) {
+        for (com.kpitracking.enums.kpi.KpiStatus known : com.kpitracking.enums.kpi.KpiStatus.values()) {
             if (known.name().equals(v)) return;
         }
         throw new IllegalArgumentException("status không hợp lệ: '" + raw + "'. Chỉ nhận: "
-                + java.util.Arrays.stream(com.kpitracking.enums.KpiStatus.values())
+                + java.util.Arrays.stream(com.kpitracking.enums.kpi.KpiStatus.values())
                         .map(Enum::name).collect(java.util.stream.Collectors.joining(", "))
                 + ". KPI 'cần phê duyệt' là PENDING_APPROVAL.");
     }

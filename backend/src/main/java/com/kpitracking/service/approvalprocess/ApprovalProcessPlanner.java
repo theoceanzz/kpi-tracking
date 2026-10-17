@@ -1,11 +1,11 @@
 package com.kpitracking.service.approvalprocess;
 
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.ApprovalObjectType;
-import com.kpitracking.enums.ApprovalSubjectType;
-import com.kpitracking.repository.ApprovalProcessRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+
+import com.kpitracking.enums.approvalprocess.ApprovalObjectType;
+import com.kpitracking.enums.kpi.ApprovalSubjectType;
+import com.kpitracking.repository.approvalprocess.ApprovalProcessRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.approvalprocess.ProcessGraph.*;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +14,12 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.*;
 
+import com.kpitracking.entity.approvalprocess.ApprovalProcess;
+import com.kpitracking.entity.kpi.KpiAdjustmentRequest;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
 /**
  * Lập các bước duyệt theo quy trình của tổ chức, lúc gửi duyệt.
  *

@@ -1,9 +1,9 @@
 package com.kpitracking.dto.response.kpi;
 
-import com.kpitracking.enums.KpiFrequency;
-import com.kpitracking.enums.KpiParentRelationType;
-import com.kpitracking.enums.KpiStatus;
-import com.kpitracking.enums.KpiType;
+import com.kpitracking.enums.kpi.KpiFrequency;
+import com.kpitracking.enums.kpi.KpiParentRelationType;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.enums.kpi.KpiType;
 import lombok.*;
 
 import java.time.Instant;
@@ -57,7 +57,7 @@ public class KpiCriteriaResponse {
     private String scorecardPerspectiveName;
     private String scorecardName;
     /** ASSIGNED = quản lý giao xuống, SELF = nhân viên tự khai (QĐ-3). */
-    private com.kpitracking.enums.BscItemOrigin origin;
+    private com.kpitracking.enums.bsc.BscItemOrigin origin;
     private String perspectiveName;
     private String perspectiveColor;
     // Lĩnh vực HIỆU LỰC (gồm cả kế thừa từ Objective cha) — dùng để hiển thị tag.

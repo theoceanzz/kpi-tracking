@@ -1,10 +1,14 @@
 package com.kpitracking.service.approvalprocess;
 
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.ApprovalObjectType;
+
+import com.kpitracking.enums.approvalprocess.ApprovalObjectType;
 
 import java.util.*;
 
+import com.kpitracking.entity.kpi.KpiAdjustmentRequest;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.User;
 /**
  * Những gì điều kiện duyệt được phép nhìn vào, chụp từ KPI / yêu cầu điều chỉnh / người gửi ngay
  * lúc gửi duyệt. Tách ra record để bộ đánh giá điều kiện là thuần logic.

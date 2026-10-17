@@ -1,13 +1,13 @@
 package com.kpitracking.ai.core.form;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.OrgHierarchyLevel;
-import com.kpitracking.entity.QualitativeLevel;
-import com.kpitracking.enums.KpiType;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.OrgHierarchyLevelRepository;
-import com.kpitracking.repository.QualitativeLevelRepository;
-import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.organization.OrgHierarchyLevel;
+import com.kpitracking.entity.kpi.QualitativeLevel;
+import com.kpitracking.enums.kpi.KpiType;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.organization.OrgHierarchyLevelRepository;
+import com.kpitracking.repository.kpi.QualitativeLevelRepository;
+import com.kpitracking.service.analytics.OrgUnitStatisticService;
 import com.kpitracking.ai.core.form.FormSpec.Descriptor;
 import com.kpitracking.ai.core.form.FormSpec.Field;
 import com.kpitracking.ai.core.ToolProgress;

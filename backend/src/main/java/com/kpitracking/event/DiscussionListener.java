@@ -1,14 +1,14 @@
 package com.kpitracking.event;
 
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.DiscussionTargetType;
+
+import com.kpitracking.enums.discussion.DiscussionTargetType;
 import com.kpitracking.i18n.LocalizedText;
-import com.kpitracking.repository.DiscussionCommentRepository;
-import com.kpitracking.repository.NotificationRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
-import com.kpitracking.service.NotificationService;
-import com.kpitracking.service.OrgNotificationConfigService;
+import com.kpitracking.repository.discussion.DiscussionCommentRepository;
+import com.kpitracking.repository.notification.NotificationRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
+import com.kpitracking.service.notification.NotificationService;
+import com.kpitracking.service.notification.OrgNotificationConfigService;
 import com.kpitracking.service.discussion.DiscussionTargets;
 import com.kpitracking.service.notification.NotificationDispatcher;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +25,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 
+import com.kpitracking.entity.discussion.DiscussionComment;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.notification.Notification;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
 /**
  * Hậu xử lý của khung thảo luận, chạy SAU COMMIT:
  * <ul>
@@ -54,7 +60,7 @@ public class DiscussionListener {
     private final NotificationService notificationService;
     private final NotificationRepository notificationRepository;
     private final OrgNotificationConfigService configService;
-    private final com.kpitracking.repository.KpiTaskFollowerRepository taskFollowerRepository;
+    private final com.kpitracking.repository.task.KpiTaskFollowerRepository taskFollowerRepository;
 
     public static String topic(DiscussionTargetType type, UUID targetId) {
         return "/topic/discussion." + type.name() + "." + targetId;

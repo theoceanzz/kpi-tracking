@@ -1,8 +1,8 @@
 package com.kpitracking.util;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.KpiSubmission;
-import com.kpitracking.entity.QualitativeLevel;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.submission.KpiSubmission;
+import com.kpitracking.entity.kpi.QualitativeLevel;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -47,7 +47,7 @@ public final class QualitativeKpiUtil {
                 Comparator.nullsFirst(Comparator.naturalOrder()));
         return kpi.getSubmissions().stream()
                 .filter(s -> s.getQualitativeLevel() != null
-                        && s.getStatus() == com.kpitracking.enums.SubmissionStatus.APPROVED)
+                        && s.getStatus() == com.kpitracking.enums.submission.SubmissionStatus.APPROVED)
                 .max(byTime)
                 .or(() -> kpi.getSubmissions().stream()
                         .filter(s -> s.getQualitativeLevel() != null).max(byTime))

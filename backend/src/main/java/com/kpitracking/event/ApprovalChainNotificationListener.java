@@ -1,16 +1,16 @@
 package com.kpitracking.event;
 
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.AdjustmentStatus;
-import com.kpitracking.enums.ApprovalFlowStatus;
-import com.kpitracking.enums.ApprovalStepStatus;
-import com.kpitracking.enums.ApprovalSubjectType;
+
+import com.kpitracking.enums.kpi.AdjustmentStatus;
+import com.kpitracking.enums.kpi.ApprovalFlowStatus;
+import com.kpitracking.enums.kpi.ApprovalStepStatus;
+import com.kpitracking.enums.kpi.ApprovalSubjectType;
 import com.kpitracking.i18n.LocalizedText;
-import com.kpitracking.repository.ApprovalProcessRepository;
-import com.kpitracking.repository.KpiApprovalFlowRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.repository.approvalprocess.ApprovalProcessRepository;
+import com.kpitracking.repository.kpi.KpiApprovalFlowRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.service.notification.NotificationDispatcher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +28,12 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import com.kpitracking.entity.kpi.KpiAdjustmentRequest;
+import com.kpitracking.entity.kpi.KpiApprovalFlow;
+import com.kpitracking.entity.kpi.KpiApprovalStep;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.User;
 /**
  * Thông báo của chuỗi duyệt: mỗi lần chuyển bước báo ĐÚNG người giữ bước kế tiếp (không rải lên
  * cả cây quản lý), nhắc khi bước chờ quá hạn, và báo người xin điều chỉnh khi có quyết định cuối.

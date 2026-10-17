@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.kpi.approval;
 
-import com.kpitracking.enums.*;
+
 import lombok.*;
 
 import java.time.Instant;
@@ -8,6 +8,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.kpitracking.enums.kpi.ApprovalEventAction;
+import com.kpitracking.enums.kpi.ApprovalFlowStatus;
+import com.kpitracking.enums.kpi.ApprovalStepKind;
+import com.kpitracking.enums.kpi.ApprovalStepStatus;
+import com.kpitracking.enums.kpi.ApprovalSubjectType;
 /** Một lần gửi duyệt kèm đủ các bước (stepper) và lịch sử. */
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class ApprovalFlowResponse {

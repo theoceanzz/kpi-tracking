@@ -1,7 +1,7 @@
 package com.kpitracking.mapper;
 
 import com.kpitracking.dto.response.scope.ScopeResponse;
-import com.kpitracking.entity.Scope;
+import com.kpitracking.entity.access.Scope;
 import org.mapstruct.Mapper;
 
 import java.util.List;

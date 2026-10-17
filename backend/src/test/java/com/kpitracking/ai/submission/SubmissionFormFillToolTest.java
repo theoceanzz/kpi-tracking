@@ -3,14 +3,14 @@ package com.kpitracking.ai.submission;
 
 import com.kpitracking.ai.core.tool.FormFillTestFixture;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kpitracking.entity.QualitativeLevel;
-import com.kpitracking.repository.ConversationMessageRepository;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.QualitativeLevelRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
-import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.entity.kpi.QualitativeLevel;
+import com.kpitracking.repository.ai.ConversationMessageRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.kpi.QualitativeLevelRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
+import com.kpitracking.service.analytics.OrgUnitStatisticService;
 import com.kpitracking.ai.core.form.FormFieldValidator;
 import com.kpitracking.ai.core.form.FormFillSupport;
 import com.kpitracking.ai.core.form.FormPatch;
@@ -94,10 +94,10 @@ class SubmissionFormFillToolTest {
     }
 
     /** Dặn kho trả về một chỉ tiêu có đúng loại cần thử. */
-    private UUID givenKpiOfType(com.kpitracking.enums.KpiType type) {
+    private UUID givenKpiOfType(com.kpitracking.enums.kpi.KpiType type) {
         UUID id = UUID.randomUUID();
         when(kpiCriteria.findById(id)).thenReturn(java.util.Optional.of(
-                com.kpitracking.entity.KpiCriteria.builder().id(id).kpiType(type).build()));
+                com.kpitracking.entity.kpi.KpiCriteria.builder().id(id).kpiType(type).build()));
         return id;
     }
 
@@ -296,7 +296,7 @@ class SubmissionFormFillToolTest {
     @Test
     @DisplayName("mức định tính trên KPI ĐỊNH LƯỢNG bị chặn, kèm câu chỉ cách sửa")
     void rejectsQualitativeLevelOnQuantitativeKpi() {
-        UUID id = givenKpiOfType(com.kpitracking.enums.KpiType.QUANTITATIVE);
+        UUID id = givenKpiOfType(com.kpitracking.enums.kpi.KpiType.QUANTITATIVE);
 
         String out = tool.suggestSubmissionForm(
                 new SubmissionFormFillRequest(null, null, null, "Tốt", null, "vì bạn yêu cầu"),
@@ -309,7 +309,7 @@ class SubmissionFormFillToolTest {
     @Test
     @DisplayName("trị số trên KPI ĐỊNH TÍNH cũng bị chặn — chặn cả hai chiều")
     void rejectsActualValueOnQualitativeKpi() {
-        UUID id = givenKpiOfType(com.kpitracking.enums.KpiType.QUALITATIVE);
+        UUID id = givenKpiOfType(com.kpitracking.enums.kpi.KpiType.QUALITATIVE);
 
         String out = tool.suggestSubmissionForm(req(null, 18d, null),
                 withForm(Map.of("kpiCriteriaId", id.toString())));
@@ -322,7 +322,7 @@ class SubmissionFormFillToolTest {
     void qualitativeLevelDoesNotSatisfyMissingValue() {
         // Đây là chỗ sinh ra lời khuyên sai: trợ lý báo "không thiếu gì", người dùng bấm lưu và
         // ăn lỗi 400 "Vui lòng nhập giá trị thực tế cho chỉ tiêu định lượng".
-        UUID id = givenKpiOfType(com.kpitracking.enums.KpiType.QUANTITATIVE);
+        UUID id = givenKpiOfType(com.kpitracking.enums.kpi.KpiType.QUANTITATIVE);
 
         String out = tool.suggestSubmissionForm(req(null, null, "ghi chú"),
                 withForm(Map.of("kpiCriteriaId", id.toString(), "qualitativeLevelId", UUID.randomUUID().toString())));

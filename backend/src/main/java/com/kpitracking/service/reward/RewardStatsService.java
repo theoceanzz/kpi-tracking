@@ -2,7 +2,7 @@ package com.kpitracking.service.reward;
 
 import com.kpitracking.dto.response.reward.RewardLeaderboardEntryResponse;
 import com.kpitracking.dto.response.reward.RewardMonthlySummaryResponse;
-import com.kpitracking.repository.RewardTransactionRepository;
+import com.kpitracking.repository.reward.RewardTransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;

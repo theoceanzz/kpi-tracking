@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.task;
 
-import com.kpitracking.enums.KpiTaskReminderKind;
+import com.kpitracking.enums.task.KpiTaskReminderKind;
 import lombok.*;
 
 import java.time.Instant;

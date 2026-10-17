@@ -3,8 +3,8 @@ package com.kpitracking.ai.bsc;
 
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests;
 import com.kpitracking.ai.core.tool.ToolSupport;
-import com.kpitracking.service.BscAnalyticsService;
-import com.kpitracking.service.BscOverviewService;
+import com.kpitracking.service.bsc.BscAnalyticsService;
+import com.kpitracking.service.bsc.BscOverviewService;
 import com.kpitracking.service.analytics.AnalyticsPeriodHelper;
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests.BscRequest;
 import com.kpitracking.ai.core.tool.ToolSupport.UnitRef;
@@ -34,7 +34,7 @@ import java.util.UUID;
 public class BscTool {
 
     private final BscAnalyticsService bscAnalyticsService;
-    private final com.kpitracking.service.BscGoalGraphService goalGraphService;
+    private final com.kpitracking.service.bsc.BscGoalGraphService goalGraphService;
     private final BscOverviewService overviewService;
     private final AnalyticsPeriodHelper periodHelper;
     private final ToolSupport support;

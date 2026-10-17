@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.conduct;
 
-import com.kpitracking.enums.ConductScope;
+import com.kpitracking.enums.conduct.ConductScope;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;

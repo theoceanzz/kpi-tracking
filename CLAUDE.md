@@ -41,6 +41,7 @@ docker-compose up           # Starts frontend (nginx:80), backend (:8081), Postg
 Standard layered architecture: `Controller → Service → Repository → Entity`.
 
 - **Package root**: `com.kpitracking`
+- **Gói con theo nghiệp vụ trong từng tầng (17/10)**: `controller`, `entity`, `repository`, `enums`, `service` (và `dto/request|response`) đều chia `<tầng>/<nhóm>` — `kpi`, `submission`, `evaluation`, `bsc`, `okr`, `conduct`, `reward`, `wallet`, `task`, `discussion`, `document`, `notification`, `email`, `analytics`, `report`, `dashboard`, `feedback360`, `approvalform`, `approvalprocess`, `organization`, `user`, `auth`, `access` (role/permission/policy/scope), `ai`, `platform`. Lớp mới đặt vào đúng nhóm; chỉ lớp dùng chung nhiều nhóm mới ở gốc tầng (vd. `CloudinaryStorageService`, `StorageProvider`). Test nằm cùng gói với lớp nó kiểm. Bảng quy tắc + script dời (chạy lại được cho nhánh còn import gói cũ): `backend/tools/refactor/package_by_group.py`
 - **DTOs** live separately from entities; **MapStruct** mappers convert between them (never map manually in services)
 - **Multi-tenancy**: Every data query is scoped to an `Organization`. Org units form a tree with configurable `OrgHierarchyLevels`
 - **Auth**: Stateless JWT via `JwtAuthenticationFilter`. Access tokens (~150min) + refresh tokens (7 days). `PermissionChecker` enforces fine-grained RBAC on top of role checks

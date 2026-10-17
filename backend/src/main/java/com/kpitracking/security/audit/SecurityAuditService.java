@@ -1,9 +1,9 @@
 package com.kpitracking.security.audit;
 
-import com.kpitracking.entity.SecurityAuditLog;
-import com.kpitracking.entity.User;
-import com.kpitracking.repository.SecurityAuditLogRepository;
-import com.kpitracking.repository.UserRepository;
+import com.kpitracking.entity.auth.SecurityAuditLog;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.repository.auth.SecurityAuditLogRepository;
+import com.kpitracking.repository.user.UserRepository;
 import com.kpitracking.security.AuthRateLimitFilter;
 import com.kpitracking.security.PermissionChecker;
 import jakarta.servlet.http.HttpServletRequest;

@@ -3,7 +3,7 @@ package com.kpitracking.ai.submission;
 
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests;
 import com.kpitracking.ai.core.tool.ToolSupport;
-import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.service.analytics.OrgUnitStatisticService;
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests.SubmissionsRequest;
 import com.kpitracking.ai.core.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;

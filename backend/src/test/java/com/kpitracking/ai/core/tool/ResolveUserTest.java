@@ -1,15 +1,15 @@
 package com.kpitracking.ai.core.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.Role;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.repository.ConversationMessageRepository;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
-import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.access.Role;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.ai.ConversationMessageRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
+import com.kpitracking.service.analytics.OrgUnitStatisticService;
 import com.kpitracking.ai.core.agent.AgentState;
 import com.kpitracking.ai.core.tool.ToolSupport.UserRef;
 import org.junit.jupiter.api.BeforeEach;

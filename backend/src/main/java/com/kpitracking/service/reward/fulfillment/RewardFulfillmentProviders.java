@@ -1,6 +1,6 @@
 package com.kpitracking.service.reward.fulfillment;
 
-import com.kpitracking.enums.GiftItemType;
+import com.kpitracking.enums.reward.GiftItemType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

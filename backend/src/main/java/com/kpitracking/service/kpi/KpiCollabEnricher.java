@@ -1,7 +1,7 @@
 package com.kpitracking.service.kpi;
 
 import com.kpitracking.dto.response.kpi.KpiCriteriaResponse;
-import com.kpitracking.enums.DiscussionTargetType;
+import com.kpitracking.enums.discussion.DiscussionTargetType;
 import com.kpitracking.service.discussion.DiscussionService;
 import com.kpitracking.service.task.KpiTaskService;
 import lombok.RequiredArgsConstructor;

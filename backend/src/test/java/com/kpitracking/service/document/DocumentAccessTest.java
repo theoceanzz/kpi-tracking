@@ -1,8 +1,8 @@
 package com.kpitracking.service.document;
 
-import com.kpitracking.entity.Document;
-import com.kpitracking.entity.DocumentFolder;
-import com.kpitracking.enums.DocumentScope;
+import com.kpitracking.entity.document.Document;
+import com.kpitracking.entity.document.DocumentFolder;
+import com.kpitracking.enums.document.DocumentScope;
 import com.kpitracking.service.document.DocumentAccessResolver.Membership;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

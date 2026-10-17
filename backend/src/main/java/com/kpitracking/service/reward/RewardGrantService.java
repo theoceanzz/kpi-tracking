@@ -6,22 +6,22 @@ import com.kpitracking.dto.request.reward.GrantDecisionRequest;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.reward.RewardGrantResponse;
 import com.kpitracking.dto.response.reward.RevokePreviewResponse;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.CertificateTemplateStatus;
-import com.kpitracking.enums.RewardApprovalMode;
-import com.kpitracking.enums.RewardGrantStatus;
-import com.kpitracking.enums.RewardSourceType;
-import com.kpitracking.enums.RewardTransactionType;
-import com.kpitracking.enums.UserStatus;
+
+import com.kpitracking.enums.reward.CertificateTemplateStatus;
+import com.kpitracking.enums.reward.RewardApprovalMode;
+import com.kpitracking.enums.reward.RewardGrantStatus;
+import com.kpitracking.enums.reward.RewardSourceType;
+import com.kpitracking.enums.reward.RewardTransactionType;
+import com.kpitracking.enums.user.UserStatus;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.event.RewardEvents;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.i18n.Terms;
-import com.kpitracking.repository.*;
+
 import com.kpitracking.security.PermissionChecker;
-import com.kpitracking.service.RewardWalletService;
+import com.kpitracking.service.reward.RewardWalletService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -35,6 +35,23 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.reward.RewardBudget;
+import com.kpitracking.entity.reward.RewardCertificateTemplate;
+import com.kpitracking.entity.reward.RewardGrant;
+import com.kpitracking.entity.reward.RewardGrantItem;
+import com.kpitracking.entity.reward.RewardTransaction;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.organization.OrganizationRepository;
+import com.kpitracking.repository.reward.RewardBudgetRepository;
+import com.kpitracking.repository.reward.RewardCertificateTemplateRepository;
+import com.kpitracking.repository.reward.RewardGrantItemRepository;
+import com.kpitracking.repository.reward.RewardGrantRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 /**
  * Thưởng thủ công: sếp tự chọn người, nhập điểm và lý do.
  *
@@ -294,14 +311,14 @@ public class RewardGrantService {
         payload.put("approvalReason", grant.getApprovalReason());
         String name = grant.getReason() == null || grant.getReason().isBlank()
                 ? grant.getTotalPoints() + " điểm" : grant.getReason();
-        approvalChain.startProposal(com.kpitracking.enums.ApprovalSubjectType.REWARD_GRANT, grant.getId(),
+        approvalChain.startProposal(com.kpitracking.enums.kpi.ApprovalSubjectType.REWARD_GRANT, grant.getId(),
                 name.length() > 200 ? name.substring(0, 200) : name, unit, null, grantor, null,
                 grant.getTotalPoints() == null ? null : grant.getTotalPoints().doubleValue(), payload);
     }
 
     /** Duyệt / từ chối tay không đi được khi đề xuất đang theo quy trình duyệt. */
     private void assertNotInProcess(UUID grantId) {
-        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.ApprovalSubjectType.REWARD_GRANT, grantId).isPresent()) {
+        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.kpi.ApprovalSubjectType.REWARD_GRANT, grantId).isPresent()) {
             throw new BusinessException(ErrorCode.REWARD_IN_APPROVAL_PROCESS);
         }
     }
@@ -383,7 +400,7 @@ public class RewardGrantService {
         }
         grant.setStatus(RewardGrantStatus.CANCELLED);
         grantRepository.save(grant);
-        approvalChain.cancelRunningSubject(com.kpitracking.enums.ApprovalSubjectType.REWARD_GRANT, grantId, me,
+        approvalChain.cancelRunningSubject(com.kpitracking.enums.kpi.ApprovalSubjectType.REWARD_GRANT, grantId, me,
                 com.kpitracking.i18n.LocalizedText.of("approvalEvent.reason.proposalCancelled"));
         eventPublisher.publishEvent(new RewardEvents.GrantCancelled(grantId, me.getId()));
         return toResponse(grant, grantItemRepository.findByGrantId(grantId));
@@ -647,7 +664,7 @@ public class RewardGrantService {
         List<UUID> pending = responses.stream().filter(r -> r.getStatus() == RewardGrantStatus.PENDING_APPROVAL)
                 .map(RewardGrantResponse::getId).toList();
         if (pending.isEmpty()) return;
-        var byId = approvalView.summariesForSubjects(com.kpitracking.enums.ApprovalSubjectType.REWARD_GRANT, pending, context.getCurrentUser().getId());
+        var byId = approvalView.summariesForSubjects(com.kpitracking.enums.kpi.ApprovalSubjectType.REWARD_GRANT, pending, context.getCurrentUser().getId());
         responses.forEach(r -> r.setApproval(byId.get(r.getId())));
     }
 

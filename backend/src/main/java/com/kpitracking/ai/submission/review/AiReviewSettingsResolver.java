@@ -1,18 +1,18 @@
 package com.kpitracking.ai.submission.review;
 
-import com.kpitracking.entity.AiCriteriaSet;
-import com.kpitracking.entity.AiReviewUnitSetting;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.RagDocument;
-import com.kpitracking.entity.Organization;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.repository.AiCriteriaSetItemRepository;
-import com.kpitracking.repository.AiCriteriaSetRepository;
-import com.kpitracking.repository.AiReviewLevelRepository;
-import com.kpitracking.repository.AiReviewUnitSettingRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.RagDocumentRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.entity.ai.AiCriteriaSet;
+import com.kpitracking.entity.ai.AiReviewUnitSetting;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.ai.RagDocument;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.ai.AiCriteriaSetItemRepository;
+import com.kpitracking.repository.ai.AiCriteriaSetRepository;
+import com.kpitracking.repository.ai.AiReviewLevelRepository;
+import com.kpitracking.repository.ai.AiReviewUnitSettingRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.ai.RagDocumentRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,12 +64,12 @@ public class AiReviewSettingsResolver {
         return scaleOf(levelRepository.findByOrganizationIdOrderByPositionAsc(organizationId));
     }
 
-    static AiScale scaleOf(List<com.kpitracking.entity.AiReviewLevel> rows) {
+    static AiScale scaleOf(List<com.kpitracking.entity.ai.AiReviewLevel> rows) {
         double max = rows.stream().mapToDouble(l -> l.getPoints() == null ? 0 : l.getPoints().doubleValue()).max().orElse(0);
         if (max <= 0) return AiScale.EMPTY;
         List<ReviewContext.QualityLevel> levels = rows.stream()
-                .sorted(Comparator.comparing((com.kpitracking.entity.AiReviewLevel l) -> l.getPoints())
-                        .thenComparing(com.kpitracking.entity.AiReviewLevel::getPosition))
+                .sorted(Comparator.comparing((com.kpitracking.entity.ai.AiReviewLevel l) -> l.getPoints())
+                        .thenComparing(com.kpitracking.entity.ai.AiReviewLevel::getPosition))
                 .map(l -> new ReviewContext.QualityLevel(l.getName(), l.getPoints().doubleValue() * 100.0 / max,
                         l.getPosition() == null ? 0 : l.getPosition(), l.getPoints().doubleValue(), l.getDescription()))
                 .toList();
