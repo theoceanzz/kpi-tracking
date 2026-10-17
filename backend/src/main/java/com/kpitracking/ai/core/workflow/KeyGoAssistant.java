@@ -169,6 +169,7 @@ public class KeyGoAssistant {
             AgentState state = turn.getAgentState();
             if (state != null) {
                 turn.setFormPatch(state.getFormPatch());
+                turn.setRequestDraft(state.getRequestDraft());
                 turn.setPendingAction(state.getPendingAction());
                 turn.setConsumedActionId(state.getConsumedActionId());
                 turn.setEvidenceRequested(state.isEvidenceRequested());

@@ -94,7 +94,12 @@ public class ToolRegistry {
          * Nhóm CÁ NHÂN cho NHÂN VIÊN: chỉ dữ liệu của chính người hỏi, không nhận tên đơn vị/người.
          * Lượt của nhân viên chỉ có nhóm này (+ CORE rút gọn); lượt của quản lý không bao giờ có.
          */
-        PERSONAL
+        PERSONAL,
+        /**
+         * ĐƠN TỪ: tìm mẫu đơn và điền hộ bản NHÁP (không nộp). Mọi vai trò — nhân viên có ở mọi lượt, quản lý khi
+         * router chọn. Không đòi quyền riêng: mẫu đơn đã lọc theo người được nộp ({@code ApprovalRequestService.catalog}).
+         */
+        REQUEST
     }
 
     private final SearchTool searchTool;
@@ -132,6 +137,7 @@ public class ToolRegistry {
     private final KpiAdjustmentFormFillTool kpiAdjustmentFormFillTool;
     private final OrgUnitDrawerFormFillTool orgUnitDrawerFormFillTool;
     private final TaskFormFillTool taskFormFillTool;
+    private final com.kpitracking.ai.approval.RequestFormTool requestFormTool;
     private final PermissionChecker permissionChecker;
 
     /** Quyền bắt buộc để mở một nhóm; {@code null} = không đòi quyền riêng. */
@@ -169,6 +175,7 @@ public class ToolRegistry {
         m.put(Group.REWARD, List.of(rewardTool));
         // PERSONAL chỉ được yêu cầu ở lượt của NHÂN VIÊN (TurnSteps.route); quản lý không bao giờ nhận.
         m.put(Group.PERSONAL, List.of(personalTool));
+        m.put(Group.REQUEST, List.of(requestFormTool));
         // FORM cố ý RỖNG: tool điền form chọn theo form đang mở chứ không theo nhóm — xem formTool().
         m.put(Group.FORM, List.of());
         // ACTION dựng từ actionTools(); lọc quyền theo từng tool nên không đi qua bảng nhóm.
@@ -268,6 +275,8 @@ public class ToolRegistry {
             Map.entry("get_my_conduct", Group.PERSONAL),
             Map.entry("get_my_rewards", Group.PERSONAL),
             Map.entry("get_my_feedback360", Group.PERSONAL),
+            Map.entry("list_request_forms", Group.REQUEST),
+            Map.entry("draft_request", Group.REQUEST),
             Map.entry("confirm_pending_action", Group.ACTION),
             Map.entry("suggest_kpi_form", Group.FORM),
             Map.entry("suggest_submission_form", Group.FORM),
@@ -403,7 +412,8 @@ public class ToolRegistry {
                 EscapeHatchTool.class, EvidenceRequestTool.class, AttachFilesTool.class,
                 KpiFormFillTool.class,
                 SubmissionFormFillTool.class, EvaluationFormFillTool.class,
-                KpiAdjustmentFormFillTool.class, OrgUnitDrawerFormFillTool.class, TaskFormFillTool.class
+                KpiAdjustmentFormFillTool.class, OrgUnitDrawerFormFillTool.class, TaskFormFillTool.class,
+                com.kpitracking.ai.approval.RequestFormTool.class
         };
     }
 }

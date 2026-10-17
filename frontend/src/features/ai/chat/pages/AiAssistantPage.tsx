@@ -4,7 +4,8 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools, type ClarificationOption, type PendingAction, type AiChatResponse, type ChatChart, type AskUserEvent, type DocumentSource } from '../api/aiApi'
+import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools, type ClarificationOption, type PendingAction, type AiChatResponse, type ChatChart, type AskUserEvent, type DocumentSource, type RequestDraft } from '../api/aiApi'
+import RequestDraftCard from '@/features/ai/approval/RequestDraftCard'
 import SourceChips from '@/features/documents/components/SourceChips'
 import InsightCards from '../components/InsightCards'
 import AiDisabledPage from '../components/AiDisabledPage'
@@ -78,6 +79,8 @@ interface Message {
   evidenceRequest?: boolean
   /** Trợ lý đề nghị một thao tác GHI và chờ xác nhận. */
   pendingAction?: PendingAction
+  /** Bản nháp đơn từ K.AI điền hộ — thẻ "Mở đơn để nộp". */
+  requestDraft?: RequestDraft
   /** Tài liệu của tổ chức K.AI đã đọc để trả lời — chip nguồn. Vắng ở tin nhắn tải từ lịch sử. */
   sources?: DocumentSource[]
   /** Biểu đồ minh hoạ cho câu trả lời này. */
@@ -411,6 +414,7 @@ export default function AiAssistantPage() {
           followups: response.followups,
           evidenceRequest: response.evidenceRequest,
           pendingAction: response.pendingAction,
+          requestDraft: response.requestDraft,
           sources: response.sources,
           charts: response.charts?.length ? response.charts : undefined,
 
@@ -652,6 +656,10 @@ export default function AiAssistantPage() {
                         {msg.role === 'assistant' && msg.charts?.map(c => (
                           <ChatChartCard key={c.id} chart={c} />
                         ))}
+
+                        {msg.role === 'assistant' && msg.requestDraft && (
+                          <RequestDraftCard draft={msg.requestDraft} />
+                        )}
 
                         {msg.role === 'assistant' && msg.pendingAction && (
                           <PendingActionCard

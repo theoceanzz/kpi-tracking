@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { Bot, Send, X, Loader2, Minimize2, Maximize2, Expand, SquarePen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMyAiQuota } from '@/features/ai/quota/hooks/useAiQuota'
-import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type PendingAction, type AiChatResponse, type ChatChart, type AskUserEvent, type DocumentSource } from '../api/aiApi'
+import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type PendingAction, type AiChatResponse, type ChatChart, type AskUserEvent, type DocumentSource, type RequestDraft } from '../api/aiApi'
 import SourceChips from '@/features/documents/components/SourceChips'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import { useAiAssistantStore } from '@/store/aiAssistantStore'
@@ -16,6 +16,7 @@ import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
 import { useChatFileDrop } from '../hooks/useChatFileDrop'
 import EvidenceDropCard from './EvidenceDropCard'
 import FormPatchPreview from './FormPatchPreview'
+import RequestDraftCard from '@/features/ai/approval/RequestDraftCard'
 import ChatChartCard from './chart/ChatChartCard'
 import AskUserCard from './AskUserCard'
 import PendingActionCard from './PendingActionCard'
@@ -41,6 +42,8 @@ interface Message {
   options?: ClarificationOption[]
   /** Lượt trợ lý đề xuất điền form đang mở: hiện bản xem trước để người dùng chọn ô nào muốn nhận. */
   formPatch?: FormPatch
+  /** Bản nháp đơn từ K.AI điền hộ — thẻ "Mở đơn để nộp". */
+  requestDraft?: RequestDraft
   /** Đang được gõ dần ra màn hình. Nội dung đầy đủ đã nằm sẵn ở `content`. */
   typing?: boolean
   /** Thời gian trợ lý xử lý lượt này. Vắng ở tin nhắn tải từ lịch sử hội thoại. */
@@ -307,6 +310,7 @@ export default function AiAssistantWidget() {
           followups: response.followups,
           evidenceRequest: response.evidenceRequest,
           pendingAction: response.pendingAction,
+          requestDraft: response.requestDraft,
           sources: response.sources,
           charts: response.charts?.length ? response.charts : undefined,
 
@@ -583,6 +587,11 @@ export default function AiAssistantWidget() {
                 {/* Đề xuất điền form đang mở — người dùng xem trước rồi mới chấp nhận */}
                 {msg.role === 'assistant' && msg.formPatch && (
                   <FormPatchPreview patch={msg.formPatch} />
+                )}
+
+                {/* Bản nháp đơn từ — chỉ mở hộp nộp đơn đã điền sẵn, người dùng tự nộp */}
+                {msg.role === 'assistant' && msg.requestDraft && (
+                  <RequestDraftCard draft={msg.requestDraft} onNavigate={() => setIsMinimized(true)} />
                 )}
 
                 {/* Thao tác GHI chờ xác nhận — bấm là ghi thật, nên thẻ tự cảnh báo và tự khoá */}

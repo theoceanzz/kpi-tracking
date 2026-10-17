@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { FileText, Search } from 'lucide-react'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
@@ -14,6 +15,8 @@ import { pickName } from '../../model/formState'
 import type { LocalizedName } from '../../types'
 import FormIcon from '../FormIcon'
 import SubmitRequestDialog from './SubmitRequestDialog'
+import AiShortcutButton from '@/features/ai/chat/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/ai/chat/aiShortcuts'
 
 const matches = (name: LocalizedName, k: string) => Object.values(name).some((v) => v?.toLowerCase().includes(k))
 
@@ -29,6 +32,13 @@ export default function SubmitTab({ onSubmitted }: { onSubmitted: () => void }) 
   const [openFormId, setOpenFormId] = useState<string | null>(null)
   const [activeGroup, setActiveGroup] = useState<string | null>(null)
   const sectionRefs = useRef(new Map<string, HTMLElement>())
+  // ?form=<id>: mở thẳng hộp nộp đơn (thẻ "Mở đơn để nộp" của K.AI dẫn tới đây). Đóng hộp thì bỏ tham số khỏi URL.
+  const [params, setParams] = useSearchParams()
+  const shownFormId = openFormId ?? params.get('form')
+  const closeForm = () => {
+    setOpenFormId(null)
+    if (params.has('form')) setParams(p => { p.delete('form'); return p }, { replace: true })
+  }
 
   const firstFormId = data?.groups[0]?.forms[0]?.id ?? null
   useTourModal('submitRequest', () => setOpenFormId(firstFormId), () => setOpenFormId(null))
@@ -47,7 +57,9 @@ export default function SubmitTab({ onSubmitted }: { onSubmitted: () => void }) 
 
   return (
     <div className="space-y-4">
-      <WorkspaceHeader title={t('submit.title')} description={t('submit.description')} />
+      <WorkspaceHeader title={t('submit.title')} description={t('submit.description')}
+        actions={<AiShortcutButton {...tourAnchor('requests.ai')} label={t('aiDraft.shortcut')}
+          title={t('aiDraft.shortcutHint')} prompt={aiShortcuts.createRequest()} />} />
       <div className="max-w-xl" {...tourAnchor('requests.search')}>
         <Input type="search" value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder={t('submit.search')}
           aria-label={t('submit.search')} prefix={<Search size={16} aria-hidden="true" />} />
@@ -94,8 +106,8 @@ export default function SubmitTab({ onSubmitted }: { onSubmitted: () => void }) 
         </div>
       )}
 
-      <SubmitRequestDialog formId={openFormId} onClose={() => setOpenFormId(null)}
-        onSubmitted={() => { setOpenFormId(null); onSubmitted() }} />
+      <SubmitRequestDialog formId={shownFormId} onClose={closeForm}
+        onSubmitted={() => { closeForm(); onSubmitted() }} />
     </div>
   )
 }

@@ -92,7 +92,8 @@
     "whatDoINeedToDo": "What do I need to do today?",
     "whichUnitsMovedUpOrDown": "Which units moved up or down in rank compared with the previous evaluation period?",
     "whichUnitsSelfAssessmentDeviatedMost": "Which unit's self-assessment deviated most from the manager's score in the last period?",
-    "myUnit": " my unit"
+    "myUnit": " my unit",
+    "createRequest": "I want to make a request. Which request forms can I submit?"
   },
   "AnalyticsComboChart": {
     "basedOn": "Based on",

@@ -128,6 +128,10 @@ public class AgentState {
     @Setter
     private FormPatch formPatch;
 
+    /** Bản nháp ĐƠN TỪ do {@code draft_request} điền hộ — cùng kỷ luật với {@link #formPatch}: đề xuất, không ghi. */
+    @Setter
+    private com.kpitracking.dto.response.ai.RequestDraftResponse requestDraft;
+
     /**
      * Ghi chú phạm vi cho lời gọi tool ĐANG chạy: người dùng nói "công ty / toàn tổ chức / đơn vị tôi"
      * và {@code ToolSupport.resolveUnit} đã quy về đơn vị hiệu lực. {@code respond} nhặt và xoá — nhờ

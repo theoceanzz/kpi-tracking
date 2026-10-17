@@ -3554,6 +3554,10 @@
         "t": "Submit",
         "b": "After submitting, follow the request under Request status. You can withdraw it while it is pending."
       }
+    },
+    "ai": {
+      "t": "Create a request with K.AI",
+      "b": "Tell K.AI what request you need (leave, payment…). K.AI picks the form and pre-fills it; you review it and click Submit yourself."
     }
   }
 }

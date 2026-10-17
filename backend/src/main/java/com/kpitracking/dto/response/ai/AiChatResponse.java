@@ -34,6 +34,12 @@ public class AiChatResponse {
     private FormPatch formPatch;
 
     /**
+     * Bản nháp ĐƠN TỪ K.AI điền hộ: giao diện hiện thẻ "Mở đơn để nộp", người dùng xem lại trong hộp nộp đơn rồi tự
+     * nộp. Cùng kỷ luật với {@link #formPatch}: không ghi gì ở bước này.
+     */
+    private RequestDraftResponse requestDraft;
+
+    /**
      * Câu hỏi gợi ý tiếp theo cho lượt vừa trả lời.
      *
      * <p>Trước đây client phải gọi thêm {@code POST /ai/followups} để lấy phần này — nay nó về cùng

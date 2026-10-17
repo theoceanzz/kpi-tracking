@@ -256,7 +256,7 @@ public class TurnSteps {
                 }
             }
             for (Group g : new Group[]{Group.LOOKUP, Group.KPI, Group.INSIGHT, Group.BSC, Group.OKR, Group.ACTION,
-                    Group.CONDUCT, Group.REWARD}) {
+                    Group.CONDUCT, Group.REWARD, Group.REQUEST}) {
                 if (upper.contains(g.name())) groups.add(g);
             }
             // Nhóm theo cờ chỉ được chọn khi tổ chức bật tính năng — router có thể đoán bừa từ chữ "thưởng".
@@ -278,6 +278,7 @@ public class TurnSteps {
      */
     static String featureGroupHints(AiTurn turn) {
         StringBuilder sb = new StringBuilder();
+        sb.append("REQUEST - đơn từ: tạo / soạn / làm đơn (nghỉ phép, tăng ca, công tác, thanh toán, tạm ứng, mua hàng...), có những mẫu đơn nào\n");
         if (turn.getFeatures().conduct()) {
             sb.append("CONDUCT - KPI hành vi / hạnh kiểm: bảng điểm hành vi của đơn vị, ai chưa tự chấm, phiếu hạnh kiểm của một người\n");
         }
@@ -309,9 +310,10 @@ public class TurnSteps {
                 log.warn("Router (nhân viên) lỗi ({}), dùng nhóm cá nhân", e.getMessage());
             }
         }
-        turn.setToolGroups(Set.of(Group.PERSONAL));
+        // REQUEST (đơn từ) đi cùng: nhân viên tự làm đơn của mình — chỉ 2 tool, không mở dữ liệu của ai khác.
+        turn.setToolGroups(Set.of(Group.PERSONAL, Group.REQUEST));
         turn.setDeniedGroups(Set.of());
-        log.info("Lượt nhân viên: nhóm PERSONAL cho câu hỏi: {}", turn.getQuestion());
+        log.info("Lượt nhân viên: nhóm PERSONAL + REQUEST cho câu hỏi: {}", turn.getQuestion());
     }
 
     private void applyGroups(AiTurn turn, Set<Group> groups) {
@@ -383,6 +385,7 @@ public class TurnSteps {
         if (!turn.canAsk() || turn.getAnsweredQuestion() != null) return;
         if (state.isScopeDenied() || state.getNotFoundName() != null) return;
         if (state.getFormPatch() != null && !state.getFormPatch().isEmpty()) return;
+        if (state.getRequestDraft() != null) return;
         if (state.getPendingAction() != null && !state.getPendingAction().isEmpty()) return;
         PendingQuestion.Item item = TextQuestionDetector.detect(state.getAnswer());
         if (item == null) return;
@@ -453,6 +456,7 @@ public class TurnSteps {
         // câu trả lời từ chính câu hỏi.
         if (state.getPendingQuestion() != null) return false;
         if (state.getFormPatch() != null && !state.getFormPatch().isEmpty()) return false;
+        if (state.getRequestDraft() != null) return false;
         if (state.getPendingAction() != null && !state.getPendingAction().isEmpty()) return false;
 
         List<String> missing = missingTools(turn, state);
@@ -606,7 +610,7 @@ public class TurnSteps {
     public void followups(AgenticScope scope) {
         AiTurn turn = turnOf(scope);
         AgentState state = turn.getAgentState();
-        if (!followupsEnabled || !state.anyToolSucceeded() || state.getFormPatch() != null) return;
+        if (!followupsEnabled || !state.anyToolSucceeded() || state.getFormPatch() != null || state.getRequestDraft() != null) return;
         turn.progress("FOLLOWUP", "Đang nghĩ vài câu hỏi tiếp theo");
         AiTokenUsage.AiFeature previous = AiTokenUsageRecorder.currentFeature();
         try {
@@ -631,7 +635,7 @@ public class TurnSteps {
         AiTurn turn = turnOf(scope);
         AgentState state = turn.getAgentState();
         if (!chartsEnabled || scope.readState(INTENT) != null) return;
-        if (state.getFormPatch() != null || state.getPendingAction() != null) return;
+        if (state.getFormPatch() != null || state.getRequestDraft() != null || state.getPendingAction() != null) return;
         // Lượt kết thúc bằng một CÂU HỎI (hỏi lại giữa lượt mà không ai trả lời): câu trả lời là
         // câu hỏi đó, nên vẽ biểu đồ minh hoạ cho nó là minh hoạ cho thứ chưa được hỏi xong.
         if (state.getPendingQuestion() != null) return;

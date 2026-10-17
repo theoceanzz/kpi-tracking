@@ -120,12 +120,27 @@ export interface ChatChart {
   note?: string
 }
 
+/**
+ * Bản nháp ĐƠN TỪ K.AI điền hộ (tool `draft_request`). Không ghi gì: thẻ trong chat mở hộp nộp đơn đã điền sẵn,
+ * người dùng xem lại rồi tự nộp. `values` đúng dạng hộp nộp đơn nhận (id ô → giá trị).
+ */
+export interface RequestDraft {
+  formId: string
+  formName: string
+  values: Record<string, unknown>
+  entries: { widgetId: string; label: string; display: string }[]
+  /** Ô bắt buộc còn trống — người dùng tự điền / đính kèm trong hộp. */
+  missing: string[]
+}
+
 export interface AiChatResponse {
   text: string
   /** Chỉ có ở lượt trợ lý hỏi lại; lượt trả lời bình thường sẽ vắng field này. */
   options?: ClarificationOption[]
   /** Chỉ có khi người dùng nhờ điền form đang mở; lượt bình thường sẽ vắng field này. */
   formPatch?: FormPatch
+  /** Bản nháp đơn từ K.AI điền hộ; vắng ở lượt bình thường. */
+  requestDraft?: RequestDraft
   /**
    * Câu hỏi gợi ý tiếp theo. Trước đây phải gọi thêm POST /ai/followups để lấy phần này — nay nó
    * về cùng câu trả lời, nên một lượt chat là MỘT request. Vắng ở lượt không sinh gợi ý.

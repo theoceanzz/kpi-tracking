@@ -92,7 +92,8 @@
     "whatDoINeedToDo": "Hôm nay tôi cần làm gì?",
     "whichUnitsMovedUpOrDown": "Đơn vị nào lên hạng hay tụt hạng so với đợt đánh giá trước?",
     "whichUnitsSelfAssessmentDeviatedMost": "Đơn vị nào tự chấm lệch với điểm quản lý chấm nhiều nhất trong đợt vừa rồi?",
-    "myUnit": " đơn vị tôi"
+    "myUnit": " đơn vị tôi",
+    "createRequest": "Tôi muốn làm một đơn. Có những mẫu đơn nào tôi được nộp?"
   },
   "AnalyticsComboChart": {
     "basedOn": "Tính trên",

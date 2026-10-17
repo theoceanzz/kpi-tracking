@@ -176,7 +176,9 @@
      "why": "Câu hỏi về người khác — phải từ chối, không liệt kê ai.",
      "reject": ["TeamLead", "Deputy Lead", "chưa nộp:"], "expect": ["không|chỉ|của bạn|quản lý"]},
     {"id": "E08", "as": "staff", "q": "Làm sao để nộp báo cáo KPI?", "_note": "Nhánh HELP mở cho mọi người dùng — nhân viên vẫn hỏi được cách dùng.", "tools": [], "groups": [], "expect": ["Nộp báo cáo|nộp báo cáo|Nộp"]},
-    {"id": "E09", "as": "staff", "q": "Hôm nay tôi cần làm gì?", "_note": "07/10: trước đây model coi là 'tư vấn cá nhân' và từ chối vì nhóm PERSONAL không có tool việc cần làm.", "tools": ["get_my_todo"], "groups": ["PERSONAL"], "expect": [], "reject": ["Xin lỗi, tôi chỉ hỗ trợ"]}
+    {"id": "E09", "as": "staff", "q": "Hôm nay tôi cần làm gì?", "_note": "07/10: trước đây model coi là 'tư vấn cá nhân' và từ chối vì nhóm PERSONAL không có tool việc cần làm.", "tools": ["get_my_todo"], "groups": ["PERSONAL"], "expect": [], "reject": ["Xin lỗi, tôi chỉ hỗ trợ"]},
+    {"id": "E10", "as": "staff", "q": "Tạo giúp tôi đơn xin nghỉ phép năm từ 20/10 đến 21/10, lý do việc gia đình", "_note": "17/10: K.AI tạo đơn hộ — tìm mẫu rồi điền bản NHÁP, không nộp; câu trả lời bảo người dùng mở đơn để nộp.", "tools": ["draft_request"], "groups": ["REQUEST"], "expect": ["Mở đơn|mở đơn|nháp"], "reject": ["đã nộp|Đã nộp"]},
+    {"id": "E11", "as": "head", "q": "Làm giúp tôi đơn đề nghị thanh toán 2.500.000 đồng tiền mua văn phòng phẩm", "_note": "17/10: quản lý cũng tạo đơn hộ được — router phải chọn REQUEST; số tiền vào ô tiền của mẫu.", "tools": ["draft_request"], "groups": ["REQUEST"], "expect": ["Mở đơn|mở đơn|nháp"], "reject": ["đã nộp|Đã nộp"]}
   ],
 
   "_docH": "Nhóm H chỉ chạy được với --stream: hỏi-lại-giữa-lượt cần một kênh để hỏi, mà chỉ SSE mới có. Bộ đo tự huỷ câu hỏi ngay khi nhận được, trừ ca có autoAnswer.",

@@ -108,14 +108,14 @@ class TurnStepsTest {
     class Staff {
 
         @Test
-        @DisplayName("nhân viên -> chỉ nhóm PERSONAL, router chỉ để nhận HELP, không ACTION dù router bảo gì")
+        @DisplayName("nhân viên -> chỉ nhóm PERSONAL + REQUEST (đơn từ của mình), router chỉ để nhận HELP, không ACTION dù router bảo gì")
         void staffGetsPersonalGroupOnly() {
             turn.setStaff(true);
             when(router.route(any(), any())).thenReturn("ACTION,KPI,INSIGHT");
 
             steps.route(scope, List.of(handler("HELP", "HELP - hỏi cách dùng")));
 
-            assertThat(turn.getToolGroups()).containsExactly(Group.PERSONAL);
+            assertThat(turn.getToolGroups()).containsExactlyInAnyOrder(Group.PERSONAL, Group.REQUEST);
             assertThat(scopeState.get(TurnSteps.INTENT)).isNull();
         }
 

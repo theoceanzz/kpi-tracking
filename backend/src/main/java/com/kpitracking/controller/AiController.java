@@ -159,6 +159,7 @@ public class AiController {
     private AiChatResponse runTurn(AiChatRequest request, TurnListener listener) {
         String result;
         FormPatch formPatch;
+        com.kpitracking.dto.response.ai.RequestDraftResponse requestDraft;
         boolean evidenceRequested;
         boolean filesAttached;
         FollowupResponse followups;
@@ -181,6 +182,7 @@ public class AiController {
             result = aiService.processOrgUnitChat(turn);
             // Pipeline đã chép các kết quả này từ AgentState lên turn ở khối finally.
             formPatch = turn.getFormPatch();
+            requestDraft = turn.getRequestDraft();
             evidenceRequested = turn.isEvidenceRequested();
             filesAttached = turn.isFilesAttached();
             followups = turn.getFollowups();
@@ -212,6 +214,7 @@ public class AiController {
                 .text(result)
                 .options(options)
                 .formPatch(formPatch != null && !formPatch.isEmpty() ? formPatch : null)
+                .requestDraft(requestDraft)
                 .evidenceRequest(evidenceRequested ? Boolean.TRUE : null)
                 .attachFiles(filesAttached ? Boolean.TRUE : null)
                 .followups(followups)

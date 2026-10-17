@@ -101,6 +101,8 @@ public class AiTurn {
      * cần đọc {@code AiTurn} mà không phải biết gì về trạng thái bên trong vòng lặp.
      */
     private FormPatch formPatch;
+    /** Bản nháp đơn từ (tool {@code draft_request}); chép từ {@code AgentState} như {@link #formPatch}. */
+    private com.kpitracking.dto.response.ai.RequestDraftResponse requestDraft;
     /**
      * Hành động GHI chờ xác nhận mà tool sinh ra trong lượt này. Pipeline chép từ {@code AgentState}
      * sang đây ở khối {@code finally}, cùng lý do với {@link #formPatch}.

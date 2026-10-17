@@ -79,6 +79,8 @@ public final class ToolProgress {
             Map.entry("get_rewards", "Đang xem thưởng điểm"),
             Map.entry("get_my_kpis", "Đang xem KPI của bạn"),
             Map.entry("get_my_todo", "Đang gom việc cần làm của bạn"),
+            Map.entry("list_request_forms", "Đang xem các mẫu đơn"),
+            Map.entry("draft_request", "Đang điền sẵn đơn"),
             Map.entry("get_my_submissions", "Đang xem bài nộp của bạn"),
             Map.entry("get_my_score", "Đang tính điểm dự kiến của bạn"),
             Map.entry("get_my_conduct", "Đang xem phiếu hạnh kiểm của bạn"),

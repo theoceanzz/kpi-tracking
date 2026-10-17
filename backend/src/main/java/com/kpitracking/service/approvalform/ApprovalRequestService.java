@@ -109,6 +109,23 @@ public class ApprovalRequestService {
         return new SubmitView(f.getId(), f.getIcon(), f.getColor(), f.getName(), f.getDescription(), f.getFormSchema(), units);
     }
 
+    /**
+     * Bản nháp đơn do K.AI điền hộ (ai.approval): chuẩn hoá giá trị như lúc xem trước quy trình — KHÔNG chặt, giá trị
+     * sai bị bỏ thay vì báo lỗi — và KHÔNG ghi gì. Người dùng mở hộp nộp đơn, xem lại rồi tự bấm Nộp; lúc đó
+     * {@link #submit} kiểm chặt như mọi đơn khác.
+     */
+    @Transactional(readOnly = true)
+    public Draft draft(UUID formId, Map<String, Object> raw) {
+        UUID orgId = formService.organizationId();
+        User me = formService.currentUser();
+        ApprovalForm f = submittable(formId, orgId, me);
+        FormValues.Result values = FormValues.normalize(f.getFormSchema(), raw, lookup(orgId, me), false);
+        return new Draft(f.getId(), f.getName(), f.getFormSchema(), values.values());
+    }
+
+    /** Bản nháp đơn: mẫu (tên theo ngôn ngữ + schema) và giá trị đã chuẩn hoá. */
+    public record Draft(UUID formId, Map<String, String> name, FormSchema schema, Map<String, Object> values) {}
+
     /** Đẩy tệp của widget Ảnh / Tệp lên kho trước khi nộp. Không ghi DB nên không cần transaction. */
     public List<UploadedFile> upload(MultipartFile[] files) throws IOException {
         UUID orgId = formService.organizationId();

@@ -16,11 +16,13 @@ const requestsTours = perLanguage((): Record<TourKey, TourDef> => {
   const submit = modal('submitRequest')
   return {
     requests: {
-      version: 1,
+      version: 2,
       next: REQUEST_FORM,
       steps: [
         intro('intro'),
         s('tabs', tourTarget('ws.tabs'), 'bottom'),
+        // Nút K.AI chỉ có khi tổ chức bật AI cho người xem.
+        s('ai', tourTarget('requests.ai'), 'bottom', { requires: () => !!document.querySelector('[data-tour="requests.ai"]') }),
         s('search', tourTarget('requests.search'), 'bottom'),
         s('groups', tourTarget('requests.groups'), 'right'),
         s('forms', tourTarget('requests.forms'), 'top'),

@@ -393,5 +393,13 @@
     "rejected": "Rejected",
     "withdrawTitle": "Withdraw the request?",
     "withdrawDescription": "The request stops at its current step and can no longer be approved. Submit a new request if you still need it."
+  },
+  "aiDraft": {
+    "badge": "K.AI draft",
+    "open": "Open request to submit",
+    "missing": "Still needed: {{fields}}.",
+    "prefilled": "K.AI pre-filled some fields — check them before submitting.",
+    "shortcut": "Create a request with K.AI",
+    "shortcutHint": "Tell K.AI what request you need; it picks the form and pre-fills it, then you review and submit."
   }
 }

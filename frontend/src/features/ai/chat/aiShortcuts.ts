@@ -37,6 +37,9 @@ export const aiShortcuts = {
     i18n.t('analytics:aiShortcuts.sendTheEvaluationPeriodResultsTo', { cycle: dot(cycle), unit: cua(unit) }),
   reviewRewardGrants: () => i18n.t('analytics:aiShortcuts.approvePendingPointRewardProposals'),
 
+  // ── đơn từ: K.AI điền bản NHÁP, người dùng mở hộp nộp đơn rồi tự nộp (ca E10/E11) ──────────
+  createRequest: () => i18n.t('analytics:aiShortcuts.createRequest'),
+
   // ── câu ĐỌC đúng trang ────────────────────────────────────────────────────────────────────
   myTasks: () => i18n.t('analytics:aiShortcuts.whatDoINeedToDo'),
   rankDelta: () => i18n.t('analytics:aiShortcuts.whichUnitsMovedUpOrDown'),

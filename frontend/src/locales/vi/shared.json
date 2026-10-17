@@ -3551,6 +3551,10 @@
         "t": "Nộp",
         "b": "Nộp xong, theo dõi đơn ở tab Trạng thái đơn. Đơn còn chờ duyệt thì rút được."
       }
+    },
+    "ai": {
+      "t": "Tạo đơn bằng K.AI",
+      "b": "Nói K.AI bạn cần làm đơn gì (nghỉ phép, thanh toán…). K.AI chọn mẫu và điền sẵn, bạn xem lại rồi tự bấm Nộp."
     }
   }
 }

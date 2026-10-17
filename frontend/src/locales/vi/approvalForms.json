@@ -385,5 +385,13 @@
     "rejected": "Đã từ chối",
     "withdrawTitle": "Rút đơn?",
     "withdrawDescription": "Đơn sẽ dừng ở bước hiện tại và không ai duyệt được nữa. Muốn xin lại thì nộp đơn mới."
+  },
+  "aiDraft": {
+    "badge": "bản nháp K.AI",
+    "open": "Mở đơn để nộp",
+    "missing": "Còn thiếu: {{fields}}.",
+    "prefilled": "K.AI đã điền sẵn một số ô — kiểm tra lại trước khi nộp.",
+    "shortcut": "Tạo đơn bằng K.AI",
+    "shortcutHint": "Nói K.AI bạn cần làm đơn gì, K.AI chọn mẫu và điền sẵn; bạn xem lại rồi tự nộp."
   }
 }

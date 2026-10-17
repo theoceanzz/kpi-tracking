@@ -14,6 +14,7 @@ import { useStateDraft } from '@/hooks/useFormDraft'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useFormat } from '@/i18n/useFormat'
 import { useAuthStore } from '@/store/authStore'
+import { useRequestDraftStore } from '@/store/requestDraftStore'
 import { approvalFormsApi } from '../../api/approvalFormsApi'
 import { useSubmitRequest, useSubmitView } from '../../hooks/useApprovalForms'
 import { initialValues, pickName, requiredErrors, submittableValues } from '../../model/formState'
@@ -61,20 +62,27 @@ function Body({ view, onClose, onSubmitted }: { view: SubmitView; onClose: () =>
   const { lang } = useFormat()
   const me = useAuthStore((s) => s.user)
   const submit = useSubmitRequest()
+  // Bản nháp K.AI điền hộ cho đúng mẫu này (thẻ "Mở đơn để nộp" trong khung chat) — đè lên giá trị mặc định.
+  const [aiDraft] = useState(() => useRequestDraftStore.getState().peek(view.id))
+  useEffect(() => { if (aiDraft) useRequestDraftStore.getState().clear() }, [aiDraft])
   const [state, setState] = useState<Draft>(() => {
     const unit = view.units[0] ?? null
     return {
       unitId: unit?.id ?? null,
-      values: initialValues(view.schema, {
-        me: me ? { id: me.id, name: me.fullName } : null,
-        myUnit: unit,
-        today: format(new Date(), 'yyyy-MM-dd'),
-        now: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-      }),
+      values: {
+        ...initialValues(view.schema, {
+          me: me ? { id: me.id, name: me.fullName } : null,
+          myUnit: unit,
+          today: format(new Date(), 'yyyy-MM-dd'),
+          now: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+        }),
+        ...(aiDraft?.values ?? {}),
+      },
     }
   })
   const [showErrors, setShowErrors] = useState(false)
-  const draft = useStateDraft(state, setState, { key: `approval-request:${view.id}`, enabled: true })
+  // Có bản K.AI thì không khôi phục bản nháp cũ đè lên nó.
+  const draft = useStateDraft(state, setState, { key: `approval-request:${view.id}`, enabled: !aiDraft })
 
   const errors = useMemo(() => (showErrors ? requiredErrors(view.schema, state.values, t('submit.required')) : {}),
     [showErrors, view.schema, state.values, t])
@@ -108,6 +116,12 @@ function Body({ view, onClose, onSubmitted }: { view: SubmitView; onClose: () =>
   return (
     <>
       <DraftNotice draft={draft} className="mb-4" />
+      {aiDraft && (
+        <p className="mb-4 rounded-card border border-[var(--color-ai-line)] bg-[var(--color-ai-soft)] px-3 py-2 text-sm text-[var(--color-foreground)]">
+          {t('aiDraft.prefilled')}
+          {aiDraft.missing.length > 0 && <> {t('aiDraft.missing', { fields: aiDraft.missing.join(', ') })}</>}
+        </p>
+      )}
       {pickName(view.description, lang) && <p className="mb-4 text-sm text-[var(--color-muted-foreground)]">{pickName(view.description, lang)}</p>}
       {view.units.length > 1 && (
         <div className="mb-4">
