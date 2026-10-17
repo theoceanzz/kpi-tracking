@@ -19,7 +19,7 @@
   },
   "list": {
     "title": "Approval processes",
-    "description": "Condition-based approval processes for KPI assignment and KPI adjustment requests. Requests that match no process follow the default unit-head chain.",
+    "description": "Condition-based approval steps for KPIs and KPI adjustments.",
     "processes": "Processes",
     "add": "Add process",
     "search": "Search by title",
@@ -41,10 +41,11 @@
     "delete": "Delete",
     "deleteTitle_one": "Delete {{count}} approval process?",
     "deleteTitle_other": "Delete {{count}} approval processes?",
-    "deleteDescription": "Requests already in approval under these processes continue with the steps set when they were submitted. Later submissions follow another matching process or the default unit-head chain.",
+    "deleteDescription": "Requests in approval keep going. Later ones use the default chain or another process.",
     "empty": "No approval processes yet",
-    "emptyHint": "Every request follows the default unit-head chain. Add a process to set approval steps and approvers by condition.",
-    "noMatch": "No process matches the filters"
+    "emptyHint": "The default unit-head chain is in use.",
+    "noMatch": "No process matches the filters",
+    "unknownForm": "(deleted form)"
   },
   "editor": {
     "createTitle": "New approval process",
@@ -57,7 +58,7 @@
     "fillRequired": "Enter a title and choose an object",
     "fixDiagram_one": "The diagram has {{count}} error. Fix it before saving",
     "fixDiagram_other": "The diagram has {{count}} errors. Fix them before saving",
-    "notChainMode": "The organization uses single-level approval. Approval processes only take effect when the approval mode under Workflow settings is \"Approval chain\".",
+    "notChainMode": "\"KPI setup and assignment\" and \"KPI adjustment\" processes only apply when the approval mode is \"Approval chain\" (Workflow settings).",
     "readOnly": "You can only view approval processes. Editing needs the workflow configuration permission (WORKFLOW:MANAGE).",
     "processSetup": "Process setup",
     "canvasHint": "Click (or right-click) a node to add steps, conditions or states; double-click to configure it. Drag the dot on a node's edge to link it by hand.",
@@ -95,7 +96,13 @@
     "showInObject": "Show the process in the object",
     "showInObjectHint": "KPI details get a button to view the process diagram, with the path taken and the pending step highlighted.",
     "active": "Active",
-    "activeHint": "When off, the process is kept but not used for new submissions."
+    "activeHint": "When off, the process is kept but not used for new submissions.",
+    "comingSoon": "Coming soon",
+    "forms": "Forms",
+    "formsHint": "Choose the forms that use this process. On submit it replaces each form's own approval flow. With exactly one form, conditions can use that form's fields.",
+    "chooseForms": "Choose forms",
+    "ungroupedForms": "Ungrouped",
+    "formInactive": "Disabled"
   },
   "canvas": {
     "start": "Start",
@@ -154,7 +161,9 @@
     "removeRule": "Remove condition row",
     "removeGroup": "Remove condition group",
     "needOneRule": "Add at least one condition row",
-    "incompleteRules": "Some condition rows are missing a field, comparison or value"
+    "incompleteRules": "Some condition rows are missing a field, comparison or value",
+    "formFields": "Form fields",
+    "requestFields": "Requester info"
   },
   "stepDialog": {
     "title": "Approval settings",
@@ -191,20 +200,33 @@
     "unknown": "(no longer exists)"
   },
   "objectGroups": {
-    "KPI": "KPI"
+    "KPI": "KPI",
+    "BSC": "BSC",
+    "REWARD": "Rewards",
+    "FORM": "Approval requests"
   },
   "objects": {
-    "KPI_CRITERIA": "KPI assignment",
-    "KPI_ADJUSTMENT": "KPI adjustment request"
+    "KPI_CRITERIA": "KPI setup and assignment",
+    "KPI_SUBMISSION": "KPI result reporting",
+    "KPI_EVALUATION": "Performance evaluation and rating",
+    "KPI_ADJUSTMENT": "KPI adjustment",
+    "CYCLE_FINALIZE": "Cycle finalization and result recognition",
+    "BSC_SCORECARD": "Scorecard setup and approval",
+    "BSC_RESULT": "Unit scorecard result finalization",
+    "REWARD_GRANT": "Reward proposal",
+    "GIFT_REDEMPTION": "Gift redemption approval",
+    "FORM_REQUEST": "Approval request"
   },
   "subObjects": {
     "QUANTITATIVE": "Quantitative KPI",
     "QUALITATIVE": "Qualitative KPI",
     "CHANGE_TARGET": "Target change",
-    "DEACTIVATE": "KPI stop request"
+    "DEACTIVATE": "KPI stop request",
+    "ROOT_UNIT": "Root unit (locks the cycle)",
+    "CHILD_UNIT": "Child unit"
   },
   "fields": {
-    "ORG_UNIT": "KPI's unit",
+    "ORG_UNIT": "Unit",
     "ORG_LEVEL": "Unit level",
     "REQUESTER": "Submitter",
     "REQUESTER_ROLE": "Submitter's position",
@@ -214,7 +236,9 @@
     "WEIGHT": "Weight (%)",
     "IS_BONUS": "Bonus KPI",
     "REQUEST_KIND": "Request type",
-    "TARGET_CHANGE_PERCENT": "Target change (%)"
+    "TARGET_CHANGE_PERCENT": "Target change (%)",
+    "FORM_NUMBER": "Form number field",
+    "FORM_OPTION": "Form option field"
   },
   "operators": {
     "IN": "Is one of",
@@ -270,6 +294,7 @@
     "ruleMissingValue": "A condition row has no value",
     "ruleBadNumber": "The value must be a number",
     "ruleBadValue": "The value is not valid",
+    "ruleWidgetMissing": "The condition uses a field that is no longer on the form",
     "stepNoName": "The step has no name",
     "stepNoApprover": "No approver chosen",
     "stepBadApprover": "An approver is not fully set up",
@@ -281,5 +306,78 @@
   },
   "diagram": {
     "description": "Snapshot taken at submission. The path taken is highlighted and the pending step is outlined."
+  },
+  "inbox": {
+    "title": "Awaiting my approval",
+    "description": "Requests waiting for YOU at the current step of their approval process.",
+    "waiting": "Waiting for you",
+    "empty": "Nothing is waiting for your approval",
+    "emptyHint": "When a request reaches your step in an approval process, it shows up here.",
+    "from": "From {{name}}",
+    "step": "Step {{number}}/{{total}}: {{step}}",
+    "since": "Waiting since {{time}}",
+    "review": "Review",
+    "openOwn": "Open to approve",
+    "eval": {
+      "user": "Evaluated person",
+      "period": "Period",
+      "evaluator": "Evaluator",
+      "score": "Proposed score",
+      "systemScore": "System score"
+    },
+    "cycle": {
+      "unit": "Unit",
+      "cycle": "Cycle",
+      "members": "People",
+      "managerScore": "Avg. manager score",
+      "classification": "Rating",
+      "rootWarning": "Root unit: approving the last step locks the whole evaluation cycle."
+    },
+    "notYourTurn": "Waiting for {{names}} — not your turn yet.",
+    "willForward": "Once you approve, the request goes to {{names}}.",
+    "isFinal": "You are the last step: approving puts the proposal into effect.",
+    "comment": "Comment (optional)",
+    "commentPlaceholder": "Note attached to your decision",
+    "reason": "Rejection reason",
+    "reasonPlaceholder": "The requester will see this reason",
+    "reject": "Reject",
+    "confirmReject": "Confirm rejection",
+    "approve": "Approve",
+    "approveForward": "Approve and forward",
+    "close": "Close",
+    "chain": "Approval process",
+    "approvedFinal": "Approved — the proposal is now in effect",
+    "forwarded": "Your step is approved; moved to the next step",
+    "rejected": "Proposal rejected",
+    "failed": "Could not process the request",
+    "bsc": {
+      "scorecard": "Scorecard",
+      "units": "Units",
+      "wholeOrg": "Whole organization",
+      "items": "KPIs",
+      "totalWeight": "Total weight",
+      "achievement": "Achievement",
+      "provisional": "The requester asked to finalize on the parent scorecard's provisional figures (source not finalized)."
+    },
+    "reward": {
+      "totalPoints": "Total points",
+      "recipients": "Recipients",
+      "recipientNames": "Who",
+      "whyApproval": "Why approval is needed",
+      "redeemer": "Redeemed by",
+      "gift": "Gift",
+      "quantity": "Quantity",
+      "pointsSpent": "Points deducted"
+    }
+  },
+  "pending": {
+    "evaluation": "Evaluation sent into the approval process — waiting for {{names}}. The score is recorded only once approved.",
+    "cycle": "Cycle finalization sent into the approval process — waiting for {{names}}.",
+    "cycleBanner": "Finalization request awaiting approval · step {{number}}/{{total}}: {{step}} — waiting for {{names}}. Reopening to draft cancels this request.",
+    "scorecard": "In an approval process · step {{number}}/{{total}} — waiting for {{names}}. Click to open \"Awaiting my approval\".",
+    "bscResult": "Result finalization sent into the approval process — waiting for {{names}}.",
+    "bscResultBadge": "Awaiting finalization · step {{number}}/{{total}} — {{names}}",
+    "inProcess": "Approval process · step {{number}}/{{total}} — waiting for {{names}}",
+    "openInbox": "Open \"Awaiting my approval\""
   }
 }

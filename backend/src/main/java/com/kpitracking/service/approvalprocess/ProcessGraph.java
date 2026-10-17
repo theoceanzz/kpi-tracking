@@ -60,8 +60,13 @@ public record ProcessGraph(Integer schemaVersion, List<Node> nodes, List<Edge> e
         }
     }
 
+    /** @param widget id widget của đơn từ — chỉ dùng với trường {@code FORM_*}, còn lại null */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record ConditionRule(ConditionField field, ConditionOperator operator, List<String> values) {
+    public record ConditionRule(ConditionField field, ConditionOperator operator, List<String> values, String widget) {
+        public ConditionRule(ConditionField field, ConditionOperator operator, List<String> values) {
+            this(field, operator, values, null);
+        }
+
         public List<String> valuesOrEmpty() {
             return values == null ? List.of() : values;
         }

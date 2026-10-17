@@ -35,11 +35,19 @@ export default function ProcessInfoForm({
     for (const o of catalog?.objects ?? []) out.set(o.group, [...(out.get(o.group) ?? []), o])
     return [...out.entries()]
   }, [catalog])
+  const isForm = value.objectType === 'FORM_REQUEST'
+  // Đơn từ: đối tượng con là từng đơn của tổ chức, gom theo nhóm đơn để phân biệt khi chọn.
   const subOptions = useMemo(
-    () => (catalog?.objects.find((o) => o.code === value.objectType)?.subObjects ?? [])
-      .map((s) => ({ value: s, label: t(`subObjects.${s}`) })),
-    [catalog, value.objectType, t],
+    () => isForm
+      ? (catalog?.forms ?? []).map((f) => ({
+          value: f.id, label: f.name, group: f.groupName ?? t('info.ungroupedForms'),
+          hint: f.active ? undefined : t('info.formInactive'),
+        }))
+      : (catalog?.objects.find((o) => o.code === value.objectType)?.subObjects ?? [])
+          .map((s) => ({ value: s, label: t(`subObjects.${s}`) })),
+    [catalog, value.objectType, isForm, t],
   )
+  const formsMissing = showErrors && isForm && value.subObjectTypes.length === 0
   const titleMissing = showErrors && !value.title.trim()
   const objectMissing = showErrors && !value.objectType
 
@@ -77,7 +85,12 @@ export default function ProcessInfoForm({
             {groups.map(([group, objects]) => (
               <SelectGroup key={group}>
                 <SelectLabel>{t(`objectGroups.${group}`)}</SelectLabel>
-                {objects.map((o) => <SelectItem key={o.code} value={o.code}>{t(`objects.${o.code}`)}</SelectItem>)}
+                {objects.map((o) => (
+                  <SelectItem key={o.code} value={o.code} disabled={!o.available}>
+                    {t(`objects.${o.code}`)}
+                    {!o.available && <span className="ml-2 text-caption">· {t('info.comingSoon')}</span>}
+                  </SelectItem>
+                ))}
               </SelectGroup>
             ))}
           </SelectContent>
@@ -87,14 +100,16 @@ export default function ProcessInfoForm({
 
       <div>
         <span className="mb-1.5 flex items-center gap-1.5 text-label">
-          {t('info.subObjects')}
-          <InfoHint label={t('common.moreInfo')}>{t('info.subObjectsHint')}</InfoHint>
+          {isForm ? t('info.forms') : t('info.subObjects')}
+          {isForm && <span className="text-[var(--color-error)]">*</span>}
+          <InfoHint label={t('common.moreInfo')}>{isForm ? t('info.formsHint') : t('info.subObjectsHint')}</InfoHint>
         </span>
         <MultiSelectPopover
           options={subOptions}
           value={value.subObjectTypes}
           onChange={(subObjectTypes) => onChange({ subObjectTypes })}
-          placeholder={value.objectType ? t('info.allSubObjects') : t('info.chooseObjectFirst')}
+          placeholder={isForm ? t('info.chooseForms') : value.objectType ? t('info.allSubObjects') : t('info.chooseObjectFirst')}
+          invalid={formsMissing}
           disabled={readOnly || !value.objectType}
         />
       </div>

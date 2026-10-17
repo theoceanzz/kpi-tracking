@@ -4,14 +4,16 @@ import { useTranslation } from 'react-i18next'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import DraftNotice from '@/components/common/DraftNotice'
 import { useStateDraft } from '@/hooks/useFormDraft'
+import { FORM_FIELDS } from '../../types'
 import type {
   ApprovalObjectType,
   ApprovalProcessCatalog,
   ConditionGroup,
   ConditionRule,
+  FormConditionField,
   PersonRef,
   ProcessNode,
 } from '../../types'
@@ -28,12 +30,19 @@ interface Form {
 
 const emptyRule = (): ConditionRule => ({ field: null, operator: null, values: [] })
 
+const FORM_PREFIX = 'form:'
+
+/** Giá trị của ô chọn trường: mã trường, hoặc `form:<id widget>` với trường theo widget của đơn từ. */
+const fieldKey = (r: ConditionRule) =>
+  r.field && FORM_FIELDS.includes(r.field) ? (r.widget ? FORM_PREFIX + r.widget : undefined) : r.field ?? undefined
+
 function isBlank(r: ConditionRule) {
   return !r.field && !r.operator && r.values.length === 0
 }
 
 function isComplete(r: ConditionRule, fields: Map<string, FieldInfo>) {
   if (!r.field || !r.operator) return false
+  if (FORM_FIELDS.includes(r.field) && !r.widget) return false
   if (r.operator === 'IS_TRUE' || r.operator === 'IS_FALSE') return true
   const info = fields.get(r.field)
   const values = r.values.filter((v) => v.trim())
@@ -51,6 +60,8 @@ interface Props {
   onUsers: (people: PersonRef[]) => void
   readOnly?: boolean
   draftKey: string
+  /** Widget số / chọn của đơn từ — chỉ khi sửa quy trình của một đơn. */
+  formFields?: FormConditionField[]
   onClose: () => void
   onSave: (patch: Pick<ProcessNode, 'name' | 'groups'>) => void
 }
@@ -67,7 +78,7 @@ export default function ConditionSettingsDialog(props: Props) {
 }
 
 function ConditionSettingsBody({
-  node, objectType, catalog, options, users, onUsers, readOnly, draftKey, onClose, onSave,
+  node, objectType, catalog, options, users, onUsers, readOnly, draftKey, formFields, onClose, onSave,
 }: Props & { node: ProcessNode }) {
   const { t } = useTranslation('approvalProcess')
   const [form, setForm] = useState<Form>(() => ({
@@ -82,9 +93,22 @@ function ConditionSettingsBody({
 
   const fields = useMemo(() => new Map((catalog?.fields ?? []).map((f) => [f.code as string, f])), [catalog])
   const availableFields = useMemo(
-    () => (catalog?.fields ?? []).filter((f) => !objectType || f.objects.includes(objectType)),
+    () => (catalog?.fields ?? [])
+      .filter((f) => (!objectType || f.objects.includes(objectType)) && !FORM_FIELDS.includes(f.code)),
     [catalog, objectType],
   )
+  const widgets = useMemo(() => new Map((formFields ?? []).map((w) => [w.id, w])), [formFields])
+
+  const pickField = (gi: number, ri: number, key: string) => {
+    if (key.startsWith(FORM_PREFIX)) {
+      const w = widgets.get(key.slice(FORM_PREFIX.length))
+      const info = fields.get(w?.kind === 'NUMBER' ? 'FORM_NUMBER' : 'FORM_OPTION')
+      patchRule(gi, ri, { field: info?.code ?? null, widget: w?.id ?? null, operator: info?.operators[0] ?? null, values: [] })
+      return
+    }
+    const next = fields.get(key)
+    patchRule(gi, ri, { field: next?.code ?? null, widget: null, operator: next?.operators[0] ?? null, values: [] })
+  }
 
   const patchRule = (gi: number, ri: number, patch: Partial<ConditionRule>) =>
     setForm((f) => ({
@@ -129,6 +153,9 @@ function ConditionSettingsBody({
     const common = { value: rule.values, onChange: set, disabled: readOnly, invalid, placeholder: t('conditionDialog.valuePlaceholder') }
     switch (info.valueType) {
       case 'ENUM':
+        if (rule.field === 'FORM_OPTION') {
+          return <MultiSelectPopover {...common} options={(rule.widget && widgets.get(rule.widget)?.options) || []} />
+        }
         return <MultiSelectPopover {...common} options={info.options.map((o) => ({ value: o, label: t(`enumValues.${o}`) }))} />
       case 'ROLE':
         return <MultiSelectPopover {...common} options={options.roles} />
@@ -158,7 +185,8 @@ function ConditionSettingsBody({
             disabled={readOnly}
             invalid={invalid}
             placeholder={t('conditionDialog.numberPlaceholder')}
-            suffix={info.code === 'WEIGHT' || info.code === 'TARGET_CHANGE_PERCENT' ? '%' : undefined}
+            suffix={info.code === 'WEIGHT' || info.code === 'TARGET_CHANGE_PERCENT' ? '%'
+              : rule.field === 'FORM_NUMBER' && rule.widget ? widgets.get(rule.widget)?.unit : undefined}
             className="no-edit-hint"
           />
         )
@@ -225,19 +253,23 @@ function ConditionSettingsBody({
                   const info = rule.field ? fields.get(rule.field) : undefined
                   return (
                     <div key={ri} className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,13rem)_minmax(0,11rem)_minmax(0,1fr)_auto] sm:items-start">
-                      <Select
-                        value={rule.field ?? undefined}
-                        onValueChange={(v) => {
-                          const next = fields.get(v)
-                          patchRule(gi, ri, { field: next?.code ?? null, operator: next?.operators[0] ?? null, values: [] })
-                        }}
-                        disabled={readOnly}
-                      >
-                        <SelectTrigger aria-label={t('conditionDialog.field')} className={showErrors && !rule.field ? 'border-[var(--color-error)]' : undefined}>
+                      <Select value={fieldKey(rule)} onValueChange={(v) => pickField(gi, ri, v)} disabled={readOnly}>
+                        <SelectTrigger aria-label={t('conditionDialog.field')} className={showErrors && !fieldKey(rule) ? 'border-[var(--color-error)]' : undefined}>
                           <SelectValue placeholder={t('conditionDialog.chooseField')} />
                         </SelectTrigger>
                         <SelectContent>
-                          {availableFields.map((f) => <SelectItem key={f.code} value={f.code}>{t(`fields.${f.code}`)}</SelectItem>)}
+                          {formFields?.length ? (
+                            <>
+                              <SelectGroup>
+                                <SelectLabel>{t('conditionDialog.formFields')}</SelectLabel>
+                                {formFields.map((w) => <SelectItem key={w.id} value={FORM_PREFIX + w.id}>{w.title}</SelectItem>)}
+                              </SelectGroup>
+                              <SelectGroup>
+                                <SelectLabel>{t('conditionDialog.requestFields')}</SelectLabel>
+                                {availableFields.map((f) => <SelectItem key={f.code} value={f.code}>{t(`fields.${f.code}`)}</SelectItem>)}
+                              </SelectGroup>
+                            </>
+                          ) : availableFields.map((f) => <SelectItem key={f.code} value={f.code}>{t(`fields.${f.code}`)}</SelectItem>)}
                         </SelectContent>
                       </Select>
                       <Select

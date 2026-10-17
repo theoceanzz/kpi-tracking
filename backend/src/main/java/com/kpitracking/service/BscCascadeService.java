@@ -74,6 +74,7 @@ public class BscCascadeService {
     private final BscAccessGuard accessGuard;
     private final ApplicationEventPublisher eventPublisher;
     private final BscSourceScores sourceScores;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
 
     /**
      * Mức cao nhất của thang xếp loại (ma trận hiệu suất trả 1..5). Dùng cho BLOCK_EXCELLENT:
@@ -173,6 +174,11 @@ public class BscCascadeService {
 
         if (result.getStatus() != BscUnitResultStatus.DRAFT) {
             throw new BusinessException(ErrorCode.BSC_RESULTS_PERIOD_FINALIZED);
+        }
+        // Đang chờ duyệt chốt: con số người duyệt đang xem phải đứng yên tới khi có kết quả.
+        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.ApprovalSubjectType.BSC_RESULT,
+                resultSubjectId(scorecardId, kpiPeriodId)).isPresent()) {
+            throw new BusinessException(ErrorCode.BSC_RESULT_AWAITING_FINALIZE_APPROVAL);
         }
 
         // Giá trị nhập tay phải sống sót qua mỗi lần tính lại, nếu không người phụ trách phải
@@ -409,13 +415,36 @@ public class BscCascadeService {
      */
     @Transactional
     public BscUnitResult finalizeResult(UUID scorecardId, UUID kpiPeriodId, boolean allowProvisional) {
-        User actor = currentUserOrNull();
+        return finalizeResultAs(scorecardId, kpiPeriodId, allowProvisional, currentUserOrNull(), false);
+    }
+
+    /** Một yêu cầu chốt đang chờ cho mỗi (thẻ, đợt). */
+    public static UUID resultSubjectId(UUID scorecardId, UUID kpiPeriodId) {
+        return UUID.nameUUIDFromBytes(("BSC_RESULT:" + scorecardId + ":" + kpiPeriodId)
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Quy trình "Chốt kết quả thẻ điểm đơn vị" đã duyệt xong bước cuối: chốt với tư cách người gửi,
+     * kiểm lại thẻ nguồn theo số lúc này. Quyền chốt theo số tạm tính đã kiểm lúc gửi.
+     */
+    @Transactional
+    public BscUnitResult applyApprovedFinalize(java.util.Map<String, Object> payload, User requester) {
+        return finalizeResultAs(UUID.fromString(String.valueOf(payload.get("scorecardId"))),
+                UUID.fromString(String.valueOf(payload.get("kpiPeriodId"))),
+                Boolean.TRUE.equals(payload.get("allowProvisional")), requester, true);
+    }
+
+    private BscUnitResult finalizeResultAs(UUID scorecardId, UUID kpiPeriodId, boolean allowProvisional, User actor,
+                                           boolean viaApproval) {
         BscUnitResult result = unitResultRepository.findByScorecardIdAndKpiPeriodId(scorecardId, kpiPeriodId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NO_BSC_RESULTS_PERIOD));
         if (result.getAchievementPercent() == null) {
             throw new BusinessException(ErrorCode.BSC_RESULTS_COULD_NOT_COMPUTED);
         }
-        result.setProvisionalSource(checkSourcesBeforeFinalize(result, kpiPeriodId, allowProvisional));
+        boolean provisional = checkSourcesBeforeFinalize(result, kpiPeriodId, allowProvisional, viaApproval);
+        if (!viaApproval && actor != null && proposeFinalize(result, allowProvisional, actor)) return result;
+        result.setProvisionalSource(provisional);
         result.setStatus(BscUnitResultStatus.FINALIZED);
         result.setFinalizedBy(actor);
         result.setFinalizedAt(Instant.now());
@@ -430,7 +459,8 @@ public class BscCascadeService {
      *
      * @return true nếu chốt theo số tạm tính (quản trị cho phép)
      */
-    private boolean checkSourcesBeforeFinalize(BscUnitResult result, UUID kpiPeriodId, boolean allowProvisional) {
+    private boolean checkSourcesBeforeFinalize(BscUnitResult result, UUID kpiPeriodId, boolean allowProvisional,
+                                               boolean viaApproval) {
         List<BscScorecardPerspective> rows =
                 scorecardPerspectiveRepository.findByScorecardIdOrderByDisplayOrderAsc(result.getScorecard().getId());
         java.util.Map<UUID, BscSourceScores.SourceScore> sources = sourceScores.load(rows, kpiPeriodId);
@@ -455,8 +485,29 @@ public class BscCascadeService {
                 .collect(java.util.stream.Collectors.joining(", "));
         if (pending.isEmpty()) return false;
         if (!allowProvisional) throw new BusinessException(ErrorCode.BSC_SOURCE_RESULT_NOT_FINALIZED, pending);
-        if (!accessGuard.canManageAll()) throw new BusinessException(ErrorCode.PROVISIONAL_FINALIZE_ADMIN_ONLY);
+        if (!viaApproval && !accessGuard.canManageAll()) throw new BusinessException(ErrorCode.PROVISIONAL_FINALIZE_ADMIN_ONLY);
         return true;
+    }
+
+    /** Có quy trình khớp ⇒ mở yêu cầu chốt chờ duyệt (kết quả vẫn ở nháp) và trả {@code true}. */
+    private boolean proposeFinalize(BscUnitResult result, boolean allowProvisional, User actor) {
+        BscScorecard s = result.getScorecard();
+        UUID orgId = s.getOrganization().getId();
+        OrgUnit unit = s.getOrgUnits() == null || s.getOrgUnits().isEmpty()
+                ? approvalChain.rootUnitOf(orgId) : s.getOrgUnits().get(0);
+        if (unit == null) return false;
+        KpiPeriod period = result.getKpiPeriod();
+        java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("scorecardId", s.getId().toString());
+        payload.put("scorecardName", s.getName());
+        payload.put("kpiPeriodId", period.getId().toString());
+        payload.put("kpiPeriodName", period.getName());
+        payload.put("unitNames", s.getOrgUnits() == null ? List.of() : s.getOrgUnits().stream().map(OrgUnit::getName).toList());
+        payload.put("achievementPercent", result.getAchievementPercent());
+        payload.put("allowProvisional", allowProvisional);
+        return approvalChain.startProposal(com.kpitracking.enums.ApprovalSubjectType.BSC_RESULT,
+                resultSubjectId(s.getId(), period.getId()), s.getName() + " · " + period.getName(), unit, null,
+                actor, period.getId(), null, payload).isPresent();
     }
 
     /** Mở khoá để tính lại — bắt buộc đi qua đây thay vì sửa thẳng, để còn dấu vết ai mở. */

@@ -75,6 +75,8 @@ public class RewardGrantService {
     private final PermissionChecker permissionChecker;
     private final RewardContext context;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalViewService approvalView;
 
     // ────────────────────────────── TẠO ──────────────────────────────
 
@@ -140,6 +142,7 @@ public class RewardGrantService {
             issuePoints(grant, items, grantor);
             eventPublisher.publishEvent(new RewardEvents.GrantIssued(grant.getId(), grantor.getId()));
         } else {
+            startGrantApproval(grant, items, grantor, orgId);
             eventPublisher.publishEvent(new RewardEvents.GrantSubmitted(grant.getId(), grantor.getId()));
         }
 
@@ -274,19 +277,67 @@ public class RewardGrantService {
 
     // ──────────────────────────── QUYẾT ĐỊNH ────────────────────────────
 
+    /**
+     * Quy trình "Đề xuất khen thưởng": chỉ đề xuất VỐN PHẢI CHỜ (vượt / ngoài hạn mức) mới đi chuỗi;
+     * trong hạn mức vẫn tự duyệt như cũ. Đề xuất vẫn ở CHỜ DUYỆT, chỉ người giữ bước quyết.
+     */
+    private void startGrantApproval(RewardGrant grant, List<RewardGrantItem> items, User grantor, UUID orgId) {
+        OrgUnit unit = grant.getOrgUnit() != null ? grant.getOrgUnit() : approvalChain.rootUnitOf(orgId);
+        if (unit == null) return;
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("grantId", grant.getId().toString());
+        payload.put("reason", grant.getReason());
+        payload.put("totalPoints", grant.getTotalPoints());
+        payload.put("recipientCount", items.size());
+        payload.put("recipientNames", items.stream().limit(5)
+                .map(i -> userRepository.findById(i.getUser().getId()).map(User::getFullName).orElse("")).toList());
+        payload.put("approvalReason", grant.getApprovalReason());
+        String name = grant.getReason() == null || grant.getReason().isBlank()
+                ? grant.getTotalPoints() + " điểm" : grant.getReason();
+        approvalChain.startProposal(com.kpitracking.enums.ApprovalSubjectType.REWARD_GRANT, grant.getId(),
+                name.length() > 200 ? name.substring(0, 200) : name, unit, null, grantor, null,
+                grant.getTotalPoints() == null ? null : grant.getTotalPoints().doubleValue(), payload);
+    }
+
+    /** Duyệt / từ chối tay không đi được khi đề xuất đang theo quy trình duyệt. */
+    private void assertNotInProcess(UUID grantId) {
+        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.ApprovalSubjectType.REWARD_GRANT, grantId).isPresent()) {
+            throw new BusinessException(ErrorCode.REWARD_IN_APPROVAL_PROCESS);
+        }
+    }
+
+    /** Bước cuối của quy trình vừa duyệt: phát điểm như {@link #approve}. */
+    @Transactional
+    public void approveByProcess(UUID grantId, User approver) {
+        decideApproved(loadPending(grantId), approver, null);
+    }
+
+    /** Bị từ chối ở một bước của quy trình: như {@link #reject}. */
+    @Transactional
+    public void rejectByProcess(UUID grantId, User approver, String reason) {
+        RewardGrant grant = grantRepository.findById(grantId).orElse(null);
+        if (grant == null || grant.getStatus() != RewardGrantStatus.PENDING_APPROVAL) return;
+        decideRejected(grant, approver, reason);
+    }
+
     @Transactional
     public RewardGrantResponse approve(UUID grantId, GrantDecisionRequest request) {
+        assertNotInProcess(grantId);
         RewardGrant grant = loadPending(grantId);
         User approver = context.getCurrentUser();
         assertCanApprove(grant, approver);
+        return decideApproved(grant, approver, request != null ? request.getNote() : null);
+    }
 
+    private RewardGrantResponse decideApproved(RewardGrant grant, User approver, String note) {
+        UUID grantId = grant.getId();
         grant.setStatus(RewardGrantStatus.APPROVED);
         // Khoản vượt hạn mức là ngoại lệ do cấp trên cho, KHÔNG tính vào hạn mức cá nhân
         // của người trao — nên budget vẫn để null.
         grant.setApprovalMode(RewardApprovalMode.MANUAL);
         grant.setApprover(approver);
         grant.setApprovedAt(Instant.now());
-        grant.setDecisionNote(request != null ? request.getNote() : null);
+        grant.setDecisionNote(note);
         grantRepository.save(grant);
 
         List<RewardGrantItem> items = grantItemRepository.findByGrantId(grantId);
@@ -303,19 +354,23 @@ public class RewardGrantService {
 
     @Transactional
     public RewardGrantResponse reject(UUID grantId, GrantDecisionRequest request) {
+        assertNotInProcess(grantId);
         RewardGrant grant = loadPending(grantId);
         User approver = context.getCurrentUser();
         assertCanApprove(grant, approver);
+        return decideRejected(grant, approver, request != null ? request.getNote() : null);
+    }
 
+    private RewardGrantResponse decideRejected(RewardGrant grant, User approver, String note) {
+        UUID grantId = grant.getId();
         grant.setStatus(RewardGrantStatus.REJECTED);
         grant.setApprover(approver);
         grant.setApprovedAt(Instant.now());
-        grant.setDecisionNote(request != null ? request.getNote() : null);
+        grant.setDecisionNote(note);
         grantRepository.save(grant);
 
         // Không cần trả lại hạn mức: đề nghị REJECTED tự rơi khỏi tổng đang tính.
-        eventPublisher.publishEvent(new RewardEvents.GrantRejected(
-                grantId, approver.getId(), request != null ? request.getNote() : null));
+        eventPublisher.publishEvent(new RewardEvents.GrantRejected(grantId, approver.getId(), note));
         return toResponse(grant, grantItemRepository.findByGrantId(grantId));
     }
 
@@ -328,6 +383,8 @@ public class RewardGrantService {
         }
         grant.setStatus(RewardGrantStatus.CANCELLED);
         grantRepository.save(grant);
+        approvalChain.cancelRunningSubject(com.kpitracking.enums.ApprovalSubjectType.REWARD_GRANT, grantId, me,
+                com.kpitracking.i18n.LocalizedText.of("approvalEvent.reason.proposalCancelled"));
         eventPublisher.publishEvent(new RewardEvents.GrantCancelled(grantId, me.getId()));
         return toResponse(grant, grantItemRepository.findByGrantId(grantId));
     }
@@ -526,6 +583,7 @@ public class RewardGrantService {
         List<RewardGrantResponse> content = result.getContent().stream()
                 .map(g -> toResponse(g, itemsByGrant.getOrDefault(g.getId(), List.of())))
                 .toList();
+        attachApproval(content);
 
         return PageResponse.<RewardGrantResponse>builder()
                 .content(content)
@@ -579,7 +637,18 @@ public class RewardGrantService {
     public RewardGrantResponse getById(UUID grantId) {
         RewardGrant grant = grantRepository.findById(grantId)
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.rewardProposal"), "id", grantId));
-        return toResponse(grant, grantItemRepository.findByGrantId(grantId));
+        RewardGrantResponse r = toResponse(grant, grantItemRepository.findByGrantId(grantId));
+        attachApproval(List.of(r));
+        return r;
+    }
+
+    /** Đề xuất đang chờ duyệt theo quy trình: bước hiện tại — một truy vấn cho cả trang. */
+    private void attachApproval(List<RewardGrantResponse> responses) {
+        List<UUID> pending = responses.stream().filter(r -> r.getStatus() == RewardGrantStatus.PENDING_APPROVAL)
+                .map(RewardGrantResponse::getId).toList();
+        if (pending.isEmpty()) return;
+        var byId = approvalView.summariesForSubjects(com.kpitracking.enums.ApprovalSubjectType.REWARD_GRANT, pending, context.getCurrentUser().getId());
+        responses.forEach(r -> r.setApproval(byId.get(r.getId())));
     }
 
     private RewardGrantResponse toResponse(RewardGrant grant, List<RewardGrantItem> items) {

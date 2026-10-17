@@ -60,6 +60,7 @@ public class BscNotificationEventListener {
     private final EvaluationRepository evaluationRepository;
     private final OrgUnitRepository orgUnitRepository;
     private final UserRepository userRepository;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
 
     /** Nhãn kiểu thông báo — quyết định biểu tượng ở chuông. Ba nhóm là đủ để phân biệt. */
     private static final String TYPE_SCORECARD = "BSC_SCORECARD";
@@ -76,6 +77,8 @@ public class BscNotificationEventListener {
     public void handleSubmitted(BscEvents.ScorecardSubmitted event) {
         BscScorecard s = find(event.scorecardId());
         if (s == null) return;
+        // Thẻ đi theo quy trình duyệt: người giữ bước đầu đã được chuỗi duyệt báo riêng.
+        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.ApprovalSubjectType.BSC_SCORECARD, s.getId()).isPresent()) return;
 
         Object actorName = nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.unit"));
         LocalizedText title = LocalizedText.of("notif.bsc.submitted.title");

@@ -104,6 +104,20 @@ public class KpiApprovalViewService {
         return out;
     }
 
+    /** Tóm tắt flow đang chạy của các đối tượng (bài nộp…), theo id đối tượng. */
+    @Transactional(readOnly = true)
+    public Map<UUID, ApprovalSummaryResponse> summariesForSubjects(ApprovalSubjectType type, Collection<UUID> subjectIds,
+                                                                 UUID viewerId) {
+        if (subjectIds == null || subjectIds.isEmpty() || viewerId == null) return Map.of();
+        Ctx ctx = new Ctx(viewerId);
+        Map<UUID, ApprovalSummaryResponse> out = new HashMap<>();
+        for (KpiApprovalFlow f : flowRepository.findRunningBySubjects(type, subjectIds)) {
+            ApprovalSummaryResponse s = summarize(f, ctx);
+            if (s != null) out.put(f.getSubjectId(), s);
+        }
+        return out;
+    }
+
     public ApprovalSummaryResponse summarize(KpiApprovalFlow flow, UUID viewerId) {
         return summarize(flow, new Ctx(viewerId));
     }
@@ -121,7 +135,7 @@ public class KpiApprovalViewService {
         ApprovalOutcome kind = null;
         if (canAct) {
             boolean isFinal = next.isEmpty() || step.getKind() == ApprovalStepKind.ADMIN_FALLBACK
-                    || ctx.hasFinal(flow.getKpiCriteria().getOrgUnit().getId());
+                    || (flow.isKpiSubject() && ctx.hasFinal(flow.unit().getId()));
             kind = isFinal ? ApprovalOutcome.FINAL : ApprovalOutcome.FORWARDED;
         }
 
@@ -195,10 +209,34 @@ public class KpiApprovalViewService {
                 .findFirst().map(f -> summarize(f, ctx)).orElse(null);
 
         return KpiApprovalChainResponse.builder()
+                .subjectType(ApprovalSubjectType.CRITERIA)
+                .subjectId(kpi.getId())
                 .kpiCriteriaId(kpi.getId())
                 .kpiName(kpi.getName())
                 .chainMode(chainService.isChainMode(kpi))
                 .current(current)
+                .flows(flows.stream().map(f -> toResponse(f, eventsByFlow.getOrDefault(f.getId(), List.of()))).toList())
+                .build();
+    }
+
+    /**
+     * Chuỗi duyệt của một đối tượng khác KPI (vd. bài nộp). KHÔNG kiểm quyền xem — phía gọi (service
+     * của đối tượng) kiểm bằng luật xem của chính đối tượng trước khi gọi.
+     */
+    @Transactional(readOnly = true)
+    public KpiApprovalChainResponse chainOfSubject(ApprovalSubjectType type, UUID subjectId, String subjectName, UUID viewerId) {
+        List<KpiApprovalFlow> flows = flowRepository.findBySubjectTypeAndSubjectIdOrderByStartedAtDesc(type, subjectId);
+        Map<UUID, List<KpiApprovalEvent>> eventsByFlow = flows.isEmpty() ? Map.of()
+                : eventRepository.findByFlowIdInOrderByCreatedAtAsc(flows.stream().map(KpiApprovalFlow::getId).toList())
+                        .stream().collect(Collectors.groupingBy(e -> e.getFlow().getId()));
+        Ctx ctx = new Ctx(viewerId);
+        return KpiApprovalChainResponse.builder()
+                .subjectType(type)
+                .subjectId(subjectId)
+                .kpiName(subjectName)
+                .chainMode(true)
+                .current(flows.stream().filter(f -> f.getStatus() == ApprovalFlowStatus.IN_PROGRESS)
+                        .findFirst().map(f -> summarize(f, ctx)).orElse(null))
                 .flows(flows.stream().map(f -> toResponse(f, eventsByFlow.getOrDefault(f.getId(), List.of()))).toList())
                 .build();
     }
@@ -214,7 +252,9 @@ public class KpiApprovalViewService {
         return ApprovalFlowResponse.builder()
                 .id(f.getId())
                 .subjectType(f.getSubjectType())
-                .kpiCriteriaId(f.getKpiCriteria().getId())
+                .subjectId(f.getSubjectId())
+                .subjectName(f.displayName())
+                .kpiCriteriaId(f.getKpiCriteria() == null ? null : f.getKpiCriteria().getId())
                 .adjustmentRequestId(f.getAdjustmentRequest() == null ? null : f.getAdjustmentRequest().getId())
                 .round(f.getRound())
                 .status(f.getStatus())

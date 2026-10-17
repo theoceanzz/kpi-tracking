@@ -62,10 +62,7 @@ public class ReviewRecorder {
                     .onTimePercent(r.onTimePercent())
                     .suggestedScore(r.suggestedScore())
                     .maxPoints(r.points().max())
-                    .targetPoints(r.points().target())
-                    .qualityPoints(r.points().quality())
-                    .onTimePoints(r.points().onTime())
-                    .systemPoints(r.points().system())
+                    .qualityPoints(r.points().total())
                     .qualitative(qualitative.contains(r.kpiCriteriaId()))
                     .strengths(AiSubmissionReviewMapper.join(r.strengths()))
                     .gaps(AiSubmissionReviewMapper.join(r.gaps()))
@@ -132,7 +129,7 @@ public class ReviewRecorder {
                 return m;
             }).toList();
             Map<String, Object> root = new LinkedHashMap<>();
-            root.put("weights", ctx.weights());
+            root.put("maxPoints", ctx.aiMaxPoints());
             root.put("scale", ReviewScoreCalculator.scaleOf(ctx));
             root.put("criteria", criteria);
             if (ctx.criteriaSet() != null) {

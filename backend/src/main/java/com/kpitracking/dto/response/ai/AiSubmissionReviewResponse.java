@@ -39,17 +39,6 @@ public class AiSubmissionReviewResponse {
     private List<UUID> runningCriteriaIds;
     /** Chỉ tiêu mà lượt lẻ mới nhất bị lỗi (mới hơn kết quả đang có) — ô của chúng hiện "Thử lại". */
     private List<UUID> failedCriteriaIds;
-    /** Điểm đánh giá AI gợi ý cho cả đợt (thang 100, cộng các chỉ tiêu định lượng); {@code null} với lượt cũ. */
-    private java.math.BigDecimal suggestedTotal;
-    /** Điểm đánh giá hệ thống trên cùng thang (trần 100) — để so. */
-    private java.math.BigDecimal systemTotal;
-    /** Điểm hành vi AI gợi ý (thang 100, cộng các chỉ tiêu ĐỊNH TÍNH) và mức gần nhất; {@code null} khi không có định tính. */
-    private java.math.BigDecimal behaviorSuggestedTotal;
-    private String behaviorSuggestedLevel;
-    /** Trọng số (%) đã dùng cho lượt này — của công ty hoặc riêng của đơn vị, lấy từ ảnh chụp lúc chấm. */
-    private Integer weightTarget;
-    private Integer weightQuality;
-    private Integer weightOnTime;
     /** Phiên bản bộ tiêu chí tổ chức đã dùng; {@code null} = chưa có bộ nào được xác nhận. */
     private Integer criteriaSetVersion;
     /** Số tệp minh chứng đọc được / tổng số. */

@@ -16,7 +16,7 @@ import { perLanguage } from '@/i18n/perLanguage'
  */
 
 const V = 2
-const { s, sectionCards } = tourKit('tourAnalytics')
+const { s } = tourKit('tourAnalytics')
 
 const atLeast = (px: number) => () => window.matchMedia(`(min-width: ${px}px)`).matches
 const closeConfig = () => runTourAction('widgets.config.close')
@@ -38,16 +38,12 @@ const viewTour = (id: string, extra: TourStep[] = []): TourDef => ({
   ],
 })
 
+/*
+  Thống kê gộp về MỘT trang nên chỉ còn MỘT bài: không còn mục con để `sectionCards` dựng thẻ, và
+  sáu bài theo mục cũ (`analytics/my`, `analytics/bsc`…) không còn màn nào để neo vào.
+*/
 const analyticsTours = perLanguage((): Record<TourKey, TourDef> => ({
-  analytics: { version: V, steps: sectionCards('analytics') },
-  'analytics/my-objectives': viewTour('myObjectives'),
-  'analytics/my': viewTour('my'),
-  'analytics/subordinate': viewTour('subordinate'),
-  'analytics/summary': viewTour('summary'),
-  'analytics/drilldown': viewTour('drilldown', [
-    s('drilldown.sidebar', tourTarget('widgets.sidebar'), 'right', { prepare: closeConfig }),
-  ]),
-  'analytics/bsc': viewTour('bsc'),
+  analytics: viewTour('summary'),
 }))
 
 export default analyticsTours

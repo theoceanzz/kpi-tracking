@@ -30,6 +30,8 @@ import MySpacePage from '@/features/profile/pages/MySpacePage'
 import KpiLinkPage from '@/features/kpi/pages/KpiLinkPage'
 import DiscussionLinkPage from '@/features/discussion/pages/DiscussionLinkPage'
 import TasksPage from '@/features/tasks/pages/TasksPage'
+import RequestsPage from '@/features/approvalForms/pages/RequestsPage'
+import FormEditorPage from '@/features/approvalForms/pages/FormEditorPage'
 import NewSubmissionPage from '@/features/submissions/pages/NewSubmissionPage'
 import SubmissionDetailPage from '@/features/submissions/pages/SubmissionDetailPage'
 import ProfilePage from '@/features/profile/pages/ProfilePage'
@@ -41,6 +43,8 @@ import ReportsPage from '@/features/reports/pages/ReportsPage'
 import ReportDetailPage from '@/features/reports/pages/ReportDetailPage'
 import AnalyticsPage from '@/features/analytics/pages/AnalyticsPage'
 import AiAssistantPage from '@/features/analytics/pages/AiAssistantPage'
+import PersonAnalyticsPage from '@/features/analytics/pages/PersonAnalyticsPage'
+import UnitAnalyticsPage from '@/features/analytics/pages/UnitAnalyticsPage'
 import DocumentsPage from '@/features/documents/DocumentsPage'
 import DocumentEditorPage from '@/features/documents/LazyDocumentEditorPage'
 import ToolSettingsPage from '@/features/orgunits/pages/ToolSettingsPage'
@@ -119,6 +123,10 @@ export const router = createBrowserRouter([
           },
         ],
       },
+      // Trình sửa đơn từ: toàn màn hình như Lark (palette + khung điện thoại + thiết lập cần cả bề ngang). Quyền
+      // (APPROVAL_FORM:MANAGE hoặc người quản lý của đơn) do backend kiểm theo từng đơn.
+      { path: '/requests/admin/forms/new', element: <FormEditorPage /> },
+      { path: '/requests/admin/forms/:id', element: <FormEditorPage /> },
       {
         element: <AppLayout />,
         children: [
@@ -223,10 +231,12 @@ export const router = createBrowserRouter([
           { path: '/datasources/:id', element: <DatasourceDetailPage /> },
           { path: '/reports', element: <ReportsPage /> },
           { path: '/reports/:id', element: <ReportDetailPage /> },
-          // Tab nằm ở đoạn đường dẫn chứ không ở query param: nhờ vậy Back/Forward đi qua lại giữa
-          // các tab thay vì văng thẳng ra khỏi trang. Đoạn tuỳ chọn `?` cho phép `/analytics` trống
-          // khớp cùng một route — tách thành hai mục sẽ làm trang gắn lại ở lần chuyển hướng đầu.
-          { path: '/analytics/:tab?', element: <AnalyticsPage /> },
+          // Thống kê gộp về MỘT trang: không còn tab nào nên đoạn `:tab?` cũ (vốn đã chết — trang
+          // chưa bao giờ đọc tới nó) cũng đi theo.
+          { path: '/analytics', element: <AnalyticsPage /> },
+          // Bấm một hàng trên bảng xếp hạng thì tới đây.
+          { path: '/analytics/person/:userId', element: <PersonAnalyticsPage /> },
+          { path: '/analytics/unit/:orgUnitId', element: <UnitAnalyticsPage /> },
           { path: '/ai-assistant', element: <AiAssistantPage /> },
           // Quyền theo từng tài liệu do backend quyết (DocumentAccess) — không gác ở route.
           { path: '/documents', element: <DocumentsPage /> },
@@ -258,6 +268,8 @@ export const router = createBrowserRouter([
           { path: '/kpi/:id', element: <KpiLinkPage /> },
           // Quyền theo từng việc do backend quyết (KpiTaskAccess) — không gác ở route.
           { path: '/tasks', element: <TasksPage /> },
+          // Đơn từ: quyền theo từng đơn do backend quyết — không gác ở route.
+          { path: '/requests', element: <RequestsPage /> },
           { path: '/discussions/c/:commentId', element: <DiscussionLinkPage /> },
         ],
       },

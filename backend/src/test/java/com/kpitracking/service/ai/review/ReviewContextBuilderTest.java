@@ -15,7 +15,6 @@ import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.KpiSubmissionRepository;
-import com.kpitracking.repository.QualitativeLevelRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import com.kpitracking.security.PermissionChecker;
@@ -71,14 +70,17 @@ class ReviewContextBuilderTest {
         when(calculator.countsTowardBscScore(any())).thenReturn(true);
         UserRepository users = mock(UserRepository.class);
         KpiPeriodRepository periods = mock(KpiPeriodRepository.class);
-        QualitativeLevelRepository levels = mock(QualitativeLevelRepository.class);
         submissions = mock(KpiSubmissionRepository.class);
         resolver = mock(AiReviewSettingsResolver.class);
         adjustments = mock(com.kpitracking.repository.KpiAdjustmentRequestRepository.class);
-        builder = new ReviewContextBuilder(kpiRepository, periods, users, assignments, levels, permissions, calculator,
+        builder = new ReviewContextBuilder(kpiRepository, periods, users, assignments, permissions, calculator,
                 submissions, resolver, mock(ReviewConductSource.class), adjustments);
         when(resolver.resolve(any(), any())).thenReturn(
-                new AiReviewSettingsResolver.Effective(true, new ReviewContext.Weights(50, 40, 10), null, "đơn vị"));
+                new AiReviewSettingsResolver.Effective(true, null, "đơn vị"));
+        // Thang điểm AI của công ty: hai mức, tối đa 10.
+        when(resolver.aiScale(any())).thenReturn(AiReviewSettingsResolver.scaleOf(List.of(
+                com.kpitracking.entity.AiReviewLevel.builder().name("Yếu").position(1).points(java.math.BigDecimal.ZERO).build(),
+                com.kpitracking.entity.AiReviewLevel.builder().name("Tốt").position(2).points(java.math.BigDecimal.TEN).build())));
 
         org.setId(UUID.randomUUID());
         OrgHierarchyLevel level = new OrgHierarchyLevel();
@@ -96,7 +98,6 @@ class ReviewContextBuilderTest {
         KpiPeriod p = new KpiPeriod();
         p.setName("Tháng 9/2026");
         when(periods.findById(periodId)).thenReturn(Optional.of(p));
-        when(levels.findByOrganizationIdOrderByPositionAsc(any())).thenReturn(List.of());
         when(calculator.ratio(any(), eq(staffId), anyBoolean())).thenReturn(0.8);
     }
 
@@ -128,7 +129,7 @@ class ReviewContextBuilderTest {
 
     @Test
     @DisplayName("chữ bài nộp cắt ở 4.000 ký tự; tệp minh chứng mang địa chỉ; chỉ bài của đúng người; lịch sử + trọng số đơn vị")
-    void cutsNotesCarriesFilesHistoryAndUnitWeights() {
+    void cutsNotesCarriesFilesHistoryAndAiMaxPoints() {
         User staff = new User();
         staff.setId(staffId);
         User other = new User();
@@ -183,7 +184,7 @@ class ReviewContextBuilderTest {
             assertThat(h.managerScore()).isEqualTo(8.0);
         });
         assertThat(c.achievementRatio()).isEqualTo(0.8);
-        assertThat(ctx.weights()).isEqualTo(new ReviewContext.Weights(50, 40, 10));
+        assertThat(ctx.aiMaxPoints()).isEqualByComparingTo("10");
     }
 
     private static KpiCriteria kpi(String name, double weight, com.kpitracking.enums.KpiStatus status) {
@@ -217,8 +218,6 @@ class ReviewContextBuilderTest {
 
         assertThat(ctx.criteria()).extracting(ReviewContext.Criterion::kpiCriteriaId)
                 .containsExactlyInAnyOrder(a.getId(), b.getId(), c.getId(), d.getId());
-        ReviewScoreCalculator calc = new ReviewScoreCalculator();
-        assertThat(calc.points(ctx, ctx.criteria().get(0), null).max()).isEqualByComparingTo("25.00");
         assertThat(builder.reviewableCriteria(periodId, staffId)).containsExactlyInAnyOrder(a.getId(), b.getId(), c.getId(), d.getId());
         assertThat(builder.pausedCriteria(periodId, staffId)).containsExactlyInAnyOrder(pausedApproved.getId(), pausePending.getId());
     }

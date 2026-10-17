@@ -45,6 +45,7 @@ import { lookupMatrixRating, resolveMatrixAxes, behaviorSourceLabel } from '@/li
 import {
   CalendarRange, Building2, Award, ChevronRight, Lock,
   AlertTriangle, FileSpreadsheet, Download, Loader2, Mail, PenLine, Users,
+  GitBranch,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
@@ -371,6 +372,18 @@ export default function CycleEvaluationPage() {
             </Badge>
           )}
         </FilterBar>
+
+        {summary?.approval && (
+          <div className="flex items-start gap-2.5 rounded-card border border-[var(--color-info-border)] bg-[var(--color-info-bg)] px-4 py-3 text-sm text-[var(--color-info)]">
+            <GitBranch size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+            <span>
+              {i18n.t('approvalProcess:pending.cycleBanner', {
+                number: summary.approval.stepNumber, total: summary.approval.totalSteps,
+                step: summary.approval.currentUnitName ?? '', names: summary.approval.holderNames.join(', '),
+              })}
+            </span>
+          </div>
+        )}
 
         {/* Dải luồng: trạng thái + nút của từng bước nằm ngay trong ô bước đó. */}
         {summary && (

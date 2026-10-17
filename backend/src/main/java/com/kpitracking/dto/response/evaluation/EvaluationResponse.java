@@ -55,4 +55,9 @@ public class EvaluationResponse {
      * hoặc đơn vị không áp khung). Chế độ "chặn" không đi đường này — nó trả lỗi 400.
      */
     private String bellCurveWarning;
+    /**
+     * Có khi đánh giá vừa gửi thành đề xuất chờ duyệt theo quy trình (chưa ghi điểm, {@code id} trống):
+     * bước đang chờ và người giữ.
+     */
+    private com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse approval;
 }

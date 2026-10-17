@@ -15,6 +15,7 @@ export const ADJ_REVIEW: TourKey = 'performance/kpi-adjustments-pending+review'
 export const STAFF_EVAL: TourKey = 'performance/submissions-org-unit+score'
 export const CYCLE_EVAL_DIALOGS: TourKey = 'performance/cycle-evaluation+dialogs'
 export const F360_FORM: TourKey = 'performance/feedback360+form'
+export const PROC_APPROVAL: TourKey = 'performance/process-approvals+decide'
 
 const { t, modal } = tourKit('tourForms')
 
@@ -26,6 +27,7 @@ const formsPerformanceTours = perLanguage((): Record<TourKey, TourDef> => {
   const finalize = modal('cycleeval.finalize')
   const send = modal('cycleeval.sendDialog')
   const f360 = modal('f360.form')
+  const decide = modal('procapp.decide')
 
   return {
     [PENDING_REVIEW]: {
@@ -86,6 +88,17 @@ const formsPerformanceTours = perLanguage((): Record<TourKey, TourDef> => {
         send.step('cycleEval.send', tourTarget('send.picker'), 'bottom'),
         send.step('cycleEval.sendList', tourTarget('send.list'), 'top'),
         send.step('cycleEval.sendSubmit', tourTarget('send.submit'), 'top'),
+      ],
+    },
+
+    [PROC_APPROVAL]: {
+      title: t('procApproval.title'),
+      cleanup: decide.close,
+      steps: [
+        decide.step('procApproval.dialog', tourTarget('procapp.dialog'), 'auto'),
+        decide.step('procApproval.comment', tourTarget('procapp.comment'), 'top'),
+        decide.step('procApproval.reject', tourTarget('procapp.reject'), 'top'),
+        decide.step('procApproval.approve', tourTarget('procapp.approve'), 'top'),
       ],
     },
 

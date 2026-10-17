@@ -55,6 +55,10 @@ public class KpiCycleEvaluationService {
     private final ConductService conductService;
     private final com.kpitracking.service.kpi.CycleLockChecker cycleLockChecker;
     private final KpiCycleLockService kpiCycleLockService;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalViewService approvalView;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final KpiApprovalFlowRepository approvalFlowRepository;
     private final com.kpitracking.security.PermissionChecker permissionChecker;
     private final com.kpitracking.service.notification.NotificationDispatcher notificationDispatcher;
     // Đánh giá 360 (docs/FEEDBACK_360_DESIGN.md §7.2) — chỉ có tác dụng khi tổ chức cho 360 ảnh
@@ -323,6 +327,7 @@ public class KpiCycleEvaluationService {
         OrgUnit unit = orgUnitRepository.findById(orgUnitId).orElse(null);
         live.setRootUnit(unit != null && unit.getParent() == null);
         kpiCycleRepository.findById(cycleId).ifPresent(c -> live.setCycleStatus(c.getStatus()));
+        attachPendingFinalize(live, cycleId, orgUnitId);
         if (saved == null) return live;
 
         live.setStatus(saved.getStatus());
@@ -348,6 +353,28 @@ public class KpiCycleEvaluationService {
             }
         }
         return live;
+    }
+
+    /** Tên các đề xuất đánh giá đợt (thuộc kỳ này) đang chờ duyệt ở đơn vị và đơn vị con. */
+    private List<String> pendingEvaluationProposals(UUID cycleId, OrgUnit unit) {
+        if (unit.getPath() == null) return List.of();
+        Set<String> periodIds = new HashSet<>();
+        kpiPeriodRepository.findByKpiCycleIdOrderByStartDateAsc(cycleId).forEach(p -> periodIds.add(p.getId().toString()));
+        return approvalFlowRepository.findRunningInSubtree(com.kpitracking.enums.ApprovalSubjectType.EVALUATION, unit.getPath())
+                .stream()
+                .filter(f -> f.getPayload() != null && periodIds.contains(String.valueOf(f.getPayload().get("kpiPeriodId"))))
+                .map(com.kpitracking.entity.KpiApprovalFlow::displayName)
+                .toList();
+    }
+
+    /** Yêu cầu chốt đang chờ duyệt theo quy trình (nếu có), tính cho người đang xem. */
+    private void attachPendingFinalize(CycleUnitEvaluationResponse live, UUID cycleId, UUID orgUnitId) {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return;
+        UUID subjectId = finalizeSubjectId(cycleId, orgUnitId);
+        var byId = approvalView.summariesForSubjects(com.kpitracking.enums.ApprovalSubjectType.CYCLE_FINALIZE,
+                List.of(subjectId), getCurrentUser().getId());
+        live.setApproval(byId.get(subjectId));
     }
 
     /** Tính tổng hợp phòng ban trực tiếp từ thành viên (bỏ qua snapshot). */
@@ -518,11 +545,42 @@ public class KpiCycleEvaluationService {
     @Transactional
     public CycleUnitEvaluationResponse finalizeUnitCycle(UUID cycleId, UUID orgUnitId, String comment,
                                                          com.kpitracking.dto.request.kpi.lock.LockCycleRequest cycleLock) {
+        return finalizeUnitCycleAs(cycleId, orgUnitId, comment, cycleLock, getCurrentUser(), false);
+    }
+
+    /**
+     * Quy trình "Chốt kỳ và công nhận kết quả" đã duyệt xong bước cuối: chốt với tư cách người gửi
+     * (giữ nguyên luật mở khoá theo cấp của người chốt), kiểm lại mọi ràng buộc theo dữ liệu lúc này.
+     * Đơn vị gốc ⇒ khoá kỳ ngay trong lần duyệt này.
+     */
+    @Transactional
+    public CycleUnitEvaluationResponse applyApprovedFinalize(com.kpitracking.entity.KpiApprovalFlow flow) {
+        Map<String, Object> p = flow.getPayload();
+        Object lock = p.get("cycleLock");
+        return finalizeUnitCycleAs(UUID.fromString(String.valueOf(p.get("cycleId"))),
+                UUID.fromString(String.valueOf(p.get("orgUnitId"))), (String) p.get("comment"),
+                lock == null ? null : objectMapper.convertValue(lock, com.kpitracking.dto.request.kpi.lock.LockCycleRequest.class),
+                flow.getRequester(), true);
+    }
+
+    /** Một yêu cầu chốt đang chờ cho mỗi (kỳ, đơn vị). */
+    public static UUID finalizeSubjectId(UUID cycleId, UUID orgUnitId) {
+        return UUID.nameUUIDFromBytes(("CYCLE_FINALIZE:" + cycleId + ":" + orgUnitId)
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    /**
+     * @param viaApproval chạy từ bước cuối của quy trình duyệt — người duyệt có thể không quản lý
+     *                    đơn vị nên bỏ qua kiểm quyền quản lý; không mở lại quy trình
+     */
+    private CycleUnitEvaluationResponse finalizeUnitCycleAs(UUID cycleId, UUID orgUnitId, String comment,
+                                                           com.kpitracking.dto.request.kpi.lock.LockCycleRequest cycleLock,
+                                                           User actor, boolean viaApproval) {
         KpiCycle cycle = kpiCycleRepository.findById(cycleId)
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", cycleId));
         OrgUnit unit = orgUnitRepository.findById(orgUnitId)
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", orgUnitId));
-        assertCanManageUnit(orgUnitId);
+        if (!viaApproval) assertCanManageUnit(orgUnitId);
 
         // Cấp trên đã chốt ⇒ khoá kế thừa xuống, không được chốt lại từ dưới.
         OrgUnit ancestor = lockingAncestor(unit, finalizedUnits(cycleId));
@@ -537,7 +595,7 @@ public class KpiCycleEvaluationService {
                 .findByKpiCycleIdAndOrgUnitId(cycleId, orgUnitId)
                 .orElseGet(() -> CycleUnitEvaluation.builder().kpiCycle(cycle).orgUnit(unit).build());
 
-        User current = getCurrentUser();
+        User current = actor;
 
         // Khoá kết quả là bước CUỐI của luồng: phải chốt dữ liệu (đóng đầu vào, chụp điểm nền)
         // và đi qua bước hiệu chỉnh trước. Khoá thẳng từ nháp là quay lại kiểu cũ — thấy khung
@@ -563,6 +621,12 @@ public class KpiCycleEvaluationService {
         if (entity.getStatus() == CycleUnitEvalStatus.FINALIZED) {
             String denial = reopenDenialReason(entity, current.getId(), orgUnitId);
             if (denial != null) throw new com.kpitracking.exception.ForbiddenException(denial);
+        }
+
+        // Quy trình "Chốt kỳ và công nhận kết quả": yêu cầu chốt chờ duyệt, CHƯA chốt gì (đơn vị gốc
+        // chưa khoá kỳ). Bước cuối duyệt xong mới chạy lại hàm này (applyApprovedFinalize).
+        if (!viaApproval && proposeFinalize(cycle, unit, comment, cycleLock, current, summary)) {
+            return getUnitCycleSummary(cycleId, orgUnitId);
         }
 
         // Đơn vị gốc: khoá kết quả = khoá kỳ. Chạy SAU mọi kiểm tra của khoá kết quả (bell curve,
@@ -596,6 +660,27 @@ public class KpiCycleEvaluationService {
         notifyParentAfterFinalize(cycle, unit, current, summary);
 
         return getUnitCycleSummary(cycleId, orgUnitId);
+    }
+
+    /** Có quy trình khớp ⇒ mở yêu cầu chốt chờ duyệt và trả {@code true}; không thì chốt ngay như cũ. */
+    private boolean proposeFinalize(KpiCycle cycle, OrgUnit unit, String comment,
+                                    com.kpitracking.dto.request.kpi.lock.LockCycleRequest cycleLock, User requester,
+                                    CycleUnitEvaluationResponse summary) {
+        boolean root = unit.getParent() == null;
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("cycleId", cycle.getId().toString());
+        payload.put("cycleName", cycle.getName());
+        payload.put("orgUnitId", unit.getId().toString());
+        payload.put("orgUnitName", unit.getName());
+        payload.put("root", root);
+        payload.put("comment", comment);
+        payload.put("memberCount", summary.getMemberCount());
+        payload.put("managerScore", summary.getManagerScore());
+        payload.put("classification", summary.getClassification());
+        if (cycleLock != null) payload.put("cycleLock", objectMapper.convertValue(cycleLock, Map.class));
+        return approvalChain.startProposal(com.kpitracking.enums.ApprovalSubjectType.CYCLE_FINALIZE,
+                finalizeSubjectId(cycle.getId(), unit.getId()), unit.getName() + " · " + cycle.getName(), unit,
+                root ? "ROOT_UNIT" : "CHILD_UNIT", requester, null, null, payload).isPresent();
     }
 
     /**
@@ -704,6 +789,12 @@ public class KpiCycleEvaluationService {
 
     /** Lùi một bước trạng thái và ghi lịch sử. FINALIZED → CALIBRATING, CALIBRATING → DRAFT. */
     private void stepBack(CycleUnitEvaluation entity, User actor) {
+        // Yêu cầu chốt đang chờ duyệt dựa trên dữ liệu vừa mở lại ⇒ không còn đúng nữa.
+        if (entity.getKpiCycle() != null && entity.getOrgUnit() != null) {
+            approvalChain.cancelRunningSubject(com.kpitracking.enums.ApprovalSubjectType.CYCLE_FINALIZE,
+                    finalizeSubjectId(entity.getKpiCycle().getId(), entity.getOrgUnit().getId()), actor,
+                    LocalizedText.of("approvalEvent.reason.cycleReopened"));
+        }
         if (entity.getStatus() == CycleUnitEvalStatus.FINALIZED) {
             // Mở khoá kết quả ở đơn vị gốc = mở lại kỳ (bước gộp ngược lại).
             OrgUnit u = entity.getOrgUnit();
@@ -761,6 +852,13 @@ public class KpiCycleEvaluationService {
         }
         // Chiến dịch 360 ảnh hưởng điểm còn đang chạy trong đơn vị ⇒ chưa chốt được (§7.2-5).
         f360CycleGuard.assertCanCalibrate(cycleId, unit);
+        // Đánh giá đợt còn chờ duyệt theo quy trình: chốt dữ liệu xong là đóng đầu vào, bước cuối sẽ
+        // không ghi được điểm nữa và đề xuất kẹt lại ⇒ phải duyệt hoặc từ chối trước.
+        List<String> pendingEvaluations = pendingEvaluationProposals(cycleId, unit);
+        if (!pendingEvaluations.isEmpty()) {
+            throw new BusinessException(ErrorCode.CYCLE_CALIBRATE_BLOCKED_PENDING_EVALUATIONS,
+                    String.valueOf(pendingEvaluations.size()), String.join(", ", pendingEvaluations));
+        }
 
         CycleUnitEvaluationResponse summary = computeUnitSummary(cycleId, orgUnitId);
         User current = getCurrentUser();

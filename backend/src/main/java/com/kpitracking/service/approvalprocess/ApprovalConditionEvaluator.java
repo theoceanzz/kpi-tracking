@@ -31,7 +31,7 @@ public final class ApprovalConditionEvaluator {
         List<String> values = rule.valuesOrEmpty().stream()
                 .filter(Objects::nonNull).map(String::trim).filter(v -> !v.isEmpty()).toList();
         return switch (rule.field().valueType()) {
-            case NUMBER -> compareNumber(numberOf(rule.field(), f), rule.operator(), values);
+            case NUMBER -> compareNumber(numberOf(rule, f), rule.operator(), values);
             case BOOLEAN -> switch (rule.operator()) {
                 case IS_TRUE -> booleanOf(rule.field(), f);
                 case IS_FALSE -> !booleanOf(rule.field(), f);
@@ -49,7 +49,7 @@ public final class ApprovalConditionEvaluator {
             return f.orgUnitAncestry().stream().anyMatch(id -> wanted.contains(id.toString()));
         }
         Set<String> actual = new HashSet<>();
-        for (Object v : setOf(rule.field(), f)) {
+        for (Object v : setOf(rule, f)) {
             if (v != null) actual.add(v.toString().toLowerCase(Locale.ROOT));
         }
         boolean any = actual.stream().anyMatch(wanted::contains);
@@ -60,8 +60,8 @@ public final class ApprovalConditionEvaluator {
         };
     }
 
-    private static Collection<?> setOf(ConditionField field, ApprovalSubjectFacts f) {
-        return switch (field) {
+    private static Collection<?> setOf(ConditionRule rule, ApprovalSubjectFacts f) {
+        return switch (rule.field()) {
             case ORG_UNIT -> single(f.orgUnitId());
             case ORG_LEVEL -> single(f.orgLevelId());
             case REQUESTER -> single(f.requesterId());
@@ -70,6 +70,7 @@ public final class ApprovalConditionEvaluator {
             case FREQUENCY -> single(f.frequency());
             case PERIOD -> single(f.periodId());
             case REQUEST_KIND -> single(f.requestKind());
+            case FORM_OPTION -> f.formOrEmpty().get(rule.widget()) instanceof Collection<?> c ? c : List.of();
             default -> List.of();
         };
     }
@@ -78,10 +79,12 @@ public final class ApprovalConditionEvaluator {
         return v == null ? List.of() : List.of(v);
     }
 
-    private static Double numberOf(ConditionField field, ApprovalSubjectFacts f) {
-        return switch (field) {
+    private static Double numberOf(ConditionRule rule, ApprovalSubjectFacts f) {
+        return switch (rule.field()) {
             case WEIGHT -> f.weight();
             case TARGET_CHANGE_PERCENT -> f.targetChangePercent();
+            case EVAL_SCORE, REWARD_POINTS -> f.score();
+            case FORM_NUMBER -> f.formOrEmpty().get(rule.widget()) instanceof Number n ? n.doubleValue() : null;
             default -> null;
         };
     }

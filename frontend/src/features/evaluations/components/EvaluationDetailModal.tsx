@@ -16,6 +16,7 @@ import {
   Star, User, MessageSquare, TrendingUp,
   Award, Target, Loader2, Layers, HeartHandshake, ArrowUpRight
 } from 'lucide-react'
+import i18n from 'i18next'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import ReviewModal from '@/features/submissions/components/ReviewModal'
@@ -108,9 +109,12 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
       score: data.score,
       comment: data.comment || undefined
     }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['evaluations'] })
-      toast.success(t('EvaluationDetailModal.evaluationSavedSuccessfully'))
+      qc.invalidateQueries({ queryKey: ['approvals'] })
+      toast.success(data?.approval
+        ? i18n.t('approvalProcess:pending.evaluation', { names: data.approval.holderNames.join(', ') })
+        : t('EvaluationDetailModal.evaluationSavedSuccessfully'))
     },
     onError: (err) => {
       toast.error(getApiErrorMessage(err, t('EvaluationDetailModal.failedToSaveTheEvaluation')))

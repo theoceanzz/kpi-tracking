@@ -20,6 +20,15 @@ public interface BscUnitResultRepository extends JpaRepository<BscUnitResult, UU
 
     List<BscUnitResult> findByScorecardIdOrderByCreatedAtDesc(UUID scorecardId);
 
+    /**
+     * Kết quả BSC đơn vị của NHIỀU đợt một lượt — lưới nhiệt đơn vị × đợt và bảng xếp hạng đơn vị
+     * đều cần cả dải, hỏi từng đợt là mỗi cột một truy vấn.
+     */
+    @Query("SELECT r FROM BscUnitResult r WHERE r.scorecard.organization.id = :orgId "
+            + "AND r.kpiPeriod.id IN :periodIds")
+    List<BscUnitResult> findByOrganizationAndPeriods(@Param("orgId") UUID orgId,
+                                                     @Param("periodIds") java.util.Collection<UUID> periodIds);
+
     /** Mọi kết quả BSC đơn vị của một đợt trong một tổ chức — dùng cho dashboard đối chiếu. */
     @Query("SELECT r FROM BscUnitResult r WHERE r.scorecard.organization.id = :orgId "
             + "AND r.kpiPeriod.id = :periodId")

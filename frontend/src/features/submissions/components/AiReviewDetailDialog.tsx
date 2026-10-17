@@ -6,14 +6,14 @@ import { ItemDetail, ItemSummary } from './AiReviewPanel'
 import type { AiReview, AiReviewItem } from '../api/aiReviewApi'
 
 /**
- * "Xem cách AI chấm" của MỘT chỉ tiêu — mở từ nút trong ô "AI chấm" của phiếu chấm. Điểm chia ba phần (đạt chỉ tiêu /
- * chất lượng / đúng hạn) kèm lý do, mức tin cậy kèm "vì sao", trích dẫn và căn cứ; chân hộp có "Chấm lại bài này".
+ * "Xem cách AI chấm" của MỘT chỉ tiêu — mở từ nút trong ô "AI chấm" của phiếu chấm. Thanh điểm, mức chất lượng kèm nhận
+ * xét, mức tin cậy kèm "vì sao", trích dẫn và căn cứ; chân hộp có "Chấm lại bài này".
  */
 export default function AiReviewDetailDialog({ open, onClose, item, review, onRescore, rescoring }: {
   open: boolean
   onClose: () => void
   item: AiReviewItem
-  /** Kết quả hiện hành — lấy trọng số ba phần và nhãn "do AI gợi ý". */
+  /** Kết quả hiện hành — lấy nhãn "do AI gợi ý". */
   review: AiReview
   onRescore: () => void
   rescoring: boolean
@@ -43,7 +43,7 @@ export default function AiReviewDetailDialog({ open, onClose, item, review, onRe
           <ItemSummary item={item} showName={false} />
         </div>
         {item.errorMessage && <p className="px-3 pb-2 text-xs text-[var(--color-error)]">{item.errorMessage}</p>}
-        <ItemDetail item={item} weights={{ target: review.weightTarget, quality: review.weightQuality, onTime: review.weightOnTime }} />
+        <ItemDetail item={item} />
       </div>
     </Dialog>
   )

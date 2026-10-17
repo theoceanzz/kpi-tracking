@@ -1,6 +1,5 @@
 package com.kpitracking.service.ai.review;
 
-import com.kpitracking.dto.request.ai.AiReviewSettingsRequest;
 import com.kpitracking.dto.response.ai.AiReviewReportResponse;
 import com.kpitracking.dto.response.ai.AiReviewUnitSettingResponse;
 import com.kpitracking.entity.AiReviewUnitSetting;
@@ -12,7 +11,6 @@ import com.kpitracking.entity.Organization;
 import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.enums.AiReviewStatus;
-import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.AiReviewUnitSettingRepository;
@@ -58,7 +56,7 @@ public class AiReviewAdminService {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final ReviewContextBuilder contextBuilder;
     private final AiReviewLatestView latestView;
-    private final com.kpitracking.repository.QualitativeLevelRepository qualitativeLevelRepository;
+    private final AiReviewSettingsResolver settingsResolver;
 
     // ── cấu hình theo đơn vị ──────────────────────────────────────────────
 
@@ -72,20 +70,15 @@ public class AiReviewAdminService {
                 .toList();
     }
 
+    /** Tắt AI cho đơn vị và các đơn vị con. Từ 13/10 không còn trọng số riêng nên đây là cấu hình riêng duy nhất. */
     @Transactional
-    public AiReviewUnitSettingResponse saveUnitSetting(UUID orgUnitId, AiReviewSettingsRequest req) {
-        if (req.getWeightTarget() + req.getWeightQuality() + req.getWeightOnTime() != 100) {
-            throw new BusinessException("Tổng ba trọng số phải bằng 100%.");
-        }
+    public AiReviewUnitSettingResponse turnOffForUnit(UUID orgUnitId) {
         Organization org = organizationOf(currentUser());
         Map<UUID, String> names = unitNames(org.getId());
         if (!names.containsKey(orgUnitId)) throw new ForbiddenException("Đơn vị không thuộc tổ chức của bạn.");
         AiReviewUnitSetting s = unitSettingRepository.findById(orgUnitId)
                 .orElse(AiReviewUnitSetting.builder().orgUnitId(orgUnitId).organizationId(org.getId()).build());
-        s.setEnabled(req.getEnabled());
-        s.setWeightTarget(req.getWeightTarget());
-        s.setWeightQuality(req.getWeightQuality());
-        s.setWeightOnTime(req.getWeightOnTime());
+        s.setEnabled(false);
         s.setUpdatedAt(Instant.now());
         return toResponse(unitSettingRepository.save(s), names);
     }
@@ -102,7 +95,6 @@ public class AiReviewAdminService {
     private static AiReviewUnitSettingResponse toResponse(AiReviewUnitSetting s, Map<UUID, String> names) {
         return AiReviewUnitSettingResponse.builder()
                 .orgUnitId(s.getOrgUnitId()).orgUnitName(names.get(s.getOrgUnitId())).enabled(s.getEnabled())
-                .weightTarget(s.getWeightTarget()).weightQuality(s.getWeightQuality()).weightOnTime(s.getWeightOnTime())
                 .build();
     }
 
@@ -117,11 +109,8 @@ public class AiReviewAdminService {
     public AiReviewReportResponse report(UUID kpiPeriodId, UUID orgUnitId) {
         User me = currentUser();
         Organization org = organizationOf(me);
-        // Thang chất lượng của tổ chức — mức tin cậy của dòng tính lại theo chất lượng AI chấm (luật 07/10).
-        List<ReviewContext.QualityLevel> scale = qualitativeLevelRepository.findByOrganizationIdOrderByPositionAsc(org.getId())
-                .stream().map(l -> new ReviewContext.QualityLevel(l.getName(), l.getScorePercent(),
-                        l.getPosition() == null ? 0 : l.getPosition()))
-                .toList();
+        // Thang điểm AI (V48) — % của mức AI chọn cho báo cáo lệch và mức tin cậy của dòng (luật 07/10).
+        List<ReviewContext.QualityLevel> scale = settingsResolver.aiScale(org.getId()).levels();
         Map<UUID, OrgUnit> units = orgUnitRepository.findSubtree("/", org.getId()).stream()
                 .collect(Collectors.toMap(OrgUnit::getId, u -> u, (a, b) -> a));
         String branch = orgUnitId == null || units.get(orgUnitId) == null ? null : units.get(orgUnitId).getPath();
@@ -147,11 +136,13 @@ public class AiReviewAdminService {
             // Chỉ chỉ tiêu còn trên phiếu AI — kết quả cũ của chỉ tiêu nay đã xin tạm dừng không cộng vào nữa.
             List<AiSubmissionReviewItem> items = latestView.merge(done,
                     contextBuilder.reviewableCriteria(kpiPeriodId, r.getUserId())).items();
-            // Chỉ phần định lượng (thang điểm đánh giá 100) — định tính nằm trên thang hành vi riêng, cộng vào là sai thang.
-            double ai = items.stream()
-                    .filter(i -> !Boolean.TRUE.equals(i.getQualitative()))
-                    .map(AiSubmissionReviewItem::getSuggestedScore).filter(Objects::nonNull)
-                    .mapToDouble(java.math.BigDecimal::doubleValue).sum();
+            // Điểm AI nằm trên thang riêng (chỉ chất lượng, 13/10) nên so theo %: Σđiểm/Σtối đa — mọi chỉ tiêu cùng một
+            // điểm tối đa nên bằng trung bình % chất lượng của các chỉ tiêu AI chấm được. Quản lý: điểm đánh giá thang 100.
+            Double ai = items.stream()
+                    .map(i -> ReviewScoreCalculator.qualityPercentOf(i.getQualityLevel(), scale))
+                    .filter(Objects::nonNull)
+                    .mapToDouble(v -> Math.max(0.0, Math.min(v, 100.0)))
+                    .average().stream().boxed().findFirst().orElse(null);
             // Không có bài nộp nào thì AI không có gì để chấm (điểm 0 là "thiếu dữ liệu", không phải nhận định)
             // — đưa vào mẫu chỉ làm phồng sai số. Vẫn hiện dòng, không tính lệch.
             boolean hadSubmissions = items.stream().anyMatch(i -> i.getKpiSubmissionId() != null);
@@ -160,8 +151,8 @@ public class AiReviewAdminService {
             rows.add(AiReviewReportResponse.Row.builder()
                     .userId(r.getUserId()).userName(u == null ? null : u.getFullName())
                     .unitName(unit == null ? null : unit.getName()).reviewId(r.getId())
-                    .aiScore(round(ai)).managerScore(manager)
-                    .difference(manager == null ? null : round(ai - manager))
+                    .aiScore(ai == null ? null : round(ai)).managerScore(manager)
+                    .difference(manager == null || ai == null ? null : round(ai - manager))
                     .confidence(confidenceOf(items, scale, r))
                     .build());
         }

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import i18n from 'i18next'
 import { getApiErrorCode, getApiErrorMessage } from '@/lib/apiError'
 import { bscApi } from '../api/bscApi'
 import type { CascadePolicyRequest, CascadeRequest, BscOverrideRequest, WholeCascadeRequest } from '../types'
@@ -205,9 +206,11 @@ export function useUnitResultMutations() {
     mutationFn: ({ scorecardId, kpiPeriodId, allowProvisional }:
       { scorecardId: string; kpiPeriodId: string; allowProvisional?: boolean; askProvisional?: boolean }) =>
       bscApi.finalizeUnitResult(scorecardId, kpiPeriodId, allowProvisional),
-    onSuccess: () => {
+    onSuccess: (res) => {
       invalidate()
-      toast.success(t('useBscCascade.finalizedTheUnitsBscResults'))
+      toast.success(res?.approval
+        ? i18n.t('approvalProcess:pending.bscResult', { names: res.approval.holderNames.join(', ') })
+        : t('useBscCascade.finalizedTheUnitsBscResults'))
     },
     onError: (e, vars) => {
       if (vars.askProvisional && getApiErrorCode(e) === 'BSC_SOURCE_RESULT_NOT_FINALIZED') return

@@ -28,6 +28,15 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     Page<Evaluation> findByUserIdAndKpiPeriodId(UUID userId, UUID kpiPeriodId, Pageable pageable);
     java.util.List<Evaluation> findByUserIdAndKpiPeriodId(UUID userId, UUID kpiPeriodId);
 
+    /**
+     * Mọi dòng chấm của MỘT người trên NHIỀU đợt, mỗi người chấm một dòng. Sổ đánh giá của trang
+     * thống kê chi tiết cần cả chục đợt một lúc — hỏi từng đợt một là N+1 ngay lúc mở trang.
+     */
+    @Query("SELECT e FROM Evaluation e JOIN FETCH e.evaluator " +
+           "WHERE e.user.id = :userId AND e.kpiPeriod.id IN :periodIds")
+    java.util.List<Evaluation> findByUserIdAndKpiPeriodIdIn(@Param("userId") UUID userId,
+                                                            @Param("periodIds") java.util.Collection<UUID> periodIds);
+
     @Query("SELECT e FROM Evaluation e WHERE " +
            "(e.user.id = :currentUserId OR e.evaluator.id = :currentUserId OR EXISTS (SELECT 1 FROM UserRoleOrgUnit uro_sub WHERE uro_sub.user.id = e.user.id AND EXISTS (SELECT 1 FROM OrgUnit au_perm WHERE uro_sub.orgUnit.path LIKE CONCAT(au_perm.path, '%') AND au_perm.id IN :allowedOrgUnitIds)) OR EXISTS (SELECT 1 FROM OrgUnit au WHERE e.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
            "(:userId IS NULL OR e.user.id = :userId) AND " +

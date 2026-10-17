@@ -77,7 +77,7 @@ public class SubmissionReviewService {
     private final AiQuotaService aiQuotaService;
     private final ApplicationEventPublisher events;
     private final com.kpitracking.repository.KpiSubmissionRepository kpiSubmissionRepository;
-    private final com.kpitracking.repository.QualitativeLevelRepository qualitativeLevelRepository;
+    private final com.kpitracking.repository.AiReviewLevelRepository levelRepository;
     private final AiReviewLatestView latestView;
 
     @Value("${app.ai.review.enabled:true}")
@@ -224,7 +224,11 @@ public class SubmissionReviewService {
         List<com.kpitracking.entity.AiSubmissionReviewItem> items = allItems.stream()
                 .filter(i -> i.getKpiSubmissionId() == null || !returned.contains(i.getKpiSubmissionId()))
                 .toList();
-        List<ReviewContext.QualityLevel> scale = qualityScale(review.getOrganizationId());
+        // Điểm AI tính LẠI lúc đọc theo THANG ĐIỂM AI hiện hành (V48): điểm = điểm của mức AI đã chọn — kết quả cũ (chấm
+        // theo 60/30/10) cũng ra đúng thang mới, và sửa thang thì mọi ô đổi theo mà không phải chấm lại.
+        AiReviewSettingsResolver.AiScale aiScale = settingsResolver.aiScale(review.getOrganizationId());
+        List<ReviewContext.QualityLevel> scale = aiScale.levels();
+        java.math.BigDecimal maxPoints = aiScale.max();
         r.setItems(items.stream().map(i -> {
             AiSubmissionReviewItemResponse ir = mapper.toItemResponse(i);
             AiSubmissionReview run = runOf.get(i.getKpiCriteriaId());
@@ -247,80 +251,13 @@ public class SubmissionReviewService {
                     i.getErrorMessage() != null, i.getKpiSubmissionId() != null);
             ir.setConfidence(conf.level());
             ir.setConfidenceReasons(conf.reasons());
-            if (Boolean.TRUE.equals(i.getQualitative()) && i.getMaxPoints() != null && i.getSuggestedScore() != null
-                    && i.getMaxPoints().signum() > 0) {
-                ir.setSuggestedLevel(nearestLevel(scale,
-                        i.getSuggestedScore().doubleValue() * 100.0 / i.getMaxPoints().doubleValue()));
-            }
+            ReviewScoreCalculator.Points p = ReviewScoreCalculator.points(maxPoints,
+                    ReviewScoreCalculator.qualityPercentOf(i.getQualityLevel(), scale));
+            ir.setMaxPoints(p.max());
+            ir.setSuggestedScore(p.total());
             return ir;
         }).toList());
-        // Tổng đợt — hai thang tách nhau như hệ thống: định lượng → điểm đánh giá 100; định tính → điểm hành vi 100.
-        // Chỉ lượt kiểu mới (có điểm tối đa); lượt cũ để null.
-        var quantitative = items.stream()
-                .filter(i -> i.getMaxPoints() != null && !Boolean.TRUE.equals(i.getQualitative())).toList();
-        if (!quantitative.isEmpty()) {
-            r.setSuggestedTotal(sum(quantitative.stream().map(i -> i.getSuggestedScore()).toList(), false));
-            r.setSystemTotal(sum(quantitative.stream().map(i -> i.getSystemPoints()).toList(), true));
-        }
-        var behavior = items.stream()
-                .filter(i -> i.getMaxPoints() != null && Boolean.TRUE.equals(i.getQualitative())).toList();
-        if (!behavior.isEmpty()) {
-            java.math.BigDecimal total = sum(behavior.stream().map(i -> i.getSuggestedScore()).toList(), true);
-            r.setBehaviorSuggestedTotal(total);
-            r.setBehaviorSuggestedLevel(nearestLevel(scale, total.doubleValue()));
-        }
-        weightsOf(review.getCriteriaSnapshot(), r);
         return r;
-    }
-
-    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
-
-    /** Trọng số đã dùng, đọc từ ảnh chụp lúc chấm ({@code ReviewRecorder.snapshot}: "weights": {target, quality, onTime}). */
-    private static void weightsOf(String snapshot, AiSubmissionReviewResponse r) {
-        if (snapshot == null || snapshot.isBlank()) return;
-        try {
-            var w = JSON.readTree(snapshot).path("weights");
-            if (w.isMissingNode() || w.isNull()) return;
-            r.setWeightTarget(w.path("target").asInt());
-            r.setWeightQuality(w.path("quality").asInt());
-            r.setWeightOnTime(w.path("onTime").asInt());
-        } catch (Exception e) {
-            log.debug("Không đọc được trọng số từ ảnh chụp: {}", e.getMessage());
-        }
-    }
-
-    /** Thang chất lượng của tổ chức (xếp từ kém tới tốt); TRỐNG khi chưa cấu hình — xem {@link ReviewScoreCalculator#scaleOf}. */
-    private List<ReviewContext.QualityLevel> qualityScale(UUID organizationId) {
-        List<ReviewContext.QualityLevel> levels = qualitativeLevelRepository
-                .findByOrganizationIdOrderByPositionAsc(organizationId).stream()
-                .map(l -> new ReviewContext.QualityLevel(l.getName(), l.getScorePercent(),
-                        l.getPosition() == null ? 0 : l.getPosition()))
-                .toList();
-        return levels;
-    }
-
-    /** Mức có % gần nhất với điểm (thang 100); bằng nhau thì lấy mức thấp hơn (gợi ý thận trọng). */
-    static String nearestLevel(List<ReviewContext.QualityLevel> scale, double percent) {
-        String best = null;
-        double bestGap = Double.MAX_VALUE;
-        for (int i = 0; i < scale.size(); i++) {
-            ReviewContext.QualityLevel l = scale.get(i);
-            double p = l.scorePercent() != null ? l.scorePercent() : (i + 1) * 100.0 / scale.size();
-            double gap = Math.abs(p - percent);
-            if (gap < bestGap) {
-                bestGap = gap;
-                best = l.name();
-            }
-        }
-        return best;
-    }
-
-    /** Cộng các số có mặt; {@code capAt100}: điểm hệ thống của đợt có trần 100 (như {@code EvaluationService}). */
-    private static java.math.BigDecimal sum(List<java.math.BigDecimal> values, boolean capAt100) {
-        java.math.BigDecimal total = values.stream().filter(java.util.Objects::nonNull)
-                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
-        java.math.BigDecimal hundred = java.math.BigDecimal.valueOf(100);
-        return capAt100 && total.compareTo(hundred) > 0 ? hundred.setScale(2) : total.setScale(2, java.math.RoundingMode.HALF_UP);
     }
 
     // ── chạy nền ──────────────────────────────────────────────────────────
@@ -363,25 +300,43 @@ public class SubmissionReviewService {
         return settingsOf(currentOrganization());
     }
 
+    /**
+     * Lưu cờ bật/tắt + thang điểm AI. Thang thay trọn (xoá rồi ghi lại); tên mức là khoá mà kết quả AI lưu theo, nên
+     * đổi tên một mức thì kết quả cũ ở mức đó thôi có điểm cho tới khi chấm lại.
+     */
     @Transactional
     public AiReviewSettingsResponse updateSettings(AiReviewSettingsRequest req) {
-        if (req.getWeightTarget() + req.getWeightQuality() + req.getWeightOnTime() != 100) {
-            throw new BusinessException("Tổng ba trọng số phải bằng 100%.");
+        List<AiReviewSettingsRequest.Level> levels = req.getLevels();
+        java.util.Set<String> names = new java.util.HashSet<>();
+        boolean namesOk = levels.stream().allMatch(l -> names.add(l.getName().strip().toLowerCase(java.util.Locale.ROOT)));
+        double max = levels.stream().mapToDouble(l -> l.getPoints().doubleValue()).max().orElse(0);
+        if (levels.size() < 2 || levels.size() > 10 || !namesOk || max <= 0) {
+            throw new BusinessException(ErrorCode.AI_REVIEW_LEVELS_INVALID);
         }
         Organization org = currentOrganization();
         org.setEnableAiReview(req.getEnabled());
-        org.setAiReviewWeightTarget(req.getWeightTarget());
-        org.setAiReviewWeightQuality(req.getWeightQuality());
-        org.setAiReviewWeightOnTime(req.getWeightOnTime());
-        return settingsOf(organizationRepository.save(org));
+        organizationRepository.save(org);
+        levelRepository.deleteByOrganizationId(org.getId());
+        List<AiReviewSettingsRequest.Level> sorted = levels.stream()
+                .sorted(java.util.Comparator.comparing(AiReviewSettingsRequest.Level::getPoints)).toList();
+        for (int i = 0; i < sorted.size(); i++) {
+            AiReviewSettingsRequest.Level l = sorted.get(i);
+            levelRepository.save(com.kpitracking.entity.AiReviewLevel.builder()
+                    .organizationId(org.getId()).position(i + 1).name(l.getName().strip()).points(l.getPoints())
+                    .color(l.getColor()).description(l.getDescription() == null || l.getDescription().isBlank()
+                            ? null : l.getDescription().strip())
+                    .build());
+        }
+        return settingsOf(org);
     }
 
-    private static AiReviewSettingsResponse settingsOf(Organization org) {
+    private AiReviewSettingsResponse settingsOf(Organization org) {
         return AiReviewSettingsResponse.builder()
                 .enabled(Boolean.TRUE.equals(org.getEnableAiReview()))
-                .weightTarget(org.getAiReviewWeightTarget())
-                .weightQuality(org.getAiReviewWeightQuality())
-                .weightOnTime(org.getAiReviewWeightOnTime())
+                .levels(levelRepository.findByOrganizationIdOrderByPositionAsc(org.getId()).stream()
+                        .map(l -> AiReviewSettingsResponse.Level.builder().name(l.getName()).points(l.getPoints())
+                                .color(l.getColor()).description(l.getDescription()).build())
+                        .toList())
                 .build();
     }
 

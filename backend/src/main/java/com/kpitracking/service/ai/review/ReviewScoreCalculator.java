@@ -13,11 +13,9 @@ import java.util.List;
  *   <li><b>% đáp ứng mục tiêu</b>: tỉ lệ đạt của {@code KpiAchievementCalculator} (đã có trần 150%),
  *       nạp sẵn trong {@link ReviewContext.Criterion#achievementRatio()};</li>
  *   <li><b>% đúng hạn</b>: phần bài nộp tạo trước hạn hiệu lực của chỉ tiêu;</li>
- *   <li><b>điểm đề xuất</b> ({@link #points}) trên THANG ĐIỂM ĐÁNH GIÁ — cùng thang với ô quản lý nhập ở màn chấm
- *       (mỗi chỉ tiêu định lượng chiếm {@code trọng số × 100 / Σ trọng số định lượng} điểm). Điểm tối đa của chỉ
- *       tiêu chia theo ba trọng số: {@code tối đa × (wT·min(đạt,1) + wQ·chất lượng + wO·đúng hạn) / 100} — đủ cả
- *       ba là đủ điểm. Chất lượng là thành phần DUY NHẤT phụ thuộc mô hình, và nó chỉ chọn MỨC trong thang của
- *       tổ chức, con số của mức do HR cấu hình.</li>
+ *   <li><b>điểm AI</b> ({@link #points}): chỉ chất lượng bài nộp, trên thang riêng của AI ({@code % mức × tối đa}).
+ *       Mô hình chỉ chọn MỨC trong thang của tổ chức, con số của mức do HR cấu hình. Hai số trên chỉ để AI và
+ *       quản lý tham khảo, không vào điểm AI.</li>
  * </ul>
  */
 @Component
@@ -58,6 +56,10 @@ public class ReviewScoreCalculator {
      * thiếu % được suy theo vị trí trong thang, tức là bịa ra một con số rồi tính thành điểm.
      */
     public Double qualityPercent(String levelName, List<ReviewContext.QualityLevel> scale) {
+        return qualityPercentOf(levelName, scale);
+    }
+
+    public static Double qualityPercentOf(String levelName, List<ReviewContext.QualityLevel> scale) {
         if (levelName == null || scale == null || scale.isEmpty()) return null;
         for (ReviewContext.QualityLevel l : scale) {
             if (l.name().equalsIgnoreCase(levelName.strip())) return l.scorePercent();
@@ -66,71 +68,27 @@ public class ReviewScoreCalculator {
     }
 
     /**
-     * Điểm gợi ý của một chỉ tiêu trên THANG ĐIỂM ĐÁNH GIÁ, chia theo ba trọng số (người dùng chốt 30/09: cơ sở là
-     * điểm tối đa của chỉ tiêu; đủ cả ba phần = đủ điểm). Vd chỉ tiêu 40 điểm, đạt 80%, chất lượng 75%, đúng hạn:
-     * 24×80% + 12×75% + 4×100% = 32,2.
+     * Điểm AI của một chỉ tiêu: CHỈ chất lượng bài nộp, trên thang riêng của AI (người dùng chốt 13/10: bỏ trọng số
+     * đạt / chất lượng / đúng hạn, điểm tối đa do công ty đặt, không chia từ thang 100 của định lượng / định tính).
+     * Vd thang 10, mức Khá 75% → 7,5. Không có mức (không câu trích thật, lỗi, chưa nộp) thì không có điểm.
      *
-     * @param max    điểm tối đa của chỉ tiêu trên thang đánh giá
-     * @param total  tổng gợi ý; phần thiếu (không đo được / chưa có mức) bị bỏ và các trọng số còn lại chia lại cho
-     *               đủ — thiếu một phần không đồng nghĩa với 0 điểm phần đó
-     * @param system điểm hệ thống của chỉ tiêu trên cùng thang (tỉ lệ đạt × tối đa), để so
+     * @param max   điểm tối đa của thang AI
+     * @param total điểm AI; {@code null} khi chưa chấm được chất lượng
      */
-    public record Points(BigDecimal max, BigDecimal target, BigDecimal quality, BigDecimal onTime,
-                         BigDecimal total, BigDecimal system) {
-        /** Chỉ tiêu định tính (chỉ gợi ý MỨC) hoặc không có điểm tối đa. */
-        public static final Points NONE = new Points(null, null, null, null, null, null);
+    public record Points(BigDecimal max, BigDecimal total) {
+        public static final Points NONE = new Points(null, null);
     }
 
-    /** 100 / Σ trọng số chỉ tiêu ĐỊNH LƯỢNG — đúng cách màn chấm quy điểm từng chỉ tiêu về thang 100. */
-    public static double normFactor(ReviewContext ctx) {
-        return normFactor(ctx, false);
+    public Points points(ReviewContext ctx, Double qualityPercent) {
+        return points(ctx.aiMaxPoints(), qualityPercent);
     }
 
-    /**
-     * Hai thang tách nhau như hệ thống: định lượng → điểm đánh giá 100; định tính → thang HÀNH VI 100 (chia theo trọng
-     * số các chỉ tiêu định tính). Người dùng chốt 30/09: định tính cũng chia 60/30/10, trong đó "đạt chỉ tiêu" là mức
-     * người nộp tự đánh giá (định tính không có mục tiêu số).
-     */
-    public static double normFactor(ReviewContext ctx, boolean qualitative) {
-        double sum = ctx.criteria().stream().filter(x -> x.qualitative() == qualitative)
-                .mapToDouble(ReviewContext.Criterion::weight).sum();
-        return sum > 0 ? 100.0 / sum : 0.0;
-    }
-
-    /**
-     * Định tính: {@code achievementRatio} của chỉ tiêu là % của mức tự đánh giá ({@code KpiAchievementCalculator
-     * .qualitativeRatio}), nên phần "đạt chỉ tiêu" và điểm "hệ thống" dùng đúng công thức như định lượng.
-     */
-    public Points points(ReviewContext ctx, ReviewContext.Criterion c, Double qualityPercent) {
-        double max = c.weight() * normFactor(ctx, c.qualitative());
-        if (max <= 0) return Points.NONE;
-        ReviewContext.Weights w = ctx.weights();
-        BigDecimal ach = achievementPercent(c);
-        BigDecimal onTime = onTimePercent(c);
-
-        // Trần 100 cho RIÊNG phần "đạt chỉ tiêu" là có chủ ý (quyết định 30/09): 60/30/10 là ba
-        // cấu phần độc lập, vượt chỉ tiêu không được lấn sang phần chất lượng và đúng hạn. Cột
-        // `system` bên dưới là thang khác (tỉ lệ đạt × tối đa) nên vẫn giữ tới 150 như core.
-        Double target = ach == null ? null : max * w.target() / 100.0 * Math.min(ach.doubleValue(), 100.0) / 100.0;
-        Double quality = qualityPercent == null ? null
-                : max * w.quality() / 100.0 * Math.min(qualityPercent, 100.0) / 100.0;
-        Double onTimePts = onTime == null ? null : max * w.onTime() / 100.0 * onTime.doubleValue() / 100.0;
-
-        double used = (target == null ? 0 : w.target()) + (quality == null ? 0 : w.quality())
-                + (onTimePts == null ? 0 : w.onTime());
-        Double total = used == 0 ? null
-                : Math.max(0.0, Math.min(max, (nz(target) + nz(quality) + nz(onTimePts)) * 100.0 / used));
-        Double system = ach == null ? null : max * ach.doubleValue() / 100.0;
-        return new Points(round(max), roundOrNull(target), roundOrNull(quality), roundOrNull(onTimePts),
-                roundOrNull(total), roundOrNull(system));
-    }
-
-    private static double nz(Double v) {
-        return v == null ? 0.0 : v;
-    }
-
-    private static BigDecimal roundOrNull(Double v) {
-        return v == null ? null : round(v);
+    /** Dùng cả lúc chấm lẫn lúc ĐỌC (kết quả cũ chấm theo trọng số hiện đúng thang mới, không phải chấm lại). */
+    public static Points points(BigDecimal max, Double qualityPercent) {
+        if (max == null || max.signum() <= 0) return Points.NONE;
+        Double total = qualityPercent == null ? null
+                : max.doubleValue() * Math.max(0.0, Math.min(qualityPercent, 100.0)) / 100.0;
+        return new Points(max.setScale(2, RoundingMode.HALF_UP), total == null ? null : round(total));
     }
 
     static BigDecimal round(double v) {

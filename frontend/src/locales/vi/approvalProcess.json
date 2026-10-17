@@ -18,7 +18,7 @@
   },
   "list": {
     "title": "Quy trình duyệt",
-    "description": "Quy trình duyệt theo điều kiện cho Giao KPI và Yêu cầu điều chỉnh KPI. Yêu cầu không khớp quy trình nào đi chuỗi trưởng đơn vị mặc định.",
+    "description": "Bước duyệt theo điều kiện cho KPI và điều chỉnh KPI.",
     "processes": "Quy trình",
     "add": "Thêm quy trình",
     "search": "Tìm theo tiêu đề",
@@ -38,10 +38,11 @@
     "itemLabel": "bản ghi",
     "delete": "Xóa",
     "deleteTitle": "Xóa {{count}} quy trình duyệt?",
-    "deleteDescription": "Yêu cầu đang duyệt theo các quy trình này vẫn chạy tiếp theo các bước đã lập lúc gửi. Lần gửi sau sẽ đi quy trình khác (nếu khớp) hoặc chuỗi trưởng đơn vị mặc định.",
+    "deleteDescription": "Yêu cầu đang duyệt vẫn chạy tiếp. Lần gửi sau đi chuỗi mặc định hoặc quy trình khác.",
     "empty": "Chưa có quy trình duyệt nào",
-    "emptyHint": "Mọi yêu cầu đang đi chuỗi trưởng đơn vị mặc định. Thêm quy trình để chỉ định bước duyệt và người duyệt theo điều kiện.",
-    "noMatch": "Không có quy trình nào khớp bộ lọc"
+    "emptyHint": "Đang dùng chuỗi trưởng đơn vị mặc định.",
+    "noMatch": "Không có quy trình nào khớp bộ lọc",
+    "unknownForm": "(đơn đã xoá)"
   },
   "editor": {
     "createTitle": "Tạo mới quy trình duyệt",
@@ -53,7 +54,7 @@
     "unsaved": "Có thay đổi chưa lưu",
     "fillRequired": "Vui lòng nhập tiêu đề và chọn đối tượng",
     "fixDiagram": "Sơ đồ còn {{count}} lỗi, vui lòng sửa trước khi lưu",
-    "notChainMode": "Tổ chức đang dùng chế độ duyệt một cấp. Quy trình duyệt chỉ có hiệu lực khi chế độ duyệt ở mục Thiết lập luồng xử lí là \"Chuỗi duyệt\".",
+    "notChainMode": "Quy trình \"Thiết lập và giao KPI\" và \"Điều chỉnh KPI\" chỉ có hiệu lực khi chế độ duyệt là \"Chuỗi duyệt\" (Thiết lập luồng xử lí).",
     "readOnly": "Bạn chỉ có quyền xem quy trình duyệt. Cần quyền cấu hình luồng (WORKFLOW:MANAGE) để sửa.",
     "processSetup": "Cài đặt quy trình",
     "canvasHint": "Bấm (hoặc chuột phải) vào một node để thêm bước, điều kiện, trạng thái; bấm đúp để cài đặt. Kéo chấm tròn ở cạnh node để nối tay.",
@@ -88,7 +89,13 @@
     "showInObject": "Hiển thị quy trình trong đối tượng",
     "showInObjectHint": "Ở chi tiết KPI có nút xem sơ đồ quy trình, tô đường đã đi và bước đang chờ.",
     "active": "Đang áp dụng",
-    "activeHint": "Tắt thì quy trình được giữ lại nhưng không dùng cho lần gửi duyệt mới."
+    "activeHint": "Tắt thì quy trình được giữ lại nhưng không dùng cho lần gửi duyệt mới.",
+    "comingSoon": "Sắp áp dụng",
+    "forms": "Đơn áp dụng",
+    "formsHint": "Chọn các đơn dùng quy trình này. Khi nộp, quy trình ở đây thay sơ đồ duyệt riêng của đơn. Chọn đúng một đơn thì điều kiện rẽ nhánh dùng được trường của đơn đó.",
+    "chooseForms": "Chọn đơn từ",
+    "ungroupedForms": "Chưa có nhóm",
+    "formInactive": "Đang tắt"
   },
   "canvas": {
     "start": "Bắt đầu",
@@ -147,7 +154,9 @@
     "removeRule": "Bỏ dòng điều kiện",
     "removeGroup": "Bỏ nhóm điều kiện",
     "needOneRule": "Cần ít nhất một dòng điều kiện",
-    "incompleteRules": "Còn dòng điều kiện chưa đủ trường, phép so sánh hoặc giá trị"
+    "incompleteRules": "Còn dòng điều kiện chưa đủ trường, phép so sánh hoặc giá trị",
+    "formFields": "Trường trên form",
+    "requestFields": "Thông tin người nộp"
   },
   "stepDialog": {
     "title": "Cài đặt duyệt",
@@ -184,20 +193,33 @@
     "unknown": "(không còn tồn tại)"
   },
   "objectGroups": {
-    "KPI": "KPI"
+    "KPI": "KPI",
+    "BSC": "BSC",
+    "REWARD": "Quà thưởng",
+    "FORM": "Đơn từ"
   },
   "objects": {
-    "KPI_CRITERIA": "Giao KPI",
-    "KPI_ADJUSTMENT": "Yêu cầu điều chỉnh KPI"
+    "KPI_CRITERIA": "Thiết lập và giao KPI",
+    "KPI_SUBMISSION": "Báo cáo kết quả KPI",
+    "KPI_EVALUATION": "Đánh giá và xếp loại hiệu suất",
+    "KPI_ADJUSTMENT": "Điều chỉnh KPI",
+    "CYCLE_FINALIZE": "Chốt kỳ và công nhận kết quả",
+    "BSC_SCORECARD": "Lập và phê duyệt thẻ điểm",
+    "BSC_RESULT": "Chốt kết quả thẻ điểm đơn vị",
+    "REWARD_GRANT": "Đề xuất khen thưởng",
+    "GIFT_REDEMPTION": "Duyệt đổi quà",
+    "FORM_REQUEST": "Đơn từ"
   },
   "subObjects": {
     "QUANTITATIVE": "KPI định lượng",
     "QUALITATIVE": "KPI định tính",
     "CHANGE_TARGET": "Điều chỉnh chỉ tiêu",
-    "DEACTIVATE": "Xin dừng KPI"
+    "DEACTIVATE": "Xin dừng KPI",
+    "ROOT_UNIT": "Đơn vị gốc (khoá kỳ)",
+    "CHILD_UNIT": "Đơn vị con"
   },
   "fields": {
-    "ORG_UNIT": "Đơn vị của KPI",
+    "ORG_UNIT": "Đơn vị",
     "ORG_LEVEL": "Cấp đơn vị",
     "REQUESTER": "Người gửi",
     "REQUESTER_ROLE": "Chức vụ người gửi",
@@ -207,7 +229,9 @@
     "WEIGHT": "Trọng số (%)",
     "IS_BONUS": "KPI cộng thêm",
     "REQUEST_KIND": "Loại yêu cầu",
-    "TARGET_CHANGE_PERCENT": "Mức đổi chỉ tiêu (%)"
+    "TARGET_CHANGE_PERCENT": "Mức đổi chỉ tiêu (%)",
+    "FORM_NUMBER": "Trường số của đơn",
+    "FORM_OPTION": "Trường lựa chọn của đơn"
   },
   "operators": {
     "IN": "Thuộc",
@@ -263,6 +287,7 @@
     "ruleMissingValue": "Có dòng điều kiện chưa có giá trị",
     "ruleBadNumber": "Giá trị so sánh phải là một số",
     "ruleBadValue": "Giá trị so sánh không hợp lệ",
+    "ruleWidgetMissing": "Điều kiện trỏ tới trường không còn trên form",
     "stepNoName": "Chưa đặt tên bước",
     "stepNoApprover": "Chưa chọn người duyệt",
     "stepBadApprover": "Có người duyệt cấu hình chưa đủ",
@@ -274,5 +299,78 @@
   },
   "diagram": {
     "description": "Bản chụp lúc gửi duyệt. Đường đã đi được tô màu, bước đang chờ có viền."
+  },
+  "inbox": {
+    "title": "Chờ tôi duyệt",
+    "description": "Yêu cầu đang chờ ĐÚNG bạn ở bước hiện tại của quy trình duyệt.",
+    "waiting": "Đang chờ bạn",
+    "empty": "Không có gì chờ bạn duyệt",
+    "emptyHint": "Khi một yêu cầu tới lượt bạn trong quy trình duyệt, nó sẽ hiện ở đây.",
+    "from": "Từ {{name}}",
+    "step": "Bước {{number}}/{{total}}: {{step}}",
+    "since": "Chờ từ {{time}}",
+    "review": "Xem & duyệt",
+    "openOwn": "Mở để duyệt",
+    "eval": {
+      "user": "Người được đánh giá",
+      "period": "Đợt",
+      "evaluator": "Người chấm",
+      "score": "Điểm đề xuất",
+      "systemScore": "Điểm hệ thống"
+    },
+    "cycle": {
+      "unit": "Đơn vị",
+      "cycle": "Kỳ",
+      "members": "Số người",
+      "managerScore": "Điểm quản lý TB",
+      "classification": "Xếp loại",
+      "rootWarning": "Đơn vị gốc: duyệt bước cuối sẽ khoá cả kỳ đánh giá."
+    },
+    "notYourTurn": "Đang chờ {{names}} — chưa tới lượt bạn.",
+    "willForward": "Bạn duyệt xong, yêu cầu chuyển cho {{names}}.",
+    "isFinal": "Bạn là bước cuối: duyệt xong là đề xuất có hiệu lực ngay.",
+    "comment": "Nhận xét (tuỳ chọn)",
+    "commentPlaceholder": "Ghi chú kèm quyết định duyệt",
+    "reason": "Lý do từ chối",
+    "reasonPlaceholder": "Người gửi sẽ thấy lý do này",
+    "reject": "Từ chối",
+    "confirmReject": "Xác nhận từ chối",
+    "approve": "Duyệt",
+    "approveForward": "Duyệt và chuyển tiếp",
+    "close": "Đóng",
+    "chain": "Quy trình duyệt",
+    "approvedFinal": "Đã duyệt — đề xuất đã có hiệu lực",
+    "forwarded": "Đã duyệt bước của bạn, chuyển sang bước kế tiếp",
+    "rejected": "Đã từ chối đề xuất",
+    "failed": "Không xử lý được yêu cầu",
+    "bsc": {
+      "scorecard": "Thẻ điểm",
+      "units": "Đơn vị",
+      "wholeOrg": "Toàn tổ chức",
+      "items": "Số chỉ tiêu",
+      "totalWeight": "Tổng trọng số",
+      "achievement": "% đạt",
+      "provisional": "Người gửi xin chốt theo số tạm tính của thẻ cấp trên (thẻ nguồn chưa chốt)."
+    },
+    "reward": {
+      "totalPoints": "Tổng điểm",
+      "recipients": "Số người nhận",
+      "recipientNames": "Người nhận",
+      "whyApproval": "Vì sao phải duyệt",
+      "redeemer": "Người đổi",
+      "gift": "Quà",
+      "quantity": "Số lượng",
+      "pointsSpent": "Điểm đã trừ"
+    }
+  },
+  "pending": {
+    "evaluation": "Đã gửi đánh giá vào quy trình duyệt — đang chờ {{names}} duyệt. Điểm chỉ được ghi khi duyệt xong.",
+    "cycle": "Đã gửi yêu cầu chốt kỳ vào quy trình duyệt — đang chờ {{names}} duyệt.",
+    "cycleBanner": "Yêu cầu chốt đang chờ duyệt theo quy trình · bước {{number}}/{{total}}: {{step}} — chờ {{names}}. Mở lại về nháp sẽ huỷ yêu cầu này.",
+    "scorecard": "Đang duyệt theo quy trình · bước {{number}}/{{total}} — chờ {{names}}. Bấm để mở \"Chờ tôi duyệt\".",
+    "bscResult": "Đã gửi yêu cầu chốt kết quả vào quy trình duyệt — đang chờ {{names}} duyệt.",
+    "bscResultBadge": "Chờ duyệt chốt · bước {{number}}/{{total}} — {{names}}",
+    "inProcess": "Theo quy trình · bước {{number}}/{{total}} — chờ {{names}}",
+    "openInbox": "Mở \"Chờ tôi duyệt\""
   }
 }

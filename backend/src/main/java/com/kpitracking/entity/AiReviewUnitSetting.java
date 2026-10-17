@@ -8,7 +8,8 @@ import java.util.UUID;
 
 /**
  * Cấu hình AI đánh giá bài nộp riêng cho MỘT đơn vị (và các đơn vị con không có bản ghi riêng). Không có
- * bản ghi nào trên đường lên gốc thì theo cấu hình công ty; công ty tắt thì mọi đơn vị tắt.
+ * bản ghi nào trên đường lên gốc thì theo cấu hình công ty; công ty tắt thì mọi đơn vị tắt. Từ 13/10 AI không còn
+ * trọng số nên một bản ghi chỉ còn nghĩa "đơn vị này tắt AI" (cột weight_* cũ còn trong DB, không dùng).
  */
 @Entity
 @Table(name = "ai_review_unit_settings")
@@ -25,15 +26,6 @@ public class AiReviewUnitSetting {
     @Column(name = "enabled", nullable = false)
     @Builder.Default
     private Boolean enabled = true;
-
-    @Column(name = "weight_target", nullable = false)
-    private Integer weightTarget;
-
-    @Column(name = "weight_quality", nullable = false)
-    private Integer weightQuality;
-
-    @Column(name = "weight_on_time", nullable = false)
-    private Integer weightOnTime;
 
     @Column(name = "updated_at", nullable = false)
     @Builder.Default

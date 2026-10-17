@@ -131,9 +131,12 @@
     "aiSubmissionReview": "AI đánh giá bài nộp",
     "aiReadsSubmissionsAndAppliesRules": "Bật AI đọc trước bài nộp khi chấm, áp quy chế chấm cho từng đơn vị",
     "approvalProcesses": "Quy trình duyệt",
-    "approvalProcessesDescription": "Vẽ quy trình duyệt theo điều kiện cho Giao KPI và Yêu cầu điều chỉnh KPI",
+    "approvalProcessesDescription": "Bước duyệt KPI theo điều kiện",
     "myTasks": "Công việc",
-    "yourTasksToCompleteKpis": "Việc bạn cần làm để hoàn thành KPI, dạng danh sách hoặc Kanban"
+    "requests": "Đơn từ",
+    "yourTasksToCompleteKpis": "Việc bạn cần làm để hoàn thành KPI, dạng danh sách hoặc Kanban",
+    "processApprovals": "Chờ tôi duyệt",
+    "processApprovalsDescription": "Mọi yêu cầu đang chờ bạn duyệt theo quy trình"
   },
   "Sidebar": {
     "administrator": "Quản trị viên",

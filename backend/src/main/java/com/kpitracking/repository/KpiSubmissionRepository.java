@@ -16,6 +16,27 @@ import java.util.UUID;
 public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UUID> {
 
     /**
+     * Mỗi (KPI được giao, đợt) của MỘT người: hạn của đợt và lần nộp SỚM NHẤT của chính người đó.
+     * → {@code [kpiId, periodEnd, firstSubmittedAt]}, {@code firstSubmittedAt} null = chưa nộp.
+     *
+     * <p>Dùng để tính tỉ lệ trễ hẹn: trễ = nộp sau {@code periodEnd}, hoặc không có bài nào. Trong
+     * mã đã có ba định nghĩa "trễ" khác nhau ({@code StatsService.lateMissedTotal},
+     * {@code OrgUnitKpiAnalyticsService.isOverdue}, {@code MyKpiProgressResponse.lateSubmissions})
+     * và chúng không khớp nhau — đây là định nghĩa của riêng ô "Tỉ lệ trễ hẹn" trên trang chi tiết
+     * một người, cố ý nói rõ ra thay vì mượn một trong ba cái kia.
+     *
+     * <p>Một lượt cho cả người; hỏi từng KPI là mỗi hàng một truy vấn.
+     */
+    @Query("SELECT k.id, p.endDate, MIN(s.createdAt) "
+            + "FROM KpiCriteria k JOIN k.assignees a JOIN k.kpiPeriod p "
+            + "LEFT JOIN KpiSubmission s ON s.kpiCriteria.id = k.id AND s.submittedBy.id = :userId "
+            + "    AND s.deletedAt IS NULL "
+            + "WHERE a.id = :userId AND k.deletedAt IS NULL AND k.kpiPeriod.id IN :periodIds "
+            + "GROUP BY k.id, p.endDate")
+    java.util.List<Object[]> submissionTimelinessByAssignee(@Param("userId") UUID userId,
+                                                            @Param("periodIds") java.util.Collection<UUID> periodIds);
+
+    /**
      * Những lần quản lý đã chấm chỉ tiêu CÙNG TÊN của một người ở các đợt KHÁC — "lịch sử chấm" để AI
      * tham khảo mức quản lý thường chấm (AI đánh giá bài nộp, giai đoạn 3). Mới nhất trước.
      */

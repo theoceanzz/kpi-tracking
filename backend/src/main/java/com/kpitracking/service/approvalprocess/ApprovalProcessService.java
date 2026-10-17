@@ -56,6 +56,8 @@ public class ApprovalProcessService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final OrgUnitRepository orgUnitRepository;
+    private final com.kpitracking.repository.ApprovalFormRepository formRepository;
+    private final com.kpitracking.repository.ApprovalFormGroupRepository formGroupRepository;
 
     // ── Đọc ─────────────────────────────────────────────────────────────────
 
@@ -96,7 +98,7 @@ public class ApprovalProcessService {
         return ApprovalProcessCatalogResponse.builder()
                 .objects(Arrays.stream(ApprovalObjectType.values())
                         .map(t -> ApprovalProcessCatalogResponse.ObjectType.builder()
-                                .code(t.name()).group(t.group()).subObjects(t.subObjects()).build())
+                                .code(t.name()).group(t.group()).subObjects(t.subObjects()).available(t.available()).build())
                         .toList())
                 .fields(Arrays.stream(ConditionField.values())
                         .map(f -> ApprovalProcessCatalogResponse.Field.builder()
@@ -110,13 +112,52 @@ public class ApprovalProcessService {
                 .approverTypes(Arrays.stream(ApproverType.values()).map(Enum::name).toList())
                 .maxLevelsUp(ProcessGraphValidator.MAX_LEVELS_UP)
                 .chainMode(chainService.isChainMode(orgId))
+                .forms(formOptions(orgId))
                 .build();
+    }
+
+    /**
+     * Đơn từ của tổ chức — đối tượng con của "Đơn từ", xếp theo nhóm đơn để người dùng phân biệt khi chọn.
+     * Kèm mẫu đơn để điều kiện rẽ nhánh theo được trường của đơn (khi quy trình chọn đúng một đơn).
+     */
+    private List<ApprovalProcessCatalogResponse.FormOption> formOptions(UUID orgId) {
+        String lang = ErrorMessages.currentLocale().getLanguage();
+        Map<UUID, com.kpitracking.entity.ApprovalFormGroup> groups = new LinkedHashMap<>();
+        formGroupRepository.findByOrganizationIdOrderBySortOrderAscCreatedAtAsc(orgId).forEach(g -> groups.put(g.getId(), g));
+        List<UUID> groupOrder = new ArrayList<>(groups.keySet());
+        return formRepository.findByOrganizationIdOrderBySortOrderAscCreatedAtAsc(orgId).stream()
+                .sorted(Comparator.comparingInt(f -> {
+                    int i = groupOrder.indexOf(f.getGroupId());
+                    return i < 0 ? Integer.MAX_VALUE : i;
+                }))
+                .map(f -> {
+                    var g = groups.get(f.getGroupId());
+                    return ApprovalProcessCatalogResponse.FormOption.builder()
+                            .id(f.getId().toString())
+                            .name(com.kpitracking.service.approvalform.ApprovalFormLibrary.pick(f.getName(), lang))
+                            .groupName(g == null ? null : com.kpitracking.service.approvalform.ApprovalFormLibrary.pick(g.getName(), lang))
+                            .active(f.isActive())
+                            .schema(f.getFormSchema())
+                            .build();
+                })
+                .toList();
+    }
+
+    /** Trường của đơn mà điều kiện dùng được — chỉ khi quy trình gắn đúng MỘT đơn. */
+    private FormFieldIndex formIndex(UUID orgId, ApprovalObjectType objectType, List<String> subObjects) {
+        if (objectType != ApprovalObjectType.FORM_REQUEST || subObjects == null || subObjects.size() != 1) return null;
+        return formRepository.findByIdAndOrganizationId(UUID.fromString(subObjects.get(0)), orgId)
+                .map(f -> com.kpitracking.service.approvalform.FormSchemaValidator.index(f.getFormSchema()))
+                .orElse(null);
     }
 
     /** Kiểm sơ đồ mà không lưu — giao diện gọi khi người dùng chỉnh để tô lỗi lên khung vẽ. */
     public ProcessValidationResponse validate(ApprovalProcessRequest request) {
         ProcessGraph graph = request.getDefinition();
-        ProcessGraphValidator.Result result = ProcessGraphValidator.validate(graph, request.getObjectType());
+        List<String> subs = request.getObjectType() == ApprovalObjectType.FORM_REQUEST && request.getSubObjectTypes() != null
+                ? request.getSubObjectTypes().stream().filter(Objects::nonNull).distinct().toList() : List.of();
+        ProcessGraphValidator.Result result = ProcessGraphValidator.validate(graph, request.getObjectType(),
+                formIndex(organizationId(), request.getObjectType(), subs));
         return ProcessValidationResponse.builder()
                 .valid(result.valid())
                 .errors(result.errors().stream().map(this::toIssue).toList())
@@ -182,10 +223,16 @@ public class ApprovalProcessService {
 
     private void apply(ApprovalProcess p, ApprovalProcessRequest request, UUID orgId, User actor) {
         ApprovalObjectType objectType = request.getObjectType();
-        List<String> subObjects = normalizeSubObjects(objectType, request.getSubObjectTypes());
+        if (!objectType.available()) {
+            throw new BusinessException(ErrorCode.APPROVAL_PROCESS_OBJECT_NOT_AVAILABLE);
+        }
+        List<String> subObjects = objectType.dynamicSubObjects()
+                ? normalizeForms(orgId, request.getSubObjectTypes())
+                : normalizeSubObjects(objectType, request.getSubObjectTypes());
         ProcessGraph graph = normalize(request.getDefinition());
 
-        ProcessGraphValidator.Result result = ProcessGraphValidator.validate(graph, objectType);
+        ProcessGraphValidator.Result result = ProcessGraphValidator.validate(graph, objectType,
+                formIndex(orgId, objectType, subObjects));
         if (!result.valid()) {
             throw new BusinessException(ErrorCode.APPROVAL_PROCESS_INVALID, render(result.errors().get(0)));
         }
@@ -207,6 +254,29 @@ public class ApprovalProcessService {
         p.setUpdatedBy(actor);
     }
 
+    /**
+     * Quy trình đơn từ phải chọn ít nhất một đơn của chính tổ chức: không có lựa chọn "Tất cả" — một quy
+     * trình chung sẽ lặng lẽ thay sơ đồ riêng của mọi đơn.
+     */
+    private List<String> normalizeForms(UUID orgId, List<String> raw) {
+        List<String> out = new ArrayList<>();
+        for (String id : raw == null ? List.<String>of() : raw) {
+            if (id == null || id.isBlank() || out.contains(id)) continue;
+            UUID formId;
+            try {
+                formId = UUID.fromString(id);
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException(ErrorCode.APPROVAL_PROCESS_BAD_SUB_OBJECT);
+            }
+            if (formRepository.findByIdAndOrganizationId(formId, orgId).isEmpty()) {
+                throw new BusinessException(ErrorCode.APPROVAL_PROCESS_BAD_SUB_OBJECT);
+            }
+            out.add(id);
+        }
+        if (out.isEmpty()) throw new BusinessException(ErrorCode.APPROVAL_PROCESS_FORM_REQUIRED);
+        return out;
+    }
+
     private List<String> normalizeSubObjects(ApprovalObjectType objectType, List<String> raw) {
         List<String> out = new ArrayList<>();
         if (raw == null) return out;
@@ -220,7 +290,8 @@ public class ApprovalProcessService {
         return out;
     }
 
-    private ProcessGraph normalize(ProcessGraph g) {
+    /** Cắt khoảng trắng tên node, đóng dấu phiên bản sơ đồ — dùng chung với đơn từ. */
+    public static ProcessGraph normalize(ProcessGraph g) {
         if (g == null) return new ProcessGraph(ProcessGraph.SCHEMA_VERSION, List.of(), List.of());
         List<Node> nodes = g.nodesOrEmpty().stream()
                 .map(n -> n == null ? null : new Node(n.id(), n.type(), n.x(), n.y(),
@@ -244,7 +315,8 @@ public class ApprovalProcessService {
         }
     }
 
-    private void requireInOrganization(ProcessGraph graph, Set<UUID> followers, UUID orgId) {
+    /** Người / chức vụ / đơn vị nhắc trong sơ đồ (và người theo dõi) phải thuộc tổ chức — dùng chung với đơn từ. */
+    public void requireInOrganization(ProcessGraph graph, Set<UUID> followers, UUID orgId) {
         Set<UUID> users = new HashSet<>(followers);
         Set<UUID> roles = new HashSet<>();
         Set<UUID> units = new HashSet<>();
@@ -306,7 +378,7 @@ public class ApprovalProcessService {
     }
 
     /** Người được nhắc tới trong sơ đồ: người duyệt cụ thể, giá trị của điều kiện "người gửi". */
-    private static Set<UUID> referencedUsers(ProcessGraph g) {
+    public static Set<UUID> referencedUsers(ProcessGraph g) {
         Set<UUID> out = new HashSet<>();
         for (Node n : g.nodesOrEmpty()) {
             for (ApproverSpec a : n.approversOrEmpty()) {

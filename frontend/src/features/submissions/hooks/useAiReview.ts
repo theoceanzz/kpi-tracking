@@ -85,8 +85,7 @@ export function useAiReviewUnitSettings(enabled = true) {
 export function useSaveAiReviewUnitSetting() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ orgUnitId, body }: { orgUnitId: string; body: AiReviewSettings }) =>
-      aiReviewApi.saveUnitSetting(orgUnitId, body),
+    mutationFn: (orgUnitId: string) => aiReviewApi.saveUnitSetting(orgUnitId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ai-review-unit-settings'] })
       toast.success(i18n.t('submissions:AiUnitWeights.saved'))

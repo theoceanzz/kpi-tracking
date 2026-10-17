@@ -1,4 +1,5 @@
 import { intlDateLocale, intlLocale } from '@/i18n/format'
+import ProcessPendingBadge from '@/features/approvalProcess/components/ProcessPendingBadge'
 import { useState } from 'react'
 import { Gift, Check, X as XIcon, Undo2, Ban, Award } from 'lucide-react'
 import DataTable from '@/components/common/DataTable'
@@ -176,7 +177,8 @@ export default function GrantsTab() {
                     </span>
                   </span>
                   <div className="flex gap-1">
-                    {row.status === RewardGrantStatus.PENDING_APPROVAL && canApprove && (
+                    {row.approval && <ProcessPendingBadge approval={row.approval} />}
+                    {row.status === RewardGrantStatus.PENDING_APPROVAL && canApprove && !row.approval && (
                       <>
                         <Button variant="ghost" size="sm" onClick={() => approveGrant({ id: row.id })} disabled={isApproving}>
                           {t('GrantsTab.approve')}
@@ -296,7 +298,8 @@ export default function GrantsTab() {
                 className: 'text-right align-top',
                 render: (row) => (
                   <div className="flex justify-end gap-1">
-                    {row.status === RewardGrantStatus.PENDING_APPROVAL && canApprove && (
+                    {row.approval && <ProcessPendingBadge approval={row.approval} />}
+                    {row.status === RewardGrantStatus.PENDING_APPROVAL && canApprove && !row.approval && (
                       <>
                         <Button variant="ghost" size="icon-sm" aria-label={t('GrantsTab.approve')} onClick={() => approveGrant({ id: row.id })} disabled={isApproving} title={t('GrantsTab.approve')}>
                           <Check aria-hidden="true" />

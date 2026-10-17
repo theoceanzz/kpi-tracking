@@ -14,6 +14,7 @@ import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.approvalprocess.ApprovalProcessPlanner;
+import com.kpitracking.service.approvalprocess.ApprovalSubjectFacts;
 import com.kpitracking.service.kpi.CycleStatusGuard;
 import com.kpitracking.workflow.KpiWorkflowConfigService;
 import com.kpitracking.workflow.WorkflowStage;
@@ -90,6 +91,14 @@ public class KpiApprovalChainService {
 
     // ── Kết quả trả về cho phía gọi ─────────────────────────────────────────
 
+    /**
+     * Đối tượng khác chỉ tiêu / điều chỉnh, đi chuỗi CHỈ KHI tổ chức có quy trình khớp.
+     *
+     * @param orgUnit đơn vị của đối tượng: phạm vi kiểm quyền và tìm người duyệt
+     */
+    public record Subject(ApprovalSubjectType type, UUID id, String name, OrgUnit orgUnit, ApprovalSubjectFacts facts,
+                          Map<String, Object> payload) {}
+
     /** {@code selfApproved}: chuỗi rỗng và người gửi được tự duyệt (C3) — phía gọi chốt ngay. */
     public record StartResult(KpiApprovalFlow flow, boolean selfApproved) {}
 
@@ -140,6 +149,9 @@ public class KpiApprovalChainService {
         KpiApprovalFlow flow = KpiApprovalFlow.builder()
                 .organizationId(orgId)
                 .subjectType(type)
+                .subjectId(type == ApprovalSubjectType.ADJUSTMENT ? adjustment.getId() : kpi.getId())
+                .subjectOrgUnit(kpi.getOrgUnit())
+                .subjectName(kpi.getName())
                 .kpiCriteria(kpi)
                 .adjustmentRequest(adjustment)
                 .requester(requester)
@@ -156,7 +168,6 @@ public class KpiApprovalChainService {
             addUnitHeadSteps(flow, plan);
             hasActionableStep = plan.hasActionableStep();
         }
-        int order = flow.getSteps().size();
 
         Map<String, Object> submitDetail = new LinkedHashMap<>();
 
@@ -174,55 +185,146 @@ public class KpiApprovalChainService {
         if (flow.getProcessTitle() != null) submitDetail.put("processTitle", flow.getProcessTitle());
 
         if (!selfApproved && !hasActionableStep) {
-            // C3: không còn ai phía trên người gửi ⇒ chuyển admin tổ chức.
-            List<User> admins = adminsOf(orgId, requester.getId());
-            if (admins.isEmpty()) {
-                throw new BusinessException(ErrorCode.NO_APPROVER_FOUND, kpi.getName());
-            }
-            OrgUnit root = rootOf(kpi.getOrgUnit());
-            flow.getSteps().add(KpiApprovalStep.builder()
-                    .flow(flow)
-                    .stepOrder(++order)
-                    .kind(ApprovalStepKind.ADMIN_FALLBACK)
-                    .orgUnitId(root.getId())
-                    .orgUnitName(root.getName())
-                    .status(ApprovalStepStatus.WAITING)
-                    .approvers(new ArrayList<>(admins.stream()
-                            .map(u -> new KpiApprovalStep.StepApprover(u.getId(), u.getFullName())).toList()))
-                    .build());
+            addAdminFallback(flow, orgId, requester, kpi.getName(), kpi.getOrgUnit());
             submitDetail.put("adminFallback", true);
         }
 
-        Instant now = Instant.now();
         if (selfApproved) {
             flow.setStatus(ApprovalFlowStatus.APPROVED);
-            flow.setFinishedAt(now);
+            flow.setFinishedAt(Instant.now());
         } else {
-            KpiApprovalStep first = flow.nextWaitingAfter(0).orElseThrow();
-            first.setStatus(ApprovalStepStatus.PENDING);
-            first.setPendingSince(now);
-            flow.setCurrentStepOrder(first.getStepOrder());
+            activateFirst(flow);
         }
         flow = flowRepository.save(flow);
 
         record(flow, null, action, requester, (String) null, submitDetail.isEmpty() ? null : submitDetail);
+        recordSkipped(flow);
+        if (selfApproved) {
+            record(flow, null, ApprovalEventAction.SELF_APPROVED_TOP, requester,
+                    LocalizedText.of("approvalEvent.reason.selfApprovedTop"), null);
+        } else if (notify) {
+            announce(flow);
+        }
+        return new StartResult(flow, selfApproved);
+    }
+
+    /**
+     * Mở flow cho đối tượng khác chỉ tiêu / điều chỉnh. Khác {@link #start}: KHÔNG có chuỗi trưởng
+     * đơn vị mặc định — tổ chức không có quy trình khớp thì trả rỗng và phía gọi giữ luật duyệt cũ.
+     * Flow đang chạy của cùng đối tượng (gửi lại) bị huỷ trước.
+     */
+    @Transactional
+    public Optional<KpiApprovalFlow> startSubject(Subject subject, User requester, boolean notify) {
+        cancelRunningSubject(subject.type(), subject.id(), requester,
+                LocalizedText.of("approvalEvent.reason.requestResubmitted"));
+        Optional<ApprovalProcessPlanner.ProcessPlan> plan = processPlanner.plan(subject.facts(), subject.orgUnit(), requester);
+        if (plan.isEmpty()) return Optional.empty();
+        return Optional.of(startPlanned(subject, plan.get(), requester, notify));
+    }
+
+    /**
+     * Mở flow theo một kế hoạch đã lập sẵn — đối tượng tự giữ sơ đồ (đơn từ) lập bằng
+     * {@link ApprovalProcessPlanner#planGraph} rồi gọi thẳng vào đây. Flow đang chạy của cùng đối tượng bị huỷ trước.
+     */
+    @Transactional
+    public KpiApprovalFlow startPlanned(Subject subject, ApprovalProcessPlanner.ProcessPlan plan, User requester,
+                                       boolean notify) {
+        cancelRunningSubject(subject.type(), subject.id(), requester,
+                LocalizedText.of("approvalEvent.reason.requestResubmitted"));
+        UUID orgId = PermissionChecker.organizationIdOf(subject.orgUnit());
+        KpiApprovalFlow flow = KpiApprovalFlow.builder()
+                .organizationId(orgId)
+                .subjectType(subject.type())
+                .subjectId(subject.id())
+                .subjectOrgUnit(subject.orgUnit())
+                .subjectName(subject.name())
+                .payload(subject.payload())
+                .requester(requester)
+                .round((int) flowRepository.countBySubjectTypeAndSubjectId(subject.type(), subject.id()) + 1)
+                .build();
+        addProcessSteps(flow, plan);
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("processTitle", flow.getProcessTitle());
+        if (!plan.hasActionableStep()) {
+            addAdminFallback(flow, orgId, requester, subject.name(), subject.orgUnit());
+            detail.put("adminFallback", true);
+        }
+        activateFirst(flow);
+        flow = flowRepository.save(flow);
+
+        record(flow, null, ApprovalEventAction.SUBMITTED, requester, (String) null, detail);
+        recordSkipped(flow);
+        if (notify) announce(flow);
+        return flow;
+    }
+
+    /** Bài nộp kết quả vừa vào CHỜ DUYỆT: đi quy trình "Báo cáo kết quả KPI" nếu có quy trình khớp. */
+    @Transactional
+    public Optional<KpiApprovalFlow> startSubmission(KpiSubmission submission, User submitter) {
+        KpiCriteria kpi = submission.getKpiCriteria();
+        ApprovalSubjectFacts facts = ApprovalSubjectFacts.of(kpi, null, submitter, processPlanner.requesterRoles(submitter))
+                .forObject(ApprovalObjectType.KPI_SUBMISSION);
+        return startSubject(new Subject(ApprovalSubjectType.SUBMISSION, submission.getId(), kpi.getName(),
+                submission.getOrgUnit(), facts, null), submitter, true);
+    }
+
+    /**
+     * Đề xuất CHƯA có bản ghi thật cho tới khi duyệt xong (đánh giá đợt, chốt kỳ): nội dung nằm ở
+     * {@code payload}, bước cuối áp vào qua {@code ApprovalSubjectHandler}. Không có quy trình khớp ⇒
+     * rỗng, phía gọi làm ngay như cũ.
+     *
+     * @param subjectId cố định theo nội dung (vd. người + đợt + người chấm) để gửi lại thì huỷ bản cũ
+     */
+    @Transactional
+    public Optional<KpiApprovalFlow> startProposal(ApprovalSubjectType type, UUID subjectId, String name, OrgUnit unit,
+                                                   String subObject, User requester, UUID periodId, Double score,
+                                                   Map<String, Object> payload) {
+        ApprovalSubjectFacts facts = ApprovalSubjectFacts.generic(ApprovalObjectType.of(type), subObject, unit,
+                requester, processPlanner.requesterRoles(requester), periodId, score);
+        return startSubject(new Subject(type, subjectId, name, unit, facts, payload), requester, true);
+    }
+
+    /** C3: không còn ai giữ bước ⇒ chuyển admin tổ chức (không có admin nào ⇒ không gửi được). */
+    private void addAdminFallback(KpiApprovalFlow flow, UUID orgId, User requester, String subjectName, OrgUnit unit) {
+        List<User> admins = adminsOf(orgId, requester.getId());
+        if (admins.isEmpty()) {
+            throw new BusinessException(ErrorCode.NO_APPROVER_FOUND, subjectName);
+        }
+        OrgUnit root = rootOf(unit);
+        flow.getSteps().add(KpiApprovalStep.builder()
+                .flow(flow)
+                .stepOrder(flow.getSteps().size() + 1)
+                .kind(ApprovalStepKind.ADMIN_FALLBACK)
+                .orgUnitId(root.getId())
+                .orgUnitName(root.getName())
+                .status(ApprovalStepStatus.WAITING)
+                .approvers(new ArrayList<>(admins.stream()
+                        .map(u -> new KpiApprovalStep.StepApprover(u.getId(), u.getFullName())).toList()))
+                .build());
+    }
+
+    private static void activateFirst(KpiApprovalFlow flow) {
+        KpiApprovalStep first = flow.nextWaitingAfter(0).orElseThrow();
+        first.setStatus(ApprovalStepStatus.PENDING);
+        first.setPendingSince(Instant.now());
+        flow.setCurrentStepOrder(first.getStepOrder());
+    }
+
+    private void recordSkipped(KpiApprovalFlow flow) {
         for (KpiApprovalStep s : flow.getSteps()) {
             if (s.getStatus() == ApprovalStepStatus.SKIPPED_NO_HEAD) {
                 record(flow, s, ApprovalEventAction.SKIPPED_NO_HEAD, null, s.getSkipReason(),
                         Map.of("unitName", nullToEmpty(s.displayName())));
             }
         }
-        if (selfApproved) {
-            record(flow, null, ApprovalEventAction.SELF_APPROVED_TOP, requester,
-                    LocalizedText.of("approvalEvent.reason.selfApprovedTop"), null);
-        } else if (notify) {
-            flow.currentStep().ifPresent(s -> eventPublisher.publishEvent(new ApprovalChainEvents.StepAssigned(
-                    flowIdOf(s), s.getId(), ApprovalChainEvents.StepAssigned.Kind.NEW)));
-            if (flow.getProcessId() != null) {
-                eventPublisher.publishEvent(new ApprovalChainEvents.ProcessFlowStarted(flow.getId()));
-            }
+    }
+
+    private void announce(KpiApprovalFlow flow) {
+        flow.currentStep().ifPresent(s -> eventPublisher.publishEvent(new ApprovalChainEvents.StepAssigned(
+                flowIdOf(s), s.getId(), ApprovalChainEvents.StepAssigned.Kind.NEW)));
+        if (flow.getProcessId() != null) {
+            eventPublisher.publishEvent(new ApprovalChainEvents.ProcessFlowStarted(flow.getId()));
         }
-        return new StartResult(flow, selfApproved);
     }
 
     private void addUnitHeadSteps(KpiApprovalFlow flow, ApprovalChainPlanner.Plan plan) {
@@ -346,6 +448,15 @@ public class KpiApprovalChainService {
         return flowRepository.findRunningIdByAdjustment(adjustmentId);
     }
 
+    public Optional<UUID> runningSubjectFlowId(ApprovalSubjectType type, UUID subjectId) {
+        return flowRepository.findRunningIdBySubject(type, subjectId);
+    }
+
+    /** Đang giữ bước hiện tại hoặc đã tự tay xử lý một bước của đối tượng — được xem đối tượng đó. */
+    public boolean isSubjectViewer(ApprovalSubjectType type, UUID subjectId, UUID userId) {
+        return flowRepository.isSubjectViewer(type, subjectId, userId);
+    }
+
     /**
      * Khoá flow ({@code SELECT … FOR UPDATE}) NGAY LÚC NẠP. Người thứ hai bấm cùng lúc chờ ở đây,
      * rồi đọc trạng thái mới nhất sau khi người thứ nhất commit và nhận 409.
@@ -385,7 +496,7 @@ public class KpiApprovalChainService {
             throw new StaleStateException(ErrorCode.APPROVAL_STEP_CHANGED);
         }
 
-        UUID unitId = flow.getKpiCriteria().getOrgUnit().getId();
+        UUID unitId = flow.unit().getId();
         if (!step.isHeldBy(actor.getId())) {
             if (permissionChecker.isGlobalAdminIn(actor.getId(), unitId)) {
                 throw new ForbiddenException(ErrorCode.ADMINISTRATORS_MAY_ONLY_REASSIGN_APPROVER_NOT_APPROVE, String.valueOf(step.approverNames()));
@@ -397,8 +508,10 @@ public class KpiApprovalChainService {
         }
 
         boolean lastStep = flow.nextWaitingAfter(step.getStepOrder()).isEmpty();
+        // Duyệt cuối vượt cấp (KPI:APPROVE_FINAL) chỉ là luật của chỉ tiêu / điều chỉnh KPI; đối tượng
+        // khác đi hết các bước của quy trình.
         boolean hasFinal = step.getKind() == ApprovalStepKind.ADMIN_FALLBACK
-                || permissionChecker.hasRolePermissionInOrgUnit(actor.getId(), PERM_FINAL, unitId);
+                || (flow.isKpiSubject() && permissionChecker.hasRolePermissionInOrgUnit(actor.getId(), PERM_FINAL, unitId));
         boolean isFinal = lastStep || hasFinal;
         return new Decision(flow, step, isFinal, isFinal && !lastStep);
     }
@@ -435,6 +548,7 @@ public class KpiApprovalChainService {
             if (flow.getSubjectType() == ApprovalSubjectType.ADJUSTMENT) {
                 eventPublisher.publishEvent(new ApprovalChainEvents.AdjustmentDecided(flow.getId()));
             }
+            publishSubjectDecided(flow);
             publishProcessFinished(flow);
             return ApprovalOutcome.FINAL;
         }
@@ -474,7 +588,33 @@ public class KpiApprovalChainService {
         if (flow.getSubjectType() == ApprovalSubjectType.ADJUSTMENT) {
             eventPublisher.publishEvent(new ApprovalChainEvents.AdjustmentDecided(flow.getId()));
         }
+        publishSubjectDecided(flow);
         publishProcessFinished(flow);
+    }
+
+    /**
+     * Báo người gửi đề xuất (đánh giá, chốt kỳ) khi có kết quả cuối. Chỉ tiêu / điều chỉnh / bài nộp
+     * đã có thông báo riêng của nghiệp vụ.
+     */
+    private void publishSubjectDecided(KpiApprovalFlow flow) {
+        if (flow.getPayload() == null) return;
+        // Thẻ điểm BSC, đề xuất thưởng, đổi quà đã có thông báo duyệt / từ chối của nghiệp vụ; kết quả BSC
+        // đã có thông báo khi chốt.
+        if (flow.getSubjectType() == ApprovalSubjectType.BSC_SCORECARD
+                || flow.getSubjectType() == ApprovalSubjectType.REWARD_GRANT
+                || flow.getSubjectType() == ApprovalSubjectType.GIFT_REDEMPTION) return;
+        if (flow.getSubjectType() == ApprovalSubjectType.BSC_RESULT && flow.getStatus() == ApprovalFlowStatus.APPROVED) return;
+        eventPublisher.publishEvent(new ApprovalChainEvents.SubjectDecided(flow.getId()));
+    }
+
+    /** Tổ chức có quy trình đang bật cho đối tượng này không. */
+    public boolean hasActiveProcess(UUID organizationId, ApprovalObjectType objectType) {
+        return processPlanner.hasActiveProcess(organizationId, objectType);
+    }
+
+    /** Đơn vị đại diện cho đối tượng không gắn đơn vị (vd. thẻ điểm cấp tổ chức): đơn vị gốc. */
+    public OrgUnit rootUnitOf(UUID organizationId) {
+        return orgUnitRepository.findRootsByOrganizationId(organizationId).stream().findFirst().orElse(null);
     }
 
     /** Flow theo quy trình vừa có kết quả cuối — báo người theo dõi quy trình. */
@@ -496,6 +636,21 @@ public class KpiApprovalChainService {
     @Transactional
     public void closeByLock(Collection<UUID> kpiIds, User actor, LocalizedText reason) {
         stopRunning(kpiIds, ApprovalFlowStatus.CLOSED_BY_LOCK, ApprovalEventAction.CLOSED_BY_LOCK, actor, reason);
+    }
+
+    /** Dừng flow đang chạy của một đối tượng (bài nộp bị trả lại / xoá, gửi lại…). */
+    @Transactional
+    public void cancelRunningSubject(ApprovalSubjectType type, UUID subjectId, User actor, LocalizedText reason) {
+        flowRepository.findRunningIdBySubject(type, subjectId).ifPresent(id ->
+                finish(lockFlow(id), ApprovalFlowStatus.CANCELLED, ApprovalEventAction.CANCELLED, actor, reason));
+    }
+
+    /** Khoá kỳ: bài nộp còn chờ duyệt theo quy trình không duyệt được nữa, chuỗi của chúng đóng theo. */
+    @Transactional
+    public void closeSubmissionFlowsOfCycle(UUID cycleId, User actor, LocalizedText reason) {
+        for (UUID id : flowRepository.findRunningSubmissionFlowIdsOfCycle(cycleId)) {
+            finish(lockFlow(id), ApprovalFlowStatus.CLOSED_BY_LOCK, ApprovalEventAction.CLOSED_BY_LOCK, actor, reason);
+        }
     }
 
     @Transactional
@@ -543,12 +698,12 @@ public class KpiApprovalChainService {
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.approvalStep"), "id", stepId));
         KpiApprovalFlow peek = flowRepository.findById(flowId)
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.approvalChain"), "id", flowId));
-        KpiCriteria kpi = peek.getKpiCriteria();
 
-        if (!permissionChecker.isGlobalAdminIn(actor.getId(), kpi.getOrgUnit().getId())) {
+        if (!permissionChecker.isGlobalAdminIn(actor.getId(), peek.unit().getId())) {
             throw new ForbiddenException(ErrorCode.ONLY_ORGANIZATION_ADMINISTRATORS_MAY_REASSIGN_APPROVER);
         }
-        cycleStatusGuard.assertWritable(kpi);
+        // Flow bài nộp không gắn KPI: khoá kỳ đã đóng nó (closeSubmissionFlowsOfCycle) nên không còn bước để gán.
+        if (peek.getKpiCriteria() != null) cycleStatusGuard.assertWritable(peek.getKpiCriteria());
 
         KpiApprovalFlow flow = lockFlow(flowId);
         KpiApprovalStep step = flow.currentStep()

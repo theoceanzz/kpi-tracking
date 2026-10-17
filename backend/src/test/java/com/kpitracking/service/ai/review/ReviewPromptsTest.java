@@ -36,7 +36,7 @@ class ReviewPromptsTest {
     void criterionBlockCarriesPhase2And3Sources() {
         ReviewContext.Criterion c = criterionWithFiles();
         ReviewContext ctx = new ReviewContext(UUID.randomUUID(), UUID.randomUUID(), "Tháng 9/2026", UUID.randomUUID(),
-                "An", List.of(c), ReviewFixtures.SCALE, List.of(), ReviewFixtures.W,
+                "An", List.of(c), ReviewFixtures.SCALE, List.of(), ReviewFixtures.MAX,
                 List.of(new ReviewContext.Excerpt("Quy chế 2026", "Điều 3", "Sản phẩm phải có minh chứng")),
                 new ReviewContext.CriteriaSet(UUID.randomUUID(), 2, "Quy chế mẫu",
                         List.of(new ReviewContext.CriteriaRow("Chất lượng sản phẩm", null, 30.0, "Tốt\nĐạt", null))),
@@ -58,7 +58,7 @@ class ReviewPromptsTest {
     void selfCheckBlockHasNoScaleNorHistory() {
         ReviewContext.Criterion c = criterionWithFiles();
         ReviewContext ctx = new ReviewContext(UUID.randomUUID(), UUID.randomUUID(), "Tháng 9/2026", UUID.randomUUID(),
-                "An", List.of(c), ReviewFixtures.SCALE, List.of(), ReviewFixtures.W,
+                "An", List.of(c), ReviewFixtures.SCALE, List.of(), ReviewFixtures.MAX,
                 List.of(new ReviewContext.Excerpt("Quy chế 2026", "Điều 3", "Sản phẩm phải có minh chứng")),
                 null, List.of());
 
@@ -91,11 +91,26 @@ class ReviewPromptsTest {
         ReviewContext.Criterion c = criterionWithFiles();
         ReviewContext base = ReviewFixtures.context(c);
         ReviewContext withConduct = new ReviewContext(base.organizationId(), base.kpiPeriodId(), base.periodName(),
-                base.userId(), base.userName(), base.criteria(), base.scale(), List.of(), base.weights(), List.of(), null,
+                base.userId(), base.userName(), base.criteria(), base.scale(), List.of(), base.aiMaxPoints(), List.of(), null,
                 List.of(new ReviewContext.ConductRow("Tuân thủ thời hạn", "Nộp báo cáo đúng hạn", 20.0)));
 
         assertThat(ReviewPrompts.summaryDigest(withConduct, List.of()))
                 .contains("TIÊU CHÍ HẠNH KIỂM").contains("Tuân thủ thời hạn: Nộp báo cáo đúng hạn");
         assertThat(ReviewPrompts.summaryDigest(base, List.of())).doesNotContain("HẠNH KIỂM");
+    }
+
+    @Test
+    @DisplayName("thang điểm AI trong lời nhắc: mỗi mức kèm điểm / tối đa và mô tả")
+    void scaleLinesCarryPointsAndDescription() {
+        var c = ReviewFixtures.criterion(20, 1.0, null, ReviewFixtures.submission("Đã xong 9 API", java.time.Instant.now()));
+        ReviewContext ctx = new ReviewContext(UUID.randomUUID(), UUID.randomUUID(), "Tháng 9/2026", UUID.randomUUID(),
+                "An", List.of(c), List.of(
+                        new ReviewContext.QualityLevel("Kém", 0.0, 1, 0.0, null),
+                        new ReviewContext.QualityLevel("Khá", 75.0, 2, 7.5, "Có số liệu, thiếu đối chiếu")),
+                List.of(), java.math.BigDecimal.TEN);
+
+        String block = ReviewPrompts.criterionBlock(ctx, c);
+
+        assertThat(block).contains("- Kém (0/10 điểm)").contains("- Khá (7.5/10 điểm): Có số liệu, thiếu đối chiếu");
     }
 }

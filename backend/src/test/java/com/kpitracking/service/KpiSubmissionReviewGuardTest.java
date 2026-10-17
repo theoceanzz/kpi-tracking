@@ -100,7 +100,7 @@ class KpiSubmissionReviewGuardTest {
                 permissionChecker, null,
                 workflowConfig, new com.kpitracking.workflow.engine.WorkflowEngine(registry),
                 mock(com.kpitracking.service.kpi.CycleStatusGuard.class),
-                mock(com.kpitracking.repository.EvaluationRepository.class), scoreLedger,
+                mock(com.kpitracking.repository.EvaluationRepository.class), scoreLedger, mock(com.kpitracking.service.kpi.approval.KpiApprovalChainService.class), mock(com.kpitracking.service.kpi.approval.KpiApprovalViewService.class),
                 mock(com.kpitracking.repository.KpiAdjustmentRequestRepository.class));
 
         // Đủ để một bản nộp HỢP LỆ chạy trọn vòng lặp, nhờ đó kiểm được rằng bản THỨ HAI cũng bị soi.

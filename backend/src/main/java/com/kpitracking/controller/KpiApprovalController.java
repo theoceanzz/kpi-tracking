@@ -117,8 +117,11 @@ public class KpiApprovalController {
             @PathVariable UUID stepId,
             @Valid @RequestBody ReassignApprovalStepRequest request) {
         User me = viewService.currentUser();
-        UUID kpiId = chainService.reassign(stepId, me, request.getApproverId(), request.getReason())
-                .getKpiCriteria().getId();
-        return ResponseEntity.ok(ApiResponse.success("Đã gán lại người duyệt", viewService.chainOf(kpiId, me.getId())));
+        var flow = chainService.reassign(stepId, me, request.getApproverId(), request.getReason());
+        // Người gán lại là admin tổ chức (reassign đã kiểm) nên xem được chuỗi của mọi đối tượng.
+        KpiApprovalChainResponse chain = flow.getKpiCriteria() != null
+                ? viewService.chainOf(flow.getKpiCriteria().getId(), me.getId())
+                : viewService.chainOfSubject(flow.getSubjectType(), flow.getSubjectId(), flow.displayName(), me.getId());
+        return ResponseEntity.ok(ApiResponse.success("Đã gán lại người duyệt", chain));
     }
 }

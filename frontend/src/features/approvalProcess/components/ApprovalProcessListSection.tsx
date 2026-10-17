@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Plus, Trash2, Workflow } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -14,7 +14,7 @@ import UserAvatar from '@/components/common/UserAvatar'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { usePermission } from '@/hooks/usePermission'
 import { useFormat } from '@/i18n/useFormat'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
@@ -86,8 +86,16 @@ export default function ApprovalProcessListSection() {
   const remove = useDeleteApprovalProcesses()
 
   const rows = data?.content ?? []
+  const formName = useMemo(() => new Map((catalog?.forms ?? []).map((f) => [f.id, f.name])), [catalog])
   const subLabel = (p: ApprovalProcess) =>
-    p.subObjectTypes.length === 0 ? t('list.allSubObjects') : p.subObjectTypes.map((s) => t(`subObjects.${s}`)).join(', ')
+    p.subObjectTypes.length === 0 ? t('list.allSubObjects')
+      : p.subObjectTypes.map((s) => p.objectType === 'FORM_REQUEST' ? formName.get(s) ?? t('list.unknownForm') : t(`subObjects.${s}`)).join(', ')
+  // Ô lọc đối tượng gom theo nhóm (KPI · BSC · Quà thưởng · Đơn từ), như ô chọn ở trang sửa.
+  const objectGroups = useMemo(() => {
+    const out = new Map<string, NonNullable<typeof catalog>['objects']>()
+    for (const o of catalog?.objects ?? []) out.set(o.group, [...(out.get(o.group) ?? []), o])
+    return [...out.entries()]
+  }, [catalog])
 
   const columns = [
     {
@@ -177,7 +185,12 @@ export default function ApprovalProcessListSection() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>{t('list.allObjects')}</SelectItem>
-            {(catalog?.objects ?? []).map((o) => <SelectItem key={o.code} value={o.code}>{t(`objects.${o.code}`)}</SelectItem>)}
+            {objectGroups.map(([group, objects]) => (
+              <SelectGroup key={group}>
+                <SelectLabel>{t(`objectGroups.${group}`)}</SelectLabel>
+                {objects.map((o) => <SelectItem key={o.code} value={o.code}>{t(`objects.${o.code}`)}</SelectItem>)}
+              </SelectGroup>
+            ))}
           </SelectContent>
         </Select>
       </FilterBar>

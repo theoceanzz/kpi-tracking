@@ -50,6 +50,55 @@ public interface KpiApprovalFlowRepository extends JpaRepository<KpiApprovalFlow
     /** Lịch sử mọi lần gửi của một KPI (chỉ tiêu + điều chỉnh), mới nhất trước. */
     List<KpiApprovalFlow> findByKpiCriteriaIdOrderByStartedAtDesc(UUID kpiCriteriaId);
 
+    // ── Đối tượng khác chỉ tiêu / điều chỉnh: tra theo (subject_type, subject_id) ──
+
+    @Query("SELECT f.id FROM KpiApprovalFlow f WHERE f.subjectType = :type AND f.subjectId = :subjectId " +
+           "AND f.status = com.kpitracking.enums.ApprovalFlowStatus.IN_PROGRESS")
+    Optional<UUID> findRunningIdBySubject(@Param("type") ApprovalSubjectType type, @Param("subjectId") UUID subjectId);
+
+    @Query("SELECT f FROM KpiApprovalFlow f WHERE f.subjectType = :type AND f.subjectId IN :subjectIds " +
+           "AND f.status = com.kpitracking.enums.ApprovalFlowStatus.IN_PROGRESS")
+    List<KpiApprovalFlow> findRunningBySubjects(@Param("type") ApprovalSubjectType type,
+                                               @Param("subjectIds") Collection<UUID> subjectIds);
+
+    List<KpiApprovalFlow> findBySubjectTypeAndSubjectIdOrderByStartedAtDesc(ApprovalSubjectType type, UUID subjectId);
+
+    long countBySubjectTypeAndSubjectId(ApprovalSubjectType type, UUID subjectId);
+
+    /** Người này đang giữ bước hiện tại, hoặc đã tự tay duyệt / từ chối một bước của đối tượng. */
+    @Query("SELECT COUNT(s) > 0 FROM KpiApprovalStep s LEFT JOIN s.approvers ap " +
+           "WHERE s.flow.subjectType = :type AND s.flow.subjectId = :subjectId AND (s.actedBy.id = :userId " +
+           "  OR (s.status = com.kpitracking.enums.ApprovalStepStatus.PENDING AND ap.userId = :userId))")
+    boolean isSubjectViewer(@Param("type") ApprovalSubjectType type, @Param("subjectId") UUID subjectId,
+                            @Param("userId") UUID userId);
+
+    /** Flow bài nộp đang chạy của mọi bài thuộc KPI trong kỳ này — đóng khi khoá kỳ. */
+    @Query("SELECT f.id FROM KpiApprovalFlow f WHERE f.subjectType = com.kpitracking.enums.ApprovalSubjectType.SUBMISSION " +
+           "AND f.status = com.kpitracking.enums.ApprovalFlowStatus.IN_PROGRESS " +
+           "AND f.subjectId IN (SELECT s.id FROM KpiSubmission s WHERE s.kpiCriteria.kpiPeriod.kpiCycle.id = :cycleId)")
+    List<UUID> findRunningSubmissionFlowIdsOfCycle(@Param("cycleId") UUID cycleId);
+
+    @Query("SELECT f.subjectType FROM KpiApprovalFlow f WHERE f.id = :id")
+    Optional<ApprovalSubjectType> findSubjectTypeById(@Param("id") UUID id);
+
+    /** Chỉ đọc nội dung đề xuất, KHÔNG nạp flow vào phiên — để khoá kỳ trước rồi mới khoá flow. */
+    @Query("SELECT f.payload FROM KpiApprovalFlow f WHERE f.id = :id")
+    java.util.Map<String, Object> findPayloadById(@Param("id") UUID id);
+
+    /** Đề xuất đang chờ của một loại, ở đơn vị này hoặc đơn vị con (theo {@code path}). */
+    @Query("SELECT f FROM KpiApprovalFlow f WHERE f.subjectType = :type " +
+           "AND f.status = com.kpitracking.enums.ApprovalFlowStatus.IN_PROGRESS " +
+           "AND f.subjectOrgUnit.path LIKE CONCAT(:path, '%')")
+    List<KpiApprovalFlow> findRunningInSubtree(@Param("type") ApprovalSubjectType type, @Param("path") String path);
+
+    /** Hộp "chờ tôi duyệt" mọi loại đối tượng. */
+    @Query("SELECT DISTINCT f FROM KpiApprovalFlow f JOIN f.steps s JOIN s.approvers a " +
+           "WHERE f.status = com.kpitracking.enums.ApprovalFlowStatus.IN_PROGRESS " +
+           "AND s.stepOrder = f.currentStepOrder " +
+           "AND s.status = com.kpitracking.enums.ApprovalStepStatus.PENDING " +
+           "AND a.userId = :userId")
+    List<KpiApprovalFlow> findInboxAll(@Param("userId") UUID userId);
+
     List<KpiApprovalFlow> findByAdjustmentRequestIdOrderByStartedAtDesc(UUID adjustmentRequestId);
 
     long countByKpiCriteriaIdAndSubjectType(UUID kpiCriteriaId, ApprovalSubjectType subjectType);

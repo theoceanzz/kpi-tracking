@@ -42,6 +42,11 @@ public final class ProcessGraphValidator {
     }
 
     public static Result validate(ProcessGraph graph, ApprovalObjectType objectType) {
+        return validate(graph, objectType, null);
+    }
+
+    /** @param form widget của đơn từ (chỉ khi kiểm sơ đồ của một đơn); null với quy trình thường */
+    public static Result validate(ProcessGraph graph, ApprovalObjectType objectType, FormFieldIndex form) {
         List<Issue> errors = new ArrayList<>();
         List<Issue> warnings = new ArrayList<>();
         if (graph == null || graph.nodesOrEmpty().isEmpty()) {
@@ -94,7 +99,7 @@ public final class ProcessGraphValidator {
                         errors.add(Issue.node(n.id(), "startNeedsOneNext"));
                     }
                 }
-                case CONDITION -> validateCondition(n, out, objectType, errors);
+                case CONDITION -> validateCondition(n, out, objectType, form, errors);
                 case STEP -> validateStep(n, out, byId, errors, warnings);
                 case APPROVED, REJECTED -> {
                     if (!out.isEmpty()) errors.add(Issue.node(n.id(), "endHasOutgoing"));
@@ -124,7 +129,8 @@ public final class ProcessGraphValidator {
         return new Result(errors, warnings);
     }
 
-    private static void validateCondition(Node n, List<Edge> out, ApprovalObjectType objectType, List<Issue> errors) {
+    private static void validateCondition(Node n, List<Edge> out, ApprovalObjectType objectType, FormFieldIndex form,
+                                          List<Issue> errors) {
         long yes = out.stream().filter(e -> e.branch() == Branch.YES).count();
         long no = out.stream().filter(e -> e.branch() == Branch.NO).count();
         if (yes != 1) errors.add(Issue.node(n.id(), "conditionNeedsYes"));
@@ -160,6 +166,10 @@ public final class ProcessGraphValidator {
                 errors.add(Issue.node(n.id(), "ruleMissingValue"));
                 continue;
             }
+            if (r.field().formWidget()) {
+                validateFormRule(n, r, values, form, errors);
+                continue;
+            }
             switch (r.field().valueType()) {
                 case NUMBER -> {
                     if (values.size() != 1 || parseNumber(values.get(0)) == null) {
@@ -176,6 +186,26 @@ public final class ProcessGraphValidator {
                 }
                 case BOOLEAN -> { }
             }
+        }
+    }
+
+    /** Điều kiện theo widget của đơn từ: widget còn tồn tại, đúng loại, phương án thuộc widget. */
+    private static void validateFormRule(Node n, ConditionRule r, List<String> values, FormFieldIndex form,
+                                         List<Issue> errors) {
+        String widget = r.widget();
+        if (r.field() == ConditionField.FORM_NUMBER) {
+            if (form == null || widget == null || !form.numbers().contains(widget)) {
+                errors.add(Issue.node(n.id(), "ruleWidgetMissing"));
+            } else if (values.size() != 1 || parseNumber(values.get(0)) == null) {
+                errors.add(Issue.node(n.id(), "ruleBadNumber"));
+            }
+            return;
+        }
+        Set<String> options = form == null || widget == null ? null : form.options().get(widget);
+        if (options == null) {
+            errors.add(Issue.node(n.id(), "ruleWidgetMissing"));
+        } else if (!options.containsAll(values)) {
+            errors.add(Issue.node(n.id(), "ruleBadValue"));
         }
     }
 

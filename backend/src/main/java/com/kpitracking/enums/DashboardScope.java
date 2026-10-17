@@ -21,6 +21,15 @@ public enum DashboardScope {
     DEPUTY,
     STAFF,
 
+    /**
+     * Trang Thống kê — MỘT lưới cho cả trang (sáu tab cũ đã gộp lại).
+     *
+     * <p>Các giá trị {@code ANALYTICS_*} bên dưới là bố cục của sáu tab cũ. Giữ lại để request cũ
+     * còn trong tay người dùng không bị 400; không có đường chuyển bố cục sang scope mới vì gộp
+     * sáu lưới vào một thì hình học của chúng chồng lên nhau thành mớ lộn xộn.
+     */
+    ANALYTICS,
+
     /** Tab Thống kê › Tổng quan. */
     ANALYTICS_SUMMARY,
     /** Tab Thống kê › KPI của tôi. */

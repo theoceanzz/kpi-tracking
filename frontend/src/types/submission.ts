@@ -32,6 +32,8 @@ export interface Submission {
   kpiPeriod: { id: string; name: string } | null
   attachments: Attachment[]
   isSubmittedByManager: boolean
+  /** Bài đang đi quy trình duyệt "Báo cáo kết quả KPI": bước hiện tại, tính cho người đang xem. */
+  approval?: import('./approvalChain').ApprovalSummary | null
   createdAt: string
   updatedAt: string
   parentSubmissionId?: string

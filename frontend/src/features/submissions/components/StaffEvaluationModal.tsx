@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react'
 import AiReviewDetailDialog from './AiReviewDetailDialog'
-import AiConfidenceBars from './AiConfidenceBars'
+import AiScoreBar from './AiScoreBar'
 import { useAiReview, useRequestAiReview } from '../hooks/useAiReview'
 import type { AiReviewItem } from '../api/aiReviewApi'
 import { useForm } from 'react-hook-form'
@@ -16,6 +16,7 @@ import {
   Loader2, CheckCircle, Target, Zap,
   AlertCircle, Lock, Undo2, Sparkles, Eye, RefreshCw
 } from 'lucide-react'
+import i18n from 'i18next'
 import { format } from 'date-fns'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
 import StatusBadge from '@/components/common/StatusBadge'
@@ -330,13 +331,21 @@ export default function StaffEvaluationModal({
       })
 
       // Cảnh báo khung bell curve đi kèm bản ghi vừa chốt (chế độ "chặn" đã ném lỗi ở trên).
-      return { reviewResults, bellCurveWarning: evaluation?.bellCurveWarning }
+      return { reviewResults, bellCurveWarning: evaluation?.bellCurveWarning, approval: evaluation?.approval }
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['submissions'] })
       qc.invalidateQueries({ queryKey: ['evaluations'] })
 
       if (data?.bellCurveWarning) toast.warning(data.bellCurveWarning, { duration: 8000 })
+
+      // Quy trình "Đánh giá và xếp loại": điểm chưa ghi, đang chờ duyệt — chưa mời thưởng.
+      if (data?.approval) {
+        qc.invalidateQueries({ queryKey: ['approvals'] })
+        toast.success(i18n.t('approvalProcess:pending.evaluation', { names: data.approval.holderNames.join(', ') }))
+        onClose()
+        return
+      }
 
       const autoApproved = data?.reviewResults?.find(s => s.allChildrenApproved && s.parentSubmissionId)
       if (autoApproved) {
@@ -457,13 +466,9 @@ export default function StaffEvaluationModal({
       onSettled: () => setAiPending(prev => new Set([...prev].filter(id => !ids.includes(id)))),
     })
   }
-  // Điểm AI định lượng nằm trên thang đánh giá (cùng thang ô chấm); lượt cũ trước 30/09 còn ở thang trọng số thô.
-  const aiText = (s: Submission, item?: AiReviewItem) => {
-    if (!item) return null
-    if (isQual(s)) return item.suggestedLevel ?? item.qualityLevel ?? null
-    if (item.suggestedScore == null) return null
-    return formatNumber(Math.round(item.maxPoints != null ? item.suggestedScore : item.suggestedScore * normFactor))
-  }
+  // Điểm AI: chỉ chất lượng, trên thang riêng do công ty đặt (13/10) — định lượng và định tính giống nhau.
+  const aiScoreOf = (item?: AiReviewItem) =>
+    item?.suggestedScore != null && item.maxPoints != null ? { score: item.suggestedScore, max: item.maxPoints } : null
 
   // Chấm màu ở đầu cột bảng và ở dòng tóm tắt trên điện thoại — cùng một bên chấm, cùng một màu.
   const SCORER_COLORS = { system: NEUTRAL_COLOR, manager: seriesColor(1), ai: seriesColor(4), boss: seriesColor(2) }
@@ -553,7 +558,7 @@ export default function StaffEvaluationModal({
    * - tạm dừng → nhãn, không có nút;
    * - đang chấm → quay;
    * - chưa có / lỗi → "Gợi ý" / "Thử lại" chấm riêng chỉ tiêu đó;
-   * - có điểm → điểm + cột tin cậy, dưới là "Xem cách AI chấm" và "Chấm lại bài này".
+   * - có điểm → thanh điểm / tối đa + con mắt mở "Cách AI chấm" (chấm lại ở chân hộp đó).
    * `compact` cho dòng tóm tắt trên điện thoại (nút chỉ còn biểu tượng).
    */
   const aiCell = (s: Submission, compact = false) => {
@@ -573,8 +578,8 @@ export default function StaffEvaluationModal({
       )
     }
     const item = aiUsable(s)
-    const text = aiText(s, item)
-    if (!item || text == null) {
+    const scored = aiScoreOf(item)
+    if (!item || !scored) {
       const failed = aiRowFailed(s)
       return (
         <Button size="sm" variant="outline" type="button" className={cn(aiButtonCls, compact && 'h-7 px-2')}
@@ -586,37 +591,16 @@ export default function StaffEvaluationModal({
         </Button>
       )
     }
-    // Điểm + cột tin cậy gói trong một viên tông AI; hai thao tác nhỏ cùng cỡ chữ đứng ngay dưới, canh phải theo cột.
-    const score = (
-      <span className="inline-flex items-center gap-2 rounded-full bg-[var(--color-ai-soft)] py-0.5 pl-2.5 pr-2">
-        <span className="text-sm font-semibold leading-5 tabular-nums text-[var(--color-ai)]">{text}</span>
-        <AiConfidenceBars level={item.confidence} />
-      </span>
-    )
-    const detailButton = (
-      <Button variant="ghost" size={compact ? 'icon-sm' : 'sm'} type="button" onClick={() => setAiDetailFor(s)}
-              title={t('ScorerColumns.aiDetail')} aria-label={`${t('ScorerColumns.aiDetail')}: ${s.kpiCriteriaName}`}
-              className={cn('text-[var(--color-ai)] hover:bg-[var(--color-ai-soft)]',
-                compact ? 'h-6 w-6' : 'h-6 gap-1 px-1.5 text-xs font-medium [&_svg]:size-3.5')}>
-        <Eye aria-hidden="true" />{!compact && t('ScorerColumns.aiDetail')}
-      </Button>
-    )
-    const rescoreButton = (
-      <Button variant="ghost" size="icon-sm" type="button" onClick={() => askAiFor([s.kpiCriteriaId], true)}
-              title={t('ScorerColumns.aiRescoreRow')} aria-label={`${t('ScorerColumns.aiRescoreRow')}: ${s.kpiCriteriaName}`}
-              className="h-6 w-6 text-[var(--color-subtle-foreground)] hover:bg-[var(--color-ai-soft)] hover:text-[var(--color-ai)] [&_svg]:size-3.5">
-        <RefreshCw aria-hidden="true" />
-      </Button>
-    )
-    if (compact) return <span className="inline-flex items-center gap-1">{score}{detailButton}{rescoreButton}</span>
+    // Một hàng: thanh điểm, cạnh đó chỉ một con mắt mở "Cách AI chấm" (chấm lại nằm ở chân hộp đó). Mức tin
+    // cậy cũng ở trong hộp — nó đi theo chất lượng nên trùng thông tin với thanh.
     return (
-      <span className="inline-flex flex-col items-end gap-1">
-        {score}
-        <span className="inline-flex items-center">
-          {detailButton}
-          <span className="mx-0.5 h-3 w-px bg-[var(--color-border)]" aria-hidden="true" />
-          {rescoreButton}
-        </span>
+      <span className="inline-flex items-center gap-1.5">
+        <AiScoreBar score={scored.score} max={scored.max} compact={compact} />
+        <Button variant="ghost" size="icon-sm" type="button" onClick={() => setAiDetailFor(s)}
+                title={t('ScorerColumns.aiDetail')} aria-label={`${t('ScorerColumns.aiDetail')}: ${s.kpiCriteriaName}`}
+                className="h-7 w-7 text-[var(--color-subtle-foreground)] hover:bg-[var(--color-ai-soft)] hover:text-[var(--color-ai)] [&_svg]:size-4">
+          <Eye aria-hidden="true" />
+        </Button>
       </span>
     )
   }

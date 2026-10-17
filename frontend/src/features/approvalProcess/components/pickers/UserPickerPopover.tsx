@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input'
 import UserAvatar from '@/components/common/UserAvatar'
 import { useDebounce } from '@/hooks/useDebounce'
-import { userApi } from '@/features/users/api/userApi'
+import { usePeopleSearch } from './peopleSearch'
 import { cn } from '@/lib/utils'
 import type { PersonRef } from '../../types'
 import { Chip, pickerTriggerCls } from './MultiSelectPopover'
@@ -28,9 +28,10 @@ export default function UserPickerPopover({
   const [open, setOpen] = useState(false)
   const [keyword, setKeyword] = useState('')
   const debounced = useDebounce(keyword.trim(), 300)
+  const peopleSearch = usePeopleSearch()
   const { data, isFetching } = useQuery({
-    queryKey: ['approval-processes', 'user-search', debounced],
-    queryFn: () => userApi.getAll({ page: 0, size: 10, keyword: debounced || undefined }),
+    queryKey: ['approval-processes', 'user-search', peopleSearch.key, debounced],
+    queryFn: () => peopleSearch.search(debounced),
     enabled: open,
     staleTime: 30_000,
   })
@@ -71,10 +72,10 @@ export default function UserPickerPopover({
           />
         </div>
         <div role="listbox" aria-multiselectable className="max-h-72 overflow-y-auto p-1">
-          {(data?.content ?? []).length === 0 && (
+          {(data ?? []).length === 0 && (
             <p className="px-2.5 py-2 text-caption">{isFetching ? t('pickers.searching') : t('pickers.noResults')}</p>
           )}
-          {(data?.content ?? []).map((u) => {
+          {(data ?? []).map((u) => {
             const on = selected.has(u.id)
             return (
               <button
@@ -82,16 +83,16 @@ export default function UserPickerPopover({
                 type="button"
                 role="option"
                 aria-selected={on}
-                onClick={() => toggle({ id: u.id, name: u.fullName, avatarUrl: u.avatarUrl })}
+                onClick={() => toggle({ id: u.id, name: u.name, avatarUrl: u.avatarUrl })}
                 className={cn(
                   'flex w-full items-center gap-2.5 rounded-control px-2.5 py-1.5 text-left hover:bg-[var(--color-muted)]',
                   on && 'bg-[var(--color-primary-soft)]',
                 )}
               >
-                <UserAvatar fullName={u.fullName} avatarUrl={u.avatarUrl} className="h-7 w-7 rounded-full text-xs" fallbackClassName="bg-[var(--color-primary-soft)] font-semibold text-[var(--color-primary)]" />
+                <UserAvatar fullName={u.name} avatarUrl={u.avatarUrl} className="h-7 w-7 rounded-full text-xs" fallbackClassName="bg-[var(--color-primary-soft)] font-semibold text-[var(--color-primary)]" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{u.fullName}</span>
-                  <span className="block truncate text-caption">{u.email}</span>
+                  <span className="block truncate text-sm font-medium">{u.name}</span>
+                  <span className="block truncate text-caption">{u.detail}</span>
                 </span>
                 {on && <Check size={16} aria-hidden="true" className="shrink-0 text-[var(--color-primary)]" />}
               </button>

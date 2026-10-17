@@ -85,6 +85,9 @@ public class BscGoalGraphService {
                                           String status, Collection<String> perspectiveCodes, Integer limit) {
         var scope = scopeResolver.resolve(orgUnitId, periodIds);
         UUID orgId = scope.orgId();
+        // "Tất cả đơn vị" = đơn vị CAO NHẤT trong phạm vi xem. resolveScorecard chỉ nhận MỘT đơn vị
+        // và không đi ngược lên cha, nên để null là chắc chắn không ra bộ tiêu chí nào.
+        if (orgUnitId == null) orgUnitId = scopeResolver.topUnitId(scope);
         BscGoalGraphResponse.BscGoalGraphResponseBuilder b = BscGoalGraphResponse.builder()
                 .thresholds(Thresholds.builder().good(GOOD_THRESHOLD).warn(WARN_THRESHOLD).build())
                 .perspectives(List.of()).objectives(List.of()).edges(List.of());
@@ -173,6 +176,9 @@ public class BscGoalGraphService {
     public BscObjectiveContributorsResponse contributors(UUID itemId, UUID orgUnitId, Collection<UUID> periodIds) {
         var scope = scopeResolver.resolve(orgUnitId, periodIds);
         UUID orgId = scope.orgId();
+        // "Tất cả đơn vị" = đơn vị CAO NHẤT trong phạm vi xem. resolveScorecard chỉ nhận MỘT đơn vị
+        // và không đi ngược lên cha, nên để null là chắc chắn không ra bộ tiêu chí nào.
+        if (orgUnitId == null) orgUnitId = scopeResolver.topUnitId(scope);
         BscObjectiveContributorsResponse.BscObjectiveContributorsResponseBuilder b =
                 BscObjectiveContributorsResponse.builder().units(List.of()).people(List.of()).kpis(List.of());
         if (orgId == null) return b.build();

@@ -47,6 +47,7 @@ public class BscResultService {
     private final BscCascadeService bscCascadeService;
     private final ApplicationEventPublisher eventPublisher;
     private final BscSourceScores sourceScores;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalViewService approvalView;
 
     // ============================================================
     // Waterfall
@@ -212,7 +213,18 @@ public class BscResultService {
                 .finalizedAt(r.getFinalizedAt())
                 .provisionalSource(r.getProvisionalSource())
                 .items(items)
+                .approval(pendingFinalize(r))
                 .build();
+    }
+
+    /** Yêu cầu chốt đang chờ duyệt theo quy trình, tính cho người đang xem (chạy nền thì bỏ qua). */
+    private com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse pendingFinalize(BscUnitResult r) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || r.getScorecard() == null || r.getKpiPeriod() == null
+                || r.getStatus() != com.kpitracking.enums.BscUnitResultStatus.DRAFT) return null;
+        UUID subjectId = BscCascadeService.resultSubjectId(r.getScorecard().getId(), r.getKpiPeriod().getId());
+        return approvalView.summariesForSubjects(com.kpitracking.enums.ApprovalSubjectType.BSC_RESULT, List.of(subjectId),
+                approvalView.currentUser().getId()).get(subjectId);
     }
 
     // ============================================================

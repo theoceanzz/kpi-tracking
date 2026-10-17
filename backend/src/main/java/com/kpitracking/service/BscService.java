@@ -70,6 +70,8 @@ public class BscService {
     private final OrgCodeRuleService orgCodeRuleService;
     private final BscAccessGuard accessGuard;
     private final com.kpitracking.repository.BscUnitResultRepository unitResultRepository;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalViewService approvalView;
 
     // ============================================================
     // Perspectives (lĩnh vực) — danh mục cấu hình theo org
@@ -283,15 +285,41 @@ public class BscService {
 
     @Transactional(readOnly = true)
     public List<ScorecardResponse> getScorecards(UUID organizationId) {
-        return scorecardRepository.findByOrganizationIdOrderByCreatedAtDesc(organizationId).stream()
+        List<ScorecardResponse> out = scorecardRepository.findByOrganizationIdOrderByCreatedAtDesc(organizationId).stream()
                 .map(this::mapToScorecardResponse)
                 .collect(Collectors.toList());
+        attachApproval(out);
+        return out;
+    }
+
+    /** Thẻ đang chờ duyệt theo quy trình "Lập và phê duyệt thẻ điểm": bước hiện tại — một truy vấn cho cả danh sách. */
+    private void attachApproval(List<ScorecardResponse> responses) {
+        List<UUID> pending = responses.stream().filter(r -> r.getStatus() == BscScorecardStatus.SUBMITTED)
+                .map(ScorecardResponse::getId).toList();
+        User me = getCurrentUserOrNull();
+        if (pending.isEmpty() || me == null) return;
+        var byId = approvalView.summariesForSubjects(com.kpitracking.enums.ApprovalSubjectType.BSC_SCORECARD, pending, me.getId());
+        responses.forEach(r -> r.setApproval(byId.get(r.getId())));
+    }
+
+    /** Thẻ đang đi quy trình duyệt: nội dung người duyệt đang xem phải đứng yên tới khi có kết quả. */
+    private void assertNotAwaitingProcess(UUID scorecardId) {
+        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.ApprovalSubjectType.BSC_SCORECARD, scorecardId).isPresent()) {
+            throw new BusinessException(ErrorCode.BSC_SCORECARD_IN_APPROVAL_PROCESS);
+        }
+    }
+
+    /** Có quy trình duyệt thẻ đang bật ⇒ không đặt thẳng trạng thái (tạo / sửa / nhập file), phải trình. */
+    private boolean statusShortcutBlocked(UUID organizationId) {
+        return approvalChain.hasActiveProcess(organizationId, com.kpitracking.enums.ApprovalObjectType.BSC_SCORECARD);
     }
 
     @Transactional(readOnly = true)
     public ScorecardResponse getScorecardById(UUID scorecardId) {
-        return mapToScorecardResponse(scorecardRepository.findById(scorecardId)
+        ScorecardResponse r = mapToScorecardResponse(scorecardRepository.findById(scorecardId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.scorecard"))));
+        attachApproval(List.of(r));
+        return r;
     }
 
     @Transactional
@@ -316,7 +344,7 @@ public class BscService {
                 .vision(request.getVision())
                 // Trạng thái KHÔNG nhận từ client trừ khi người tạo có quyền duyệt: bộ tiêu chí mới
                 // phải bắt đầu ở NHÁP rồi đi qua trình – duyệt, không thì luồng duyệt vô nghĩa.
-                .status(accessGuard.canApprove() && request.getStatus() != null
+                .status(accessGuard.canApprove() && request.getStatus() != null && !statusShortcutBlocked(organizationId)
                         ? request.getStatus() : BscScorecardStatus.DRAFT)
                 .scoringMode(request.getScoringMode() != null ? request.getScoringMode() : BscScoringMode.SHADOW)
                 .emptyPerspectivePolicy(request.getEmptyPerspectivePolicy() != null
@@ -353,6 +381,7 @@ public class BscService {
         BscScorecard scorecard = scorecardRepository.findById(scorecardId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.scorecard")));
         accessGuard.assertCanEdit(scorecard);
+        assertNotAwaitingProcess(scorecardId);
         validateWeights(request.getPerspectives());
 
         // Phạm vi thời gian (đợt/kỳ) sửa được; phạm vi phòng ban thì không. Bỏ qua nếu client
@@ -384,7 +413,8 @@ public class BscService {
         // điểm theo thẻ đó không hề biết nó vừa bị rút lại.
         boolean statusEditable = scorecard.getStatus() == BscScorecardStatus.DRAFT
                 || scorecard.getStatus() == BscScorecardStatus.ARCHIVED;
-        if (request.getStatus() != null && statusEditable && accessGuard.canApprove()) {
+        if (request.getStatus() != null && statusEditable && accessGuard.canApprove()
+                && !statusShortcutBlocked(scorecard.getOrganization().getId())) {
             scorecard.setStatus(request.getStatus());
         }
         if (request.getScoringMode() != null) scorecard.setScoringMode(request.getScoringMode());
@@ -467,6 +497,14 @@ public class BscService {
         if (blocked != null) throw blocked;
         scorecard.setDeletedAt(Instant.now());
         scorecardRepository.save(scorecard);
+        // Thẻ không còn ⇒ yêu cầu duyệt thẻ / chốt kết quả đang chờ của nó cũng thôi.
+        User actor = getCurrentUserOrNull();
+        com.kpitracking.i18n.LocalizedText reason = com.kpitracking.i18n.LocalizedText.of("approvalEvent.reason.scorecardDeleted");
+        approvalChain.cancelRunningSubject(com.kpitracking.enums.ApprovalSubjectType.BSC_SCORECARD, scorecardId, actor, reason);
+        for (com.kpitracking.entity.KpiPeriod p : effectivePeriodsOf(scorecard)) {
+            approvalChain.cancelRunningSubject(com.kpitracking.enums.ApprovalSubjectType.BSC_RESULT,
+                    BscCascadeService.resultSubjectId(scorecardId, p.getId()), actor, reason);
+        }
     }
 
     /**
@@ -1055,7 +1093,7 @@ public class BscService {
                 scorecard.setLevel(resolveLevel(targetUnits));
                 scorecard.setName(g.name);
                 if (g.vision != null) scorecard.setVision(g.vision);
-                if (g.statusStr != null && !g.statusStr.isBlank()) {
+                if (g.statusStr != null && !g.statusStr.isBlank() && !statusShortcutBlocked(organizationId)) {
                     try { scorecard.setStatus(BscScorecardStatus.valueOf(g.statusStr.trim().toUpperCase())); } catch (Exception ignored) {}
                 }
                 if (g.modeStr != null && !g.modeStr.isBlank()) {

@@ -8,6 +8,7 @@ import com.kpitracking.entity.Organization;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.repository.AiCriteriaSetItemRepository;
 import com.kpitracking.repository.AiCriteriaSetRepository;
+import com.kpitracking.repository.AiReviewLevelRepository;
 import com.kpitracking.repository.AiReviewUnitSettingRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.RagDocumentRepository;
@@ -44,27 +45,50 @@ public class AiReviewSettingsResolver {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final OrgUnitRepository orgUnitRepository;
     private final RagDocumentRepository ragDocumentRepository;
+    private final AiReviewLevelRepository levelRepository;
 
     /** Cấu hình hiệu lực. {@code source} nói nó đến từ đâu, để màn hình giải thích được. */
-    public record Effective(boolean enabled, ReviewContext.Weights weights, UUID fromUnitId, String source) {}
+    public record Effective(boolean enabled, UUID fromUnitId, String source) {}
+
+    /**
+     * Thang điểm AI của công ty (V48) và điểm tối đa (= điểm mức cao nhất). Trống khi chưa cấu hình: khi đó AI không được
+     * hỏi mức (như thang định tính trống trước đây) nên không ra điểm.
+     */
+    public record AiScale(List<ReviewContext.QualityLevel> levels, java.math.BigDecimal max) {
+        public static final AiScale EMPTY = new AiScale(List.of(), null);
+    }
+
+    /** MỘT chỗ dựng thang AI — luồng chấm, đọc kết quả và báo cáo lệch đều đi qua đây. */
+    @Transactional(readOnly = true)
+    public AiScale aiScale(UUID organizationId) {
+        return scaleOf(levelRepository.findByOrganizationIdOrderByPositionAsc(organizationId));
+    }
+
+    static AiScale scaleOf(List<com.kpitracking.entity.AiReviewLevel> rows) {
+        double max = rows.stream().mapToDouble(l -> l.getPoints() == null ? 0 : l.getPoints().doubleValue()).max().orElse(0);
+        if (max <= 0) return AiScale.EMPTY;
+        List<ReviewContext.QualityLevel> levels = rows.stream()
+                .sorted(Comparator.comparing((com.kpitracking.entity.AiReviewLevel l) -> l.getPoints())
+                        .thenComparing(com.kpitracking.entity.AiReviewLevel::getPosition))
+                .map(l -> new ReviewContext.QualityLevel(l.getName(), l.getPoints().doubleValue() * 100.0 / max,
+                        l.getPosition() == null ? 0 : l.getPosition(), l.getPoints().doubleValue(), l.getDescription()))
+                .toList();
+        return new AiScale(levels, java.math.BigDecimal.valueOf(max).setScale(2, java.math.RoundingMode.HALF_UP));
+    }
 
     @Transactional(readOnly = true)
     public Effective resolve(Organization org, UUID userId) {
-        ReviewContext.Weights companyWeights = new ReviewContext.Weights(
-                nz(org.getAiReviewWeightTarget(), 60), nz(org.getAiReviewWeightQuality(), 30), nz(org.getAiReviewWeightOnTime(), 10));
         boolean companyOn = Boolean.TRUE.equals(org.getEnableAi()) && Boolean.TRUE.equals(org.getEnableAiReview());
-        if (!companyOn) return new Effective(false, companyWeights, null, "Công ty");
+        if (!companyOn) return new Effective(false, null, "Công ty");
 
         String path = primaryUnitPath(userId);
         Map<UUID, String> paths = unitPaths(org.getId());
         Optional<AiReviewUnitSetting> nearest = unitSettingRepository.findByOrganizationId(org.getId()).stream()
                 .filter(s -> path != null && paths.get(s.getOrgUnitId()) != null && path.startsWith(paths.get(s.getOrgUnitId())))
                 .max(Comparator.comparingInt(s -> paths.get(s.getOrgUnitId()).length()));
-        if (nearest.isEmpty()) return new Effective(true, companyWeights, null, "Công ty");
+        if (nearest.isEmpty()) return new Effective(true, null, "Công ty");
         AiReviewUnitSetting s = nearest.get();
-        return new Effective(Boolean.TRUE.equals(s.getEnabled()),
-                new ReviewContext.Weights(s.getWeightTarget(), s.getWeightQuality(), s.getWeightOnTime()),
-                s.getOrgUnitId(), "Đơn vị");
+        return new Effective(Boolean.TRUE.equals(s.getEnabled()), s.getOrgUnitId(), "Đơn vị");
     }
 
     /** Bộ tiêu chí đã xác nhận áp cho người này, hoặc {@code null}. */
@@ -131,9 +155,5 @@ public class AiReviewSettingsResolver {
         Map<UUID, String> out = new HashMap<>();
         for (OrgUnit u : orgUnitRepository.findSubtree("/", organizationId)) out.put(u.getId(), u.getPath());
         return out;
-    }
-
-    private static int nz(Integer v, int dflt) {
-        return v == null ? dflt : v;
     }
 }

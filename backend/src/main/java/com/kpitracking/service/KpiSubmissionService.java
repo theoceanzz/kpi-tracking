@@ -11,6 +11,8 @@ import com.kpitracking.dto.response.submission.SubmissionResponse;
 import com.kpitracking.entity.KpiCriteria;
 import com.kpitracking.entity.KpiSubmission;
 import com.kpitracking.entity.User;
+import com.kpitracking.enums.ApprovalOutcome;
+import com.kpitracking.enums.ApprovalSubjectType;
 import com.kpitracking.enums.KpiFrequency;
 import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.enums.SubmissionStatus;
@@ -21,10 +23,12 @@ import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.i18n.Terms;
 import com.kpitracking.mapper.SubmissionMapper;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
+import com.kpitracking.service.kpi.approval.KpiApprovalChainService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -39,6 +43,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -60,6 +65,8 @@ public class KpiSubmissionService {
     private final EvaluationRepository evaluationRepository;
     /** Giữ điểm từng chỉ tiêu theo TỪNG người chấm (Quản lý / Sếp) — xem SubmissionScoreLedger. */
     private final SubmissionScoreLedger scoreLedger;
+    private final KpiApprovalChainService approvalChain;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalViewService approvalView;
     private final com.kpitracking.repository.KpiAdjustmentRequestRepository adjustmentRepository;
 
     private User getCurrentUser() {
@@ -337,6 +344,9 @@ public class KpiSubmissionService {
         if (finalStatus != SubmissionStatus.DRAFT) {
             linkResubmission(openReturns, submission);
         }
+        if (finalStatus == SubmissionStatus.PENDING) {
+            approvalChain.startSubmission(submission, currentUser);
+        }
 
         eventPublisher.publishEvent(new KpiSubmittedEvent(this, submission));
 
@@ -374,7 +384,45 @@ public class KpiSubmissionService {
         List<SubmissionResponse> out = subPage.getContent().stream().map(s -> mapToResponse(s, managerMemo)).toList();
         markResubmissions(out);
         markPausePending(out);
+        markApproval(out);
         return out;
+    }
+
+    /** Gắn bước duyệt hiện tại (quy trình "Báo cáo kết quả KPI") vào các bài đang chờ — một truy vấn cho cả trang. */
+    private void markApproval(List<SubmissionResponse> responses) {
+        List<UUID> pending = responses.stream().filter(r -> r.getStatus() == SubmissionStatus.PENDING)
+                .map(SubmissionResponse::getId).toList();
+        if (pending.isEmpty()) return;
+        java.util.Map<UUID, com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse> byId =
+                approvalView.summariesForSubjects(ApprovalSubjectType.SUBMISSION, pending, getCurrentUser().getId());
+        responses.forEach(r -> r.setApproval(byId.get(r.getId())));
+    }
+
+    /** Bài đang chờ ĐÚNG người gọi ở bước hiện tại của quy trình duyệt — cũ trước. */
+    @Transactional(readOnly = true)
+    public List<SubmissionResponse> awaitingMyApproval() {
+        User me = getCurrentUser();
+        List<UUID> ids = approvalView.inboxFlows(me.getId(), ApprovalSubjectType.SUBMISSION).stream()
+                .map(com.kpitracking.entity.KpiApprovalFlow::getSubjectId).toList();
+        if (ids.isEmpty()) return List.of();
+        List<SubmissionResponse> out = new ArrayList<>(submissionRepository.findAllById(ids).stream()
+                .filter(s -> s.getDeletedAt() == null && s.getStatus() == SubmissionStatus.PENDING)
+                .map(this::mapToResponse).toList());
+        markApproval(out);
+        out.sort(java.util.Comparator.comparing((SubmissionResponse r) -> r.getApproval() == null ? null : r.getApproval().getPendingSince(),
+                java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
+        return out;
+    }
+
+    /** Chuỗi duyệt của bài nộp — ai xem được bài thì xem được chuỗi. */
+    @Transactional(readOnly = true)
+    public com.kpitracking.dto.response.kpi.approval.KpiApprovalChainResponse approvalChain(UUID submissionId) {
+        User me = getCurrentUser();
+        KpiSubmission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.submission"), "id", submissionId));
+        requireCanView(me, submission);
+        return approvalView.chainOfSubject(ApprovalSubjectType.SUBMISSION, submission.getId(),
+                submission.getKpiCriteria().getName(), me.getId());
     }
 
     /**
@@ -537,6 +585,9 @@ public class KpiSubmissionService {
         }
 
         submission = submissionRepository.save(submission);
+        if (submission.getStatus() == SubmissionStatus.PENDING) {
+            approvalChain.startSubmission(submission, currentUser);
+        }
         return mapToResponse(submission);
     }
 
@@ -546,15 +597,46 @@ public class KpiSubmissionService {
         KpiSubmission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.submission"), "id", submissionId));
 
+        requireCanView(currentUser, submission);
+
+        SubmissionResponse response = mapToResponse(submission);
+        markApproval(List.of(response));
+        return response;
+    }
+
+    private void requireCanView(User currentUser, KpiSubmission submission) {
         boolean isGlobalAdmin = permissionChecker.isGlobalAdminIn(currentUser.getId(), submission.getOrgUnit().getId());
         boolean hasReviewPermission = permissionChecker.hasAnyPermissionInOrgUnit(currentUser.getId(), submission.getOrgUnit().getId(), "SUBMISSION:REVIEW");
         boolean isSubmitter = submission.getSubmittedBy().getId().equals(currentUser.getId());
 
-        if (!isGlobalAdmin && !hasReviewPermission && !isSubmitter) {
+        // Người giữ bước (hoặc đã duyệt một bước) của quy trình duyệt bài này xem được dù không quản lý đơn vị.
+        if (!isGlobalAdmin && !hasReviewPermission && !isSubmitter
+                && !approvalChain.isSubjectViewer(ApprovalSubjectType.SUBMISSION, submission.getId(), currentUser.getId())) {
             throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_SUBMISSION);
         }
+    }
 
-        return mapToResponse(submission);
+    /**
+     * Bài đang đi quy trình "Báo cáo kết quả KPI": người bấm phải giữ bước hiện tại (khoá flow, kiểm
+     * như mọi chuỗi duyệt — admin chỉ gán lại, không tự duyệt bài mình). Không có quy trình ⇒ luật
+     * cũ {@link #requireCanReview} và trả {@code null}.
+     */
+    private KpiApprovalChainService.Decision flowDecision(User actor, KpiSubmission submission) {
+        Optional<UUID> flowId = approvalChain.runningSubjectFlowId(ApprovalSubjectType.SUBMISSION, submission.getId());
+        if (flowId.isEmpty()) {
+            requireCanReview(actor, submission);
+            return null;
+        }
+        return approvalChain.authorize(flowId.get(), actor, null);
+    }
+
+    /** Ghi quyết định lên chuỗi. {@code true}: chuỗi đã kết thúc (duyệt cuối / từ chối), bài nhận trạng thái đích. */
+    private boolean advanceFlow(KpiApprovalChainService.Decision decision, User actor, SubmissionStatus target, String note) {
+        if (target == SubmissionStatus.REJECTED) {
+            approvalChain.reject(decision, actor, note);
+            return true;
+        }
+        return approvalChain.approve(decision, actor, note) == ApprovalOutcome.FINAL;
     }
 
     /**
@@ -609,12 +691,8 @@ public class KpiSubmissionService {
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.submission"), "id", submissionId));
         cycleStatusGuard.assertWritable(submission.getKpiCriteria());
 
-        requireCanReview(currentUser, submission);
-
-        submission.setStatus(resolveReviewStatus(submission, currentUser, request.getStatus()));
-        submission.setReviewedBy(currentUser);
-        submission.setReviewNote(request.getReviewNote());
-        submission.setReviewedAt(Instant.now());
+        KpiApprovalChainService.Decision decision = flowDecision(currentUser, submission);
+        SubmissionStatus target = resolveReviewStatus(submission, currentUser, request.getStatus());
 
         // Qualitative KPIs are scored by the reviewer picking a level from the org's
         // qualitative scale; the level's value is normalized into the same weighted
@@ -626,6 +704,18 @@ public class KpiSubmissionService {
         } else {
             submission.setManagerScore(request.getManagerScore());
         }
+
+        if (decision != null && !advanceFlow(decision, currentUser, target, request.getReviewNote())) {
+            // Duyệt một bước giữa của quy trình: điểm vào sổ theo người chấm, bài vẫn chờ bước kế.
+            submission = submissionRepository.save(submission);
+            scoreLedger.record(submission, currentUser);
+            return mapToResponse(submission);
+        }
+
+        submission.setStatus(target);
+        submission.setReviewedBy(currentUser);
+        submission.setReviewNote(request.getReviewNote());
+        submission.setReviewedAt(Instant.now());
 
         submission = submissionRepository.save(submission);
         scoreLedger.record(submission, currentUser);
@@ -688,10 +778,12 @@ public class KpiSubmissionService {
         // Find existing parent submission
         List<KpiSubmission> parentSubs = submissionRepository.findByKpiCriteriaIdAndSubmittedByIdAndDeletedAtIsNull(parentKpi.getId(), parentAssignee.getId());
         KpiSubmission parentSub;
+        boolean becamePending = parentSubs.isEmpty();
         if (!parentSubs.isEmpty()) {
             parentSub = parentSubs.get(0);
             if (parentSub.getStatus() == SubmissionStatus.DRAFT) {
                 parentSub.setStatus(SubmissionStatus.PENDING);
+                becamePending = true;
             }
         } else {
             parentSub = KpiSubmission.builder()
@@ -719,7 +811,9 @@ public class KpiSubmissionService {
             parentSub.setNote(ErrorMessages.text("submission.parentUpdated", ""));
         }
 
-        return submissionRepository.save(parentSub);
+        parentSub = submissionRepository.save(parentSub);
+        if (becamePending) approvalChain.startSubmission(parentSub, parentAssignee);
+        return parentSub;
     }
 
     /** Resolve the org qualitative level, set it on the submission and derive the weighted managerScore. */
@@ -754,7 +848,16 @@ public class KpiSubmissionService {
             // Kiểm TỪNG bản một, không kiểm một lần cho cả lô: danh sách id do client gửi lên và
             // không có gì buộc chúng thuộc cùng một đơn vị. Kiểm theo bản đầu rồi cho qua phần còn
             // lại chính là lỗ hổng cũ mặc một cái áo mới.
-            requireCanReview(currentUser, submission);
+            KpiApprovalChainService.Decision decision;
+            try {
+                decision = flowDecision(currentUser, submission);
+            } catch (ForbiddenException e) {
+                // Bài đang chờ bước của người khác trong quy trình duyệt: phiếu đánh giá không duyệt
+                // thay, để nguyên cho người giữ bước. Không có quy trình thì vẫn là lỗi quyền như cũ.
+                if (approvalChain.runningSubjectFlowId(ApprovalSubjectType.SUBMISSION, id).isEmpty()) throw e;
+                results.add(mapToResponse(submission));
+                continue;
+            }
 
             // Apply individual overrides
             if (request.getIndividualReviews() != null) {
@@ -783,8 +886,15 @@ public class KpiSubmissionService {
             // Cùng một cửa với đường đơn lẻ: trạng thái đích do bảng chuyển quyết định, không do
             // client. Nếu không, chỉ cần đổi sang gọi bản hàng loạt là lách được máy trạng thái —
             // đúng kiểu lỗ hổng mà chốt chặn quyền ở trên đã từng mắc.
-            submission.setStatus(resolveReviewStatus(submission, currentUser,
-                    request.getCommonReview() != null ? request.getCommonReview().getStatus() : SubmissionStatus.APPROVED));
+            SubmissionStatus target = resolveReviewStatus(submission, currentUser,
+                    request.getCommonReview() != null ? request.getCommonReview().getStatus() : SubmissionStatus.APPROVED);
+            if (decision != null && !advanceFlow(decision, currentUser, target, submission.getReviewNote())) {
+                KpiSubmission forwarded = submissionRepository.save(submission);
+                scoreLedger.record(forwarded, currentUser);
+                results.add(mapToResponse(forwarded));
+                continue;
+            }
+            submission.setStatus(target);
             submission.setReviewedBy(currentUser);
             submission.setReviewedAt(Instant.now());
 
@@ -878,6 +988,8 @@ public class KpiSubmissionService {
 
         submission.setDeletedAt(Instant.now());
         submissionRepository.save(submission);
+        approvalChain.cancelRunningSubject(ApprovalSubjectType.SUBMISSION, submission.getId(), currentUser,
+                LocalizedText.of("approvalEvent.reason.submissionDeleted"));
 
         // Đây là bài nộp thay cho một bài bị trả lại ⇒ bài đó lại "đang chờ nộp lại" (nếu còn hạn).
         for (KpiSubmission returned : submissionRepository.findByResubmissionId(submission.getId())) {
@@ -905,8 +1017,9 @@ public class KpiSubmissionService {
         KpiCriteria kpi = submission.getKpiCriteria();
         cycleStatusGuard.assertWritable(kpi);
 
-        // Cùng cửa quyền với duyệt/từ chối: SUBMISSION:REVIEW trong đơn vị và đứng trên người nộp.
-        requireCanReview(currentUser, submission);
+        // Cùng cửa quyền với duyệt/từ chối: SUBMISSION:REVIEW trong đơn vị và đứng trên người nộp —
+        // hoặc, khi bài đang đi quy trình duyệt, người giữ bước hiện tại.
+        boolean inFlow = flowDecision(currentUser, submission) != null;
 
         if (kpi.getStatus() != KpiStatus.APPROVED && kpi.getStatus() != KpiStatus.EDITED) {
             throw new BusinessException(ErrorCode.SUBMISSION_RETURN_KPI_NOT_ACTIVE, kpi.getName());
@@ -948,6 +1061,10 @@ public class KpiSubmissionService {
         submission.setResubmitDeadline(request.getResubmitDeadline());
         submission.setResubmission(null);
         submission = submissionRepository.save(submission);
+        if (inFlow) {
+            approvalChain.cancelRunningSubject(ApprovalSubjectType.SUBMISSION, submission.getId(), currentUser,
+                    LocalizedText.of("approvalEvent.reason.submissionReturned"));
+        }
 
         // Bài vừa trả lại từng được duyệt ⇒ KPI cha (chế độ thác nước) phải cộng lại, bỏ phần của nó.
         if (wasApproved && kpi.getParent() != null) {

@@ -74,4 +74,6 @@ public class CycleUnitEvaluationResponse {
     private com.kpitracking.dto.response.stats.UnitClassificationResponses.CycleCurveResponse bellCurve;
 
     private List<CycleUserEvaluationResponse> members;
+    /** Yêu cầu chốt đang chờ duyệt theo quy trình "Chốt kỳ và công nhận kết quả". */
+    private com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse approval;
 }

@@ -1,4 +1,5 @@
 import {
+  FileSignature,
   Workflow,
   GitBranch,
   LayoutDashboard,
@@ -40,6 +41,7 @@ import {
   UserCircle,
   HeartHandshake,
   ArrowRightLeft,
+  Inbox,
 } from 'lucide-react'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
@@ -218,6 +220,8 @@ export const navItems = perLanguage((): NavItem[] => ([
     matchPrefix: true,
     labelKey: 'performance',
     sections: [
+      // Mọi người đăng nhập: người giữ bước của một quy trình duyệt có thể là bất kỳ ai được chỉ định.
+      { id: 'process-approvals', label: i18n.t('layout:navigation.processApprovals'), icon: <Inbox size={18} />, group: i18n.t('layout:navigation.kpis'), description: i18n.t('layout:navigation.processApprovalsDescription') },
       { id: 'kpi-criteria', label: i18n.t('layout:navigation.kpiSetup'), icon: <Target size={18} />, permission: 'KPI:VIEW', legacyKeys: ['/kpi-criteria'], group: i18n.t('layout:navigation.kpis'), description: i18n.t('layout:navigation.createAndAssignKpisToEmployees') },
       { id: 'kpi-criteria-pending', label: i18n.t('layout:navigation.kpiApproval'), icon: <ClipboardCheck size={18} />, permission: 'KPI:APPROVE_CRITERIA', legacyKeys: ['/kpi-criteria/pending'], group: i18n.t('layout:navigation.kpis'), description: i18n.t('layout:navigation.queueOfKpisSubmittedBySubordinates') },
       { id: 'kpi-adjustments-pending', label: i18n.t('layout:navigation.kpiAdjustments'), icon: <MessageSquare size={18} />, permission: 'KPI:APPROVE_ADJUSTMENT', legacyKeys: ['/kpi-adjustments/pending', '/kpi-criteria/adjustments'], group: i18n.t('layout:navigation.kpis'), description: i18n.t('layout:navigation.pendingRequestsToChangeKpisMid') },
@@ -263,35 +267,18 @@ export const navItems = perLanguage((): NavItem[] => ([
     icon: <TrendingUp size={20} />,
     permission: 'DASHBOARD:VIEW',
     end: true,
-    sections: [
-      // Cặp OKR và cặp KPI loại trừ nhau theo cờ `enableOkr` của tổ chức, nên cụm này
-      // thực tế chỉ hiện tối đa hai mục. Việc chọn cặp nào do trang quyết định qua
-      // `visible` — cây nav không có cờ "chỉ khi TẮT OKR" để diễn đạt vế còn lại.
-      //
-      // Mỗi mục trả lời MỘT câu hỏi khác nhau và chữ đầu của nhãn khác nhau (Kết quả / Đơn vị /
-      // So sánh / Thẻ điểm): tên na ná nhau ("KPI của tôi" cạnh "KPI đơn vị…") từng làm người
-      // dùng tưởng mục nào cũng phải xem. `audience` nói thẳng mục đó dành cho ai. Thanh tab con
-      // chỉ hiện các mục cùng nhóm, nên "So sánh giữa các đơn vị" đứng cạnh "Đơn vị tôi quản lý":
-      // đơn vị mình thế nào, rồi so với đơn vị khác.
-      //
-      // Hai mục cá nhân gác bằng SUBMISSION:CREATE: chỉ người NỘP báo cáo mới có kết quả riêng để
-      // xem; sếp giao chỉ tiêu mà không nộp thì không có gì ở đây ngoài một trang trống.
-      { id: 'my-objectives', label: i18n.t('layout:navigation.myObjectives'), icon: <Target size={18} />, okrOnly: true, permission: 'SUBMISSION:CREATE', group: i18n.t('layout:navigation.personal'), description: i18n.t('layout:navigation.objectivesAndKeyResultsYouHold'), audience: i18n.t('layout:navigation.peopleWhoSubmitReports') },
-      { id: 'my', label: i18n.t('layout:navigation.myResults'), icon: <TrendingUp size={18} />, permission: 'SUBMISSION:CREATE', group: i18n.t('layout:navigation.personal'), description: i18n.t('layout:navigation.kpisAssignedToYouSubmissionsAnd'), audience: i18n.t('layout:navigation.peopleWhoSubmitReports') },
-      { id: 'subordinate', label: i18n.t('layout:navigation.unitObjectivesIManage'), icon: <Users size={18} />, okrOnly: true, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: i18n.t('layout:navigation.unit'), description: i18n.t('layout:navigation.objectivesOkrOfTheUnitAnd'), audience: i18n.t('layout:navigation.unitHeadsDeputiesBoardOfDirectors') },
-      { id: 'summary', label: i18n.t('layout:navigation.unitsIManage'), icon: <LayoutDashboard size={18} />, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: i18n.t('layout:navigation.unit'), description: i18n.t('layout:navigation.whereTheWholeUnitYouAre'), audience: i18n.t('layout:navigation.unitHeadsDeputiesBoardOfDirectors') },
-      { id: 'drilldown', label: i18n.t('layout:navigation.unitComparison'), icon: <Building2 size={18} />, group: i18n.t('layout:navigation.unit'), description: i18n.t('layout:navigation.unitsSideBySideRatingsMatrix'), audience: i18n.t('layout:navigation.boardOfDirectorsHeadsOfUnits') },
-      // `labelKey` riêng vì `id: 'bsc'` trùng với mục "Quản lý BSC" bên Thiết lập công cụ.
-      // Khoá lưu nhãn mặc định lấy theo id ⇒ hai mục dùng CHUNG một nhãn tuỳ chỉnh, đổi
-      // tên mục này là đổi luôn mục kia. Giữ nguyên id để `?section=bsc` không đổi.
-      { id: 'bsc', labelKey: 'analytics-bsc', label: i18n.t('layout:navigation.bscScorecard'), icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: i18n.t('layout:navigation.wholeCompany'), description: i18n.t('layout:navigation.isTheCompanyOnStrategyScorecard'), audience: i18n.t('layout:navigation.boardOfDirectors') },
-    ],
+    // Không còn mục con: Thống kê gộp về MỘT trang, một lưới. Sáu mục cũ (Kết quả của tôi,
+    // Đơn vị tôi quản lý, So sánh giữa các đơn vị, Thẻ điểm BSC…) nay là sáu CỤM Ô trong cùng
+    // thư viện biểu đồ — vào trang là thấy số liệu luôn thay vì phải chọn mục trước.
   },
   // Thư viện tài liệu 3 phạm vi (tri thức cho K.AI). Không gắn aiOnly: tài liệu vẫn xem/tải được khi tổ chức
   // tắt AI. Mọi người đăng nhập đều có ít nhất tab Công ty; tab nào hiện do backend quyết.
   // Công việc kiểu Lark Tasks: trang riêng 3 cột (không nằm trong "Của tôi" vì đã có cột trái riêng). Huy hiệu = việc
   // tôi phụ trách quá hạn + tới hạn hôm nay (Sidebar đọc từ useNotificationDots).
   { id: 'tasks', label: i18n.t('layout:navigation.myTasks'), path: '/tasks', icon: <ListTodo size={20} />, permission: 'TASK:VIEW_OWN', end: true, legacyKeys: ['/my-tasks'] },
+  // Đơn từ kiểu Lark Approval: mọi người đăng nhập đều vào được — đơn nào nộp được, đơn nào xem được do backend quyết.
+  // Tab Quản trị hiện khi có APPROVAL_FORM:MANAGE hoặc đang quản lý ít nhất một đơn. Huy hiệu = số đơn chờ tôi duyệt.
+  { id: 'requests', label: i18n.t('layout:navigation.requests'), path: '/requests', icon: <FileSignature size={20} />, end: true },
   { id: 'documents', label: i18n.t('layout:navigation.documents'), path: '/documents', icon: <BookOpen size={20} />, permission: 'DASHBOARD:VIEW', end: true },
   { id: 'ai-assistant', label: 'K.AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true, aiOnly: true },
 ]))

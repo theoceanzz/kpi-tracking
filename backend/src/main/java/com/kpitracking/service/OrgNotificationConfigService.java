@@ -64,7 +64,9 @@ public class OrgNotificationConfigService {
             // Công việc gắn KPI: nhắc trước hạn 1 ngày, quá hạn, KPI của việc đã được thay thế.
             "task_due_soon", "task_overdue", "task_kpi_replaced",
             // Công việc kiểu Lark: được giao / giao lại, được thêm theo dõi, việc mình liên quan đổi hạn / trạng thái (gộp).
-            "task_assigned", "task_follower_added", "task_changed"
+            "task_assigned", "task_follower_added", "task_changed",
+            // Đơn từ: có đơn chờ mình duyệt, đơn mình nộp đã có kết quả.
+            "approval_request_pending", "approval_request_decided"
     );
 
     private final OrgNotificationConfigRepository configRepository;

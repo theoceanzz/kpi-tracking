@@ -63,6 +63,7 @@ public class RewardRedemptionTx {
     private final RewardContext context;
     private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
 
     /**
      * Tạo yêu cầu đổi: giữ tồn kho, ghi yêu cầu, trừ điểm — trong một transaction.
@@ -136,6 +137,25 @@ public class RewardRedemptionTx {
 
         redemption.setTransactionId(tx.getId());
         RewardRedemption saved = redemptionRepository.save(redemption);
+
+        // Quy trình "Duyệt đổi quà": chỉ quà NỘI BỘ phải giao tay (vốn nằm chờ). Quà nhận ngay và
+        // voucher của nhà cung cấp đi như cũ. Điểm đã trừ + kho đã giữ; từ chối thì hoàn lại.
+        if (saved.getStatus() == RedemptionStatus.PENDING && !waitForExternal) {
+            com.kpitracking.entity.OrgUnit unit = context.getPrimaryOrgUnit(me.getId());
+            if (unit == null) unit = approvalChain.rootUnitOf(orgId);
+            if (unit != null) {
+                Map<String, Object> payload = new java.util.LinkedHashMap<>();
+                payload.put("redemptionId", saved.getId().toString());
+                payload.put("giftName", gift.getName());
+                payload.put("quantity", qty);
+                payload.put("pointsSpent", totalCost);
+                payload.put("userName", me.getFullName());
+                payload.put("note", request.getNote());
+                approvalChain.startProposal(com.kpitracking.enums.ApprovalSubjectType.GIFT_REDEMPTION, saved.getId(),
+                        gift.getName() + (qty > 1 ? " ×" + qty : "") + " · " + me.getFullName(), unit, null, me, null,
+                        (double) totalCost, payload);
+            }
+        }
 
         // Phát ở ĐÂY chứ không ở RewardRedemptionService.redeem: hàm kia cố ý không có
         // @Transactional, mà @TransactionalEventListener(AFTER_COMMIT) chỉ nhận được sự kiện

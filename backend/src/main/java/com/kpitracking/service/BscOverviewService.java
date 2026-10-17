@@ -72,6 +72,9 @@ public class BscOverviewService {
     public OverviewResponse overview(UUID orgUnitId, Collection<UUID> periodIds) {
         var scope = scopeResolver.resolve(orgUnitId, periodIds);
         UUID orgId = scope.orgId();
+        // "Tất cả đơn vị" = đơn vị CAO NHẤT trong phạm vi xem. resolveScorecard chỉ nhận MỘT đơn vị
+        // và không đi ngược lên cha, nên để null là chắc chắn không ra bộ tiêu chí nào.
+        if (orgUnitId == null) orgUnitId = scopeResolver.topUnitId(scope);
         if (orgId == null) return OverviewResponse.builder().unitStatusCounts(Map.of()).coverage(emptyCoverage()).build();
 
         KpiPeriod period = pickPeriod(orgId, orgUnitId, periodIds);
@@ -138,6 +141,9 @@ public class BscOverviewService {
     public List<UnitAttainmentRow> unitAttainment(UUID orgUnitId, Collection<UUID> periodIds) {
         var scope = scopeResolver.resolve(orgUnitId, periodIds);
         UUID orgId = scope.orgId();
+        // "Tất cả đơn vị" = đơn vị CAO NHẤT trong phạm vi xem. resolveScorecard chỉ nhận MỘT đơn vị
+        // và không đi ngược lên cha, nên để null là chắc chắn không ra bộ tiêu chí nào.
+        if (orgUnitId == null) orgUnitId = scopeResolver.topUnitId(scope);
         if (orgId == null) return List.of();
         KpiPeriod period = pickPeriod(orgId, orgUnitId, periodIds);
         if (period == null) return List.of();
@@ -183,6 +189,9 @@ public class BscOverviewService {
     public ItemAttainmentResponse itemAttainment(UUID orgUnitId, Collection<UUID> periodIds) {
         var scope = scopeResolver.resolve(orgUnitId, periodIds);
         UUID orgId = scope.orgId();
+        // "Tất cả đơn vị" = đơn vị CAO NHẤT trong phạm vi xem. resolveScorecard chỉ nhận MỘT đơn vị
+        // và không đi ngược lên cha, nên để null là chắc chắn không ra bộ tiêu chí nào.
+        if (orgUnitId == null) orgUnitId = scopeResolver.topUnitId(scope);
         if (orgId == null) return ItemAttainmentResponse.builder().items(List.of()).build();
         KpiPeriod period = pickPeriod(orgId, orgUnitId, periodIds);
         if (period == null) return ItemAttainmentResponse.builder().items(List.of()).build();
@@ -256,6 +265,9 @@ public class BscOverviewService {
     public AttainmentTrendResponse attainmentTrend(UUID orgUnitId, Collection<UUID> periodIds) {
         var scope = scopeResolver.resolve(orgUnitId, periodIds);
         UUID orgId = scope.orgId();
+        // "Tất cả đơn vị" = đơn vị CAO NHẤT trong phạm vi xem. resolveScorecard chỉ nhận MỘT đơn vị
+        // và không đi ngược lên cha, nên để null là chắc chắn không ra bộ tiêu chí nào.
+        if (orgUnitId == null) orgUnitId = scopeResolver.topUnitId(scope);
         Map<BscFixedPerspective, PerspectiveRef> refs = orgId != null ? perspectiveRefs(orgId) : new EnumMap<>(BscFixedPerspective.class);
         AttainmentTrendResponse.AttainmentTrendResponseBuilder b = AttainmentTrendResponse.builder()
                 .perspectives(new ArrayList<>(refs.values())).points(List.of());
@@ -311,6 +323,9 @@ public class BscOverviewService {
     public ScorecardCoverageResponse cascadeCoverage(UUID orgUnitId, Collection<UUID> periodIds) {
         var scope = scopeResolver.resolve(orgUnitId, periodIds);
         UUID orgId = scope.orgId();
+        // "Tất cả đơn vị" = đơn vị CAO NHẤT trong phạm vi xem. resolveScorecard chỉ nhận MỘT đơn vị
+        // và không đi ngược lên cha, nên để null là chắc chắn không ra bộ tiêu chí nào.
+        if (orgUnitId == null) orgUnitId = scopeResolver.topUnitId(scope);
         if (orgId == null) return emptyCoverageResponse();
         KpiPeriod period = pickPeriod(orgId, orgUnitId, periodIds);
         if (period == null) return emptyCoverageResponse();

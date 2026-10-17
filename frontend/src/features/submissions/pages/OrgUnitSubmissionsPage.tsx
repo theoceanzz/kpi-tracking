@@ -8,6 +8,7 @@ import { SortHeader, type SortDir } from '@/components/common/SortHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import StaffEvaluationModal from '../components/StaffEvaluationModal'
+import AwaitingApprovalPanel from '../components/AwaitingApprovalPanel'
 import EvaluationDetailModal from '@/features/evaluations/components/EvaluationDetailModal'
 import { useOrgUnitSubmissions } from '../hooks/useOrgUnitSubmissions'
 import { useEvaluations } from '@/features/evaluations/hooks/useEvaluations'
@@ -417,6 +418,8 @@ export default function OrgUnitSubmissionsPage() {
           </div>
         }
       />
+
+      <AwaitingApprovalPanel />
 
       <FilterBar
         id="tour-approve-toolbar"

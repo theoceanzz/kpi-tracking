@@ -1,6 +1,13 @@
 // Quy trình duyệt — khớp DTO BE ở dto/*/approvalprocess và service/approvalprocess/ProcessGraph.java.
 
-export type ApprovalObjectType = 'KPI_CRITERIA' | 'KPI_ADJUSTMENT'
+export type ApprovalObjectType =
+  | 'KPI_CRITERIA' | 'KPI_SUBMISSION' | 'KPI_EVALUATION' | 'KPI_ADJUSTMENT' | 'CYCLE_FINALIZE'
+  | 'BSC_SCORECARD' | 'BSC_RESULT'
+  | 'REWARD_GRANT' | 'GIFT_REDEMPTION'
+  | 'FORM_REQUEST'
+
+/** Quy trình của hai đối tượng này chỉ có hiệu lực ở chế độ "Chuỗi duyệt"; đối tượng khác thì luôn có. */
+export const CHAIN_MODE_OBJECTS: ApprovalObjectType[] = ['KPI_CRITERIA', 'KPI_ADJUSTMENT']
 
 export type ProcessNodeType = 'START' | 'CONDITION' | 'STEP' | 'APPROVED' | 'REJECTED'
 
@@ -21,6 +28,12 @@ export type ConditionField =
   | 'IS_BONUS'
   | 'REQUEST_KIND'
   | 'TARGET_CHANGE_PERCENT'
+  | 'EVAL_SCORE'
+  | 'REWARD_POINTS'
+  /** Widget số của đơn từ (`ConditionRule.widget`). */
+  | 'FORM_NUMBER'
+  /** Widget Chọn một / Chọn nhiều của đơn từ; giá trị là id phương án. */
+  | 'FORM_OPTION'
 
 export type ConditionOperator =
   | 'IN' | 'NOT_IN' | 'IN_SUBTREE'
@@ -42,6 +55,19 @@ export interface ConditionRule {
   field: ConditionField | null
   operator: ConditionOperator | null
   values: string[]
+  /** Id widget của đơn từ — chỉ với FORM_NUMBER / FORM_OPTION. */
+  widget?: string | null
+}
+
+export const FORM_FIELDS: ConditionField[] = ['FORM_NUMBER', 'FORM_OPTION']
+
+/** Widget của đơn từ mà điều kiện duyệt đọc được (bước 3 của trình sửa đơn). */
+export interface FormConditionField {
+  id: string
+  title: string
+  kind: 'NUMBER' | 'OPTION'
+  options?: { value: string; label: string }[]
+  unit?: string
 }
 
 /** Các dòng trong một nhóm phải thoả đồng thời; giữa các nhóm là HOẶC. */
@@ -110,7 +136,8 @@ export interface ApprovalProcessRequest {
 }
 
 export interface ApprovalProcessCatalog {
-  objects: { code: ApprovalObjectType; group: string; subObjects: string[] }[]
+  /** {@code available = false}: đối tượng chưa nối vào chuỗi duyệt, chưa tạo quy trình được. */
+  objects: { code: ApprovalObjectType; group: string; subObjects: string[]; available: boolean }[]
   fields: {
     code: ConditionField
     valueType: ConditionValueType
@@ -121,6 +148,8 @@ export interface ApprovalProcessCatalog {
   approverTypes: ApproverType[]
   maxLevelsUp: number
   chainMode: boolean
+  /** Đơn từ của tổ chức — đối tượng con của FORM_REQUEST, đã xếp theo nhóm đơn. */
+  forms?: CatalogForm[]
 }
 
 export interface ApprovalProcessListParams {
@@ -128,4 +157,32 @@ export interface ApprovalProcessListParams {
   objectType?: ApprovalObjectType
   page?: number
   size?: number
+}
+
+/** Một việc trong hộp "Chờ tôi duyệt" chung (BE: ApprovalInboxItemResponse). */
+export interface ApprovalInboxItem {
+  flowId: string
+  subjectType: import('@/types/approvalChain').ApprovalSubjectType
+  subjectId: string | null
+  subjectName: string
+  orgUnitId: string | null
+  orgUnitName: string | null
+  requesterId: string | null
+  requesterName: string | null
+  processTitle: string | null
+  startedAt: string
+  /** Nội dung đề xuất (đánh giá đợt, chốt kỳ). */
+  payload: Record<string, unknown> | null
+  /** Duyệt / từ chối được ngay trong hộp; false = mở màn riêng của đối tượng. */
+  actionable: boolean
+  approval: import('@/types/approvalChain').ApprovalSummary | null
+}
+
+/** Một đơn từ trong danh mục quy trình (BE: ApprovalProcessCatalogResponse.FormOption). */
+export interface CatalogForm {
+  id: string
+  name: string
+  groupName: string | null
+  active: boolean
+  schema: import('@/features/approvalForms/types').FormSchema
 }

@@ -353,6 +353,37 @@ const BSC_SORT_FIELD = perLanguage((): OptionField => ({
   choices: [{ value: 'bscScore', label: i18n.t('analytics:analyticsGrid.bscScore') }, { value: 'systemScore', label: i18n.t('analytics:analyticsGrid.systemScore') }],
 }))
 
+/*
+  Hai bảng xếp hạng: xếp theo CỘT nào và theo CHIỀU nào.
+
+  Khai ở đây (tĩnh) chứ không qua `extraFields` như `cycleId`: nhờ vậy `optionOf` đọc được bình
+  thường, VÀ `WidgetConfigSummary` tự hiện chip "Xếp theo · Hiệu suất KPI · Cao nhất" ngay trên
+  bảng — người xem biết bảng đang xếp theo gì mà không phải mở bảng cấu hình.
+*/
+const TOP_DIR_FIELD = perLanguage((): OptionField => ({
+  key: 'dir', label: i18n.t('analytics:analyticsGrid.topDirection'), kind: 'pills', default: 'desc',
+  choices: [
+    { value: 'desc', label: i18n.t('analytics:analyticsGrid.highest') },
+    { value: 'asc', label: i18n.t('analytics:analyticsGrid.lowest') },
+  ],
+}))
+const RANK_PEOPLE_SORT_FIELD = perLanguage((): OptionField => ({
+  key: 'sortBy', label: i18n.t('analytics:analyticsGrid.sortBy'), kind: 'pills', default: 'kpi',
+  choices: [
+    { value: 'kpi', label: i18n.t('analytics:leaderboard.kpiPercent') },
+    { value: 'conduct', label: i18n.t('analytics:leaderboard.coreValues') },
+  ],
+}))
+const RANK_UNITS_SORT_FIELD = perLanguage((): OptionField => ({
+  key: 'sortBy', label: i18n.t('analytics:analyticsGrid.sortBy'), kind: 'select', default: 'bsc',
+  choices: [
+    { value: 'bsc', label: i18n.t('analytics:leaderboard.bscContribution') },
+    { value: 'kpi', label: i18n.t('analytics:leaderboard.avgKpiPercent') },
+    { value: 'kpiCount', label: i18n.t('analytics:leaderboard.kpiCount') },
+    { value: 'conduct', label: i18n.t('analytics:leaderboard.coreValues') },
+  ],
+}))
+
 /** Ô nào có tuỳ chọn gì. Ô không có mặt ở đây thì drawer không hiện mục "Tuỳ chọn". */
 export const WIDGET_OPTIONS = perLanguage((): Record<string, OptionField[]> => ({
   'unit-perf': [RANK_FIELD(), TOPN_FIELD()],
@@ -366,6 +397,8 @@ export const WIDGET_OPTIONS = perLanguage((): Record<string, OptionField[]> => (
   'bsc-fishbone': [GOAL_STATUS_FIELD(), GOAL_LIMIT_FIELD()],
   'bsc-units': [BSC_GATE_FIELD()],
   'bsc-ranking': [BSC_SORT_FIELD()],
+  'rank-people': [RANK_PEOPLE_SORT_FIELD(), TOP_DIR_FIELD()],
+  'rank-units': [RANK_UNITS_SORT_FIELD(), TOP_DIR_FIELD()],
 }))
 
 /** Ô nào có chọn đơn vị. Danh sách đơn vị do tab cấp (`unitOptions`), drawer chỉ vẽ. */
@@ -379,6 +412,11 @@ export const WIDGET_HAS_UNIT: ReadonlySet<string> = new Set([
   // ở đây: đơn vị ở đó là cây điều hướng của trang.)
   'bsc-strategy-map', 'bsc-fishbone', 'bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade',
   'bsc-ranking',
+  // Ba ô mở đầu trang.
+  'rank-people', 'rank-units', 'heatmap-units',
+  // Cụm So sánh đơn vị: cây đơn vị bên trái đi theo cái tab, nên mỗi ô tự chọn phạm vi.
+  'drill-summary', 'drill-classification', 'drill-cascade', 'drill-employees', 'drill-matrix',
+  'drill-children', 'drill-compare', 'drill-boxplot',
 ])
 
 /** Đơn vị của ô (phạm vi con) — `undefined` = toàn bộ phạm vi quyền của người dùng. */

@@ -17,6 +17,7 @@ import java.util.UUID;
  *
  * @param unreadableFiles mỗi phần tử "tên tệp: lý do" — tệp minh chứng AI chưa đọc được nội dung
  * @param scale           thang chất lượng (mức định tính) của tổ chức, theo thứ tự hiển thị
+ * @param aiMaxPoints     điểm tối đa của thang điểm AI = điểm của mức cao nhất — thang riêng, không chia từ thang 100
  * @param excerpts        trích đoạn quy chế / mô tả công việc liên quan (GĐ2)
  * @param criteriaSet     bộ tiêu chí tổ chức đã xác nhận áp cho người này ({@code null} = chưa có)
  * @param conduct         tiêu chí hạnh kiểm của đợt (rỗng khi tổ chức không bật hạnh kiểm)
@@ -30,7 +31,7 @@ public record ReviewContext(
         List<Criterion> criteria,
         List<QualityLevel> scale,
         List<String> unreadableFiles,
-        Weights weights,
+        java.math.BigDecimal aiMaxPoints,
         List<Excerpt> excerpts,
         CriteriaSet criteriaSet,
         List<ConductRow> conduct) {
@@ -38,8 +39,8 @@ public record ReviewContext(
     /** Dạng giai đoạn 1 — chưa có quy chế, chưa có bộ tiêu chí. */
     public ReviewContext(UUID organizationId, UUID kpiPeriodId, String periodName, UUID userId, String userName,
                          List<Criterion> criteria, List<QualityLevel> scale, List<String> unreadableFiles,
-                         Weights weights) {
-        this(organizationId, kpiPeriodId, periodName, userId, userName, criteria, scale, unreadableFiles, weights,
+                         java.math.BigDecimal aiMaxPoints) {
+        this(organizationId, kpiPeriodId, periodName, userId, userName, criteria, scale, unreadableFiles, aiMaxPoints,
                 List.of(), null, List.of());
     }
 
@@ -54,12 +55,12 @@ public record ReviewContext(
             cs.add(c.withSubmissions(subs));
         }
         return new ReviewContext(organizationId, kpiPeriodId, periodName, userId, userName, cs, scale,
-                unreadable, weights, excerpts, criteriaSet, conduct);
+                unreadable, aiMaxPoints, excerpts, criteriaSet, conduct);
     }
 
     public ReviewContext withExcerpts(List<Excerpt> newExcerpts) {
         return new ReviewContext(organizationId, kpiPeriodId, periodName, userId, userName, criteria, scale,
-                unreadableFiles, weights, newExcerpts, criteriaSet, conduct);
+                unreadableFiles, aiMaxPoints, newExcerpts, criteriaSet, conduct);
     }
 
     /** Một tiêu chí hạnh kiểm của tổ chức — căn cứ tham khảo cho phần tổng hợp, không chấm điểm. */
@@ -191,9 +192,14 @@ public record ReviewContext(
         }
     }
 
-    /** Một mức trong thang chất lượng của tổ chức. */
-    public record QualityLevel(String name, Double scorePercent, int position) {}
+    /**
+     * Một mức trong THANG ĐIỂM AI (V48): {@code points} là điểm của mức, {@code scorePercent} = điểm / điểm tối đa × 100
+     * (dùng cho mức tin cậy và báo cáo lệch), {@code description} đi vào lời nhắc.
+     */
+    public record QualityLevel(String name, Double scorePercent, int position, Double points, String description) {
+        public QualityLevel(String name, Double scorePercent, int position) {
+            this(name, scorePercent, position, null, null);
+        }
+    }
 
-    /** Trọng số (%) ba thành phần điểm đề xuất, tổng = 100. */
-    public record Weights(int target, int quality, int onTime) {}
 }

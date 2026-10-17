@@ -59,18 +59,37 @@ public class ApprovalProcessPlanner {
 
     public Optional<ProcessPlan> plan(ApprovalSubjectType type, KpiCriteria kpi, KpiAdjustmentRequest adjustment,
                                       User requester) {
-        UUID orgId = PermissionChecker.organizationIdOf(kpi.getOrgUnit());
-        if (orgId == null) return Optional.empty();
-        ApprovalObjectType objectType = ApprovalObjectType.of(type);
+        ApprovalSubjectFacts facts = ApprovalSubjectFacts.of(kpi,
+                type == ApprovalSubjectType.ADJUSTMENT ? adjustment : null, requester, requesterRoles(requester));
+        return plan(facts, kpi.getOrgUnit(), requester);
+    }
 
-        Set<UUID> requesterRoles = new HashSet<>();
+    /** Tổ chức có quy trình đang bật cho đối tượng này không (để chặn các đường đổi trạng thái tắt). */
+    public boolean hasActiveProcess(UUID organizationId, ApprovalObjectType objectType) {
+        return organizationId != null
+                && !processRepository.findByOrganizationIdAndObjectTypeAndActiveTrue(organizationId, objectType).isEmpty();
+    }
+
+    /** Vai trò người gửi đang giữ (còn hạn), ở bất kỳ đơn vị nào — cho điều kiện "Chức vụ người gửi". */
+    public Set<UUID> requesterRoles(User requester) {
+        Set<UUID> roles = new HashSet<>();
         Instant now = Instant.now();
         for (UserRoleOrgUnit a : userRoleOrgUnitRepository.findByUserId(requester.getId())) {
             if (a.getExpiresAt() != null && !a.getExpiresAt().isAfter(now)) continue;
-            if (a.getRole() != null && a.getRole().getDeletedAt() == null) requesterRoles.add(a.getRole().getId());
+            if (a.getRole() != null && a.getRole().getDeletedAt() == null) roles.add(a.getRole().getId());
         }
-        ApprovalSubjectFacts facts = ApprovalSubjectFacts.of(kpi,
-                type == ApprovalSubjectType.ADJUSTMENT ? adjustment : null, requester, requesterRoles);
+        return roles;
+    }
+
+    /**
+     * Lập bước theo quy trình của đối tượng {@code facts.objectType()}.
+     *
+     * @param unit đơn vị của đối tượng: gốc để tìm "trưởng trực tiếp" và "chức vụ gần nhất"
+     */
+    public Optional<ProcessPlan> plan(ApprovalSubjectFacts facts, OrgUnit unit, User requester) {
+        UUID orgId = PermissionChecker.organizationIdOf(unit);
+        if (orgId == null) return Optional.empty();
+        ApprovalObjectType objectType = facts.objectType();
 
         Optional<ApprovalProcess> chosen = select(
                 processRepository.findByOrganizationIdAndObjectTypeAndActiveTrue(orgId, objectType), facts.subObject());
@@ -78,13 +97,21 @@ public class ApprovalProcessPlanner {
         ApprovalProcess process = chosen.get();
         Optional<ProcessGraph> graph = codec.tryRead(process.getDefinition());
         if (graph.isEmpty()) return Optional.empty();
+        return planGraph(process.getId(), process.getTitle(), process.isShowInObject(), graph.get(), facts, unit, requester);
+    }
 
-        Walk walk = walk(graph.get(), facts);
+    /**
+     * Lập bước theo MỘT sơ đồ cho sẵn — quy trình của tổ chức ({@link #plan}) hoặc sơ đồ nằm ngay trên đối
+     * tượng (đơn từ, {@code processId = null}).
+     */
+    public Optional<ProcessPlan> planGraph(UUID processId, String title, boolean showInObject, ProcessGraph graph,
+                                           ApprovalSubjectFacts facts, OrgUnit unit, User requester) {
+        Walk walk = walk(graph, facts);
         // Sơ đồ đã kiểm lúc lưu nên luôn có bước; phòng hờ dữ liệu cũ hỏng thì lui về chuỗi mặc định.
         if (walk.steps().isEmpty()) return Optional.empty();
 
-        Map<String, String> codes = graph.get().stepCodes();
-        Resolver resolver = new Resolver(kpi.getOrgUnit(), requester.getId());
+        Map<String, String> codes = graph.stepCodes();
+        Resolver resolver = new Resolver(unit, requester.getId());
         List<PlannedStep> steps = new ArrayList<>();
         for (Node n : walk.steps()) {
             List<Holder> holders = resolver.resolve(n.approversOrEmpty());
@@ -93,10 +120,10 @@ public class ApprovalProcessPlanner {
         }
 
         Map<String, Object> snapshot = new LinkedHashMap<>();
-        snapshot.put("showInObject", process.isShowInObject());
+        snapshot.put("showInObject", showInObject);
         snapshot.put("pathNodeIds", walk.pathNodeIds());
-        if (process.isShowInObject()) snapshot.put("graph", codec.toMap(graph.get()));
-        return Optional.of(new ProcessPlan(process.getId(), process.getTitle(), steps, snapshot));
+        if (showInObject) snapshot.put("graph", codec.toMap(graph));
+        return Optional.of(new ProcessPlan(processId, title, steps, snapshot));
     }
 
     /**

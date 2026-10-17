@@ -70,6 +70,7 @@ public class BscTreeService {
     private final UserRepository userRepository;
     private final BscAccessGuard accessGuard;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
 
     /** Sai số cho phép khi so tổng đóng góp với mục tiêu cha: 1% hoặc 0.01 tuyệt đối. */
     private static final double COVERAGE_TOLERANCE_RATIO = 0.01;
@@ -756,8 +757,66 @@ public class BscTreeService {
         s.setSubmittedAt(Instant.now());
         s.setRejectReason(null);
         BscScorecard saved = scorecardRepository.save(s);
+        if (actor != null) startScorecardApproval(saved, rows, total, actor);
         eventPublisher.publishEvent(new BscEvents.ScorecardSubmitted(saved.getId(), idOf(actor)));
         return saved;
+    }
+
+    /**
+     * Quy trình "Lập và phê duyệt thẻ điểm": thẻ vẫn ở CHỜ DUYỆT, nhưng chỉ người giữ bước của quy
+     * trình duyệt / trả lại được (qua hộp "Chờ tôi duyệt"); bước cuối ⇒ áp dụng như duyệt tay.
+     */
+    private void startScorecardApproval(BscScorecard s, List<BscScorecardPerspective> rows, double total, User actor) {
+        UUID orgId = s.getOrganization().getId();
+        OrgUnit unit = s.getOrgUnits() == null || s.getOrgUnits().isEmpty()
+                ? approvalChain.rootUnitOf(orgId) : s.getOrgUnits().get(0);
+        if (unit == null) return;
+        java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("scorecardId", s.getId().toString());
+        payload.put("scorecardName", s.getName());
+        payload.put("unitNames", s.getOrgUnits() == null ? List.of()
+                : s.getOrgUnits().stream().map(OrgUnit::getName).toList());
+        payload.put("itemCount", rows.size());
+        payload.put("totalWeight", Math.round(total * 10) / 10.0);
+        payload.put("level", s.getLevel() == null ? null : s.getLevel().name());
+        approvalChain.startProposal(com.kpitracking.enums.ApprovalSubjectType.BSC_SCORECARD, s.getId(), s.getName(),
+                unit, null, actor, null, null, payload);
+    }
+
+    /** Duyệt / trả lại tay không đi được khi thẻ đang theo quy trình duyệt. */
+    private void assertNotInProcess(UUID scorecardId) {
+        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.ApprovalSubjectType.BSC_SCORECARD, scorecardId).isPresent()) {
+            throw new BusinessException(ErrorCode.BSC_SCORECARD_IN_APPROVAL_PROCESS);
+        }
+    }
+
+    /** Bước cuối của quy trình vừa duyệt: áp dụng thẻ như {@link #approve}. */
+    @Transactional
+    public void applyApprovedByProcess(UUID scorecardId, User actor) {
+        BscScorecard s = load(scorecardId);
+        if (s.getStatus() != BscScorecardStatus.SUBMITTED) {
+            throw new BusinessException(ErrorCode.ONLY_SCORECARDS_PENDING_APPROVAL_CAN_APPROVED);
+        }
+        s.setStatus(BscScorecardStatus.ACTIVE);
+        s.setApprovedBy(actor);
+        s.setApprovedAt(Instant.now());
+        s.setRejectReason(null);
+        scorecardRepository.save(s);
+        eventPublisher.publishEvent(new BscEvents.ScorecardApproved(s.getId(), idOf(actor)));
+    }
+
+    /** Bị từ chối ở một bước của quy trình: trả thẻ về nháp như {@link #reject}. */
+    @Transactional
+    public void applyRejectedByProcess(UUID scorecardId, User actor, String reason) {
+        BscScorecard s = load(scorecardId);
+        if (s.getStatus() != BscScorecardStatus.SUBMITTED) return;
+        UUID submitterId = idOf(s.getSubmittedBy());
+        s.setStatus(BscScorecardStatus.DRAFT);
+        s.setRejectReason(reason == null ? null : reason.trim());
+        s.setSubmittedAt(null);
+        s.setSubmittedBy(null);
+        scorecardRepository.save(s);
+        eventPublisher.publishEvent(new BscEvents.ScorecardRejected(s.getId(), submitterId, idOf(actor), s.getRejectReason()));
     }
 
     /**
@@ -773,6 +832,7 @@ public class BscTreeService {
      */
     @Transactional
     public BscScorecard approve(UUID scorecardId) {
+        assertNotInProcess(scorecardId);
         BscScorecard s = load(scorecardId);
         if (s.getStatus() != BscScorecardStatus.SUBMITTED) {
             throw new BusinessException(ErrorCode.ONLY_SCORECARDS_PENDING_APPROVAL_CAN_APPROVED);
@@ -793,6 +853,7 @@ public class BscTreeService {
         if (reason == null || reason.isBlank()) {
             throw new BusinessException(ErrorCode.ENTER_REASON_RETURNING);
         }
+        assertNotInProcess(scorecardId);
         BscScorecard s = load(scorecardId);
         if (s.getStatus() != BscScorecardStatus.SUBMITTED) {
             throw new BusinessException(ErrorCode.ONLY_SCORECARDS_PENDING_APPROVAL_CAN_RETURNED);

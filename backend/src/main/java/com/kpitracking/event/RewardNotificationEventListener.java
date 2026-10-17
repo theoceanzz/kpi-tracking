@@ -72,6 +72,7 @@ public class RewardNotificationEventListener {
     private final RewardProgramRunItemRepository runItemRepository;
     private final RewardRedemptionRepository redemptionRepository;
     private final UserRepository userRepository;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
     private final OrgUnitRepository orgUnitRepository;
 
     /** Nhãn kiểu thông báo — quyết định biểu tượng ở chuông. */
@@ -93,6 +94,8 @@ public class RewardNotificationEventListener {
     public void handleGrantSubmitted(RewardEvents.GrantSubmitted event) {
         RewardGrant grant = findGrant(event.grantId());
         if (grant == null) return;
+        // Đề xuất đi theo quy trình duyệt: người giữ bước đầu đã được chuỗi duyệt báo riêng.
+        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.ApprovalSubjectType.REWARD_GRANT, grant.getId()).isPresent()) return;
 
         int people = grantItemRepository.findByGrantId(grant.getId()).size();
         LocalizedText title = LocalizedText.of("notif.reward.grantSubmitted.title");
@@ -318,6 +321,7 @@ public class RewardNotificationEventListener {
         // Quà điện tử xuất được ngay lúc đặt thì không còn gì để ai xử lý — báo cho bộ phận
         // quà một việc đã xong là tạo hàng đợi giả.
         if (r == null || r.getStatus() != com.kpitracking.enums.RedemptionStatus.PENDING) return;
+        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.ApprovalSubjectType.GIFT_REDEMPTION, r.getId()).isPresent()) return;
 
         LocalizedText message = LocalizedText.of("notif.reward.redemptionCreated.message",
                 r.getUser().getFullName(), r.getPointsSpent(), r.getGiftNameSnapshot(),

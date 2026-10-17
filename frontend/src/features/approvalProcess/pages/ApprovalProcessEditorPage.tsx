@@ -18,22 +18,14 @@ import {
 } from '../hooks/useApprovalProcesses'
 import { useProcessOptions } from '../hooks/useProcessOptions'
 import { useGraphHistory } from '../model/useGraphHistory'
-import { emptyGraph, nodeById, stepCodes as computeStepCodes, updateNode, validateGraph, type GraphIssue } from '../model/processGraphModel'
-import type { ApprovalProcess, ApprovalProcessCatalog, PersonRef, ProcessGraph } from '../types'
+import { emptyGraph, validateGraph } from '../model/processGraphModel'
+import { CHAIN_MODE_OBJECTS, type ApprovalProcess, type ApprovalProcessCatalog, type PersonRef, type ProcessGraph } from '../types'
 import ProcessInfoForm, { type ProcessInfo } from '../components/ProcessInfoForm'
-import ProcessCanvas from '../components/canvas/ProcessCanvas'
-import IssuesPopover, { type IssueView } from '../components/canvas/IssuesPopover'
-import ConditionSettingsDialog from '../components/dialogs/ConditionSettingsDialog'
-import StepSettingsDialog from '../components/dialogs/StepSettingsDialog'
+import ProcessDesigner from '../components/ProcessDesigner'
+import { formConditionFields } from '@/features/approvalForms/model/formIssues'
+import i18n from 'i18next'
 
 export const APPROVAL_PROCESS_LIST_PATH = '/company?section=approval-processes'
-
-/** Lỗi sửa được trong hộp cài đặt của bước / điều kiện (khác lỗi về nối nhánh, phải sửa trên sơ đồ). */
-const SETTINGS_ISSUES = new Set([
-  'stepNoName', 'stepNoApprover', 'stepBadApprover', 'nameTooLong',
-  'conditionEmpty', 'conditionEmptyGroup', 'ruleIncomplete', 'ruleFieldNotForObject', 'ruleBadOperator',
-  'ruleMissingValue', 'ruleBadNumber', 'ruleBadValue',
-])
 
 interface EditorState {
   info: ProcessInfo
@@ -109,8 +101,6 @@ function Editor({ process, catalog }: { process: ApprovalProcess | null; catalog
   const leavingRef = useRef(false)
 
   const [showErrors, setShowErrors] = useState(false)
-  const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
-  const [focusRequest, setFocusRequest] = useState<{ nodeId: string; seq: number } | null>(null)
   const [issuesOpen, setIssuesOpen] = useState(false)
 
   // Bản nháp: form + sơ đồ (+ tên người để chip hiện đúng). Khôi phục nháp thì lịch sử hoàn tác
@@ -129,10 +119,16 @@ function Editor({ process, catalog }: { process: ApprovalProcess | null; catalog
   const blocker = useBlocker(({ currentLocation, nextLocation }) =>
     dirty && !leavingRef.current && currentLocation.pathname !== nextLocation.pathname)
 
-  const codes = useMemo(() => computeStepCodes(history.graph), [history.graph])
-  const issues = useMemo(() => validateGraph(history.graph, info.objectType, catalog), [history.graph, info.objectType, catalog])
+  // Quy trình đơn từ gắn đúng MỘT đơn ⇒ điều kiện rẽ nhánh dùng được trường số / lựa chọn của đơn đó.
+  const formFields = useMemo(() => {
+    if (info.objectType !== 'FORM_REQUEST' || info.subObjectTypes.length !== 1) return undefined
+    const form = catalog?.forms?.find((f) => f.id === info.subObjectTypes[0])
+    return form ? formConditionFields(form.schema, (w) => w.durationLabel
+      || (w.durationUnit === 'HOUR' ? i18n.t('approvalForms:settings.unitHour') : i18n.t('approvalForms:settings.unitDay'))) : undefined
+  }, [info.objectType, info.subObjectTypes, catalog])
+  const issues = useMemo(() => validateGraph(history.graph, info.objectType, catalog, formFields),
+    [history.graph, info.objectType, catalog, formFields])
   const errors = issues.filter((i) => i.severity === 'error')
-  const warnings = issues.filter((i) => i.severity === 'warning')
 
   const addUsers = useCallback((people: PersonRef[]) => {
     setUsers((u) => {
@@ -143,26 +139,6 @@ function Editor({ process, catalog }: { process: ApprovalProcess | null; catalog
   }, [])
 
   const patchInfo = (patch: Partial<ProcessInfo>) => setInfo((i) => ({ ...i, ...patch }))
-
-  const editing = useMemo(() => (readOnly ? undefined : {
-    onChange: history.set,
-    onDragBegin: history.beginTransient,
-    onDragMove: history.setTransient,
-    onDragEnd: history.endTransient,
-    onEditNode: setEditingNodeId,
-    onUndo: history.undo,
-    onRedo: history.redo,
-    canUndo: history.canUndo,
-    canRedo: history.canRedo,
-  }), [readOnly, history.set, history.beginTransient, history.setTransient, history.endTransient, history.undo,
-    history.redo, history.canUndo, history.canRedo, setEditingNodeId])
-
-  const editingNode = editingNodeId ? nodeById(history.graph, editingNodeId) ?? null : null
-  const closeNodeDialog = () => setEditingNodeId(null)
-  const saveNode = (patch: Parameters<typeof updateNode>[2]) => {
-    if (editingNodeId) history.set(updateNode(history.graph, editingNodeId, patch))
-    setEditingNodeId(null)
-  }
 
   const goBack = () => navigate(APPROVAL_PROCESS_LIST_PATH)
 
@@ -202,30 +178,6 @@ function Editor({ process, catalog }: { process: ApprovalProcess | null; catalog
     }
   }
 
-  const nodeLabel = (nodeId?: string) => {
-    const n = nodeId ? nodeById(history.graph, nodeId) : undefined
-    if (!n) return null
-    if (n.type === 'STEP') return [codes[n.id], n.name].filter(Boolean).join(' · ')
-    return n.name || t(`nodeTypes.${n.type}`)
-  }
-  /** Lỗi nằm trong hộp cài đặt của node (tên, người duyệt, dòng điều kiện) — bấm là mở hộp đó. */
-  const opensSettings = (i: GraphIssue) => {
-    const n = i.nodeId ? nodeById(history.graph, i.nodeId) : undefined
-    return !!n && (n.type === 'STEP' || n.type === 'CONDITION') && SETTINGS_ISSUES.has(i.key)
-  }
-  const issueViews: IssueView[] = [...errors, ...warnings].map((i) => ({
-    issue: i,
-    node: nodeLabel(i.nodeId),
-    text: t(`graph.${i.key}`, i.args),
-    action: readOnly || !i.nodeId ? null : opensSettings(i) ? t('editor.actionOpenSettings') : t('editor.actionShowOnCanvas'),
-  }))
-  const pickIssue = (i: GraphIssue) => {
-    setIssuesOpen(false)
-    if (!i.nodeId) return
-    setFocusRequest({ nodeId: i.nodeId, seq: Date.now() })
-    if (!readOnly && opensSettings(i)) setEditingNodeId(i.nodeId)
-  }
-
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -252,7 +204,7 @@ function Editor({ process, catalog }: { process: ApprovalProcess | null; catalog
 
       <DraftNotice draft={draft} />
 
-      {catalog && !catalog.chainMode && (
+      {catalog && !catalog.chainMode && info.objectType && CHAIN_MODE_OBJECTS.includes(info.objectType) && (
         <div className="flex items-start gap-2.5 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm text-[var(--color-warning)]">
           <AlertTriangle size={18} aria-hidden="true" className="mt-0.5 shrink-0" />
           <span>{t('editor.notChainMode')}</span>
@@ -286,45 +238,21 @@ function Editor({ process, catalog }: { process: ApprovalProcess | null; catalog
             {process?.active && !readOnly && <span className="mt-1 block">{t('editor.appliesToNextSubmissions')}</span>}
           </InfoHint>
         </div>
-        <ProcessCanvas
-          graph={history.graph}
-          stepCodes={codes}
+        <ProcessDesigner
+          history={history}
           issues={issues}
-          editing={editing}
-          focusRequest={focusRequest}
+          objectType={info.objectType}
+          catalog={catalog}
+          options={options}
+          users={users}
+          onUsers={addUsers}
+          readOnly={readOnly}
+          draftKey={draftKey}
+          formFields={formFields}
+          issuesPopover={{ open: issuesOpen, onOpenChange: setIssuesOpen }}
           className="h-[calc(100vh-260px)] min-h-[560px]"
-          toolbarExtra={!readOnly && (
-            <IssuesPopover items={issueViews} open={issuesOpen} onOpenChange={setIssuesOpen} onPick={pickIssue} />
-          )}
         />
       </section>
-
-      <ConditionSettingsDialog
-        open={editingNode?.type === 'CONDITION'}
-        node={editingNode?.type === 'CONDITION' ? editingNode : null}
-        objectType={info.objectType}
-        catalog={catalog}
-        options={options}
-        users={users}
-        onUsers={addUsers}
-        readOnly={readOnly}
-        draftKey={`${draftKey}:node:${editingNodeId ?? ''}`}
-        onClose={closeNodeDialog}
-        onSave={saveNode}
-      />
-      <StepSettingsDialog
-        open={editingNode?.type === 'STEP'}
-        node={editingNode?.type === 'STEP' ? editingNode : null}
-        code={editingNodeId ? codes[editingNodeId] : undefined}
-        options={options}
-        users={users}
-        onUsers={addUsers}
-        maxLevelsUp={catalog?.maxLevelsUp ?? 3}
-        readOnly={readOnly}
-        draftKey={`${draftKey}:node:${editingNodeId ?? ''}`}
-        onClose={closeNodeDialog}
-        onSave={saveNode}
-      />
 
       <ConfirmDialog
         open={blocker.state === 'blocked'}

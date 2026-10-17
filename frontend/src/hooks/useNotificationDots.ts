@@ -9,6 +9,7 @@ import { giftApi } from '@/features/rewards/api/giftApi'
 import { walletApi } from '@/features/wallet/api/walletApi'
 import { aiCriteriaSetApi } from '@/features/submissions/api/aiReviewApi'
 import { documentApi } from '@/features/documents/api/documentApi'
+import { approvalFormsApi } from '@/features/approvalForms/api/approvalFormsApi'
 import { BscScorecardStatus } from '@/features/bsc/types'
 import { RewardGrantStatus, RedemptionStatus } from '@/features/rewards/types'
 import { TopupOrderStatus } from '@/features/wallet/types'
@@ -38,6 +39,8 @@ export interface NotificationCounts {
   pendingDocumentPromotions: number
   /** Việc tôi phụ trách quá hạn + tới hạn hôm nay (menu Công việc). */
   myTaskAlerts: number
+  /** Đơn từ đang chờ tôi duyệt. */
+  pendingRequests: number
 }
 
 export function useNotificationDots() {
@@ -158,6 +161,16 @@ export function useNotificationDots() {
     retry: false,
   })
 
+  // Cùng khoá với số đếm của trang Đơn từ — duyệt / nộp xong (mutation làm mới mọi khoá 'approval-requests') là cập nhật.
+  const { data: requestCounts } = useQuery({
+    queryKey: ['approval-requests', 'counts'],
+    queryFn: approvalFormsApi.counts,
+    enabled: !!user,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    retry: false,
+  })
+
   const { data: documentPromotions } = useQuery({
     queryKey: ['documents', 'promotions', 'inbox'],
     queryFn: documentApi.promotionInbox,
@@ -185,6 +198,7 @@ export function useNotificationDots() {
     pendingAiCriteria: aiCriteriaRequests?.length || 0,
     pendingDocumentPromotions: documentPromotions?.length || 0,
     myTaskAlerts: taskSidebar?.badge || 0,
+    pendingRequests: requestCounts?.todo || 0,
   }
 
   return { counts }

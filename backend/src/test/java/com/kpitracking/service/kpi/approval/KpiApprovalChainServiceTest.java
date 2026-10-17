@@ -394,4 +394,55 @@ class KpiApprovalChainServiceTest {
         assertThat(flow.getSteps().get(1).getKind()).isEqualTo(ApprovalStepKind.ADMIN_FALLBACK);
         assertThat(flow.currentStep().orElseThrow().isHeldBy(admin.getId())).isTrue();
     }
+
+    // ── Đối tượng khác KPI (bài nộp kết quả) ──
+
+    private KpiApprovalChainService.Subject submissionSubject(UUID id) {
+        return new KpiApprovalChainService.Subject(ApprovalSubjectType.SUBMISSION, id, "Doanh thu", unitA, null, null);
+    }
+
+    @Test
+    @DisplayName("Đối tượng khác KPI không có quy trình khớp ⇒ không mở flow (giữ luật duyệt cũ), không lui về chuỗi trưởng đơn vị")
+    void subjectWithoutProcessOpensNoFlow() {
+        when(processPlanner.plan(any(), any(), any())).thenReturn(Optional.empty());
+        assertThat(service.startSubject(submissionSubject(UUID.randomUUID()), staff, true)).isEmpty();
+        verify(flowRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Bài nộp đi đủ các bước quy trình: KPI:APPROVE_FINAL không cho duyệt vượt bước như với chỉ tiêu")
+    void subjectFollowsEveryProcessStep() {
+        when(processPlanner.plan(any(), any(), any())).thenReturn(Optional.of(
+                processPlan(processStep("1", "Trưởng A duyệt", headA), processStep("2", "Giám đốc duyệt", headC))));
+        when(flowRepository.findRunningIdBySubject(any(), any())).thenReturn(Optional.empty());
+        grantFinal(headA, true);
+        UUID submissionId = UUID.randomUUID();
+
+        KpiApprovalFlow flow = service.startSubject(submissionSubject(submissionId), staff, true).orElseThrow();
+        assertThat(flow.getSubjectId()).isEqualTo(submissionId);
+        assertThat(flow.getKpiCriteria()).isNull();
+        assertThat(flow.unit()).isEqualTo(unitA);
+
+        assertThat(approve(flow, headA)).isEqualTo(ApprovalOutcome.FORWARDED);
+        assertThatThrownBy(() -> approve(flow, headA)).isInstanceOf(ForbiddenException.class);
+        assertThat(approve(flow, headC)).isEqualTo(ApprovalOutcome.FINAL);
+        assertThat(flow.getStatus()).isEqualTo(ApprovalFlowStatus.APPROVED);
+    }
+
+    @Test
+    @DisplayName("Gửi lại bài nộp: flow cũ đang chạy bị huỷ trước khi mở flow mới")
+    void resubmittingSubjectCancelsRunningFlow() {
+        when(processPlanner.plan(any(), any(), any())).thenReturn(Optional.of(
+                processPlan(processStep("1", "Trưởng A duyệt", headA))));
+        UUID submissionId = UUID.randomUUID();
+        when(flowRepository.findRunningIdBySubject(any(), any())).thenReturn(Optional.empty());
+        KpiApprovalFlow first = service.startSubject(submissionSubject(submissionId), staff, true).orElseThrow();
+
+        when(flowRepository.findRunningIdBySubject(ApprovalSubjectType.SUBMISSION, submissionId))
+                .thenReturn(Optional.of(first.getId()));
+        KpiApprovalFlow second = service.startSubject(submissionSubject(submissionId), staff, true).orElseThrow();
+
+        assertThat(first.getStatus()).isEqualTo(ApprovalFlowStatus.CANCELLED);
+        assertThat(second.getStatus()).isEqualTo(ApprovalFlowStatus.IN_PROGRESS);
+    }
 }

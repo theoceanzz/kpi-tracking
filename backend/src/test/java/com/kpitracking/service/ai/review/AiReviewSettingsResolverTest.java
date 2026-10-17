@@ -47,9 +47,9 @@ class AiReviewSettingsResolverTest {
         return u;
     }
 
-    private AiReviewUnitSetting setting(OrgUnit u, boolean enabled, int t, int q, int o) {
+    private AiReviewUnitSetting setting(OrgUnit u, boolean enabled) {
         return AiReviewUnitSetting.builder().orgUnitId(u.getId()).organizationId(org.getId())
-                .enabled(enabled).weightTarget(t).weightQuality(q).weightOnTime(o).build();
+                .enabled(enabled).build();
     }
 
     @BeforeEach
@@ -60,14 +60,11 @@ class AiReviewSettingsResolverTest {
         OrgUnitRepository units = mock(OrgUnitRepository.class);
         ragDocs = mock(RagDocumentRepository.class);
         resolver = new AiReviewSettingsResolver(unitSettings, sets, mock(AiCriteriaSetItemRepository.class),
-                assignments, units, ragDocs);
+                assignments, units, ragDocs, mock(com.kpitracking.repository.AiReviewLevelRepository.class));
 
         org.setId(UUID.randomUUID());
         org.setEnableAi(true);
         org.setEnableAiReview(true);
-        org.setAiReviewWeightTarget(60);
-        org.setAiReviewWeightQuality(30);
-        org.setAiReviewWeightOnTime(10);
         UserRoleOrgUnit a = new UserRoleOrgUnit();
         a.setOrgUnit(team);
         when(assignments.findByUserId(staffId)).thenReturn(List.of(a));
@@ -82,15 +79,14 @@ class AiReviewSettingsResolverTest {
         AiReviewSettingsResolver.Effective e = resolver.resolve(org, staffId);
 
         assertThat(e.enabled()).isTrue();
-        assertThat(e.weights()).isEqualTo(new ReviewContext.Weights(60, 30, 10));
         assertThat(e.fromUnitId()).isNull();
     }
 
     @Test
-    @DisplayName("gốc bật 50/40/10, phòng tắt -> nhân viên tổ dưới phòng: TẮT (đơn vị gần nhất thắng)")
+    @DisplayName("gốc bật, phòng tắt -> nhân viên tổ dưới phòng: TẮT (đơn vị gần nhất thắng)")
     void nearestUnitWins() {
         when(unitSettings.findByOrganizationId(org.getId())).thenReturn(List.of(
-                setting(root, true, 50, 40, 10), setting(dept, false, 60, 30, 10)));
+                setting(root, true), setting(dept, false)));
 
         AiReviewSettingsResolver.Effective e = resolver.resolve(org, staffId);
 
@@ -102,7 +98,7 @@ class AiReviewSettingsResolverTest {
     @DisplayName("công ty tắt -> tắt, dù đơn vị có bật")
     void companyOffOverridesUnits() {
         org.setEnableAiReview(false);
-        when(unitSettings.findByOrganizationId(org.getId())).thenReturn(List.of(setting(team, true, 50, 40, 10)));
+        when(unitSettings.findByOrganizationId(org.getId())).thenReturn(List.of(setting(team, true)));
 
         assertThat(resolver.resolve(org, staffId).enabled()).isFalse();
     }
@@ -165,5 +161,22 @@ class AiReviewSettingsResolverTest {
         when(ragDocs.findByOrganizationIdOrderByCreatedAtDesc(org.getId())).thenReturn(List.of());
 
         assertThat(resolver.regulationDocsFor(org.getId(), chosen.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("thang điểm AI: xếp theo điểm tăng dần, tối đa = điểm mức cao nhất, % = điểm / tối đa; thang toàn 0 -> trống")
+    void aiScaleFromLevels() {
+        var rows = List.of(
+                com.kpitracking.entity.AiReviewLevel.builder().name("Tốt").position(1).points(java.math.BigDecimal.valueOf(8)).description("Đủ số liệu").build(),
+                com.kpitracking.entity.AiReviewLevel.builder().name("Kém").position(2).points(java.math.BigDecimal.ZERO).build(),
+                com.kpitracking.entity.AiReviewLevel.builder().name("Khá").position(3).points(java.math.BigDecimal.valueOf(6)).build());
+
+        AiReviewSettingsResolver.AiScale s = AiReviewSettingsResolver.scaleOf(rows);
+
+        assertThat(s.max()).isEqualByComparingTo("8");
+        assertThat(s.levels()).extracting(ReviewContext.QualityLevel::name).containsExactly("Kém", "Khá", "Tốt");
+        assertThat(s.levels()).extracting(ReviewContext.QualityLevel::scorePercent).containsExactly(0.0, 75.0, 100.0);
+        assertThat(s.levels().get(2).description()).isEqualTo("Đủ số liệu");
+        assertThat(AiReviewSettingsResolver.scaleOf(List.of(rows.get(1)))).isEqualTo(AiReviewSettingsResolver.AiScale.EMPTY);
     }
 }

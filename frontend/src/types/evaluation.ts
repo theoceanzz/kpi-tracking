@@ -38,6 +38,8 @@ export interface Evaluation {
   // ── Bell curve ──
   /** Cảnh báo lệch khung bell curve của đơn vị sau khi chốt đánh giá này (chế độ "chặn" trả lỗi 400). */
   bellCurveWarning?: string | null
+  /** Đánh giá vừa gửi thành đề xuất chờ duyệt theo quy trình (chưa ghi điểm, id trống). */
+  approval?: import('./approvalChain').ApprovalSummary | null
 }
 
 // Matches BE: CreateEvaluationRequest

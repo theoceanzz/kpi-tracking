@@ -7,7 +7,7 @@ import { submissionApi } from '../api/submissionApi'
 import { createReviewSubmissionSchema, type ReviewSubmissionFormData } from '../schemas/submissionSchema'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
-import { Loader2, CheckCircle, XCircle, User, Calendar, Paperclip, MessageSquare, Info } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, User, Calendar, Paperclip, MessageSquare, Info, GitBranch } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { formatDateTime, formatNumber, cn } from '@/lib/utils'
@@ -36,7 +36,9 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
   const { hasPermission } = usePermission()
   const isHighAuthority = hasPermission('ROLE:ASSIGN')
   const isOwnSubmission = submission?.submittedById === user?.id
-  const canReviewThis = (!submission?.isSubmittedByManager || isHighAuthority) && !isOwnSubmission
+  // Bài đi quy trình duyệt: chỉ người giữ bước hiện tại thao tác được (máy chủ kiểm lại lúc bấm).
+  const flow = submission?.status === 'PENDING' ? submission.approval ?? null : null
+  const canReviewThis = flow ? flow.canAct : (!submission?.isSubmittedByManager || isHighAuthority) && !isOwnSubmission
 
   const isQualitative = submission?.kpiType === 'QUALITATIVE'
   const organizationId = user?.memberships?.[0]?.organizationId
@@ -85,7 +87,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
     }),
     onSuccess: (data) => { 
       qc.invalidateQueries({ queryKey: ['submissions'] })
-      toast.success(t('ReviewModal.submissionApproved'))
+      toast.success(data.status === 'PENDING' ? t('ReviewModal.forwarded') : t('ReviewModal.submissionApproved'))
       reset()
       
       if (data.allChildrenApproved) {
@@ -152,7 +154,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
               title={isQualitative && !selectedLevelId ? t('ReviewModal.pleaseChooseAQualitativeEvaluationLevel') : undefined}
             >
               {approveMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <CheckCircle aria-hidden="true" />}
-              {t('ReviewModal.approve')}
+              {flow?.actionKind === 'FORWARDED' ? t('ReviewModal.approveAndForward') : t('ReviewModal.approve')}
             </Button>
           }
         />
@@ -163,6 +165,21 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
   >
       <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-5">
+        {flow && (
+          <div className="flex items-start gap-2.5 rounded-card border border-[var(--color-info-border)] bg-[var(--color-info-bg)] px-4 py-3 text-sm text-[var(--color-info)]">
+            <GitBranch size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">{t('ReviewModal.flowStep', { number: flow.stepNumber, total: flow.totalSteps, step: flow.currentUnitName ?? '' })}</p>
+              <p className="mt-0.5">
+                {!flow.canAct
+                  ? t('ReviewModal.flowWaiting', { names: flow.holderNames.join(', ') })
+                  : flow.actionKind === 'FORWARDED'
+                    ? t('ReviewModal.flowForward', { names: flow.nextHolderNames ?? '' })
+                    : t('ReviewModal.flowFinal')}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* KPI Name */}
         <div className="p-5 rounded-card bg-[var(--color-muted)] border border-[var(--color-success-border)]">

@@ -455,6 +455,128 @@
   },
   {
     "method": "PATCH",
+    "path": "/api/v1/approval-form-groups/{id}/active",
+    "anyOf": [
+      "APPROVAL_FORM:MANAGE"
+    ],
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/approval-form-groups/{id}/forms/order",
+    "anyOf": [
+      "APPROVAL_FORM:MANAGE"
+    ],
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/approval-form-groups/{id}",
+    "anyOf": [
+      "APPROVAL_FORM:MANAGE"
+    ],
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/approval-form-groups/{id}",
+    "anyOf": [
+      "APPROVAL_FORM:MANAGE"
+    ],
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/approval-form-groups/order",
+    "anyOf": [
+      "APPROVAL_FORM:MANAGE"
+    ],
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/approval-form-groups",
+    "anyOf": [
+      "APPROVAL_FORM:MANAGE"
+    ],
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/approval-forms/{id}/active",
+    "authenticated": true,
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/approval-forms/{id}/names",
+    "authenticated": true,
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/approval-forms/{id}",
+    "authenticated": true,
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/approval-forms/{id}",
+    "authenticated": true,
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/approval-forms/{id}",
+    "authenticated": true,
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/approval-forms/admin",
+    "authenticated": true,
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/approval-forms/catalog",
+    "authenticated": true,
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/approval-forms/directory/targets",
+    "authenticated": true,
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/approval-forms/directory/units",
+    "authenticated": true,
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/approval-forms/library",
+    "authenticated": true,
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/approval-forms/process-options",
+    "authenticated": true,
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/approval-forms",
+    "anyOf": [
+      "APPROVAL_FORM:MANAGE"
+    ],
+    "source": "ApprovalFormController.java"
+  },
+  {
+    "method": "PATCH",
     "path": "/api/v1/approval-processes/{id}/active",
     "anyOf": [
       "WORKFLOW:MANAGE"
@@ -520,6 +642,78 @@
       "WORKFLOW:MANAGE"
     ],
     "source": "ApprovalProcessController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/approval-requests/{id}/withdraw",
+    "authenticated": true,
+    "source": "ApprovalRequestController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/approval-requests/{id}",
+    "authenticated": true,
+    "source": "ApprovalRequestController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/approval-requests/counts",
+    "authenticated": true,
+    "source": "ApprovalRequestController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/approval-requests/forms/{formId}",
+    "authenticated": true,
+    "source": "ApprovalRequestController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/approval-requests/preview-flow",
+    "authenticated": true,
+    "source": "ApprovalRequestController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/approval-requests/uploads",
+    "authenticated": true,
+    "source": "ApprovalRequestController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/approval-requests",
+    "authenticated": true,
+    "source": "ApprovalRequestController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/approval-requests",
+    "authenticated": true,
+    "source": "ApprovalRequestController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/approvals/flows/{flowId}/approve",
+    "authenticated": true,
+    "source": "ApprovalController.java"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/approvals/flows/{flowId}/reject",
+    "authenticated": true,
+    "source": "ApprovalController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/approvals/flows/{flowId}",
+    "authenticated": true,
+    "source": "ApprovalController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/approvals/inbox",
+    "authenticated": true,
+    "source": "ApprovalController.java"
   },
   {
     "method": "POST",
@@ -3848,7 +4042,47 @@
   },
   {
     "method": "GET",
+    "path": "/api/v1/stats/advanced/heatmap/unit-period",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/leaderboard/people",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/leaderboard/units",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
     "path": "/api/v1/stats/advanced/part/submission-share",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/person/{userId}",
     "anyOf": [
       "STATS:VIEW_EMPLOYEE",
       "STATS:VIEW_MY",
@@ -3869,6 +4103,16 @@
   {
     "method": "GET",
     "path": "/api/v1/stats/advanced/timeline/submission-composition",
+    "anyOf": [
+      "STATS:VIEW_EMPLOYEE",
+      "STATS:VIEW_MY",
+      "STATS:VIEW_ORG"
+    ],
+    "source": "AdvancedAnalyticsController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats/advanced/unit/{orgUnitId}",
     "anyOf": [
       "STATS:VIEW_EMPLOYEE",
       "STATS:VIEW_MY",
@@ -4344,6 +4588,12 @@
   },
   {
     "method": "GET",
+    "path": "/api/v1/submissions/{submissionId}/approval-chain",
+    "authenticated": true,
+    "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "GET",
     "path": "/api/v1/submissions/{submissionId}/attachments",
     "authenticated": true,
     "source": "KpiSubmissionController.java"
@@ -4391,6 +4641,12 @@
   {
     "method": "DELETE",
     "path": "/api/v1/submissions/attachments/{attachmentId}",
+    "authenticated": true,
+    "source": "KpiSubmissionController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/submissions/awaiting-my-approval",
     "authenticated": true,
     "source": "KpiSubmissionController.java"
   },

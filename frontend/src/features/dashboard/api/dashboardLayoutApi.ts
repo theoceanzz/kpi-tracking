@@ -16,6 +16,7 @@ export type DashboardScope = 'DIRECTOR' | 'HEAD' | 'DEPUTY' | 'STAFF'
  * vô nghĩa.
  */
 export type AnalyticsGridScope =
+  | 'ANALYTICS'
   | 'ANALYTICS_SUMMARY'
   | 'ANALYTICS_MY_KPI'
   | 'ANALYTICS_MY_OBJECTIVES'

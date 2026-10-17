@@ -13,6 +13,8 @@ import java.util.UUID;
 public class ApprovalFlowResponse {
     private UUID id;
     private ApprovalSubjectType subjectType;
+    private UUID subjectId;
+    private String subjectName;
     private UUID kpiCriteriaId;
     private UUID adjustmentRequestId;
     private int round;

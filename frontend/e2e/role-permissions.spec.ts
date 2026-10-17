@@ -22,6 +22,7 @@ const ACCOUNTS = {
 const COMMON_PAGES = [
   '/dashboard', '/me', '/my-kpi', '/my-tasks', '/tasks', '/submissions', '/submissions/new',
   '/evaluations', '/my-adjustments', '/notifications', '/profile', '/documents', '/kpi-setup',
+  '/requests', '/requests?tab=status',
 ]
 /** Màn quản lý — vai trò có quyền thì vào được; không có thì bị PermissionRoute đẩy đi, cũng không được 403. */
 const MANAGER_PAGES = [

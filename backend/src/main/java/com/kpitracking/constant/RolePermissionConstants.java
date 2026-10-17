@@ -26,7 +26,7 @@ public class RolePermissionConstants {
     // Khi isTopLevel=true → sẽ cộng thêm SYSTEM_ONLY ở bên dưới
     // ----------------------------------------------------------------
     public static final List<String> DIRECTOR_PERMS = Arrays.asList(
-            "DASHBOARD:VIEW", "COMPANY:VIEW", "COMPANY:UPDATE", "WORKFLOW:MANAGE",
+            "DASHBOARD:VIEW", "COMPANY:VIEW", "COMPANY:UPDATE", "WORKFLOW:MANAGE", "APPROVAL_FORM:MANAGE",
             "ORG:VIEW", "ORG:CREATE", "ORG:UPDATE", "ORG:DELETE",
             "USER:VIEW", "USER:CREATE", "USER:UPDATE", "USER:DELETE", "USER:IMPORT",
             "ROLE:VIEW", "ROLE:ASSIGN", "ROLE:CREATE", "ROLE:UPDATE",

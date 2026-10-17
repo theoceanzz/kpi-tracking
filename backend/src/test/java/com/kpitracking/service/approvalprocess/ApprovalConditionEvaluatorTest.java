@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -24,7 +25,7 @@ class ApprovalConditionEvaluatorTest {
     private ApprovalSubjectFacts facts(String kpiType, Double weight, boolean bonus) {
         return new ApprovalSubjectFacts(ApprovalObjectType.KPI_CRITERIA, kpiType, unitA,
                 new LinkedHashSet<>(List.of(unitA, unitB, root)), UUID.randomUUID(), requester, Set.of(roleStaff),
-                kpiType, "MONTHLY", null, weight, bonus, null, null);
+                kpiType, "MONTHLY", null, weight, bonus, null, null, null, Map.of());
     }
 
     @Test

@@ -20,7 +20,7 @@ import java.util.UUID;
  *       dẫn nào thật thì nhận xét chất lượng, điểm mạnh và MỨC chất lượng đều bị bỏ — nhận định không có
  *       căn cứ không được tới tay quản lý, và mức bị bỏ thì thành phần chất lượng không vào điểm.</li>
  *   <li>Mức chất lượng phải thuộc thang của tổ chức.</li>
- *   <li>Điểm trên thang điểm đánh giá, kẹp trong [0, điểm tối đa của chỉ tiêu] ({@link ReviewScoreCalculator#points}).</li>
+ *   <li>Điểm AI = % mức chất lượng × điểm tối đa của thang AI ({@link ReviewScoreCalculator#points}).</li>
  *   <li>Quá nửa chỉ tiêu không có dữ liệu -> mức tin cậy {@code THAP}.</li>
  * </ul>
  * "Cần bổ sung" và "gợi ý" được giữ không cần trích dẫn: chúng thường nói về thứ KHÔNG có trong bài.
@@ -57,7 +57,7 @@ public class ReviewResultValidator {
 
     /** Kết quả cho một chỉ tiêu CHƯA có bài nộp — không gọi mô hình, chỉ có số. */
     public ReviewResults.CriterionResult noSubmission(ReviewContext ctx, ReviewContext.Criterion c) {
-        ReviewScoreCalculator.Points p = calculator.points(ctx, c, null);
+        ReviewScoreCalculator.Points p = calculator.points(ctx, null);
         return new ReviewResults.CriterionResult(c.kpiCriteriaId(), null,
                 "Chưa có bài nộp cho chỉ tiêu này trong đợt.", null, null, List.of(),
                 calculator.achievementPercent(c), null, p.total(),
@@ -67,7 +67,7 @@ public class ReviewResultValidator {
 
     /** Kết quả khi mô hình lỗi / trả sai định dạng cho một chỉ tiêu — vẫn có số, có ghi lỗi. */
     public ReviewResults.CriterionResult failed(ReviewContext ctx, ReviewContext.Criterion c, String error) {
-        ReviewScoreCalculator.Points p = calculator.points(ctx, c, null);
+        ReviewScoreCalculator.Points p = calculator.points(ctx, null);
         return new ReviewResults.CriterionResult(c.kpiCriteriaId(), lastSubmissionId(c), null, null, null, List.of(),
                 calculator.achievementPercent(c), calculator.onTimePercent(c), p.total(),
                 List.of(), List.of(), List.of(), error, List.of(), p, itemConfidence(ctx, c, null, List.of(), error));
@@ -96,7 +96,7 @@ public class ReviewResultValidator {
         String level = grounded && a.chatLuong() != null ? levelInScale(a.chatLuong().muc(), ctx) : null;
         String comment = grounded && a.chatLuong() != null ? prose(ctx, a.chatLuong().nhanXet()) : null;
         Double qualityPercent = calculator.qualityPercent(level, ReviewScoreCalculator.scaleOf(ctx));
-        ReviewScoreCalculator.Points p = calculator.points(ctx, c, qualityPercent);
+        ReviewScoreCalculator.Points p = calculator.points(ctx, qualityPercent);
 
         return new ReviewResults.CriterionResult(c.kpiCriteriaId(), lastSubmissionId(c),
                 prose(ctx, a.tomTat()), level, comment, quotes,

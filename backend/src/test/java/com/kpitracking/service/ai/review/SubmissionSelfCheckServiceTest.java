@@ -98,7 +98,7 @@ class SubmissionSelfCheckServiceTest {
         a.setOrgUnit(unit);
         when(assignments.findByUserId(me.getId())).thenReturn(List.of(a));
         when(resolver.resolve(any(), any())).thenReturn(
-                new AiReviewSettingsResolver.Effective(true, ReviewFixtures.W, null, "công ty"));
+                new AiReviewSettingsResolver.Effective(true, null, "công ty"));
 
         kpi.setId(UUID.randomUUID());
         kpi.setStatus(KpiStatus.APPROVED);
@@ -191,7 +191,7 @@ class SubmissionSelfCheckServiceTest {
         kpi.setAssignees(new ArrayList<>(List.of(me)));
 
         when(resolver.resolve(any(), any())).thenReturn(
-                new AiReviewSettingsResolver.Effective(false, ReviewFixtures.W, null, "đơn vị"));
+                new AiReviewSettingsResolver.Effective(false, null, "đơn vị"));
         assertThatThrownBy(() -> service.start(draft("x"), List.of()))
                 .isInstanceOfSatisfying(ForbiddenException.class,
                         e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.AI_REVIEW_UNIT_DISABLED));

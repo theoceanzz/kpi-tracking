@@ -165,7 +165,7 @@ export default function MyOkrPage() {
         {/* Nút phụ luôn ở hàng dưới, phải — cùng bố cục với BSC của tôi ở mọi vai trò. */}
         <div className="flex flex-wrap gap-2 sm:justify-end">
           <Button {...tourAnchor('myokr.analytics')} asChild variant="outline">
-            <Link to="/analytics?section=my-objectives"><TrendingUp aria-hidden="true" /> {t('MyOkrPage.viewAnalytics')}</Link>
+            <Link to="/analytics"><TrendingUp aria-hidden="true" /> {t('MyOkrPage.viewAnalytics')}</Link>
           </Button>
           {hasPermission('OKR:MANAGE') && (
             <Button {...tourAnchor('myokr.manage')} asChild variant="outline">

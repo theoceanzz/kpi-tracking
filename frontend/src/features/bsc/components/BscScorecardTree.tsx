@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import {
   ChevronDown, ChevronRight, GitBranch, Lock, ShieldAlert, Building2, Users, Search,
   Send, Check, Undo2, RefreshCw, Loader2, AlertTriangle, Calculator, Target, Layers,
-  Edit2, Trash2, ShieldCheck, ListTree, Link2, Unlink,
+  Edit2, Trash2, ShieldCheck, ListTree, Link2, Unlink, Inbox,
 } from 'lucide-react'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -444,6 +444,9 @@ function NodeActions({
   const [attachOpen, setAttachOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
 
+  // Thẻ đang theo quy trình duyệt: không sửa / duyệt tay — người giữ bước duyệt ở "Chờ tôi duyệt".
+  const flow = sc?.approval ?? null
+
   // Thẻ mồ côi: đơn vị tự dựng trước khi cấp trên phân rã nên chưa nằm trong nhánh nào.
   const isOrphan = !!sc && !sc.parentScorecardId && node.level !== BscScorecardLevel.COMPANY
 
@@ -458,7 +461,7 @@ function NodeActions({
   const groups: React.ReactNode[][] = [
     // Sửa nội dung bộ tiêu chí
     [
-      canEdit && sc && (
+      canEdit && sc && !flow && (
         <IconAction key="edit" icon={<Edit2 aria-hidden="true" />} label={t('BscScorecardTree.editScorecard')} onClick={() => onEdit(sc)} />
       ),
     ],
@@ -485,12 +488,19 @@ function NodeActions({
           pending={submitScorecard.isPending}
           onClick={() => submitScorecard.mutate(node.id)} />
       ),
-      canApprove && node.status === BscScorecardStatus.SUBMITTED && (
+      flow && (
+        <IconAction key="process" icon={<Inbox aria-hidden="true" />} accent="emerald"
+          label={i18n.t('approvalProcess:pending.scorecard', {
+            number: flow.stepNumber, total: flow.totalSteps, names: flow.holderNames.join(', '),
+          })}
+          onClick={() => { window.location.assign('/performance?section=process-approvals') }} />
+      ),
+      canApprove && !flow && node.status === BscScorecardStatus.SUBMITTED && (
         <IconAction key="approve" icon={<Check aria-hidden="true" />} label={t('BscScorecardTree.approve')} accent="emerald"
           pending={approveScorecard.isPending}
           onClick={() => approveScorecard.mutate(node.id)} />
       ),
-      canApprove && node.status === BscScorecardStatus.SUBMITTED && (
+      canApprove && !flow && node.status === BscScorecardStatus.SUBMITTED && (
         <IconAction key="reject" icon={<Undo2 aria-hidden="true" />} label={t('BscScorecardTree.returnForChanges')} accent="amber"
           pending={rejectScorecard.isPending}
           onClick={() => setRejectOpen(true)} />
@@ -830,6 +840,8 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
   const [askProvisional, setAskProvisional] = useState(false)
   const isDraft = data?.status === BscUnitResultStatus.DRAFT
   const computing = recompute.isPending
+  // Yêu cầu chốt đang chờ duyệt theo quy trình: số liệu đứng yên, không tính lại / chốt lại.
+  const finalizeFlow = data?.approval ?? null
 
   const finalizeNow = () => finalize.mutate(
     { scorecardId, kpiPeriodId, askProvisional: canManageAll },
@@ -864,11 +876,17 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
 
         {canManageUnit && data && (
           <>
-            <Button variant="secondary" size="sm" onClick={() => recompute.mutate({ scorecardId, kpiPeriodId })} disabled={computing || !isDraft} title={isDraft ? t('BscScorecardTree.recalculateFromCurrentFigures') : t('BscScorecardTree.finalizedUnlockBeforeRecalculating')}>
+            <Button variant="secondary" size="sm" onClick={() => recompute.mutate({ scorecardId, kpiPeriodId })} disabled={computing || !isDraft || !!finalizeFlow} title={isDraft ? t('BscScorecardTree.recalculateFromCurrentFigures') : t('BscScorecardTree.finalizedUnlockBeforeRecalculating')}>
               {computing ? <Loader2 aria-hidden="true" className="animate-spin" /> : <RefreshCw aria-hidden="true" />}
               {t('BscScorecardTree.recalculate')}
             </Button>
-            {isDraft ? (
+            {finalizeFlow ? (
+              <Badge variant="warning">
+                {i18n.t('approvalProcess:pending.bscResultBadge', {
+                  number: finalizeFlow.stepNumber, total: finalizeFlow.totalSteps, names: finalizeFlow.holderNames.join(', '),
+                })}
+              </Badge>
+            ) : isDraft ? (
               <Button size="sm" onClick={finalizeNow} disabled={finalize.isPending} title={t('BscScorecardTree.finalizeTheseFiguresAfterFinalizingYou')}>
                 {finalize.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Check aria-hidden="true" />}
                 {t('BscScorecardTree.finalizeResults')}

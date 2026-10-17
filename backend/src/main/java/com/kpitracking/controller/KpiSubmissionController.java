@@ -82,6 +82,21 @@ public class KpiSubmissionController {
         return ResponseEntity.ok(ApiResponse.success(scoreLedger.forUserPeriod(userId, kpiPeriodId)));
     }
 
+    @GetMapping("/awaiting-my-approval")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Bài nộp đang chờ người gọi duyệt ở bước hiện tại của quy trình duyệt")
+    public ResponseEntity<ApiResponse<List<SubmissionResponse>>> awaitingMyApproval() {
+        return ResponseEntity.ok(ApiResponse.success(submissionService.awaitingMyApproval()));
+    }
+
+    @GetMapping("/{submissionId}/approval-chain")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Chuỗi duyệt (stepper + lịch sử) của bài nộp theo quy trình duyệt")
+    public ResponseEntity<ApiResponse<com.kpitracking.dto.response.kpi.approval.KpiApprovalChainResponse>> approvalChain(
+            @PathVariable UUID submissionId) {
+        return ResponseEntity.ok(ApiResponse.success(submissionService.approvalChain(submissionId)));
+    }
+
     @GetMapping("/{submissionId}")
     @Operation(summary = "Get submission by ID")
     public ResponseEntity<ApiResponse<SubmissionResponse>> getSubmission(@PathVariable UUID submissionId) {

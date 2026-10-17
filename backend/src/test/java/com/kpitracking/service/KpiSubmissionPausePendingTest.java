@@ -41,7 +41,7 @@ class KpiSubmissionPausePendingTest {
     private final SubmissionMapper mapper = mock(SubmissionMapper.class);
     private final UserRepository users = mock(UserRepository.class);
     private final KpiSubmissionService service = new KpiSubmissionService(submissions, null, null, users, null, mapper,
-            null, mock(PermissionChecker.class), null, null, null, mock(CycleStatusGuard.class), null, null, adjustments);
+            null, mock(PermissionChecker.class), null, null, null, mock(CycleStatusGuard.class), null, null, mock(com.kpitracking.service.kpi.approval.KpiApprovalChainService.class), mock(com.kpitracking.service.kpi.approval.KpiApprovalViewService.class),  adjustments);
 
     @AfterEach
     void tearDown() {

@@ -40,4 +40,6 @@ public class ScorecardResponse {
     private Double totalWeight;
     private Instant createdAt;
     private Instant updatedAt;
+    /** Đang chờ duyệt theo quy trình "Lập và phê duyệt thẻ điểm": bước hiện tại, tính cho người xem. */
+    private com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse approval;
 }

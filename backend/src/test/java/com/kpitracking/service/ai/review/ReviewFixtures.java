@@ -9,7 +9,8 @@ public final class ReviewFixtures {
 
     private ReviewFixtures() {}
 
-    public static final ReviewContext.Weights W = new ReviewContext.Weights(60, 30, 10);
+    /** Điểm tối đa của thang AI dùng trong test (mặc định của sản phẩm). */
+    public static final java.math.BigDecimal MAX = java.math.BigDecimal.TEN;
 
     /**
      * Thang chất lượng MẪU cho test. Sản phẩm không có thang mặc định: tổ chức chưa cấu hình thì
@@ -33,6 +34,6 @@ public final class ReviewFixtures {
 
     static ReviewContext context(ReviewContext.Criterion... criteria) {
         return new ReviewContext(UUID.randomUUID(), UUID.randomUUID(), "Tháng 9/2026", UUID.randomUUID(),
-                "Nguyễn Văn An", List.of(criteria), SCALE, List.of(), W);
+                "Nguyễn Văn An", List.of(criteria), SCALE, List.of(), MAX);
     }
 }

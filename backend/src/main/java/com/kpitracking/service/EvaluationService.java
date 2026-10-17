@@ -59,6 +59,8 @@ public class EvaluationService {
     private final com.kpitracking.service.kpi.CycleLockChecker cycleLockChecker;
     private final com.kpitracking.service.kpi.CycleStatusGuard cycleStatusGuard;
     private final com.kpitracking.service.notification.NotificationDispatcher notificationDispatcher;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalViewService approvalView;
 
     // Khung bell curve cần đọc lại phân bố xếp loại của cả đơn vị, mà UnitClassificationService
     // lại dựa vào chính service này để lấy đánh giá đại diện — @Lazy cắt vòng phụ thuộc đó.
@@ -97,8 +99,37 @@ public class EvaluationService {
 
     @Transactional
     public EvaluationResponse createEvaluation(CreateEvaluationRequest request) {
-        User currentUser = getCurrentUser();
+        return createEvaluationAs(request, getCurrentUser(), false);
+    }
 
+    /**
+     * Quy trình "Đánh giá và xếp loại hiệu suất" đã duyệt xong bước cuối: chạy lại đúng luồng chấm
+     * với tư cách người chấm gốc, kiểm lại mọi ràng buộc theo dữ liệu lúc này.
+     */
+    @Transactional
+    public EvaluationResponse applyApprovedEvaluation(Map<String, Object> payload) {
+        UUID evaluatorId = UUID.fromString(String.valueOf(payload.get("evaluatorId")));
+        User evaluator = userRepository.findById(evaluatorId)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", evaluatorId));
+        CreateEvaluationRequest request = new CreateEvaluationRequest();
+        request.setUserId(UUID.fromString(String.valueOf(payload.get("userId"))));
+        request.setKpiPeriodId(UUID.fromString(String.valueOf(payload.get("kpiPeriodId"))));
+        request.setScore(payload.get("score") == null ? null : ((Number) payload.get("score")).doubleValue());
+        request.setComment((String) payload.get("comment"));
+        request.setAllowProvisionalBsc(Boolean.TRUE.equals(payload.get("allowProvisionalBsc")));
+        return createEvaluationAs(request, evaluator, true);
+    }
+
+    /** Một đề xuất đánh giá cho mỗi (người được chấm, đợt, người chấm): gửi lại thì huỷ bản đang chờ. */
+    public static UUID proposalSubjectId(UUID userId, UUID kpiPeriodId, UUID evaluatorId) {
+        return UUID.nameUUIDFromBytes(("EVALUATION:" + userId + ":" + kpiPeriodId + ":" + evaluatorId)
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    /**
+     * @param viaApproval chạy từ bước cuối của quy trình duyệt — không mở lại quy trình
+     */
+    private EvaluationResponse createEvaluationAs(CreateEvaluationRequest request, User currentUser, boolean viaApproval) {
         User evaluatedUser = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", request.getUserId()));
 
@@ -191,6 +222,41 @@ public class EvaluationService {
                 if (!isSubordinate) {
                     throw new ForbiddenException(ErrorCode.MAY_ONLY_EVALUATE_EMPLOYEES_BELOW_ORGANIZATION_CHART);
                 }
+            }
+        }
+
+        // Quy trình "Đánh giá và xếp loại hiệu suất": đánh giá của quản lý thành ĐỀ XUẤT chờ duyệt và
+        // CHƯA ghi vào evaluations — mọi chỗ đọc điểm vẫn chỉ thấy bản đã chốt. Bước cuối duyệt xong
+        // mới chạy lại đúng hàm này (applyApprovedEvaluation). Tự đánh giá không qua quy trình.
+        if (!isSelfEval && !viaApproval) {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("userId", evaluatedUser.getId().toString());
+            payload.put("userName", evaluatedUser.getFullName());
+            payload.put("kpiPeriodId", kpiPeriod.getId().toString());
+            payload.put("kpiPeriodName", kpiPeriod.getName());
+            payload.put("evaluatorId", currentUser.getId().toString());
+            payload.put("evaluatorName", currentUser.getFullName());
+            payload.put("score", request.getScore());
+            payload.put("comment", request.getComment());
+            payload.put("allowProvisionalBsc", Boolean.TRUE.equals(request.getAllowProvisionalBsc()));
+            payload.put("systemScore", calculateSystemScore(evaluatedUser.getId(), kpiPeriod.getId()));
+            Optional<com.kpitracking.entity.KpiApprovalFlow> pending = approvalChain.startProposal(
+                    com.kpitracking.enums.ApprovalSubjectType.EVALUATION,
+                    proposalSubjectId(evaluatedUser.getId(), kpiPeriod.getId(), currentUser.getId()),
+                    evaluatedUser.getFullName() + " · " + kpiPeriod.getName(), targetOrgUnit, null,
+                    currentUser, kpiPeriod.getId(), request.getScore(), payload);
+            if (pending.isPresent()) {
+                return EvaluationResponse.builder()
+                        .userId(evaluatedUser.getId())
+                        .userName(evaluatedUser.getFullName())
+                        .kpiPeriodId(kpiPeriod.getId())
+                        .kpiPeriodName(kpiPeriod.getName())
+                        .evaluatorId(currentUser.getId())
+                        .evaluatorName(currentUser.getFullName())
+                        .score(request.getScore())
+                        .comment(request.getComment())
+                        .approval(approvalView.summarize(pending.get(), currentUser.getId()))
+                        .build();
             }
         }
 

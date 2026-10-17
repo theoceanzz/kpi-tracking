@@ -12,7 +12,6 @@ import com.kpitracking.enums.KpiType;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.KpiPeriodRepository;
-import com.kpitracking.repository.QualitativeLevelRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import com.kpitracking.security.PermissionChecker;
@@ -49,7 +48,6 @@ public class ReviewContextBuilder {
     private final KpiPeriodRepository kpiPeriodRepository;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
-    private final QualitativeLevelRepository qualitativeLevelRepository;
     private final PermissionChecker permissionChecker;
     private final KpiAchievementCalculator achievementCalculator;
     private final com.kpitracking.repository.KpiSubmissionRepository submissionRepository;
@@ -141,9 +139,8 @@ public class ReviewContextBuilder {
         boolean waterfall = Boolean.TRUE.equals(org.getEnableWaterfall());
 
         /*
-          Pool trọng số phải khớp thang điểm thật của quản lý, nếu không `normFactor` (= 100/Σw) chia trên một mẫu số
-          lớn hơn. Vị từ của core loại KPI khoá kỳ, huỷ không bù, cha phân rã, thưởng, thiếu trọng số, định lượng thiếu
-          chỉ tiêu; sheetKpis loại thêm KPI xin tạm dừng (core vẫn tính chúng theo % bù).
+          Đúng các KPI trên phiếu chấm của quản lý: vị từ của core loại KPI khoá kỳ, huỷ không bù, cha phân rã, thưởng,
+          thiếu trọng số, định lượng thiếu chỉ tiêu; sheetKpis loại thêm KPI xin tạm dừng (core vẫn tính chúng theo % bù).
          */
         List<KpiCriteria> kpis = sheetKpis(kpiPeriodId, userId);
 
@@ -179,16 +176,11 @@ public class ReviewContextBuilder {
                     subs, history(userId, kpi.getName(), kpiPeriodId)));
         }
 
-        List<ReviewContext.QualityLevel> scale = qualitativeLevelRepository
-                .findByOrganizationIdOrderByPositionAsc(organizationId).stream()
-                .map(l -> new ReviewContext.QualityLevel(l.getName(), l.getScorePercent(),
-                        l.getPosition() == null ? 0 : l.getPosition()))
-                .toList();
+        // Thang điểm AI riêng của công ty (V48) — không phải thang định tính của KPI.
+        AiReviewSettingsResolver.AiScale ai = settingsResolver.aiScale(organizationId);
 
-        // Trọng số theo ĐƠN VỊ của người được chấm (đơn vị gần nhất có cấu hình riêng), không thì theo công ty.
-        ReviewContext.Weights weights = settingsResolver.resolve(org, userId).weights();
         return new ReviewContext(organizationId, kpiPeriodId, period == null ? null : period.getName(),
-                userId, user == null ? null : user.getFullName(), criteria, scale, List.of(), weights,
+                userId, user == null ? null : user.getFullName(), criteria, ai.levels(), List.of(), ai.max(),
                 List.of(), settingsResolver.criteriaSetFor(organizationId, userId),
                 conductSource.forPeriod(org, period));
     }
@@ -210,7 +202,7 @@ public class ReviewContextBuilder {
                 kpi.getEffectiveDeadline(), null, List.of(sub), List.of());
         return new ReviewContext(org.getId(), period == null ? null : period.getId(),
                 period == null ? null : period.getName(), userId, user == null ? null : user.getFullName(),
-                List.of(c), List.of(), List.of(), settingsResolver.resolve(org, userId).weights(),
+                List.of(c), List.of(), List.of(), null,
                 List.of(), settingsResolver.criteriaSetFor(org.getId(), userId), List.of());
     }
 

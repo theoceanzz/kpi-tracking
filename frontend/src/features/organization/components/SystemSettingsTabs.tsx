@@ -294,6 +294,8 @@ const EVENT_LABELS = perLanguage((): Record<string, string> => ({
   task_assigned: i18n.t('organization:SystemSettingsTabs.whenYouAreAssignedATask'),
   task_follower_added: i18n.t('organization:SystemSettingsTabs.whenYouAreAddedAsTaskFollower'),
   task_changed: i18n.t('organization:SystemSettingsTabs.whenATaskYouFollowChanges'),
+  approval_request_pending: i18n.t('organization:SystemSettingsTabs.whenARequestNeedsYourApproval'),
+  approval_request_decided: i18n.t('organization:SystemSettingsTabs.whenYourRequestIsDecided'),
 }))
 
 const DEFAULT_SETTINGS = perLanguage((): NotificationConfigItem[] => (Object.keys(EVENT_LABELS()).map(code => ({

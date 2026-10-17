@@ -2,7 +2,9 @@
 
 import type { ProcessGraph } from '@/features/approvalProcess/types'
 
-export type ApprovalSubjectType = 'CRITERIA' | 'ADJUSTMENT'
+export type ApprovalSubjectType =
+  | 'CRITERIA' | 'ADJUSTMENT' | 'SUBMISSION' | 'EVALUATION' | 'CYCLE_FINALIZE' | 'BSC_SCORECARD' | 'BSC_RESULT'
+  | 'REWARD_GRANT' | 'GIFT_REDEMPTION' | 'FORM_REQUEST'
 export type ApprovalOutcome = 'FORWARDED' | 'FINAL'
 export type ApprovalFlowStatus = 'IN_PROGRESS' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'CLOSED_BY_LOCK'
 export type ApprovalStepKind = 'UNIT_HEAD' | 'ADMIN_FALLBACK' | 'PROCESS_STEP'
@@ -117,7 +119,10 @@ export interface ApprovalFlowProcess {
 }
 
 export interface KpiApprovalChain {
-  kpiCriteriaId: string
+  /** Chuỗi của đối tượng khác KPI (bài nộp): kpiCriteriaId trống, kpiName là tên đối tượng. */
+  subjectType?: ApprovalSubjectType
+  subjectId?: string
+  kpiCriteriaId: string | null
   kpiName: string
   chainMode: boolean
   current: ApprovalSummary | null

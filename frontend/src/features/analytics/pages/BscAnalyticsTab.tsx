@@ -1,26 +1,23 @@
-import { useCallback } from 'react'
-import { Gauge, Building2, Target, TrendingUp, GitBranch, Medal, Layers, Map, Fish } from 'lucide-react'
+/* eslint-disable react-refresh/only-export-components --
+   Một CỤM Ô = khai báo ô (danh sách, nhóm, mô tả) + bộ vẽ ra chúng. Tách đôi để chiều quy tắc
+   fast-refresh thì mỗi cụm nằm ở hai tệp và sửa một ô phải mở cả hai; cái giá thật ở đây chỉ là
+   tải lại cả trang thay vì nóng khi sửa tệp này lúc phát triển. */
+import { Building2, Target, TrendingUp, GitBranch, Medal, Map, Fish } from 'lucide-react'
 import {
   BscOverviewMetrics, BscUnitAttainmentWidget, BscItemAttainmentWidget, BscAttainmentTrendWidget,
   BscCascadeCoverageWidget, BscRankingWidget,
 } from '../components/pinned/bscWidgets'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
-import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
 import {
-  useAnalyticsGrid, useAnalyticsScopeData, useUnitOptions, usePositionLayout, widgetFilter, widgetUnit, widgetVariant,
-  tableViewControl, optionOf, PAGE_DEFAULT_INTENT,
+  widgetFilter, widgetUnit, widgetVariant, tableViewControl, optionOf,
 } from '../grid/analyticsGrid'
-import { usePinToHome } from '../grid/usePinToHome'
-import WidgetConfigPanel from '../grid/WidgetConfigPanel'
-import WidgetConfigSummary from '../grid/WidgetConfigSummary'
+import type { WidgetPackProps } from '../grid/widgetPack'
 import StrategyMapWidget from '../components/bsc/StrategyMapWidget'
 import FishboneWidget, { SCORECARD_HEAD } from '../components/bsc/FishboneWidget'
 import { PresentableChart } from '../components/bsc/PresentationShell'
 import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
-import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
-import { tourAnchor } from '@/components/common/tours/anchors'
 
 /**
  * Tab "Thẻ điểm BSC": tổng quan cho người quản lý theo mô hình THẺ ĐIỂM — cây Công ty → Đơn vị,
@@ -31,7 +28,7 @@ import { tourAnchor } from '@/components/common/tours/anchors'
  * chọn, ô xu hướng vẽ cả khoảng. Bảng xếp hạng nhân sự là ô duy nhất còn đọc điểm đánh giá cá nhân,
  * để ẩn mặc định.
  */
-const DEFAULT_WIDGETS = perLanguage((): DashboardWidget[] => ([
+export const BSC_WIDGETS = perLanguage((): DashboardWidget[] => ([
   // Hàng thẻ chỉ số đứng ĐẦU ở mọi tab Thống kê — người dùng liếc mấy con số trước rồi mới đọc
   // hình. Bản đồ chiến lược đứng ngay sau, là hình đầu tiên.
   { i: 'bsc-overview', type: 'STATS', title: i18n.t('analytics:BscAnalyticsTab.bscHealthOfThePeriod'), x: 0, y: 0, w: 12, h: 5, visible: true },
@@ -53,13 +50,13 @@ const DEFAULT_WIDGETS = perLanguage((): DashboardWidget[] => ([
  * Tab này gác bằng BSC:MANAGE nên gần như chỉ ban giám đốc mở; ai mở cũng cần trọn thẻ điểm.
  * Khai đủ bốn vị trí để cùng khuôn với các tab khác — bộ y hệt nhau thì thư viện gộp thành một nút.
  */
-const BSC_SET = ['bsc-overview', 'bsc-strategy-map', 'bsc-fishbone', 'bsc-units', 'bsc-items', 'bsc-trend',
+export const BSC_SET = ['bsc-overview', 'bsc-strategy-map', 'bsc-fishbone', 'bsc-units', 'bsc-items', 'bsc-trend',
   'bsc-cascade'] as const
-const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
+export const BSC_POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
   DIRECTOR: BSC_SET, HEAD: BSC_SET, DEPUTY: BSC_SET, STAFF: BSC_SET,
 }
 
-const GROUP_OF = perLanguage((): Record<string, string> => ({
+export const BSC_GROUP_OF = perLanguage((): Record<string, string> => ({
   'bsc-strategy-map': i18n.t('analytics:BscAnalyticsTab.diagrams'),
   'bsc-fishbone': i18n.t('analytics:BscAnalyticsTab.diagrams'),
   'bsc-overview': i18n.t('analytics:BscAnalyticsTab.figures'),
@@ -69,7 +66,7 @@ const GROUP_OF = perLanguage((): Record<string, string> => ({
   'bsc-cascade': i18n.t('analytics:BscAnalyticsTab.comparisonCharts'),
   'bsc-ranking': i18n.t('analytics:BscAnalyticsTab.rankingCharts'),
 }))
-const PREVIEW_OF: Record<string, 'metricCard' | 'table' | 'line' | 'bullet' | 'lollipop' | 'bar' | 'treemap' | 'fishbone'> = {
+export const BSC_PREVIEW_OF: Record<string, 'metricCard' | 'table' | 'line' | 'bullet' | 'lollipop' | 'bar' | 'treemap' | 'fishbone'> = {
   'bsc-strategy-map': 'treemap',
   'bsc-fishbone': 'fishbone',
   'bsc-overview': 'metricCard',
@@ -79,7 +76,7 @@ const PREVIEW_OF: Record<string, 'metricCard' | 'table' | 'line' | 'bullet' | 'l
   'bsc-cascade': 'bar',
   'bsc-ranking': 'lollipop',
 }
-const DESC_OF = perLanguage((): Record<string, string> => ({
+export const BSC_DESC_OF = perLanguage((): Record<string, string> => ({
   'bsc-strategy-map': i18n.t('analytics:BscAnalyticsTab.whereEachObjectiveStandsByPerspective'),
   'bsc-fishbone': i18n.t('analytics:BscAnalyticsTab.whichBranchesPushOrDragTheTarget'),
   'bsc-overview': i18n.t('analytics:BscAnalyticsTab.thePeriodsBscAchievementNumberOf'),
@@ -89,141 +86,85 @@ const DESC_OF = perLanguage((): Record<string, string> => ({
   'bsc-cascade': i18n.t('analytics:BscAnalyticsTab.whetherEachKpiCascadedToUnits'),
   'bsc-ranking': i18n.t('analytics:BscAnalyticsTab.peopleRankedByBscScoreOr'),
 }))
-const CATALOG = perLanguage(() => (DEFAULT_WIDGETS().map(t => ({
-  template: t, icon: null, groupLabel: GROUP_OF()[t.i], preview: PREVIEW_OF[t.i], description: DESC_OF()[t.i],
-}))))
+/**
+ * Cụm ô "Thẻ điểm BSC" trên lưới Thống kê.
+ *
+ * <p>Trước đây là một tab riêng có lưới của mình; nay chỉ vẽ ĐÚNG ô mà lưới chung hỏi tới.
+ */
+export default function BscPack({ widget: w, meta, pageIntent, periods, cycles, updateWidgetSettings }: WidgetPackProps) {
+  const f = widgetFilter(w, pageIntent, periods, cycles)
+  const pf = { from: f.from, to: f.to, periodId: f.periodId, periodIdTo: f.periodIdTo, groupBy: f.groupBy, orgUnitId: widgetUnit(w) }
 
-export default function BscAnalyticsTab() {
-  const { t } = useTranslation('analytics')
-  const { periods, cycles } = useAnalyticsScopeData()
-  const unitOptions = useUnitOptions()
-  // Không còn bộ lọc cấp trang: đơn vị lẫn khoảng thời gian đều nằm trong cài đặt từng ô.
-  const pageIntent = PAGE_DEFAULT_INTENT
-  const pin = usePinToHome()
-  const grid = usePositionLayout(DEFAULT_WIDGETS(), POSITION_LAYOUT, 'DIRECTOR')
-  const dash = useAnalyticsGrid({ scope: 'ANALYTICS_BSC', defaultWidgets: grid.defaultWidgets })
-
-  /*
-    `useCallback` là bắt buộc chứ không phải tối ưu tuỳ hứng: lưới cache phần tử từng ô theo định
-    danh hàm này. Hàm mới mỗi render là mọi biểu đồ vẽ lại mỗi lần tab render.
-  */
-  const { updateWidgetSettings } = dash
-  const renderWidget = useCallback((w: DashboardWidget, ctx: { openConfig: () => void }) => {
-    const f = widgetFilter(w, pageIntent, periods, cycles)
-    const pf = { from: f.from, to: f.to, periodId: f.periodId, periodIdTo: f.periodIdTo, groupBy: f.groupBy, orgUnitId: widgetUnit(w) }
-    const meta = (
-      <WidgetConfigSummary
-        widget={w} pageIntent={pageIntent} periods={periods} cycles={cycles}
-        unitOptions={unitOptions} onOpen={ctx.openConfig}
-      />
+  switch (w.type) {
+    case 'STATS': return (
+      <div id="tour-analytics-metrics" className="h-full flex flex-col gap-2 min-h-0">
+        {meta}
+        <BscOverviewMetrics filter={pf} />
+      </div>
     )
-    switch (w.type) {
-      case 'STATS': return (
-        <div id="tour-analytics-metrics" className="h-full flex flex-col gap-2 min-h-0">
-          {meta}
-          <BscOverviewMetrics filter={pf} />
-        </div>
-      )
-      // Hai ô sơ đồ bọc `PresentableChart`: nó lo cả thẻ trên lưới lẫn bản phủ toàn màn hình, và
-      // tự đặt `relative` để bảng chi tiết phủ bên phải nằm gọn trong khung.
-      case 'BSC_STRATEGY_MAP': return (
-        <PresentableChart title={w.title} icon={<Map size={20} className="text-slate-400" />}>
-          {() => (
-            <StrategyMapWidget
-              scope={{ orgUnitId: widgetUnit(w), periodId: pf.periodId, periodIdTo: pf.periodIdTo }}
-              limit={Number(optionOf(w, 'limit') ?? 20)}
-              status={optionOf(w, 'status')}
-              meta={meta}
-            />
-          )}
-        </PresentableChart>
-      )
-      case 'BSC_FISHBONE': return (
-        <PresentableChart title={w.title} icon={<Fish size={20} className="text-slate-400" />}>
-          {({ presenting }) => (
-            <FishboneWidget
-              scope={{ orgUnitId: widgetUnit(w), periodId: pf.periodId, periodIdTo: pf.periodIdTo }}
-              limit={Number(optionOf(w, 'limit') ?? 20)}
-              status={optionOf(w, 'status')}
-              presenting={presenting}
-              /* Đầu cá là MỘT MỤC TIÊU — dữ liệu động, nên đọc thẳng `s.o.head` chứ không qua
-                 `optionOf`: hàm đó đối chiếu với danh sách lựa chọn tĩnh và sẽ loại mọi id. */
-              head={w.s?.o?.head ?? SCORECARD_HEAD}
-              onHeadChange={v => updateWidgetSettings(w.i, { o: { ...w.s?.o, head: v } })}
-              meta={meta}
-            />
-          )}
-        </PresentableChart>
-      )
-      case 'BSC_UNITS': return (
-        <div id="tour-bsc-balance" className="h-full">
-          <ChartWrapper title={w.title} icon={<Building2 size={20} className="text-slate-400" />}>
-            <BscUnitAttainmentWidget filter={pf} gate={optionOf(w, 'gate') as 'ALL' | 'FAILED' | 'NO_GATE'} meta={meta} />
-          </ChartWrapper>
-        </div>
-      )
-      case 'BSC_ITEMS': return (
-        <ChartWrapper title={w.title} icon={<Target size={20} className="text-slate-400" />}>
-          <BscItemAttainmentWidget filter={pf} meta={meta} />
-        </ChartWrapper>
-      )
-      case 'BSC_TREND': return (
-        <ChartWrapper title={w.title} icon={<TrendingUp size={20} className="text-slate-400" />}>
-          <BscAttainmentTrendWidget filter={pf} variant={widgetVariant(w) === 'perspectives' ? 'perspectives' : 'overall'} meta={meta} />
-        </ChartWrapper>
-      )
-      case 'BSC_CASCADE': return (
-        <ChartWrapper title={w.title} icon={<GitBranch size={20} className="text-slate-400" />}>
-          <BscCascadeCoverageWidget filter={pf} viewControl={tableViewControl(w, updateWidgetSettings)} hideControls meta={meta} />
-        </ChartWrapper>
-      )
-      case 'BSC_RANKING': return (
-        <ChartWrapper title={w.title} icon={<Medal size={20} className="text-slate-400" />} meta={meta}>
-          <BscRankingWidget
-            filter={pf}
-            sortBy={optionOf(w, 'sort') as 'bscScore' | 'systemScore'}
-            viewControl={tableViewControl(w, updateWidgetSettings)}
-            hideControls
+    // Hai ô sơ đồ bọc `PresentableChart`: nó lo cả thẻ trên lưới lẫn bản phủ toàn màn hình, và
+    // tự đặt `relative` để bảng chi tiết phủ bên phải nằm gọn trong khung.
+    case 'BSC_STRATEGY_MAP': return (
+      <PresentableChart title={w.title} icon={<Map size={20} className="text-slate-400" />}>
+        {() => (
+          <StrategyMapWidget
+            scope={{ orgUnitId: widgetUnit(w), periodId: pf.periodId, periodIdTo: pf.periodIdTo }}
+            limit={Number(optionOf(w, 'limit') ?? 20)}
+            status={optionOf(w, 'status')}
+            meta={meta}
           />
+        )}
+      </PresentableChart>
+    )
+    case 'BSC_FISHBONE': return (
+      <PresentableChart title={w.title} icon={<Fish size={20} className="text-slate-400" />}>
+        {({ presenting }) => (
+          <FishboneWidget
+            scope={{ orgUnitId: widgetUnit(w), periodId: pf.periodId, periodIdTo: pf.periodIdTo }}
+            limit={Number(optionOf(w, 'limit') ?? 20)}
+            status={optionOf(w, 'status')}
+            presenting={presenting}
+            /* Đầu cá là MỘT MỤC TIÊU — dữ liệu động, nên đọc thẳng `s.o.head` chứ không qua
+               `optionOf`: hàm đó đối chiếu với danh sách lựa chọn tĩnh và sẽ loại mọi id. */
+            head={w.s?.o?.head ?? SCORECARD_HEAD}
+            onHeadChange={v => updateWidgetSettings(w.i, { o: { ...w.s?.o, head: v } })}
+            meta={meta}
+          />
+        )}
+      </PresentableChart>
+    )
+    case 'BSC_UNITS': return (
+      <div id="tour-bsc-balance" className="h-full">
+        <ChartWrapper title={w.title} icon={<Building2 size={20} className="text-slate-400" />}>
+          <BscUnitAttainmentWidget filter={pf} gate={optionOf(w, 'gate') as 'ALL' | 'FAILED' | 'NO_GATE'} meta={meta} />
         </ChartWrapper>
-      )
-      default: return null
-    }
-  }, [pageIntent, periods, cycles, unitOptions, updateWidgetSettings])
-
-  return (
-    <div className="space-y-6 pb-12">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-[var(--color-foreground)] flex items-center gap-2">
-          <Gauge size={20} className="text-slate-400" /> {t('BscAnalyticsTab.bscScorecard')}
-        </h2>
-        <div id="tour-analytics-customize" {...tourAnchor('analytics.toolbar')} className="flex items-center gap-3 flex-wrap">
-          <DashboardEditToolbar api={dash} />
-        </div>
       </div>
-
-      <div id="tour-analytics-widgets">
-        <DashboardCustomizeChrome
-          api={dash}
-          renderWidget={renderWidget}
-          catalog={CATALOG()}
-          presets={grid.presets}
-          recommendedIds={grid.recommendedIds}
-          recommendedLabel={grid.recommendedLabel}
-          onTogglePin={pin.enabled ? pin.toggle : undefined}
-          isPinned={pin.isPinned}
-          renderConfig={(w, update) => (
-            <WidgetConfigPanel
-              widget={w} update={update} pageIntent={pageIntent} periods={periods} cycles={cycles}
-              unitOptions={unitOptions}
-            />
-          )}
+    )
+    case 'BSC_ITEMS': return (
+      <ChartWrapper title={w.title} icon={<Target size={20} className="text-slate-400" />}>
+        <BscItemAttainmentWidget filter={pf} meta={meta} />
+      </ChartWrapper>
+    )
+    case 'BSC_TREND': return (
+      <ChartWrapper title={w.title} icon={<TrendingUp size={20} className="text-slate-400" />}>
+        <BscAttainmentTrendWidget filter={pf} variant={widgetVariant(w) === 'perspectives' ? 'perspectives' : 'overall'} meta={meta} />
+      </ChartWrapper>
+    )
+    case 'BSC_CASCADE': return (
+      <ChartWrapper title={w.title} icon={<GitBranch size={20} className="text-slate-400" />}>
+        <BscCascadeCoverageWidget filter={pf} viewControl={tableViewControl(w, updateWidgetSettings)} hideControls meta={meta} />
+      </ChartWrapper>
+    )
+    case 'BSC_RANKING': return (
+      <ChartWrapper title={w.title} icon={<Medal size={20} className="text-slate-400" />} meta={meta}>
+        <BscRankingWidget
+          filter={pf}
+          sortBy={optionOf(w, 'sort') as 'bscScore' | 'systemScore'}
+          viewControl={tableViewControl(w, updateWidgetSettings)}
+          hideControls
         />
-      </div>
-
-      <p className="text-xs text-slate-500 flex items-center gap-1.5">
-        <Layers size={12} /> {t('BscAnalyticsTab.figuresAreReadFromTheScorecards')}
-      </p>
-    </div>
-  )
+      </ChartWrapper>
+    )
+    default: return null
+  }
 }

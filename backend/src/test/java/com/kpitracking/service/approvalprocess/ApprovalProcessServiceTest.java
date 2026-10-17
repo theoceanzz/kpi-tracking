@@ -56,7 +56,9 @@ class ApprovalProcessServiceTest {
     @BeforeEach
     void setUp() {
         service = new ApprovalProcessService(repository, codec, workflowConfigService, chainService, permissionChecker,
-                userRepository, roleRepository, orgUnitRepository);
+                userRepository, roleRepository, orgUnitRepository,
+                org.mockito.Mockito.mock(com.kpitracking.repository.ApprovalFormRepository.class),
+                org.mockito.Mockito.mock(com.kpitracking.repository.ApprovalFormGroupRepository.class));
         when(workflowConfigService.currentOrganizationId()).thenReturn(orgId);
         when(workflowConfigService.currentUser()).thenReturn(admin);
         when(permissionChecker.hasPermission(any(), eq("WORKFLOW:MANAGE"))).thenReturn(true);

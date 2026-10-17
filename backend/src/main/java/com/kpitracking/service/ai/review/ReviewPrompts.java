@@ -35,7 +35,13 @@ public final class ReviewPrompts {
             sb.append("## THANG CHẤT LƯỢNG (chọn đúng một tên, từ kém tới tốt)\n");
             for (ReviewContext.QualityLevel l : scale) {
                 sb.append("- ").append(l.name());
-                if (l.scorePercent() != null) sb.append(" (").append(num(l.scorePercent())).append("%)");
+                if (l.points() != null && ctx.aiMaxPoints() != null) {
+                    sb.append(" (").append(num(l.points())).append('/').append(num(ctx.aiMaxPoints().doubleValue())).append(" điểm)");
+                } else if (l.scorePercent() != null) {
+                    sb.append(" (").append(num(l.scorePercent())).append("%)");
+                }
+                // Mô tả của mức (thang điểm AI, V48) — để AI biết mức đó nghĩa là gì.
+                if (l.description() != null && !l.description().isBlank()) sb.append(": ").append(l.description().strip());
                 sb.append('\n');
             }
         }

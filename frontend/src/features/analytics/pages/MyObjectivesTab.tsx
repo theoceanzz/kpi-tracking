@@ -1,3 +1,7 @@
+/* eslint-disable react-refresh/only-export-components --
+   Một CỤM Ô = khai báo ô (danh sách, nhóm, mô tả) + bộ vẽ ra chúng. Tách đôi để chiều quy tắc
+   fast-refresh thì mỗi cụm nằm ở hai tệp và sửa một ô phải mở cả hai; cái giá thật ở đây chỉ là
+   tải lại cả trang thay vì nóng khi sửa tệp này lúc phát triển. */
 import { intlDateLocale, intlLocale } from '@/i18n/format'
 import { useState, useMemo, useCallback } from 'react'
 import { personalObjectiveApi } from '@/features/dashboard/api/personalObjectiveApi'
@@ -20,18 +24,12 @@ import { KpiWeightPill } from '../components/KpiWeightPill'
 import MyObjectiveDrawer from '../components/MyObjectiveDrawer'
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
 import { SparseTableFiller } from '../components/SparseTableFiller'
-import AnalyticsTabSkeleton, { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
+import { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
 import Pagination from '@/components/common/Pagination'
 import { SortHeader } from '@/components/common/SortHeader'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
-import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
-import {
-  useAnalyticsGrid, useAnalyticsScopeData, usePositionLayout, widgetFilter, widgetVariant, tableViewControl, optionOf,
-  PAGE_DEFAULT_INTENT,
-  type OptionField,
-} from '../grid/analyticsGrid'
-import { usePinToHome } from '../grid/usePinToHome'
-import WidgetConfigPanel from '../grid/WidgetConfigPanel'
+import { widgetFilter, widgetVariant, tableViewControl, optionOf, type OptionField } from '../grid/analyticsGrid'
+import type { WidgetPackProps } from '../grid/widgetPack'
 import WidgetConfigSummary from '../grid/WidgetConfigSummary'
 import { MyObjectiveMetrics } from '../components/pinned/metricWidgets'
 import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
@@ -40,7 +38,6 @@ import { format } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
-import { tourAnchor } from '@/components/common/tours/anchors'
 
 type SortField = 'progress' | 'period'
 type SortDir = 'asc' | 'desc'
@@ -57,8 +54,8 @@ const PAGE_SIZE = 10
 const CHART_FETCH_SIZE = 200
 
 /** Tên "report ẩn" của kho cũ — chỉ còn dùng để vớt bố cục một lần. */
-const LEGACY_REPORT_NAME = '__MY_OBJECTIVES_DASHBOARD_CONFIG__'
-const DEFAULT_WIDGETS = perLanguage((): DashboardWidget[] => ([
+export const MYOBJ_LEGACY_REPORT_NAME = '__MY_OBJECTIVES_DASHBOARD_CONFIG__'
+export const MYOBJ_WIDGETS = perLanguage((): DashboardWidget[] => ([
   // Hàng thẻ chỉ số từng nằm NGOÀI lưới, bám nút khoảng thời gian trên đầu trang. Nút đó nay nằm
   // trong bảng cấu hình từng ô, nên hàng thẻ cũng là một ô — cùng id với danh mục trang chủ.
   // Tên ô là nguồn duy nhất (renderWidget lấy `w.title`, trang chủ đặt đúng chuỗi này).
@@ -68,45 +65,41 @@ const DEFAULT_WIDGETS = perLanguage((): DashboardWidget[] => ([
 ]))
 
 /** Ô nào hiện mặc định cho ai: quản lý chỉ cần số liệu và danh sách, nhân viên có thêm xu hướng. */
-const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
+export const MYOBJ_POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
   DIRECTOR: ['myobj-metrics', 'myobj-detail'],
   HEAD: ['myobj-metrics', 'myobj-detail'],
   DEPUTY: ['myobj-metrics', 'myobj-detail'],
   STAFF: ['myobj-metrics', 'myobj-detail', 'myobj-trend'],
 }
-const CATALOG = perLanguage(() => (DEFAULT_WIDGETS().map(t => ({
-  template: t,
-  icon: null,
-  groupLabel: t.type === 'STATS' ? i18n.t('analytics:MyObjectivesTab.figures') : t.type === 'MYOBJ_TREND' ? i18n.t('analytics:MyObjectivesTab.trendCharts') : i18n.t('analytics:MyObjectivesTab.comparisonCharts'),
-  preview: t.type === 'STATS' ? ('metricCard' as const) : t.type === 'MYOBJ_TREND' ? ('line' as const) : ('dumbbell' as const),
-  description: t.type === 'STATS'
-    ? i18n.t('analytics:MyObjectivesTab.aRowOfFiguresYourProgress')
-    : t.type === 'MYOBJ_TREND'
-      ? i18n.t('analytics:MyObjectivesTab.areYouGoingUpOrDown')
-      : i18n.t('analytics:MyObjectivesTab.eachObjectiveAndKeyResultYou'),
-}))))
+export const MYOBJ_GROUP_OF = perLanguage((): Record<string, string> => ({
+  'myobj-metrics': i18n.t('analytics:MyObjectivesTab.figures'),
+  'myobj-trend': i18n.t('analytics:MyObjectivesTab.trendCharts'),
+  'myobj-detail': i18n.t('analytics:MyObjectivesTab.comparisonCharts'),
+}))
+export const MYOBJ_PREVIEW_OF: Record<string, string> = {
+  'myobj-metrics': 'metricCard',
+  'myobj-trend': 'line',
+  'myobj-detail': 'dumbbell',
+}
+export const MYOBJ_DESC_OF = perLanguage((): Record<string, string> => ({
+  'myobj-metrics': i18n.t('analytics:MyObjectivesTab.aRowOfFiguresYourProgress'),
+  'myobj-trend': i18n.t('analytics:MyObjectivesTab.areYouGoingUpOrDown'),
+  'myobj-detail': i18n.t('analytics:MyObjectivesTab.eachObjectiveAndKeyResultYou'),
+}))
 
-export default function MyObjectivesTab() {
+/**
+ * Cụm ô "Mục tiêu của tôi" trên lưới Thống kê.
+ */
+export default function MyObjectivesPack({ widget: w, openConfig, pageIntent, periods, cycles, widgets, updateWidgetSettings }: WidgetPackProps) {
   const { t } = useTranslation('analytics')
   const onlyApproved = false
-  const { periods, cycles } = useAnalyticsScopeData()
-  // Không còn bộ lọc cấp trang: khoảng thời gian nằm trong cài đặt từng ô; "mặc định" chỉ còn là
-  // hằng số cho ô chưa đặt gì.
-  const pageIntent = PAGE_DEFAULT_INTENT
-  const pin = usePinToHome()
-  const grid = usePositionLayout(DEFAULT_WIDGETS(), POSITION_LAYOUT, 'STAFF')
-  const dash = useAnalyticsGrid({
-    scope: 'ANALYTICS_MY_OBJECTIVES',
-    defaultWidgets: grid.defaultWidgets,
-    legacyReportName: LEGACY_REPORT_NAME,
-  })
   /** Khoảng của một ô cụ thể: riêng nếu đã đặt, không thì theo mặc định. */
-  const filterOf = (i: string) => widgetFilter(dash.widgets.find(w => w.i === i), pageIntent, periods, cycles)
+  const filterOf = (i: string) => widgetFilter(widgets.find(x => x.i === i), pageIntent, periods, cycles)
   const trendF = filterOf('myobj-trend')
   const detailF = filterOf('myobj-detail')
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
-  const detailWidget = dash.widgets.find(w => w.i === 'myobj-detail')
-  const { view: detailView } = useChartTableView('myobj-detail', 'chart', tableViewControl(detailWidget, dash.updateWidgetSettings))
+  const detailWidget = widgets.find(x => x.i === 'myobj-detail')
+  const { view: detailView } = useChartTableView('myobj-detail', 'chart', tableViewControl(detailWidget, updateWidgetSettings))
 
   // Lọc Objective / KR / chung-riêng nằm trong cài đặt ô (chọn ở bảng cấu hình), không còn là dải
   // dropdown trong thân bảng. Objective/KR là tuỳ chọn ĐỘNG (danh sách từ phản hồi API) nên tab tự
@@ -264,92 +257,59 @@ export default function MyObjectivesTab() {
     )
   }, [isKpisLoading, kpiPage, t])
 
+  // Chip tóm tắt dựng tại cụm: ô chi tiết có thêm tuỳ chọn ĐỘNG (Objective / KR) mà trang không biết.
+  const meta = (
+    <WidgetConfigSummary
+      widget={w} pageIntent={pageIntent} periods={periods} cycles={cycles}
+      extraFields={w.i === 'myobj-detail' ? detailExtraFields : undefined}
+      onOpen={openConfig}
+    />
+  )
+  const f = widgetFilter(w, pageIntent, periods, cycles)
+
   /*
-    `useCallback` là bắt buộc chứ không phải tối ưu tuỳ hứng: lưới cache phần tử từng ô theo định
-    danh hàm này. Hàm mới mỗi render là mọi biểu đồ vẽ lại mỗi lần tab render.
+    Ngăn kéo chi tiết KPI từng nằm ở khung trang, ngoài lưới. Khung trang không còn, nên nó về
+    đứng cạnh chính ô mở ra nó — `selectedKpiId` do ô đó đặt.
   */
-  const { updateWidgetSettings } = dash
-  const renderWidget = useCallback((w: DashboardWidget, ctx: { openConfig: () => void }) => {
-    // Dòng tóm tắt "ô này đang theo cấu hình gì" — bấm vào là mở đúng bảng cấu hình của ô.
-    const meta = (
-      <WidgetConfigSummary
-        widget={w} pageIntent={pageIntent} periods={periods} cycles={cycles}
-        extraFields={w.i === 'myobj-detail' ? detailExtraFields : undefined}
-        onOpen={ctx.openConfig}
-      />
-    )
-    const f = widgetFilter(w, pageIntent, periods, cycles)
+  const body = ((): React.ReactNode => {
     switch (w.type) {
-      case 'STATS': return (
-        // Chromeless: mỗi thẻ đã là một card. Chip ở trên cho biết hàng số này đang theo khoảng nào.
-        <div id="tour-analytics-metrics" className="h-full flex flex-col gap-2 min-h-0">
-          {meta}
-          <MyObjectiveMetrics filter={{ from: f.from, to: f.to, periodId: f.periodId, periodIdTo: f.periodIdTo, onlyApproved }} />
-        </div>
-      )
-      case 'MYOBJ_TREND': return (
-        <ChartWrapper chromeless title={w.title} icon={<TrendingUp size={20} className="text-slate-400" />}>
-          <AnalyticsComboChart
-            data={chartData?.points || []}
-            isLoading={isChartLoading}
-            itemName={t('MyObjectivesTab.myObjectives')}
-            title={w.title}
-            shareTitle={t('MyObjectivesTab.oldAndNewCompositionOfMy')}
-            fillHeight
-            mode={widgetVariant(w) === 'area' ? 'share' : 'trend'}
-            onModeChange={m => updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
-            hideModeToggle
-            meta={meta}
-          />
-        </ChartWrapper>
-      )
-      case 'MYOBJ_DETAIL': return (
-        <ChartWrapper title={w.title} icon={<Target size={20} className="text-slate-400" />}
+    case 'STATS': return (
+      // Chromeless: mỗi thẻ đã là một card. Chip ở trên cho biết hàng số này đang theo khoảng nào.
+      <div id="tour-analytics-metrics" className="h-full flex flex-col gap-2 min-h-0">
+        {meta}
+        <MyObjectiveMetrics filter={{ from: f.from, to: f.to, periodId: f.periodId, periodIdTo: f.periodIdTo, onlyApproved }} />
+      </div>
+    )
+    case 'MYOBJ_TREND': return (
+      <ChartWrapper chromeless title={w.title} icon={<TrendingUp size={20} className="text-slate-400" />}>
+        <AnalyticsComboChart
+          data={chartData?.points || []}
+          isLoading={isChartLoading}
+          itemName={t('MyObjectivesTab.myObjectives')}
+          title={w.title}
+          shareTitle={t('MyObjectivesTab.oldAndNewCompositionOfMy')}
+          fillHeight
+          mode={widgetVariant(w) === 'area' ? 'share' : 'trend'}
+          onModeChange={m => updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
+          hideModeToggle
           meta={meta}
-          extraHeaderContent={<span className="text-xs font-medium text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}>
-          {detailView === 'chart' ? renderGapBody() : renderDetailBody()}
-        </ChartWrapper>
-      )
+        />
+      </ChartWrapper>
+    )
+    case 'MYOBJ_DETAIL': return (
+      <ChartWrapper title={w.title} icon={<Target size={20} className="text-slate-400" />}
+        meta={meta}
+        extraHeaderContent={<span className="text-xs font-medium text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}>
+        {detailView === 'chart' ? renderGapBody() : renderDetailBody()}
+      </ChartWrapper>
+    )
       default: return null
     }
-  }, [pageIntent, periods, cycles, detailExtraFields, onlyApproved, chartData, isChartLoading, updateWidgetSettings, kpiPage, detailView, renderGapBody, renderDetailBody, t])
-
-  if (isChartLoading)
-    return <AnalyticsTabSkeleton variant="objectives" className="p-6" />
+  })()
 
   return (
-    <div className="space-y-6">
-      {/* Tiêu đề + nút Tuỳ chỉnh */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">{t('MyObjectivesTab.myObjectives2')}</h2>
-        <div id="tour-analytics-customize" {...tourAnchor('analytics.toolbar')} className="flex items-center gap-3 flex-wrap">
-          <DashboardEditToolbar api={dash} />
-        </div>
-      </div>
-
-      {/* Hàng thẻ chỉ số nay là ô đầu lưới (myobj-metrics), khoảng thời gian của nó nằm trong bảng
-          cấu hình như mọi ô khác. */}
-
-      {/* Lưới widget tuỳ chỉnh: Xu hướng + Bảng chi tiết */}
-      <div id="tour-analytics-widgets">
-        <DashboardCustomizeChrome
-          api={dash}
-          renderWidget={renderWidget}
-          catalog={CATALOG()}
-          presets={grid.presets}
-          recommendedIds={grid.recommendedIds}
-          recommendedLabel={grid.recommendedLabel}
-          onTogglePin={pin.enabled ? pin.toggle : undefined}
-          isPinned={pin.isPinned}
-          renderConfig={(w, update) => (
-            <WidgetConfigPanel
-              widget={w} update={update} pageIntent={pageIntent} periods={periods} cycles={cycles}
-              extraFields={w.i === 'myobj-detail' ? detailExtraFields : undefined}
-            />
-          )}
-        />
-      </div>
-
+    <>
+      {body}
       {selectedKpiId && (
         <MyObjectiveDrawer
           kpiId={selectedKpiId}
@@ -360,7 +320,7 @@ export default function MyObjectivesTab() {
           globalPeriodIdTo={detailF.periodIdTo}
         />
       )}
-    </div>
+    </>
   )
 }
 

@@ -199,6 +199,8 @@ export interface ScorecardPeriodResponse {
 }
 
 export interface ScorecardResponse {
+  /** Đang chờ duyệt theo quy trình "Lập và phê duyệt thẻ điểm". */
+  approval?: import('@/types/approvalChain').ApprovalSummary | null
   id: string
   name: string
   vision?: string
@@ -428,6 +430,8 @@ export interface UnitResultItemResponse {
 }
 
 export interface UnitResultResponse {
+  /** Yêu cầu chốt đang chờ duyệt theo quy trình "Chốt kết quả thẻ điểm đơn vị". */
+  approval?: import('@/types/approvalChain').ApprovalSummary | null
   id: string
   scorecardId: string
   scorecardName: string

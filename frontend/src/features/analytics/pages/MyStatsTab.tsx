@@ -1,3 +1,7 @@
+/* eslint-disable react-refresh/only-export-components --
+   Một CỤM Ô = khai báo ô (danh sách, nhóm, mô tả) + bộ vẽ ra chúng. Tách đôi để chiều quy tắc
+   fast-refresh thì mỗi cụm nằm ở hai tệp và sửa một ô phải mở cả hai; cái giá thật ở đây chỉ là
+   tải lại cả trang thay vì nóng khi sửa tệp này lúc phát triển. */
 import { intlDateLocale, intlLocale } from '@/i18n/format'
 import { useState, useMemo, useCallback } from 'react'
 import { yAxisLabel } from '@/components/charts/axisLabel'
@@ -31,18 +35,12 @@ import { ScoreHistogramWidget } from '../components/advanced/SummaryAdvanced'
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
 import { SparseTableFiller } from '../components/SparseTableFiller'
 import MyKpiDrawer from '../components/MyKpiDrawer'
-import AnalyticsTabSkeleton, { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
+import { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
 import Pagination from '@/components/common/Pagination'
 import { SortHeader } from '@/components/common/SortHeader'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
-import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
-import {
-  useAnalyticsGrid, useAnalyticsScopeData, usePositionLayout, widgetFilter, widgetVariant, tableViewControl, optionOf,
-  PAGE_DEFAULT_INTENT,
-} from '../grid/analyticsGrid'
-import { usePinToHome } from '../grid/usePinToHome'
-import WidgetConfigPanel from '../grid/WidgetConfigPanel'
-import WidgetConfigSummary from '../grid/WidgetConfigSummary'
+import { widgetFilter, widgetVariant, tableViewControl, optionOf } from '../grid/analyticsGrid'
+import type { WidgetPackProps } from '../grid/widgetPack'
 import { MyKpiMetrics } from '../components/pinned/metricWidgets'
 import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
 
@@ -50,7 +48,6 @@ import { format } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
-import { tourAnchor } from '@/components/common/tours/anchors'
 
 
 type SortField = 'progress' | 'period'
@@ -64,8 +61,8 @@ const PAGE_SIZE = 5
 const CHART_FETCH_SIZE = 200
 
 /** Tên "report ẩn" của kho cũ — chỉ còn dùng để vớt bố cục một lần. */
-const LEGACY_REPORT_NAME = '__MY_KPI_DASHBOARD_CONFIG__'
-const DEFAULT_WIDGETS = perLanguage((): DashboardWidget[] => ([
+export const MYKPI_LEGACY_REPORT_NAME = '__MY_KPI_DASHBOARD_CONFIG__'
+export const MYKPI_WIDGETS = perLanguage((): DashboardWidget[] => ([
   // Hàng thẻ chỉ số từng nằm NGOÀI lưới, bám nút khoảng thời gian trên đầu trang. Nút đó nay nằm
   // trong bảng cấu hình từng ô, nên hàng thẻ cũng là một ô — cùng id với danh mục trang chủ.
   // Tên ô là nguồn duy nhất (renderWidget lấy `w.title`, trang chủ đặt đúng chuỗi này); chữ đầu
@@ -84,13 +81,13 @@ const DEFAULT_WIDGETS = perLanguage((): DashboardWidget[] => ([
  * Ô nào hiện mặc định cho ai. Nhân viên là người nộp báo cáo nên cần trạng thái bài nộp; quản lý
  * mà cũng nhận KPI thì chỉ cần danh sách và điểm được chấm. Xu hướng và phân phối để trong thư viện.
  */
-const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
+export const MYKPI_POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
   DIRECTOR: ['mykpi-metrics', 'mykpi-detail', 'mykpi-eval-history'],
   HEAD: ['mykpi-metrics', 'mykpi-detail', 'mykpi-eval-history'],
   DEPUTY: ['mykpi-metrics', 'mykpi-detail', 'mykpi-eval-history'],
   STAFF: ['mykpi-metrics', 'mykpi-detail', 'mykpi-submission-status', 'mykpi-eval-history'],
 }
-const GROUP_OF = perLanguage((): Record<string, string> => ({
+export const MYKPI_GROUP_OF = perLanguage((): Record<string, string> => ({
   'mykpi-metrics': i18n.t('analytics:MyStatsTab.figures'),
   'mykpi-trend': i18n.t('analytics:MyStatsTab.trendCharts'),
   'mykpi-eval-history': i18n.t('analytics:MyStatsTab.trendCharts'),
@@ -98,7 +95,7 @@ const GROUP_OF = perLanguage((): Record<string, string> => ({
   'mykpi-histogram': i18n.t('analytics:MyStatsTab.distributionCharts'),
   'mykpi-submission-status': i18n.t('analytics:MyStatsTab.partToWhole'),
 }))
-const PREVIEW_OF: Record<string, 'line' | 'area' | 'bullet' | 'bar' | 'histogram' | 'donut' | 'metricCard'> = {
+export const MYKPI_PREVIEW_OF: Record<string, 'line' | 'area' | 'bullet' | 'bar' | 'histogram' | 'donut' | 'metricCard'> = {
   'mykpi-metrics': 'metricCard',
   'mykpi-trend': 'line',
   'mykpi-eval-history': 'area',
@@ -106,7 +103,7 @@ const PREVIEW_OF: Record<string, 'line' | 'area' | 'bullet' | 'bar' | 'histogram
   'mykpi-histogram': 'histogram',
   'mykpi-submission-status': 'donut',
 }
-const DESC_OF = perLanguage((): Record<string, string> => ({
+export const MYKPI_DESC_OF = perLanguage((): Record<string, string> => ({
   'mykpi-metrics': i18n.t('analytics:MyStatsTab.aRowOfFiguresTotalKpis'),
   'mykpi-trend': i18n.t('analytics:MyStatsTab.areYouGoingUpOrDown'),
   'mykpi-detail': i18n.t('analytics:MyStatsTab.eachKpiYouHoldProgressType'),
@@ -114,41 +111,26 @@ const DESC_OF = perLanguage((): Record<string, string> => ({
   'mykpi-eval-history': i18n.t('analytics:MyStatsTab.yourScoreInEachPeriodWith'),
   'mykpi-histogram': i18n.t('analytics:MyStatsTab.whereYourScoreSitsInThe'),
 }))
-const CATALOG = perLanguage(() => (DEFAULT_WIDGETS().map(t => ({
-  template: t,
-  icon: null,
-  groupLabel: GROUP_OF()[t.i],
-  preview: PREVIEW_OF[t.i],
-  description: DESC_OF()[t.i],
-}))))
 
-export default function MyStatsTab() {
+/**
+ * Cụm ô "Kết quả của tôi" trên lưới Thống kê.
+ */
+export default function MyKpiPack({ widget: w, meta, pageIntent, periods, cycles, widgets, updateWidgetSettings }: WidgetPackProps) {
   const { t } = useTranslation('analytics')
   const onlyApproved = false
-  const { periods, cycles } = useAnalyticsScopeData()
-  // Không còn bộ lọc cấp trang: khoảng thời gian nằm trong cài đặt từng ô; "mặc định" chỉ còn là
-  // hằng số cho ô chưa đặt gì.
-  const pageIntent = PAGE_DEFAULT_INTENT
-  const pin = usePinToHome()
-  const grid = usePositionLayout(DEFAULT_WIDGETS(), POSITION_LAYOUT, 'STAFF')
-  const dash = useAnalyticsGrid({
-    scope: 'ANALYTICS_MY_KPI',
-    defaultWidgets: grid.defaultWidgets,
-    legacyReportName: LEGACY_REPORT_NAME,
-  })
   /** Khoảng của một ô cụ thể: riêng nếu đã đặt, không thì theo mặc định. */
-  const filterOf = (i: string) => widgetFilter(dash.widgets.find(w => w.i === i), pageIntent, periods, cycles)
+  const filterOf = (i: string) => widgetFilter(widgets.find(x => x.i === i), pageIntent, periods, cycles)
   const trendF = filterOf('mykpi-trend')
   const detailF = filterOf('mykpi-detail')
 
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
   const { view: detailView } = useChartTableView('mykpi-detail', 'chart',
-    tableViewControl(dash.widgets.find(w => w.i === 'mykpi-detail'), dash.updateWidgetSettings))
+    tableViewControl(widgets.find(x => x.i === 'mykpi-detail'), updateWidgetSettings))
   const { view: evalView } = useChartTableView('mykpi-eval-history', 'chart',
-    tableViewControl(dash.widgets.find(w => w.i === 'mykpi-eval-history'), dash.updateWidgetSettings))
+    tableViewControl(widgets.find(x => x.i === 'mykpi-eval-history'), updateWidgetSettings))
 
   // Lọc chung/riêng nằm trong cài đặt ô (chọn ở bảng cấu hình), không còn là dải nút trong thân bảng.
-  const filterShared = (optionOf(dash.widgets.find(w => w.i === 'mykpi-detail'), 'shared') ?? 'ALL') as SharedFilter
+  const filterShared = (optionOf(widgets.find(x => x.i === 'mykpi-detail'), 'shared') ?? 'ALL') as SharedFilter
   const [sortField, setSortField] = useState<SortField | null>('period') // ưu tiên đợt/ngày gần nhất
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   // Đổi bộ lọc thì về trang đầu. Trước đây nút lọc tự gọi setPage(0); nay lọc đến từ cài đặt ô nên
@@ -307,138 +289,103 @@ export default function MyStatsTab() {
     )
   }, [isKpisLoading, kpiPage, t])
 
+  const f = widgetFilter(w, pageIntent, periods, cycles)
+
   /*
-    `useCallback` là bắt buộc chứ không phải tối ưu tuỳ hứng: lưới cache phần tử từng ô theo định
-    danh hàm này. Hàm mới mỗi render là mọi biểu đồ vẽ lại mỗi lần tab render — kể cả khi chỉ
-    dòng "Đang lưu…" đổi chữ.
+    Ngăn kéo chi tiết KPI từng nằm ở khung trang, ngoài lưới. Khung trang không còn, nên nó về
+    đứng cạnh chính ô mở ra nó — `selectedKpiId` do ô đó đặt.
   */
-  const { updateWidgetSettings } = dash
-  const renderWidget = useCallback((w: DashboardWidget, ctx: { openConfig: () => void }) => {
-    // Dòng tóm tắt "ô này đang theo cấu hình gì" — bấm vào là mở đúng bảng cấu hình của ô.
-    const meta = (
-      <WidgetConfigSummary widget={w} pageIntent={pageIntent} periods={periods} cycles={cycles} onOpen={ctx.openConfig} />
-    )
-    const f = widgetFilter(w, pageIntent, periods, cycles)
+  const body = ((): React.ReactNode => {
     switch (w.type) {
-      case 'STATS': return (
-        // Chromeless: mỗi thẻ đã là một card. Chip ở trên cho biết hàng số này đang theo khoảng nào.
-        <div id="tour-analytics-metrics" className="h-full flex flex-col gap-2 min-h-0">
-          {meta}
-          <MyKpiMetrics filter={{ from: f.from, to: f.to, periodId: f.periodId, periodIdTo: f.periodIdTo, onlyApproved }} />
-        </div>
-      )
-      case 'MYKPI_TREND': return (
-        <ChartWrapper chromeless title={w.title} icon={<TrendingUp size={20} className="text-slate-400" />}>
-          <AnalyticsComboChart
-            data={chartData?.points || []}
-            isLoading={isChartLoading}
-            itemName={t('MyStatsTab.myKpis')}
-            title={w.title}
-            shareTitle={t('MyStatsTab.oldAndNewCompositionOfMy')}
-            fillHeight
-            mode={widgetVariant(w) === 'area' ? 'share' : 'trend'}
-            onModeChange={m => updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
-            hideModeToggle
-            meta={meta}
-          />
-        </ChartWrapper>
-      )
-      case 'MYKPI_DETAIL': return (
-        <ChartWrapper title={w.title} icon={<Target size={20} className="text-slate-400" />}
+    case 'STATS': return (
+      // Chromeless: mỗi thẻ đã là một card. Chip ở trên cho biết hàng số này đang theo khoảng nào.
+      <div id="tour-analytics-metrics" className="h-full flex flex-col gap-2 min-h-0">
+        {meta}
+        <MyKpiMetrics filter={{ from: f.from, to: f.to, periodId: f.periodId, periodIdTo: f.periodIdTo, onlyApproved }} />
+      </div>
+    )
+    case 'MYKPI_TREND': return (
+      <ChartWrapper chromeless title={w.title} icon={<TrendingUp size={20} className="text-slate-400" />}>
+        <AnalyticsComboChart
+          data={chartData?.points || []}
+          isLoading={isChartLoading}
+          itemName={t('MyStatsTab.myKpis')}
+          title={w.title}
+          shareTitle={t('MyStatsTab.oldAndNewCompositionOfMy')}
+          fillHeight
+          mode={widgetVariant(w) === 'area' ? 'share' : 'trend'}
+          onModeChange={m => updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
+          hideModeToggle
           meta={meta}
-          extraHeaderContent={<span className="text-xs font-medium text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}>
-          {detailView === 'chart' ? renderBulletBody() : renderDetailBody()}
-        </ChartWrapper>
-      )
-      case 'SUBMISSION_STATUS': return (
-        <ChartWrapper title={w.title} icon={<PieChartIcon size={20} className="text-slate-400" />} meta={meta}>
-          {submissionsPieData.length === 0 ? <EmptyChart /> : (
-            <ResponsiveContainer width="100%" height="100%" minHeight={200}>
-              <PieChart>
-                <Pie isAnimationActive={false} data={submissionsPieData} innerRadius="50%" outerRadius="78%" paddingAngle={5} dataKey="value"
-                  label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`} labelLine={false}>
-                  {submissionsPieData.map((_, i) => <Cell key={i} fill={seriesColor(i)} />)}
-                </Pie>
-                <Tooltip content={<SeriesTooltip unit={t('MyStatsTab.submissions')} />} />
-                <Legend verticalAlign="bottom" height={32} />
-              </PieChart>
+        />
+      </ChartWrapper>
+    )
+    case 'MYKPI_DETAIL': return (
+      <ChartWrapper title={w.title} icon={<Target size={20} className="text-slate-400" />}
+        meta={meta}
+        extraHeaderContent={<span className="text-xs font-medium text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}>
+        {detailView === 'chart' ? renderBulletBody() : renderDetailBody()}
+      </ChartWrapper>
+    )
+    case 'SUBMISSION_STATUS': return (
+      <ChartWrapper title={w.title} icon={<PieChartIcon size={20} className="text-slate-400" />} meta={meta}>
+        {submissionsPieData.length === 0 ? <EmptyChart /> : (
+          <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+            <PieChart>
+              <Pie isAnimationActive={false} data={submissionsPieData} innerRadius="50%" outerRadius="78%" paddingAngle={5} dataKey="value"
+                label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`} labelLine={false}>
+                {submissionsPieData.map((_, i) => <Cell key={i} fill={seriesColor(i)} />)}
+              </Pie>
+              <Tooltip content={<SeriesTooltip unit={t('MyStatsTab.submissions')} />} />
+              <Legend verticalAlign="bottom" height={32} />
+            </PieChart>
+          </ResponsiveContainer>
+        )}
+      </ChartWrapper>
+    )
+    case 'EVAL_HISTORY': return (
+      <ChartWrapper
+        title={w.title}
+        icon={<Activity size={20} className="text-slate-400" />}
+        meta={meta}
+      >
+        {/* Bảng lịch sử và đường xu hướng trước đây là hai khối cạnh nhau đọc CÙNG một mảng
+            evaluationHistory — nay là hai cách xem của một widget. */}
+        {evalView === 'table'
+          ? <EvaluationTableWidget data={evalData?.evaluationHistory ?? []} title={t('MyStatsTab.evaluationHistory')} bare />
+          : evalTrendData.length === 0 ? <EmptyChart /> : (
+            <ResponsiveContainer width="100%" height="100%" minHeight={220}>
+              <AreaChart data={evalTrendData}>
+                <defs>
+                  <linearGradient id="evalGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="var(--color-border)" vertical={false} />
+                <XAxis dataKey="name" fontSize={11} axisLine={false} tickLine={false} />
+                <YAxis label={yAxisLabel(t('MyStatsTab.points'))} fontSize={11} axisLine={false} tickLine={false} domain={[0, 100]} width={48} />
+                <Tooltip content={<SeriesTooltip />} />
+                <Area isAnimationActive={false} type="monotone" dataKey="value" name="Điểm" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#evalGrad)" dot={{ r: 4, fill: '#6366f1' }} />
+              </AreaChart>
             </ResponsiveContainer>
           )}
-        </ChartWrapper>
-      )
-      case 'EVAL_HISTORY': return (
-        <ChartWrapper
-          title={w.title}
-          icon={<Activity size={20} className="text-slate-400" />}
-          meta={meta}
-        >
-          {/* Bảng lịch sử và đường xu hướng trước đây là hai khối cạnh nhau đọc CÙNG một mảng
-              evaluationHistory — nay là hai cách xem của một widget. */}
-          {evalView === 'table'
-            ? <EvaluationTableWidget data={evalData?.evaluationHistory ?? []} title={t('MyStatsTab.evaluationHistory')} bare />
-            : evalTrendData.length === 0 ? <EmptyChart /> : (
-              <ResponsiveContainer width="100%" height="100%" minHeight={220}>
-                <AreaChart data={evalTrendData}>
-                  <defs>
-                    <linearGradient id="evalGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="var(--color-border)" vertical={false} />
-                  <XAxis dataKey="name" fontSize={11} axisLine={false} tickLine={false} />
-                  <YAxis label={yAxisLabel(t('MyStatsTab.points'))} fontSize={11} axisLine={false} tickLine={false} domain={[0, 100]} width={48} />
-                  <Tooltip content={<SeriesTooltip />} />
-                  <Area isAnimationActive={false} type="monotone" dataKey="value" name="Điểm" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#evalGrad)" dot={{ r: 4, fill: '#6366f1' }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-        </ChartWrapper>
-      )
-      case 'MY_SCORE_HISTOGRAM': return (
-        <ScoreHistogramWidget
-          filter={{ periodId: f.periodId, periodIdTo: f.periodIdTo, from: f.from, to: f.to }}
-          meta={meta}
-          title={w.title}
-        />
-      )
+      </ChartWrapper>
+    )
+    case 'MY_SCORE_HISTOGRAM': return (
+      <ScoreHistogramWidget
+        filter={{ periodId: f.periodId, periodIdTo: f.periodIdTo, from: f.from, to: f.to }}
+        meta={meta}
+        title={w.title}
+      />
+    )
       default: return null
     }
-  }, [pageIntent, periods, cycles, onlyApproved, chartData, isChartLoading, updateWidgetSettings, kpiPage, detailView, renderBulletBody, renderDetailBody, submissionsPieData, evalView, evalData, evalTrendData, t])
-
-  if (isChartLoading)
-    return <AnalyticsTabSkeleton variant="default" className="p-6" />
+  })()
 
   return (
-    <div className="space-y-6">
-      {/* Tiêu đề + nút Tuỳ chỉnh */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">{t('MyStatsTab.myResults')}</h2>
-        <div id="tour-analytics-customize" {...tourAnchor('analytics.toolbar')} className="flex items-center gap-3 flex-wrap">
-          <DashboardEditToolbar api={dash} />
-        </div>
-      </div>
-
-      {/* Hàng thẻ chỉ số nay là ô đầu lưới (mykpi-metrics), khoảng thời gian của nó nằm trong bảng
-          cấu hình như mọi ô khác. */}
-
-      {/* Lưới widget tuỳ chỉnh: Xu hướng + Bảng chi tiết */}
-      <div id="tour-analytics-widgets">
-        <DashboardCustomizeChrome
-          api={dash}
-          renderWidget={renderWidget}
-          catalog={CATALOG()}
-          presets={grid.presets}
-          recommendedIds={grid.recommendedIds}
-          recommendedLabel={grid.recommendedLabel}
-          onTogglePin={pin.enabled ? pin.toggle : undefined}
-          isPinned={pin.isPinned}
-          renderConfig={(w, update) => (
-            <WidgetConfigPanel widget={w} update={update} pageIntent={pageIntent} periods={periods} cycles={cycles} />
-          )}
-        />
-      </div>
-
+    <>
+      {body}
       {selectedKpiId && (
         <MyKpiDrawer
           kpiId={selectedKpiId}
@@ -449,7 +396,7 @@ export default function MyStatsTab() {
           globalPeriodIdTo={detailF.periodIdTo}
         />
       )}
-    </div>
+    </>
   )
 }
 

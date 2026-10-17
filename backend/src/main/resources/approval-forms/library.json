@@ -1,0 +1,408 @@
+{
+  "categories": [
+    { "code": "ATTENDANCE", "name": { "vi": "Chấm công", "en": "Attendance" } },
+    { "code": "FINANCE", "name": { "vi": "Tài chính", "en": "Finance" } },
+    { "code": "PERSONNEL", "name": { "vi": "Nhân sự", "en": "Personnel" } },
+    { "code": "PROCUREMENT", "name": { "vi": "Mua sắm", "en": "Procurement" } },
+    { "code": "ADMINISTRATION", "name": { "vi": "Hành chính", "en": "Administration" } },
+    { "code": "LEGAL", "name": { "vi": "Pháp chế", "en": "Legal" } },
+    { "code": "PROJECT", "name": { "vi": "Dự án", "en": "Project" } },
+    { "code": "OTHER", "name": { "vi": "Khác", "en": "Other" } }
+  ],
+  "preinstalled": [
+    { "code": "PERSONNEL", "name": { "vi": "Nhân sự", "en": "Personnel" },
+      "templates": ["RECRUITMENT", "EMPLOYEE_ENTRY", "REGULARIZATION", "POSITION_ADJUSTMENT", "RESIGNATION"] },
+    { "code": "ATTENDANCE", "name": { "vi": "Chấm công", "en": "Attendance" },
+      "templates": ["LEAVE", "OVERTIME", "BUSINESS_TRIP", "OUT_OF_OFFICE", "SHIFT_CHANGE"] },
+    { "code": "FINANCE", "name": { "vi": "Tài chính", "en": "Finance" },
+      "templates": ["REIMBURSEMENT", "CASH_ADVANCE", "PAYMENT_REQUEST"] },
+    { "code": "ADMINISTRATION", "name": { "vi": "Hành chính", "en": "Administration" },
+      "templates": ["PURCHASE", "SEAL_REQUEST", "GENERAL"] }
+  ],
+  "templates": [
+    {
+      "code": "LEAVE", "category": "ATTENDANCE", "recommended": true, "icon": "calendar-clock", "color": "blue",
+      "name": { "vi": "Nghỉ phép", "en": "Leave" },
+      "description": { "vi": "Xin nghỉ phép năm, nghỉ ốm, nghỉ không lương và các loại nghỉ khác", "en": "Request annual, sick, unpaid and other kinds of leave" },
+      "widgets": [
+        { "id": "leave_type", "type": "RADIO", "required": true, "display": "DROPDOWN",
+          "title": { "vi": "Loại nghỉ", "en": "Leave type" },
+          "options": [
+            { "id": "annual", "label": { "vi": "Phép năm", "en": "Annual leave" } },
+            { "id": "sick", "label": { "vi": "Nghỉ ốm", "en": "Sick leave" } },
+            { "id": "unpaid", "label": { "vi": "Nghỉ không lương", "en": "Unpaid leave" } },
+            { "id": "personal", "label": { "vi": "Việc riêng có lương", "en": "Paid personal leave" } },
+            { "id": "maternity", "label": { "vi": "Thai sản", "en": "Maternity leave" } },
+            { "id": "other", "label": { "vi": "Khác", "en": "Other" } }
+          ] },
+        { "id": "period", "type": "DATE_RANGE", "required": true, "dateFormat": "DATE", "showDuration": true, "durationUnit": "DAY",
+          "title": { "vi": "Thời gian nghỉ", "en": "Leave period" },
+          "durationLabel": { "vi": "Số ngày nghỉ", "en": "Leave days" } },
+        { "id": "reason", "type": "TEXTAREA", "required": true, "title": { "vi": "Lý do", "en": "Reason" } },
+        { "id": "handover", "type": "CONTACT", "title": { "vi": "Người nhận bàn giao", "en": "Handover to" } },
+        { "id": "attachments", "type": "ATTACHMENT", "maxCount": 9, "title": { "vi": "Tệp đính kèm", "en": "Attachments" } }
+      ],
+      "approval": {
+        "rule": { "field": "FORM_NUMBER", "widget": "period", "operator": "GT", "values": ["3"] },
+        "conditionName": { "vi": "Nghỉ trên 3 ngày", "en": "Longer than 3 days" }
+      }
+    },
+    {
+      "code": "OVERTIME", "category": "ATTENDANCE", "recommended": true, "icon": "timer", "color": "violet",
+      "name": { "vi": "Làm thêm giờ", "en": "Overtime" },
+      "description": { "vi": "Đăng ký làm thêm giờ và hình thức bù", "en": "Request overtime and how it is compensated" },
+      "widgets": [
+        { "id": "period", "type": "DATE_RANGE", "required": true, "dateFormat": "DATETIME", "showDuration": true, "durationUnit": "HOUR",
+          "title": { "vi": "Thời gian làm thêm", "en": "Overtime period" },
+          "durationLabel": { "vi": "Số giờ", "en": "Hours" } },
+        { "id": "compensation", "type": "RADIO", "required": true, "display": "LIST",
+          "title": { "vi": "Hình thức bù", "en": "Compensation" },
+          "options": [
+            { "id": "pay", "label": { "vi": "Tính lương", "en": "Paid" } },
+            { "id": "time_off", "label": { "vi": "Nghỉ bù", "en": "Time off in lieu" } }
+          ] },
+        { "id": "content", "type": "TEXTAREA", "required": true, "title": { "vi": "Nội dung công việc", "en": "Work description" } }
+      ]
+    },
+    {
+      "code": "BUSINESS_TRIP", "category": "ATTENDANCE", "recommended": true, "icon": "plane", "color": "green",
+      "name": { "vi": "Công tác", "en": "Business trip" },
+      "description": { "vi": "Đề nghị đi công tác trong và ngoài nước", "en": "Request a domestic or overseas business trip" },
+      "widgets": [
+        { "id": "destination", "type": "TEXT", "required": true, "title": { "vi": "Nơi công tác", "en": "Destination" } },
+        { "id": "period", "type": "DATE_RANGE", "required": true, "dateFormat": "DATE", "showDuration": true, "durationUnit": "DAY",
+          "title": { "vi": "Thời gian công tác", "en": "Trip period" },
+          "durationLabel": { "vi": "Số ngày", "en": "Days" } },
+        { "id": "transport", "type": "RADIO", "display": "DROPDOWN", "title": { "vi": "Phương tiện", "en": "Transport" },
+          "options": [
+            { "id": "flight", "label": { "vi": "Máy bay", "en": "Flight" } },
+            { "id": "train", "label": { "vi": "Tàu, xe khách", "en": "Train or coach" } },
+            { "id": "company_car", "label": { "vi": "Xe công ty", "en": "Company car" } },
+            { "id": "other", "label": { "vi": "Khác", "en": "Other" } }
+          ] },
+        { "id": "purpose", "type": "TEXTAREA", "required": true, "title": { "vi": "Mục đích", "en": "Purpose" } },
+        { "id": "budget", "type": "AMOUNT", "currency": "VND", "decimals": 0, "title": { "vi": "Dự toán chi phí", "en": "Estimated cost" } },
+        { "id": "companions", "type": "CONTACT", "multiple": true, "title": { "vi": "Người đi cùng", "en": "Travel companions" } }
+      ]
+    },
+    {
+      "code": "OUT_OF_OFFICE", "category": "ATTENDANCE", "recommended": true, "icon": "map-pin", "color": "teal",
+      "name": { "vi": "Ra ngoài", "en": "Out of office" },
+      "description": { "vi": "Xin ra ngoài trong giờ làm việc", "en": "Leave the office during working hours" },
+      "widgets": [
+        { "id": "period", "type": "DATE_RANGE", "required": true, "dateFormat": "DATETIME", "showDuration": true, "durationUnit": "HOUR",
+          "title": { "vi": "Thời gian ra ngoài", "en": "Time out" },
+          "durationLabel": { "vi": "Số giờ", "en": "Hours" } },
+        { "id": "location", "type": "TEXT", "required": true, "title": { "vi": "Địa điểm", "en": "Location" } },
+        { "id": "reason", "type": "TEXTAREA", "required": true, "title": { "vi": "Lý do", "en": "Reason" } }
+      ]
+    },
+    {
+      "code": "SHIFT_CHANGE", "category": "ATTENDANCE", "icon": "repeat", "color": "orange",
+      "name": { "vi": "Đổi ca", "en": "Shift change" },
+      "description": { "vi": "Đổi ca làm việc với đồng nghiệp", "en": "Swap a work shift with a colleague" },
+      "widgets": [
+        { "id": "date", "type": "DATE", "required": true, "dateFormat": "DATE", "title": { "vi": "Ngày đổi ca", "en": "Shift date" } },
+        { "id": "current_shift", "type": "TEXT", "required": true, "title": { "vi": "Ca hiện tại", "en": "Current shift" } },
+        { "id": "new_shift", "type": "TEXT", "required": true, "title": { "vi": "Ca muốn đổi", "en": "Requested shift" } },
+        { "id": "swap_with", "type": "CONTACT", "title": { "vi": "Người đổi cùng", "en": "Swap with" } },
+        { "id": "reason", "type": "TEXTAREA", "title": { "vi": "Lý do", "en": "Reason" } }
+      ]
+    },
+    {
+      "code": "ATTENDANCE_CORRECTION", "category": "ATTENDANCE", "icon": "fingerprint", "color": "cyan",
+      "name": { "vi": "Bổ sung chấm công", "en": "Attendance correction" },
+      "description": { "vi": "Bổ sung giờ vào / ra khi quên chấm công", "en": "Correct a missed check-in or check-out" },
+      "widgets": [
+        { "id": "date", "type": "DATE", "required": true, "dateFormat": "DATE", "title": { "vi": "Ngày cần bổ sung", "en": "Date" } },
+        { "id": "kind", "type": "RADIO", "required": true, "display": "LIST", "title": { "vi": "Loại bổ sung", "en": "Correction type" },
+          "options": [
+            { "id": "check_in", "label": { "vi": "Quên chấm vào", "en": "Missed check-in" } },
+            { "id": "check_out", "label": { "vi": "Quên chấm ra", "en": "Missed check-out" } },
+            { "id": "both", "label": { "vi": "Cả hai", "en": "Both" } }
+          ] },
+        { "id": "actual_time", "type": "DATE", "required": true, "dateFormat": "DATETIME", "title": { "vi": "Giờ thực tế", "en": "Actual time" } },
+        { "id": "reason", "type": "TEXTAREA", "required": true, "title": { "vi": "Lý do", "en": "Reason" } },
+        { "id": "evidence", "type": "IMAGE", "maxCount": 3, "title": { "vi": "Ảnh minh chứng", "en": "Evidence photos" } }
+      ]
+    },
+    {
+      "code": "REIMBURSEMENT", "category": "FINANCE", "recommended": true, "icon": "receipt", "color": "green",
+      "name": { "vi": "Thanh toán chi phí", "en": "Reimbursement" },
+      "description": { "vi": "Hoàn ứng chi phí đi lại, ăn uống, lưu trú và chi phí khác", "en": "Get reimbursed for travel, meals, accommodation and other expenses" },
+      "widgets": [
+        { "id": "items", "type": "TABLE", "required": true, "showTotal": true,
+          "title": { "vi": "Chi tiết chi phí", "en": "Expense details" },
+          "addLabel": { "vi": "Thêm khoản chi", "en": "Add expense" },
+          "children": [
+            { "id": "expense_type", "type": "RADIO", "required": true, "display": "DROPDOWN", "title": { "vi": "Loại chi phí", "en": "Expense type" },
+              "options": [
+                { "id": "travel", "label": { "vi": "Đi lại", "en": "Travel" } },
+                { "id": "meal", "label": { "vi": "Ăn uống", "en": "Meals" } },
+                { "id": "hotel", "label": { "vi": "Lưu trú", "en": "Accommodation" } },
+                { "id": "office", "label": { "vi": "Văn phòng phẩm", "en": "Office supplies" } },
+                { "id": "other", "label": { "vi": "Khác", "en": "Other" } }
+              ] },
+            { "id": "expense_date", "type": "DATE", "required": true, "dateFormat": "DATE", "title": { "vi": "Ngày chi", "en": "Date" } },
+            { "id": "amount", "type": "AMOUNT", "required": true, "currency": "VND", "decimals": 0, "title": { "vi": "Số tiền", "en": "Amount" } },
+            { "id": "note", "type": "TEXT", "title": { "vi": "Ghi chú", "en": "Note" } }
+          ] },
+        { "id": "total", "type": "FORMULA", "expression": "SUM({items.amount})", "currency": "VND", "decimals": 0,
+          "title": { "vi": "Tổng tiền", "en": "Total amount" } },
+        { "id": "receipts", "type": "ATTACHMENT", "required": true, "maxCount": 9, "title": { "vi": "Hoá đơn, chứng từ", "en": "Receipts" } }
+      ],
+      "approval": {
+        "rule": { "field": "FORM_NUMBER", "widget": "total", "operator": "GT", "values": ["10000000"] },
+        "conditionName": { "vi": "Trên 10 triệu", "en": "Over 10 million" }
+      }
+    },
+    {
+      "code": "CASH_ADVANCE", "category": "FINANCE", "icon": "hand-coins", "color": "amber",
+      "name": { "vi": "Tạm ứng", "en": "Cash advance" },
+      "description": { "vi": "Đề nghị tạm ứng tiền cho công việc", "en": "Request a cash advance for work" },
+      "widgets": [
+        { "id": "amount", "type": "AMOUNT", "required": true, "currency": "VND", "decimals": 0, "title": { "vi": "Số tiền tạm ứng", "en": "Advance amount" } },
+        { "id": "purpose", "type": "TEXTAREA", "required": true, "title": { "vi": "Mục đích", "en": "Purpose" } },
+        { "id": "needed_date", "type": "DATE", "required": true, "dateFormat": "DATE", "title": { "vi": "Ngày cần", "en": "Needed by" } },
+        { "id": "settle_date", "type": "DATE", "dateFormat": "DATE", "title": { "vi": "Hạn hoàn ứng", "en": "Settlement deadline" } }
+      ],
+      "approval": {
+        "rule": { "field": "FORM_NUMBER", "widget": "amount", "operator": "GT", "values": ["10000000"] },
+        "conditionName": { "vi": "Trên 10 triệu", "en": "Over 10 million" }
+      }
+    },
+    {
+      "code": "PAYMENT_REQUEST", "category": "FINANCE", "recommended": true, "icon": "credit-card", "color": "cyan",
+      "name": { "vi": "Đề nghị thanh toán", "en": "Payment request" },
+      "description": { "vi": "Thanh toán cho nhà cung cấp, đối tác bằng chuyển khoản", "en": "Pay a supplier or partner by bank transfer" },
+      "widgets": [
+        { "id": "payee", "type": "TEXT", "required": true, "title": { "vi": "Đơn vị thụ hưởng", "en": "Payee" } },
+        { "id": "account_no", "type": "TEXT", "required": true, "title": { "vi": "Số tài khoản", "en": "Account number" } },
+        { "id": "bank", "type": "TEXT", "required": true, "title": { "vi": "Ngân hàng", "en": "Bank" } },
+        { "id": "amount", "type": "AMOUNT", "required": true, "currency": "VND", "decimals": 0, "title": { "vi": "Số tiền", "en": "Amount" } },
+        { "id": "content", "type": "TEXTAREA", "required": true, "title": { "vi": "Nội dung thanh toán", "en": "Payment details" } },
+        { "id": "documents", "type": "ATTACHMENT", "maxCount": 9, "title": { "vi": "Chứng từ", "en": "Supporting documents" } }
+      ],
+      "approval": {
+        "rule": { "field": "FORM_NUMBER", "widget": "amount", "operator": "GT", "values": ["10000000"] },
+        "conditionName": { "vi": "Trên 10 triệu", "en": "Over 10 million" }
+      }
+    },
+    {
+      "code": "RECRUITMENT", "category": "PERSONNEL", "icon": "user-plus", "color": "blue",
+      "name": { "vi": "Đề xuất tuyển dụng", "en": "Recruitment" },
+      "description": { "vi": "Đề xuất tuyển thêm nhân sự cho phòng ban", "en": "Request new hires for a department" },
+      "widgets": [
+        { "id": "position", "type": "TEXT", "required": true, "title": { "vi": "Vị trí tuyển", "en": "Position" } },
+        { "id": "department", "type": "DEPARTMENT", "required": true, "defaultValue": "MY_UNIT", "title": { "vi": "Phòng ban", "en": "Department" } },
+        { "id": "headcount", "type": "NUMBER", "required": true, "decimals": 0, "min": 1, "unit": { "vi": "người", "en": "people" },
+          "title": { "vi": "Số lượng", "en": "Headcount" } },
+        { "id": "reason", "type": "RADIO", "required": true, "display": "LIST", "title": { "vi": "Lý do tuyển", "en": "Reason" },
+          "options": [
+            { "id": "replace", "label": { "vi": "Thay thế", "en": "Replacement" } },
+            { "id": "expand", "label": { "vi": "Mở rộng", "en": "Expansion" } },
+            { "id": "new_role", "label": { "vi": "Vị trí mới", "en": "New position" } }
+          ] },
+        { "id": "job_description", "type": "TEXTAREA", "required": true, "title": { "vi": "Mô tả công việc", "en": "Job description" } },
+        { "id": "salary", "type": "AMOUNT", "currency": "VND", "decimals": 0, "title": { "vi": "Mức lương dự kiến", "en": "Expected salary" } },
+        { "id": "needed_date", "type": "DATE", "dateFormat": "DATE", "title": { "vi": "Ngày cần nhân sự", "en": "Needed by" } }
+      ]
+    },
+    {
+      "code": "EMPLOYEE_ENTRY", "category": "PERSONNEL", "icon": "user-check", "color": "pink",
+      "name": { "vi": "Tiếp nhận nhân viên mới", "en": "Employee onboarding" },
+      "description": { "vi": "Chuẩn bị tiếp nhận nhân viên mới vào làm", "en": "Prepare for a new employee's first day" },
+      "widgets": [
+        { "id": "full_name", "type": "TEXT", "required": true, "title": { "vi": "Họ tên nhân viên", "en": "Employee name" } },
+        { "id": "position", "type": "TEXT", "required": true, "title": { "vi": "Vị trí", "en": "Position" } },
+        { "id": "department", "type": "DEPARTMENT", "required": true, "title": { "vi": "Phòng ban", "en": "Department" } },
+        { "id": "start_date", "type": "DATE", "required": true, "dateFormat": "DATE", "title": { "vi": "Ngày vào làm", "en": "Start date" } },
+        { "id": "manager", "type": "CONTACT", "required": true, "title": { "vi": "Quản lý trực tiếp", "en": "Direct manager" } },
+        { "id": "equipment", "type": "CHECKBOX", "title": { "vi": "Thiết bị cần cấp", "en": "Equipment needed" },
+          "options": [
+            { "id": "laptop", "label": { "vi": "Máy tính", "en": "Laptop" } },
+            { "id": "monitor", "label": { "vi": "Màn hình", "en": "Monitor" } },
+            { "id": "email", "label": { "vi": "Tài khoản email", "en": "Email account" } },
+            { "id": "card", "label": { "vi": "Thẻ ra vào", "en": "Access card" } },
+            { "id": "phone", "label": { "vi": "Điện thoại", "en": "Phone" } }
+          ] }
+      ]
+    },
+    {
+      "code": "REGULARIZATION", "category": "PERSONNEL", "icon": "clipboard-check", "color": "blue",
+      "name": { "vi": "Chuyển chính thức", "en": "Regularization" },
+      "description": { "vi": "Đề nghị chuyển nhân viên thử việc thành chính thức", "en": "Turn a probationary employee into a regular employee" },
+      "widgets": [
+        { "id": "probation", "type": "DATE_RANGE", "required": true, "dateFormat": "DATE", "title": { "vi": "Thời gian thử việc", "en": "Probation period" } },
+        { "id": "self_review", "type": "TEXTAREA", "required": true, "title": { "vi": "Tự đánh giá", "en": "Self-assessment" } },
+        { "id": "results", "type": "ATTACHMENT", "maxCount": 9, "title": { "vi": "Kết quả công việc", "en": "Work results" } }
+      ]
+    },
+    {
+      "code": "POSITION_ADJUSTMENT", "category": "PERSONNEL", "icon": "user-cog", "color": "red",
+      "name": { "vi": "Điều chuyển vị trí", "en": "Position adjustment" },
+      "description": { "vi": "Điều chuyển phòng ban hoặc thay đổi vị trí công việc", "en": "Move an employee to another department or position" },
+      "widgets": [
+        { "id": "employee", "type": "CONTACT", "required": true, "title": { "vi": "Nhân viên", "en": "Employee" } },
+        { "id": "new_department", "type": "DEPARTMENT", "required": true, "title": { "vi": "Phòng ban mới", "en": "New department" } },
+        { "id": "new_position", "type": "TEXT", "required": true, "title": { "vi": "Vị trí mới", "en": "New position" } },
+        { "id": "effective_date", "type": "DATE", "required": true, "dateFormat": "DATE", "title": { "vi": "Ngày hiệu lực", "en": "Effective date" } },
+        { "id": "reason", "type": "TEXTAREA", "required": true, "title": { "vi": "Lý do", "en": "Reason" } }
+      ]
+    },
+    {
+      "code": "RESIGNATION", "category": "PERSONNEL", "icon": "user-minus", "color": "red",
+      "name": { "vi": "Đơn xin nghỉ việc", "en": "Resignation" },
+      "description": { "vi": "Xin nghỉ việc và bàn giao công việc", "en": "Resign and hand over your work" },
+      "widgets": [
+        { "id": "last_day", "type": "DATE", "required": true, "dateFormat": "DATE", "title": { "vi": "Ngày nghỉ dự kiến", "en": "Last working day" } },
+        { "id": "reason_type", "type": "RADIO", "required": true, "display": "DROPDOWN", "title": { "vi": "Lý do nghỉ", "en": "Reason" },
+          "options": [
+            { "id": "personal", "label": { "vi": "Lý do cá nhân", "en": "Personal reasons" } },
+            { "id": "career", "label": { "vi": "Phát triển sự nghiệp", "en": "Career growth" } },
+            { "id": "compensation", "label": { "vi": "Thu nhập", "en": "Compensation" } },
+            { "id": "environment", "label": { "vi": "Môi trường làm việc", "en": "Work environment" } },
+            { "id": "other", "label": { "vi": "Khác", "en": "Other" } }
+          ] },
+        { "id": "reason", "type": "TEXTAREA", "title": { "vi": "Chi tiết lý do", "en": "Details" } },
+        { "id": "handover_to", "type": "CONTACT", "required": true, "title": { "vi": "Người nhận bàn giao", "en": "Handover to" } },
+        { "id": "handover", "type": "TEXTAREA", "required": true, "title": { "vi": "Nội dung bàn giao", "en": "Handover items" } }
+      ]
+    },
+    {
+      "code": "TRAINING", "category": "PERSONNEL", "icon": "graduation-cap", "color": "violet",
+      "name": { "vi": "Đề nghị đào tạo", "en": "Training request" },
+      "description": { "vi": "Đăng ký tham gia khoá học, chương trình đào tạo", "en": "Sign up for a course or training program" },
+      "widgets": [
+        { "id": "course", "type": "TEXT", "required": true, "title": { "vi": "Khoá học", "en": "Course" } },
+        { "id": "provider", "type": "TEXT", "title": { "vi": "Đơn vị đào tạo", "en": "Provider" } },
+        { "id": "period", "type": "DATE_RANGE", "required": true, "dateFormat": "DATE", "showDuration": true, "durationUnit": "DAY",
+          "title": { "vi": "Thời gian học", "en": "Training period" },
+          "durationLabel": { "vi": "Số ngày", "en": "Days" } },
+        { "id": "cost", "type": "AMOUNT", "currency": "VND", "decimals": 0, "title": { "vi": "Chi phí", "en": "Cost" } },
+        { "id": "goal", "type": "TEXTAREA", "required": true, "title": { "vi": "Mục tiêu", "en": "Objective" } }
+      ]
+    },
+    {
+      "code": "PURCHASE", "category": "PROCUREMENT", "recommended": true, "icon": "shopping-cart", "color": "blue",
+      "name": { "vi": "Đề nghị mua sắm", "en": "Purchase request" },
+      "description": { "vi": "Mua sắm hàng hoá, thiết bị, vật tư", "en": "Buy goods, equipment or supplies" },
+      "widgets": [
+        { "id": "items", "type": "TABLE", "required": true, "showTotal": true,
+          "title": { "vi": "Danh sách hàng hoá", "en": "Items" },
+          "addLabel": { "vi": "Thêm mặt hàng", "en": "Add item" },
+          "children": [
+            { "id": "item_name", "type": "TEXT", "required": true, "title": { "vi": "Tên hàng", "en": "Item" } },
+            { "id": "quantity", "type": "NUMBER", "required": true, "decimals": 0, "min": 1, "title": { "vi": "Số lượng", "en": "Quantity" } },
+            { "id": "amount", "type": "AMOUNT", "required": true, "currency": "VND", "decimals": 0, "title": { "vi": "Thành tiền", "en": "Amount" } },
+            { "id": "note", "type": "TEXT", "title": { "vi": "Ghi chú", "en": "Note" } }
+          ] },
+        { "id": "total", "type": "FORMULA", "expression": "SUM({items.amount})", "currency": "VND", "decimals": 0,
+          "title": { "vi": "Tổng tiền", "en": "Total amount" } },
+        { "id": "needed_date", "type": "DATE", "dateFormat": "DATE", "title": { "vi": "Ngày cần", "en": "Needed by" } },
+        { "id": "reason", "type": "TEXTAREA", "required": true, "title": { "vi": "Lý do mua", "en": "Reason" } }
+      ],
+      "approval": {
+        "rule": { "field": "FORM_NUMBER", "widget": "total", "operator": "GT", "values": ["10000000"] },
+        "conditionName": { "vi": "Trên 10 triệu", "en": "Over 10 million" }
+      }
+    },
+    {
+      "code": "OFFICE_SUPPLIES", "category": "PROCUREMENT", "icon": "package", "color": "amber",
+      "name": { "vi": "Cấp phát văn phòng phẩm, thiết bị", "en": "Office supplies" },
+      "description": { "vi": "Đề nghị cấp văn phòng phẩm, thiết bị làm việc", "en": "Request stationery or work equipment" },
+      "widgets": [
+        { "id": "items", "type": "TABLE", "required": true,
+          "title": { "vi": "Danh sách vật phẩm", "en": "Item list" },
+          "addLabel": { "vi": "Thêm vật phẩm", "en": "Add item" },
+          "children": [
+            { "id": "item_name", "type": "TEXT", "required": true, "title": { "vi": "Tên vật phẩm", "en": "Item name" } },
+            { "id": "quantity", "type": "NUMBER", "required": true, "decimals": 0, "min": 1, "title": { "vi": "Số lượng", "en": "Quantity" } }
+          ] },
+        { "id": "reason", "type": "TEXTAREA", "title": { "vi": "Lý do", "en": "Reason" } }
+      ]
+    },
+    {
+      "code": "SEAL_REQUEST", "category": "ADMINISTRATION", "icon": "stamp", "color": "indigo",
+      "name": { "vi": "Đề nghị đóng dấu", "en": "Seal request" },
+      "description": { "vi": "Đóng dấu công ty lên văn bản, tài liệu", "en": "Have the company seal applied to documents" },
+      "widgets": [
+        { "id": "seal_type", "type": "RADIO", "required": true, "display": "LIST", "title": { "vi": "Loại dấu", "en": "Seal type" },
+          "options": [
+            { "id": "company", "label": { "vi": "Dấu công ty", "en": "Company seal" } },
+            { "id": "overlap", "label": { "vi": "Dấu treo", "en": "Overlap seal" } },
+            { "id": "title", "label": { "vi": "Dấu chức danh", "en": "Title seal" } }
+          ] },
+        { "id": "document_name", "type": "TEXT", "required": true, "title": { "vi": "Tên tài liệu", "en": "Document name" } },
+        { "id": "copies", "type": "NUMBER", "required": true, "decimals": 0, "min": 1, "title": { "vi": "Số bản", "en": "Copies" } },
+        { "id": "files", "type": "ATTACHMENT", "required": true, "maxCount": 9, "title": { "vi": "Tài liệu cần đóng dấu", "en": "Documents" } }
+      ]
+    },
+    {
+      "code": "VEHICLE", "category": "ADMINISTRATION", "icon": "car", "color": "teal",
+      "name": { "vi": "Sử dụng xe công", "en": "Company vehicle" },
+      "description": { "vi": "Đăng ký sử dụng xe của công ty", "en": "Book a company vehicle" },
+      "widgets": [
+        { "id": "period", "type": "DATE_RANGE", "required": true, "dateFormat": "DATETIME", "title": { "vi": "Thời gian sử dụng", "en": "Usage time" } },
+        { "id": "route", "type": "TEXT", "required": true, "title": { "vi": "Điểm đi - điểm đến", "en": "Route" } },
+        { "id": "passengers", "type": "NUMBER", "decimals": 0, "min": 1, "title": { "vi": "Số người", "en": "Passengers" } },
+        { "id": "purpose", "type": "TEXTAREA", "required": true, "title": { "vi": "Mục đích", "en": "Purpose" } }
+      ]
+    },
+    {
+      "code": "CONTRACT", "category": "LEGAL", "recommended": true, "icon": "file-signature", "color": "orange",
+      "name": { "vi": "Trình ký hợp đồng", "en": "Contract approval" },
+      "description": { "vi": "Trình duyệt hợp đồng trước khi ký", "en": "Get a contract approved before signing" },
+      "widgets": [
+        { "id": "contract_name", "type": "TEXT", "required": true, "title": { "vi": "Tên hợp đồng", "en": "Contract name" } },
+        { "id": "partner", "type": "TEXT", "required": true, "title": { "vi": "Đối tác", "en": "Counterparty" } },
+        { "id": "value", "type": "AMOUNT", "required": true, "currency": "VND", "decimals": 0, "title": { "vi": "Giá trị hợp đồng", "en": "Contract value" } },
+        { "id": "term", "type": "DATE_RANGE", "dateFormat": "DATE", "title": { "vi": "Thời hạn hợp đồng", "en": "Contract term" } },
+        { "id": "contract_files", "type": "ATTACHMENT", "required": true, "maxCount": 9, "title": { "vi": "Tệp hợp đồng", "en": "Contract files" } }
+      ],
+      "approval": {
+        "rule": { "field": "FORM_NUMBER", "widget": "value", "operator": "GT", "values": ["100000000"] },
+        "conditionName": { "vi": "Trên 100 triệu", "en": "Over 100 million" }
+      }
+    },
+    {
+      "code": "LABOR_CONTRACT_RENEWAL", "category": "LEGAL", "icon": "file-text", "color": "orange",
+      "name": { "vi": "Gia hạn hợp đồng lao động", "en": "Labor contract renewal" },
+      "description": { "vi": "Đề nghị gia hạn hợp đồng lao động cho nhân viên", "en": "Renew an employee's labor contract" },
+      "widgets": [
+        { "id": "employee", "type": "CONTACT", "required": true, "title": { "vi": "Nhân viên", "en": "Employee" } },
+        { "id": "contract_type", "type": "RADIO", "required": true, "display": "DROPDOWN", "title": { "vi": "Loại hợp đồng", "en": "Contract type" },
+          "options": [
+            { "id": "fixed_12", "label": { "vi": "Xác định thời hạn 12 tháng", "en": "12-month fixed term" } },
+            { "id": "fixed_36", "label": { "vi": "Xác định thời hạn 36 tháng", "en": "36-month fixed term" } },
+            { "id": "indefinite", "label": { "vi": "Không xác định thời hạn", "en": "Indefinite term" } }
+          ] },
+        { "id": "term", "type": "DATE_RANGE", "dateFormat": "DATE", "title": { "vi": "Thời hạn mới", "en": "New term" } },
+        { "id": "note", "type": "TEXTAREA", "title": { "vi": "Ghi chú", "en": "Notes" } }
+      ]
+    },
+    {
+      "code": "NEW_PROJECT", "category": "PROJECT", "recommended": true, "icon": "folder-kanban", "color": "blue",
+      "name": { "vi": "Khởi tạo dự án", "en": "New project" },
+      "description": { "vi": "Đề xuất khởi động một dự án mới", "en": "Propose starting a new project" },
+      "widgets": [
+        { "id": "project_name", "type": "TEXT", "required": true, "title": { "vi": "Tên dự án", "en": "Project name" } },
+        { "id": "goal", "type": "TEXTAREA", "required": true, "title": { "vi": "Mục tiêu", "en": "Objectives" } },
+        { "id": "period", "type": "DATE_RANGE", "required": true, "dateFormat": "DATE", "title": { "vi": "Thời gian thực hiện", "en": "Timeline" } },
+        { "id": "budget", "type": "AMOUNT", "currency": "VND", "decimals": 0, "title": { "vi": "Ngân sách", "en": "Budget" } },
+        { "id": "members", "type": "CONTACT", "multiple": true, "title": { "vi": "Thành viên", "en": "Members" } },
+        { "id": "documents", "type": "ATTACHMENT", "maxCount": 9, "title": { "vi": "Tài liệu", "en": "Documents" } }
+      ]
+    },
+    {
+      "code": "GENERAL", "category": "OTHER", "recommended": true, "icon": "file-text", "color": "green",
+      "name": { "vi": "Đề nghị chung", "en": "General request" },
+      "description": { "vi": "Đề nghị chưa có mẫu riêng", "en": "Any request without a dedicated form" },
+      "widgets": [
+        { "id": "subject", "type": "TEXT", "required": true, "title": { "vi": "Tiêu đề", "en": "Subject" } },
+        { "id": "content", "type": "TEXTAREA", "required": true, "title": { "vi": "Nội dung", "en": "Details" } },
+        { "id": "attachments", "type": "ATTACHMENT", "maxCount": 9, "title": { "vi": "Tệp đính kèm", "en": "Attachments" } }
+      ]
+    }
+  ]
+}

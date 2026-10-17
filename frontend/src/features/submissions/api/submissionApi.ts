@@ -3,6 +3,7 @@ import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse, PageResponse } from '@/types/api'
 import type { Submission, CreateSubmissionRequest, UpdateSubmissionRequest, ReviewSubmissionRequest, ReturnSubmissionRequest, Attachment, SubmissionEvaluatorScore } from '@/types/submission'
 import type { SubmissionStatus } from '@/types/submission'
+import type { KpiApprovalChain } from '@/types/approvalChain'
 
 export const submissionApi = {
   getAll: (params: { 
@@ -34,6 +35,13 @@ export const submissionApi = {
   getEvaluatorScores: (userId: string, kpiPeriodId: string) =>
     axiosInstance.get<ApiResponse<SubmissionEvaluatorScore[]>>('/submissions/evaluator-scores', { params: { userId, kpiPeriodId } })
       .then((r) => r.data.data),
+
+  /** Bài đang chờ người gọi ở bước hiện tại của quy trình duyệt. */
+  awaitingMyApproval: () =>
+    axiosInstance.get<ApiResponse<Submission[]>>('/submissions/awaiting-my-approval').then((r) => r.data.data),
+
+  approvalChain: (id: string) =>
+    axiosInstance.get<ApiResponse<KpiApprovalChain>>(`/submissions/${id}/approval-chain`).then((r) => r.data.data),
 
   getById: (id: string) =>
     axiosInstance.get<ApiResponse<Submission>>(`/submissions/${id}`).then((r) => r.data.data),

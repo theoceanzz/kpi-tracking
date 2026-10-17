@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
 import { toast } from 'sonner'
+import i18n from 'i18next'
 import { getApiErrorCode, getApiErrorMessage } from '@/lib/apiError'
 import type { CreateEvaluationRequest } from '@/types/evaluation'
 import { useTranslation } from 'react-i18next'
@@ -20,6 +21,11 @@ export function useCreateEvaluation() {
     }),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['evaluations'] })
+      qc.invalidateQueries({ queryKey: ['approvals'] })
+      if (data?.approval) {
+        toast.success(i18n.t('approvalProcess:pending.evaluation', { names: data.approval.holderNames.join(', ') }))
+        return
+      }
       toast.success(t('useCreateEvaluation.evaluationCreatedSuccessfully'))
       // Khung bell curve ở chế độ "chỉ cảnh báo": đánh giá vẫn được lưu, nhưng người chấm cần
       // biết đơn vị đang lệch hạn mức — im lặng thì chế độ này chẳng khác gì tắt khung.

@@ -31,7 +31,8 @@ function Metric({ label, value, hint, info, ok }: {
 
 /**
  * Báo cáo giám sát chất lượng chấm: điểm AI đề xuất so với điểm quản lý đã chốt trong một đợt — theo
- * người và theo đơn vị. Là số đo "AI có đáng tin không" trước khi mở rộng dùng.
+ * người và theo đơn vị. Là số đo "AI có đáng tin không" trước khi mở rộng dùng. Điểm AI nằm trên thang riêng (chỉ chất
+ * lượng, 13/10) nên so theo %: AI = trung bình % chất lượng, quản lý = điểm đánh giá thang 100.
  */
 export default function AiReviewReportSection() {
   const organizationId = useAuthStore(s => s.user?.memberships?.[0]?.organizationId)
@@ -97,7 +98,7 @@ export default function AiReviewReportSection() {
                   <tr key={r.reviewId} className="border-b border-[var(--color-border)] last:border-0">
                     <td className="py-2 pr-3">{r.userName ?? '—'}</td>
                     <td className="py-2 pr-3 text-[var(--color-muted-foreground)]">{r.unitName ?? '—'}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums">{fmt(r.aiScore)}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{r.aiScore == null ? fmt(null) : `${fmt(r.aiScore)}%`}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{r.managerScore == null ? 'chưa chấm' : fmt(r.managerScore)}</td>
                     <td className={`py-2 text-right tabular-nums ${r.difference != null && Math.abs(r.difference) > 5 ? 'text-[var(--color-warning)]' : ''}`}>
                       {r.difference == null ? '—' : `${r.difference > 0 ? '+' : ''}${fmt(r.difference)}`}

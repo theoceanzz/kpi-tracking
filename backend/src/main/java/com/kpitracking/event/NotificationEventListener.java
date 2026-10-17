@@ -71,6 +71,13 @@ public class NotificationEventListener {
                 submitter.getFullName(), kpi.getName(), submission.getActualValue());
 
         UUID orgId = getOrgId(submission);
+        // Bài đi theo quy trình duyệt: người giữ bước đầu đã được chuỗi duyệt báo riêng — cấp duyệt
+        // gần nhất có khi không nằm trong quy trình, báo họ thì họ mở ra cũng không duyệt được.
+        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.ApprovalSubjectType.SUBMISSION,
+                submission.getId()).isPresent()) {
+            return;
+        }
+
         Set<UUID> notifiedIds = new HashSet<>();
         notifiedIds.add(submitter.getId());
 

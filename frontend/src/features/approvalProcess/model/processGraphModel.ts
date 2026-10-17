@@ -1,8 +1,10 @@
 import dagre from 'dagre'
+import { FORM_FIELDS } from '../types'
 import type {
   ApprovalObjectType,
   ApprovalProcessCatalog,
   ConditionRule,
+  FormConditionField,
   ProcessBranch,
   ProcessEdge,
   ProcessGraph,
@@ -379,8 +381,22 @@ export interface GraphIssue {
 
 type FieldInfo = ApprovalProcessCatalog['fields'][number]
 
-function ruleIssues(rule: ConditionRule, objectType: ApprovalObjectType | null, fields: Map<string, FieldInfo>): string | null {
+function ruleIssues(
+  rule: ConditionRule,
+  objectType: ApprovalObjectType | null,
+  fields: Map<string, FieldInfo>,
+  formFields?: Map<string, FormConditionField>,
+): string | null {
   if (!rule.field || !rule.operator) return 'ruleIncomplete'
+  if (FORM_FIELDS.includes(rule.field)) {
+    const w = rule.widget ? formFields?.get(rule.widget) : undefined
+    if (!w || w.kind !== (rule.field === 'FORM_NUMBER' ? 'NUMBER' : 'OPTION')) return 'ruleWidgetMissing'
+    const values = rule.values.filter((v) => v && v.trim())
+    if (values.length === 0) return 'ruleMissingValue'
+    if (w.kind === 'NUMBER') return values.length !== 1 || !Number.isFinite(Number(values[0])) ? 'ruleBadNumber' : null
+    const known = new Set((w.options ?? []).map((o) => o.value))
+    return values.every((v) => known.has(v)) ? null : 'ruleBadValue'
+  }
   const info = fields.get(rule.field)
   if (!info) return null
   if (objectType && !info.objects.includes(objectType)) return 'ruleFieldNotForObject'
@@ -392,17 +408,23 @@ function ruleIssues(rule: ConditionRule, objectType: ApprovalObjectType | null, 
   return null
 }
 
-/** Cùng bộ luật với `ProcessGraphValidator.java`. */
+/**
+ * Cùng bộ luật với `ProcessGraphValidator.java`.
+ *
+ * @param formFields widget của đơn từ mà điều kiện dùng được (chỉ khi sửa quy trình của một đơn)
+ */
 export function validateGraph(
   graph: ProcessGraph,
   objectType: ApprovalObjectType | null,
   catalog?: ApprovalProcessCatalog,
+  formFields?: FormConditionField[],
 ): GraphIssue[] {
   const issues: GraphIssue[] = []
   const err = (key: string, nodeId?: string, args?: Record<string, unknown>) =>
     issues.push({ severity: 'error', key, nodeId, args })
   const warn = (key: string, nodeId?: string) => issues.push({ severity: 'warning', key, nodeId })
   const fields = new Map((catalog?.fields ?? []).map((f) => [f.code as string, f]))
+  const widgets = new Map((formFields ?? []).map((w) => [w.id, w]))
 
   if (graph.nodes.length === 0) {
     err('empty')
@@ -427,7 +449,7 @@ export function validateGraph(
         const rules = (n.groups ?? []).flatMap((g) => g.rules)
         if (rules.length === 0) err('conditionEmpty', n.id)
         else if ((n.groups ?? []).some((g) => g.rules.length === 0)) err('conditionEmptyGroup', n.id)
-        const first = rules.map((r) => ruleIssues(r, objectType, fields)).find(Boolean)
+        const first = rules.map((r) => ruleIssues(r, objectType, fields, widgets)).find(Boolean)
         if (first) err(first, n.id)
         break
       }

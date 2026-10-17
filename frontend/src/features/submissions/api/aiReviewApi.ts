@@ -6,8 +6,9 @@ export type AiReviewStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED'
 export type AiReviewConfidence = 'CAO' | 'TRUNG_BINH' | 'THAP'
 
 /**
- * Kết quả AI cho một chỉ tiêu. Ba con số (`achievementPercent`, `onTimePercent`, `suggestedScore`) do
- * MÃ NGUỒN tính, không phải mô hình — mô hình chỉ quyết phần chất lượng nội dung.
+ * Kết quả AI cho một chỉ tiêu. Mô hình chỉ chọn MỨC chất lượng; điểm (`suggestedScore` / `maxPoints`) do MÃ NGUỒN
+ * tính: % của mức × điểm tối đa của thang AI (công ty đặt, mặc định 10). `achievementPercent` / `onTimePercent` chỉ để
+ * tham khảo, không vào điểm.
  */
 export interface AiReviewItem {
   id: string
@@ -28,16 +29,8 @@ export interface AiReviewItem {
   errorMessage?: string | null
   /** Căn cứ kèm đoạn văn gốc (rỗng với lượt chấm cũ). */
   basis?: AiReviewBasis[]
-  /**
-   * Điểm gợi ý chia ba phần theo trọng số: định lượng trên THANG ĐIỂM ĐÁNH GIÁ, định tính trên THANG HÀNH VI riêng
-   * (100 chia theo trọng số các chỉ tiêu định tính). `null` với lượt cũ.
-   */
+  /** Điểm tối đa của thang AI (thang riêng, không chia từ thang 100 của định lượng / định tính). */
   maxPoints?: number | null
-  targetPoints?: number | null
-  qualityPoints?: number | null
-  onTimePoints?: number | null
-  /** Điểm hệ thống của chỉ tiêu trên cùng thang — để so. */
-  systemPoints?: number | null
   qualitative?: boolean | null
   targetValue?: number | null
   unit?: string | null
@@ -45,8 +38,6 @@ export interface AiReviewItem {
   actualValue?: number | null
   /** Định tính: mức người nộp tự đánh giá. */
   selfLevel?: string | null
-  /** Định tính: mức gần nhất với điểm AI gợi ý trên thang hành vi. */
-  suggestedLevel?: string | null
   /** Mức tin cậy RIÊNG của chỉ tiêu — đi theo chất lượng AI chấm, máy chủ tính lại mỗi lần đọc. */
   confidence?: AiReviewConfidence | null
   /** Mã lý do của mức tin cậy — dịch qua `AiConfidence.reasons.*`. */
@@ -134,17 +125,6 @@ export interface AiReview {
   missingData: string[]
   unreadableFiles: string[]
   items: AiReviewItem[]
-  /** Điểm đánh giá AI gợi ý cho cả đợt (thang 100); `null` với lượt cũ. */
-  suggestedTotal?: number | null
-  /** Điểm đánh giá hệ thống cùng thang (trần 100). */
-  systemTotal?: number | null
-  /** Điểm hành vi AI gợi ý (thang 100, các chỉ tiêu định tính) và mức gần nhất. */
-  behaviorSuggestedTotal?: number | null
-  behaviorSuggestedLevel?: string | null
-  /** Trọng số (%) đã dùng cho lượt này. */
-  weightTarget?: number | null
-  weightQuality?: number | null
-  weightOnTime?: number | null
   errorMessage?: string | null
   /** Phiên bản bộ tiêu chí đã dùng (null = chưa có bộ tiêu chí xác nhận). */
   criteriaSetVersion?: number | null
@@ -157,16 +137,26 @@ export interface AiReview {
   disclaimer: string
 }
 
-export interface AiReviewSettings {
-  enabled: boolean
-  weightTarget: number
-  weightQuality: number
-  weightOnTime: number
+/** Một mức của THANG ĐIỂM AI: AI chọn một mức khi chấm chất lượng bài nộp, điểm AI = `points` của mức. */
+export interface AiReviewLevel {
+  name: string
+  points: number
+  color?: string | null
+  /** Đi vào lời nhắc để AI biết mức này nghĩa là gì. */
+  description?: string | null
 }
 
-export interface AiReviewUnitSetting extends AiReviewSettings {
+export interface AiReviewSettings {
+  enabled: boolean
+  /** Thang điểm AI, xếp theo điểm tăng dần; điểm tối đa = mức cao nhất. */
+  levels: AiReviewLevel[]
+}
+
+/** Đơn vị đang tắt AI (áp cả đơn vị con). */
+export interface AiReviewUnitSetting {
   orgUnitId: string
   orgUnitName?: string | null
+  enabled: boolean
 }
 
 export interface AiReviewReportRow {
@@ -174,9 +164,11 @@ export interface AiReviewReportRow {
   userName?: string | null
   unitName?: string | null
   reviewId: string
+  /** % — trung bình % chất lượng AI chấm (thang AI riêng nên so theo %). */
   aiScore?: number | null
+  /** Điểm đánh giá của quản lý, thang 100. */
   managerScore?: number | null
-  /** AI − quản lý. */
+  /** AI − quản lý (điểm %). */
   difference?: number | null
   confidence?: AiReviewConfidence | null
 }
@@ -325,8 +317,9 @@ export const aiReviewApi = {
   unitSettings: () =>
     axiosInstance.get<ApiResponse<AiReviewUnitSetting[]>>(`${BASE}/unit-settings`).then(r => r.data.data),
 
-  saveUnitSetting: (orgUnitId: string, body: AiReviewSettings) =>
-    axiosInstance.put<ApiResponse<AiReviewUnitSetting>>(`${BASE}/unit-settings/${orgUnitId}`, body).then(r => r.data.data),
+  /** Tắt AI cho đơn vị (và đơn vị con). */
+  saveUnitSetting: (orgUnitId: string) =>
+    axiosInstance.put<ApiResponse<AiReviewUnitSetting>>(`${BASE}/unit-settings/${orgUnitId}`).then(r => r.data.data),
 
   deleteUnitSetting: (orgUnitId: string) => axiosInstance.delete(`${BASE}/unit-settings/${orgUnitId}`),
 }

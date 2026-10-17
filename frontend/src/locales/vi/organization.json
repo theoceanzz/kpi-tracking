@@ -909,7 +909,9 @@
     "whenTheKpiOfYourTasksIsReplaced": "Khi KPI có công việc của bạn được thay bằng KPI khác (chỉ chuông)",
     "whenYouAreAssignedATask": "Khi bạn được giao việc hoặc việc của bạn được giao lại cho người khác",
     "whenYouAreAddedAsTaskFollower": "Khi bạn được thêm làm người theo dõi một công việc (chỉ chuông)",
-    "whenATaskYouFollowChanges": "Khi công việc bạn phụ trách / tạo / theo dõi đổi hạn, đổi trạng thái hoặc hoàn thành (gộp, chỉ chuông)"
+    "whenATaskYouFollowChanges": "Khi công việc bạn phụ trách / tạo / theo dõi đổi hạn, đổi trạng thái hoặc hoàn thành (gộp, chỉ chuông)",
+    "whenARequestNeedsYourApproval": "Khi có đơn từ chờ bạn duyệt",
+    "whenYourRequestIsDecided": "Khi đơn từ bạn nộp đã có kết quả"
   },
   "useAiQuota": {
     "couldNotUpdate": "Không cập nhật được",

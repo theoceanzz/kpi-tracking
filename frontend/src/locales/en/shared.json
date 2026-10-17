@@ -1356,8 +1356,8 @@
         "b": "When off, the ask-AI button disappears from everyone's review screen."
       },
       "weights": {
-        "t": "Suggested score weights",
-        "b": "The suggested score combines several parts; adjust each part's share here."
+        "t": "AI scale",
+        "b": "The levels the AI picks from when scoring submission quality; the AI score is the level’s points."
       },
       "save": {
         "t": "Save",
@@ -1400,6 +1400,9 @@
       },
       "feedback360": {
         "b": "Campaigns collecting managers', peers' and direct reports' views on each person."
+      },
+      "process-approvals": {
+        "b": "Everything waiting for your approval step: result reports, period evaluations, cycle finalization… Start your day here."
       }
     },
     "criteria": {
@@ -1632,6 +1635,24 @@
       "list": {
         "t": "Campaign list",
         "b": "Each card shows the due date and forms submitted. Peer and direct-report forms are anonymous."
+      }
+    },
+    "procapp": {
+      "stats": {
+        "t": "Waiting for you",
+        "b": "How many requests are at your step."
+      },
+      "list": {
+        "t": "Approval queue",
+        "b": "Oldest first. Each row shows the request type, who sent it and which step you are."
+      },
+      "details": {
+        "t": "Proposal content",
+        "b": "Period evaluations and cycle finalizations show their numbers right here."
+      },
+      "open": {
+        "t": "Approve",
+        "b": "Proposals are decided in a dialog; reports, KPIs and adjustments open their own screen."
       }
     }
   },
@@ -3246,6 +3267,66 @@
       "folderSubmit": {
         "t": "Create",
         "b": "Creates the folder."
+      }
+    },
+    "procApproval": {
+      "title": "Decide a process proposal",
+      "dialog": {
+        "t": "Decision dialog",
+        "b": "The top says whether you are a middle step (approving forwards) or the last step (approving applies it)."
+      },
+      "comment": {
+        "t": "Comment / reason",
+        "b": "Optional when approving; a reason is required to reject."
+      },
+      "reject": {
+        "t": "Reject",
+        "b": "Rejecting at any step ends the process and notifies the requester with the reason."
+      },
+      "approve": {
+        "t": "Approve",
+        "b": "At the last step the system re-checks the data before recording the score or finalizing the cycle."
+      }
+    }
+  },
+  "tourRequests": {
+    "intro": {
+      "t": "Requests",
+      "b": "Submit leave, reimbursement, purchase and other requests, and follow them until they are approved."
+    },
+    "tabs": {
+      "t": "Three tabs",
+      "b": "Submit request, Request status (requests waiting for you and the ones you submitted), and Approval admin if you manage forms."
+    },
+    "search": {
+      "t": "Find a form",
+      "b": "Type a form or group name to filter."
+    },
+    "groups": {
+      "t": "Form groups",
+      "b": "Click a group to scroll to its forms."
+    },
+    "forms": {
+      "t": "Pick a form",
+      "b": "Click a card to open the form and fill it in."
+    },
+    "form": {
+      "title": "Submit a request",
+      "open": {
+        "t": "Open a form",
+        "b": "Click a form card to open the submit dialog."
+      },
+      "dialog": {
+        "t": "Fill in the form",
+        "b": "Fields marked * are required. Some fields only appear after you pick an option above. Your draft is kept on this device."
+      },
+      "flow": {
+        "t": "Approvers",
+        "b": "The approval steps follow what you fill in — a large amount, for example, can add another approval level."
+      },
+      "send": {
+        "t": "Submit",
+        "b": "After submitting, follow the request under Request status. You can withdraw it while it is pending."
       }
     }
   }

@@ -67,6 +67,8 @@ export interface RewardGrantRecipient {
 }
 
 export interface RewardGrant {
+  /** Đang chờ duyệt theo quy trình "Đề xuất khen thưởng". */
+  approval?: import('@/types/approvalChain').ApprovalSummary | null
   id: string
   orgUnitId?: string | null
   orgUnitName?: string | null
@@ -216,6 +218,8 @@ export interface GiftItemRequest {
 }
 
 export interface Redemption {
+  /** Đang chờ duyệt theo quy trình "Duyệt đổi quà". */
+  approval?: import('@/types/approvalChain').ApprovalSummary | null
   id: string
   userId: string
   userFullName: string

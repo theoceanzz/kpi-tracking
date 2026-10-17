@@ -475,6 +475,36 @@ public class ConductService {
                 : blankSheet(target, t, current);
     }
 
+    /**
+     * Dòng tiêu chí của một người trong đợt/kỳ — KHÔNG gác quyền, chỗ gọi tự gác.
+     *
+     * <p>{@link #getSheet} gác bằng {@code canEvaluate}, tức quyền CHẤM hạnh kiểm. Trang thống kê
+     * chi tiết chỉ ĐỌC và đã gác bằng luật của nhóm thống kê (xem {@code PersonDetailService}), nên
+     * dùng cửa này; đi qua {@code getSheet} thì người xem thống kê không chấm hạnh kiểm sẽ bị 403
+     * đúng ở ô radar.
+     *
+     * <p>Chưa từng chấm vẫn trả đủ dòng tiêu chí (phiếu trắng) để radar không thiếu đỉnh.
+     * Trả cả PHIẾU vì thang điểm (min/max) nằm ở phiếu, không ở từng dòng.
+     */
+    @Transactional(readOnly = true)
+    public ConductSheetResponse sheetForAnalytics(UUID userId, ConductScope scope, UUID targetId, Organization org) {
+        if (org == null || !Boolean.TRUE.equals(org.getEnableConduct()) || userId == null || targetId == null) {
+            return null;
+        }
+        User target = userRepository.findById(userId).orElse(null);
+        if (target == null) return null;
+        try {
+            Target t = resolveTarget(scope,
+                    scope == ConductScope.PERIOD ? targetId : null,
+                    scope == ConductScope.PERIOD ? null : targetId);
+            ConductEvaluation entity = findSheet(userId, t);
+            return entity != null ? toSheetResponse(entity, target, t, target) : blankSheet(target, t, target);
+        } catch (RuntimeException e) {
+            // Đợt/kỳ đã xoá hoặc chưa gắn bộ tiêu chí: radar trống còn hơn cả trang 500.
+            return null;
+        }
+    }
+
     /** Nhân viên tự chấm: ghi cột điểm tự đánh giá và dẫn chứng. */
     @Transactional
     public ConductSheetResponse saveSelfScores(ConductScoreRequest request) {

@@ -57,6 +57,9 @@ public class RewardGrantResponse {
      */
     private Boolean requiresApproval;
 
+    /** Đang chờ duyệt theo quy trình "Đề xuất khen thưởng": bước hiện tại, tính cho người xem. */
+    private com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse approval;
+
     @Data
     @Builder
     public static class Recipient {

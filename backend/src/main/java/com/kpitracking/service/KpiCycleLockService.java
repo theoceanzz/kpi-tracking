@@ -249,6 +249,9 @@ public class KpiCycleLockService {
         cycle.setLockedBy(actor);
         cycle.setLockedAt(now);
         kpiCycleRepository.save(cycle);
+        // Bài nộp còn chờ duyệt theo quy trình không duyệt được nữa (kỳ đã khoá): chuỗi của chúng đóng theo.
+        approvalChain.closeSubmissionFlowsOfCycle(cycle.getId(), actor,
+                LocalizedText.of("cycleEvent.reason.closedByLock", cycle.getName()));
 
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("option", unfinished.isEmpty() ? "ALL_COMPLETED" : "RESOLVE_PERIODS");

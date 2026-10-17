@@ -914,7 +914,9 @@
     "whenTheKpiOfYourTasksIsReplaced": "When a KPI with your tasks is replaced by another KPI (in-app only)",
     "whenYouAreAssignedATask": "When you are assigned a task or your task is reassigned to someone else",
     "whenYouAreAddedAsTaskFollower": "When you are added as a follower of a task (in-app only)",
-    "whenATaskYouFollowChanges": "When a task you are assigned to, created or follow changes due date, status or is completed (grouped, in-app only)"
+    "whenATaskYouFollowChanges": "When a task you are assigned to, created or follow changes due date, status or is completed (grouped, in-app only)",
+    "whenARequestNeedsYourApproval": "When a request is waiting for your approval",
+    "whenYourRequestIsDecided": "When a request you submitted has a result"
   },
   "useAiQuota": {
     "couldNotUpdate": "Could not update",

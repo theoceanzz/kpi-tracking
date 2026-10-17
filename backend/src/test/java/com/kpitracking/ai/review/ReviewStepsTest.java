@@ -85,7 +85,7 @@ class ReviewStepsTest {
 
     private void withCriteria(ReviewContext.Criterion... cs) {
         run.setContext(new ReviewContext(run.getOrganizationId(), run.getKpiPeriodId(), "Tháng 9", run.getUserId(),
-                "An", List.of(cs), ReviewFixtures.SCALE, List.of(), new ReviewContext.Weights(60, 30, 10)));
+                "An", List.of(cs), ReviewFixtures.SCALE, List.of(), java.math.BigDecimal.TEN));
     }
 
     @Test
@@ -139,8 +139,9 @@ class ReviewStepsTest {
 
         assertThat(run.getResults()).singleElement().satisfies(r -> {
             assertThat(r.kpiCriteriaId()).isEqualTo(b.kpiCriteriaId());
-            // Hai chỉ tiêu trọng số 20 -> mỗi chỉ tiêu 50 điểm, dù lượt chỉ chấm một.
-            assertThat(r.points().max()).isEqualByComparingTo("50.00");
+            // Thang AI riêng (mặc định 10), TỐT 100% -> 10 / 10.
+            assertThat(r.points().max()).isEqualByComparingTo("10.00");
+            assertThat(r.suggestedScore()).isEqualByComparingTo("10.00");
         });
         verify(criterionAgent, org.mockito.Mockito.times(1)).review(anyString());   // chỉ tiêu A không tốn lời gọi
         verify(summaryAgent, never()).summarize(any());

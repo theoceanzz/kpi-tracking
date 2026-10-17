@@ -82,10 +82,9 @@ public class AiSubmissionReviewController {
 
     @PutMapping("/unit-settings/{orgUnitId}")
     @PreAuthorize("hasAuthority('AI_REVIEW:CONFIG')")
-    @Operation(summary = "Đặt cấu hình riêng cho một đơn vị (áp cả đơn vị con)")
-    public ResponseEntity<ApiResponse<AiReviewUnitSettingResponse>> saveUnitSetting(@PathVariable UUID orgUnitId,
-                                                                                   @Valid @RequestBody AiReviewSettingsRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(adminService.saveUnitSetting(orgUnitId, request)));
+    @Operation(summary = "Tắt AI đánh giá bài nộp cho một đơn vị (áp cả đơn vị con)")
+    public ResponseEntity<ApiResponse<AiReviewUnitSettingResponse>> saveUnitSetting(@PathVariable UUID orgUnitId) {
+        return ResponseEntity.ok(ApiResponse.success(adminService.turnOffForUnit(orgUnitId)));
     }
 
     @DeleteMapping("/unit-settings/{orgUnitId}")

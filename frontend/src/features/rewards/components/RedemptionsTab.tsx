@@ -1,4 +1,5 @@
 import { intlDateLocale, intlLocale } from '@/i18n/format'
+import ProcessPendingBadge from '@/features/approvalProcess/components/ProcessPendingBadge'
 import { useState } from 'react'
 import { X as XIcon, PackageCheck, ImageOff } from 'lucide-react'
 import DataTable from '@/components/common/DataTable'
@@ -98,8 +99,9 @@ export default function RedemptionsTab() {
                   </div>
                 )}
                 <div className="flex gap-2 border-t border-[var(--color-border)] pt-2.5">
+                  {row.approval && <ProcessPendingBadge approval={row.approval} />}
                   {(row.status === RedemptionStatus.PENDING ||
-                    row.status === RedemptionStatus.APPROVED) && (
+                    row.status === RedemptionStatus.APPROVED) && !row.approval && (
                     <>
                       <Button className="flex-1" onClick={() => deliverRedemption({ id: row.id })} disabled={isDelivering}>
                         {/* Với quà ngoài, nút này KHÔNG phải là "tôi đã trao tay" mà là
@@ -220,8 +222,9 @@ export default function RedemptionsTab() {
                 header: '',
                 render: (row) => (
                   <div className="flex justify-end gap-1">
+                    {row.approval && <ProcessPendingBadge approval={row.approval} />}
                     {(row.status === RedemptionStatus.PENDING ||
-                      row.status === RedemptionStatus.APPROVED) && (
+                      row.status === RedemptionStatus.APPROVED) && !row.approval && (
                       <>
                         <Button {...tourAnchor('redemptions.retry')} variant="ghost" size="icon-sm" aria-label={
                             row.externalProvider

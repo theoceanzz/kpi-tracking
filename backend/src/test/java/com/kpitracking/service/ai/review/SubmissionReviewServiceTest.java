@@ -1,5 +1,7 @@
 package com.kpitracking.service.ai.review;
 
+import com.kpitracking.dto.request.ai.AiReviewSettingsRequest;
+import com.kpitracking.exception.BusinessException;
 import com.kpitracking.ai.review.ReviewRun;
 import com.kpitracking.ai.review.SubmissionReviewWorkflow;
 import com.kpitracking.dto.request.ai.AiSubmissionReviewRequest;
@@ -41,6 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -70,7 +73,7 @@ class SubmissionReviewServiceTest {
     private AiReviewSettingsResolver resolver;
     private UserRoleOrgUnitRepository assignments;
     private AiSubmissionReviewItemRepository itemRepository;
-    private com.kpitracking.repository.QualitativeLevelRepository levelRepository;
+    private com.kpitracking.repository.AiReviewLevelRepository levelRepository;
     private com.kpitracking.repository.KpiSubmissionRepository submissionRepository;
     /** Item theo lượt — giả lập bảng ai_submission_review_items cho {@code findAllByReviewIdIn}. */
     private final java.util.Map<UUID, List<AiSubmissionReviewItem>> itemsByRun = new java.util.HashMap<>();
@@ -97,7 +100,7 @@ class SubmissionReviewServiceTest {
         assignments = mock(UserRoleOrgUnitRepository.class);
 
         itemRepository = mock(AiSubmissionReviewItemRepository.class);
-        levelRepository = mock(com.kpitracking.repository.QualitativeLevelRepository.class);
+        levelRepository = mock(com.kpitracking.repository.AiReviewLevelRepository.class);
         submissionRepository = mock(com.kpitracking.repository.KpiSubmissionRepository.class);
         when(itemRepository.findAllByReviewIdIn(anyCollection())).thenAnswer(inv -> {
             java.util.Collection<UUID> ids = inv.getArgument(0);
@@ -110,7 +113,8 @@ class SubmissionReviewServiceTest {
                 levelRepository,
                 new AiReviewLatestView(itemRepository));
         when(resolver.resolve(any(), any())).thenReturn(
-                new AiReviewSettingsResolver.Effective(true, new ReviewContext.Weights(60, 30, 10), null, "công ty"));
+                new AiReviewSettingsResolver.Effective(true, null, "công ty"));
+        when(resolver.aiScale(any())).thenReturn(AiReviewSettingsResolver.AiScale.EMPTY);
 
         me.setId(UUID.randomUUID());
         me.setEmail("head@demo.com");
@@ -136,16 +140,6 @@ class SubmissionReviewServiceTest {
         });
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("head@demo.com", null, List.of()));
-    }
-
-    @Test
-    @DisplayName("mức gợi ý cho định tính: mức có % gần nhất với điểm hành vi; bằng nhau thì lấy mức thấp hơn")
-    void nearestLevel() {
-        var scale = ReviewFixtures.SCALE;   // KÉM 0 · YẾU 20 · TRUNG BÌNH 50 · KHÁ 75 · TỐT 100
-        assertThat(SubmissionReviewService.nearestLevel(scale, 92.5)).isEqualTo("TỐT");
-        assertThat(SubmissionReviewService.nearestLevel(scale, 81)).isEqualTo("KHÁ");
-        assertThat(SubmissionReviewService.nearestLevel(scale, 87.5)).isEqualTo("KHÁ");   // cách đều 75 và 100
-        assertThat(SubmissionReviewService.nearestLevel(scale, 5)).isEqualTo("KÉM");
     }
 
     @AfterEach
@@ -214,7 +208,7 @@ class SubmissionReviewServiceTest {
     @DisplayName("công ty bật nhưng đơn vị của nhân viên tắt -> 403, không kiểm hạn mức")
     void unitDisabledIsForbidden() {
         when(resolver.resolve(org, staffId)).thenReturn(
-                new AiReviewSettingsResolver.Effective(false, new ReviewContext.Weights(60, 30, 10), UUID.randomUUID(), "đơn vị"));
+                new AiReviewSettingsResolver.Effective(false, UUID.randomUUID(), "đơn vị"));
 
         assertThatThrownBy(() -> service.request(req())).isInstanceOf(ForbiddenException.class);
         verify(quota, never()).checkAndThrow(anyString());
@@ -457,25 +451,22 @@ class SubmissionReviewServiceTest {
         assertThat(service.latest(periodId, staffId).getRunningCriteriaIds()).containsExactlyInAnyOrder(kpiA, kpiB);
     }
 
-    /** Thang chất lượng của tổ chức trong DB: KÉM 0 · TRUNG BÌNH 50 · TỐT 100. */
-    private static List<com.kpitracking.entity.QualitativeLevel> dbScale() {
-        java.util.List<com.kpitracking.entity.QualitativeLevel> out = new java.util.ArrayList<>();
+    /** Thang điểm AI của công ty (V48): KÉM · TRUNG BÌNH · TỐT = 0 · ½ · trọn `max` điểm. */
+    private static AiReviewSettingsResolver.AiScale dbScale(double max) {
         String[] names = {"KÉM", "TRUNG BÌNH", "TỐT"};
-        double[] pct = {0, 50, 100};
+        double[] share = {0, 0.5, 1};
+        java.util.List<com.kpitracking.entity.AiReviewLevel> rows = new java.util.ArrayList<>();
         for (int i = 0; i < names.length; i++) {
-            com.kpitracking.entity.QualitativeLevel l = new com.kpitracking.entity.QualitativeLevel();
-            l.setName(names[i]);
-            l.setScorePercent(pct[i]);
-            l.setPosition(i + 1);
-            out.add(l);
+            rows.add(com.kpitracking.entity.AiReviewLevel.builder().name(names[i]).position(i + 1)
+                    .points(java.math.BigDecimal.valueOf(share[i] * max)).build());
         }
-        return out;
+        return AiReviewSettingsResolver.scaleOf(rows);
     }
 
     @Test
     @DisplayName("mức tin cậy tính LẠI lúc đọc theo chất lượng: kết quả cũ lưu 'Cao' mà chất lượng KÉM -> trả 'Thấp'")
     void latestRecomputesConfidenceFromQuality() {
-        when(levelRepository.findByOrganizationIdOrderByPositionAsc(org.getId())).thenReturn(dbScale());
+        when(resolver.aiScale(org.getId())).thenReturn(dbScale(10));
         AiSubmissionReview done = run(AiReviewStatus.DONE, Instant.now());
         AiSubmissionReviewItem poor = item(done, kpiA, 17.5);
         poor.setKpiSubmissionId(UUID.randomUUID());
@@ -497,6 +488,26 @@ class SubmissionReviewServiceTest {
     }
 
     @Test
+    @DisplayName("điểm AI tính LẠI lúc đọc theo thang điểm AI: điểm của mức đã chọn — kết quả cũ chấm theo 60/30/10 cũng ra thang mới")
+    void latestRecomputesScoreOnAiScale() {
+        when(resolver.aiScale(org.getId())).thenReturn(dbScale(20));
+        AiSubmissionReview done = run(AiReviewStatus.DONE, Instant.now());
+        AiSubmissionReviewItem mid = item(done, kpiA, 32.2);   // điểm cũ trên thang đánh giá
+        mid.setQualityLevel("TRUNG BÌNH");
+        AiSubmissionReviewItem noLevel = item(done, kpiB, 24);   // không chấm được chất lượng -> không có điểm
+        when(reviewRepository.findByKpiPeriodIdAndUserIdOrderByCreatedAtDesc(periodId, staffId)).thenReturn(List.of(done));
+
+        var items = service.latest(periodId, staffId).getItems();
+
+        assertThat(items).filteredOn(i -> i.getKpiCriteriaId().equals(kpiA)).singleElement().satisfies(i -> {
+            assertThat(i.getMaxPoints()).isEqualByComparingTo("20");
+            assertThat(i.getSuggestedScore()).isEqualByComparingTo("10");   // TRUNG BÌNH 50% × 20
+        });
+        assertThat(items).filteredOn(i -> i.getKpiCriteriaId().equals(kpiB)).singleElement()
+                .satisfies(i -> assertThat(i.getSuggestedScore()).isNull());
+    }
+
+    @Test
     @DisplayName("kết quả AI của bài đã TRẢ LẠI không còn là kết quả hiện hành — ô về Gợi ý, Xem đánh giá không hiện điểm cũ")
     void resultOfReturnedSubmissionIsDropped() {
         AiSubmissionReview done = run(AiReviewStatus.DONE, Instant.now());
@@ -515,5 +526,22 @@ class SubmissionReviewServiceTest {
 
         assertThat(service.latest(periodId, staffId).getItems())
                 .extracting(AiSubmissionReviewItemResponse::getKpiCriteriaId).containsExactly(kpiB);
+    }
+
+    @Test
+    @DisplayName("lưu thang điểm AI: 1 mức, tên trùng, hoặc mức cao nhất 0 điểm -> từ chối, không ghi gì")
+    void invalidAiScaleIsRejected() {
+        java.util.function.Function<Object[][], AiReviewSettingsRequest> req = rows -> AiReviewSettingsRequest.builder()
+                .enabled(true).levels(java.util.Arrays.stream(rows).map(r -> AiReviewSettingsRequest.Level.builder()
+                        .name((String) r[0]).points(java.math.BigDecimal.valueOf((Double) r[1])).build()).toList()).build();
+
+        for (AiReviewSettingsRequest bad : List.of(
+                req.apply(new Object[][]{{"Tốt", 10.0}}),
+                req.apply(new Object[][]{{"Khá", 5.0}, {" khá ", 10.0}}),
+                req.apply(new Object[][]{{"Kém", 0.0}, {"Tốt", 0.0}}))) {
+            assertThatThrownBy(() -> service.updateSettings(bad)).isInstanceOf(BusinessException.class)
+                    .extracting("errorCode").isEqualTo(com.kpitracking.exception.ErrorCode.AI_REVIEW_LEVELS_INVALID);
+        }
+        verifyNoInteractions(levelRepository);
     }
 }
