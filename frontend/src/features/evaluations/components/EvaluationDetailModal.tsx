@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react'
-import AiReviewPanel from '@/features/submissions/components/AiReviewPanel'
+import AiReviewPanel from '@/features/ai/submission/components/AiReviewPanel'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'

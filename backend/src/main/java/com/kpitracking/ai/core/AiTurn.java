@@ -1,0 +1,233 @@
+package com.kpitracking.ai.core;
+
+import com.kpitracking.service.ManagerContextResolver.ManagerContext;
+import com.kpitracking.dto.response.ai.FollowupResponse;
+import com.kpitracking.ai.core.form.FormPatch;
+import com.kpitracking.ai.core.tool.ToolRegistry;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+/**
+ * Toàn bộ trạng thái của MỘT lượt hỏi AI, đi xuyên suốt chuỗi {@code KeyGoAssistant}.
+ *
+ * <p>Trước đây trạng thái này nằm rải ở ba chỗ: tham số truyền tay (hàm gọi model nhận 6 tham số),
+ * biến cục bộ trong {@code AiService.processOrgUnitChat}, và ba ThreadLocal riêng lẻ. Mỗi lần thêm
+ * một công đoạn là danh sách tham số dài thêm — dấu hiệu kinh điển của việc thiếu một object
+ * ngữ cảnh.
+ *
+ * <p>Gom về một chỗ để thêm công đoạn mới chỉ là đọc/ghi thêm một trường, không phải sửa chữ ký
+ * của các hàm đang có.
+ */
+@Getter
+@Setter
+public class AiTurn {
+
+    // ── đầu vào, cố định trong suốt lượt ─────────────────────────────────────
+    private final String question;
+    private final String conversationId;
+    private final String focusUnitId;
+    /** Form đang mở trên màn hình người dùng, nếu có. Quyết định trợ lý có được đề xuất điền không. */
+    private String openFormId;
+    /** Giá trị các ô đang có trong form đó — để không đề xuất lại thứ người dùng đã điền. */
+    private Map<String, Object> openFormValues;
+    /** Ô đang hiện/sửa được trên màn hình. Chỉ thu hẹp — xem ghi chú ở {@code AiChatRequest}. */
+    private List<String> openFormFields;
+    /** Form đang mở có mục nhận tệp không. Không có thì trợ lý không được mời gửi tệp. */
+    private boolean openFormAcceptsFiles;
+    /**
+     * Tên các tệp minh chứng người dùng kẹp vào ô chat ở lượt này. Chỉ tên: nội dung tệp ở lại
+     * trình duyệt, đi thẳng sang biểu mẫu báo cáo. Trợ lý không đọc được tệp, chỉ biết là có.
+     */
+    private List<String> attachmentNames;
+    /** Tên tệp người dùng đang GHIM ở ô chat — ứng viên để đính. */
+    private List<String> pinnedFileNames;
+    /** Ngôn ngữ giao diện của người hỏi (lấy ở luồng request) — trợ lý trả lời bằng ngôn ngữ này. */
+    private String language = com.kpitracking.i18n.SupportedLanguages.DEFAULT;
+
+    // ── dựng dần qua từng stage ──────────────────────────────────────────────
+    private ManagerContext manager;
+    /**
+     * Người hỏi là NHÂN VIÊN (không phải trưởng/phó đơn vị nào). Lượt chỉ được nhóm tool CÁ NHÂN
+     * (dữ liệu của chính họ) và nhánh HELP; không router nhóm, không nới tool, không tool ghi.
+     */
+    private boolean staff;
+    /** Cờ tính năng của tổ chức — quyết định tool nào được trao (KPI hành vi, thưởng, thác nước...). */
+    private OrgFeatures features = OrgFeatures.NONE;
+    private UUID effectiveUnitId;
+    private Map<String, Object> toolCtx = new HashMap<>();
+    private String currentDateTime;
+    private boolean hasMemory;
+
+    /**
+     * Khoá định danh lượt — là {@code @MemoryId} của agent chính và khoá của {@link #memory}. Bước
+     * {@code context} gán lại bằng {@code memoryId} của scope agentic (cũng ngẫu nhiên theo lượt) để
+     * mô-đun và {@code TurnRegistry} nói cùng một khoá.
+     */
+    private String turnId = java.util.UUID.randomUUID().toString();
+
+    /** Nhóm tool mà bước định tuyến chọn cho lượt này; {@code KeyGoToolProvider} đọc ở mỗi lời gọi. */
+    private Set<ToolRegistry.Group> toolGroups;
+
+    /** Tên các tool đã thật sự được trao cho model ở lời gọi gần nhất — để chẩn đoán và đo. */
+    private List<String> toolNames;
+
+    /**
+     * Bộ nhớ hội thoại của lượt: cửa sổ đã lưu + phần đệm lượt này sinh ra. DB chỉ nhận một cặp
+     * hỏi–đáp ở bước kết thúc — xem {@code TurnChatMemory}.
+     */
+    private com.kpitracking.ai.core.memory.TurnChatMemory memory;
+    /**
+     * Nhóm câu hỏi cần tới nhưng người dùng KHÔNG có quyền, do {@code TurnSteps.route} ghi.
+     *
+     * <p>Rỗng ở gần như mọi lượt. Có giá trị thì {@code SystemPromptRenderer} nói thẳng cho model biết
+     * nó thiếu đúng khả năng nào — thiếu vế đó, model đi tìm dữ liệu gần giống để thế vào và gắn
+     * nhãn của thứ nó không lấy được.
+     */
+    private Set<ToolRegistry.Group> deniedGroups;
+
+    // ── chỗ dành sẵn cho các công đoạn sắp thêm ──────────────────────────────
+    /** Kế hoạch nhiều bước, do {@code TurnSteps.plan} lập. Rỗng/null = lượt này không dùng kế hoạch. */
+    private List<PlanStep> plan;
+    /**
+     * Đề xuất điền form mà tool sinh ra trong lượt này.
+     *
+     * <p>Pipeline chép nó từ {@code AgentState} sang đây ở khối {@code finally}, để tầng gọi chỉ
+     * cần đọc {@code AiTurn} mà không phải biết gì về trạng thái bên trong vòng lặp.
+     */
+    private FormPatch formPatch;
+    /**
+     * Hành động GHI chờ xác nhận mà tool sinh ra trong lượt này. Pipeline chép từ {@code AgentState}
+     * sang đây ở khối {@code finally}, cùng lý do với {@link #formPatch}.
+     */
+    private com.kpitracking.ai.core.action.PendingAction pendingAction;
+    /** Lời mời vừa được chạy trong lượt này — để client tắt thẻ xác nhận cũ. */
+    private String consumedActionId;
+    /**
+     * Biểu đồ minh hoạ cho câu trả lời (ChartAgent chọn, ChartSpecValidator duyệt). Rỗng ở lượt không
+     * có số liệu đáng vẽ — đó là trường hợp thường gặp, không phải lỗi.
+     */
+    private java.util.List<com.kpitracking.dto.response.ai.ChartSpec> charts;
+
+    /**
+     * Lựa chọn kèm theo khi lượt kết thúc bằng một câu hỏi (hết giờ, bỏ qua, hoặc đường JSON không
+     * hỏi lại được). Client vẽ thành nút bấm; bấm = gửi một lượt mới với {@code value}.
+     */
+    private java.util.List<Choice> clarificationOptions;
+
+    /** Một lựa chọn bấm được kèm câu hỏi. */
+    public record Choice(String label, String value) {}
+
+    /** Câu hỏi giữa lượt mà người dùng VỪA trả lời, và lựa chọn của họ — để dựng khối prompt vòng sau. */
+    private String answeredQuestion;
+    private String answeredValue;
+
+    /**
+     * Lượt này có kênh để hỏi lại người dùng không. Chỉ đường streaming (SSE) mới có: nó giữ kết nối
+     * mở suốt lượt nên câu hỏi tới được màn hình và câu trả lời quay về được. Đường JSON hỏi xong là
+     * treo vô ích — ở đó lượt kết thúc bằng câu hỏi kèm lựa chọn, như trước khi có HITL.
+     */
+    public boolean canAsk() {
+        return listener != null && listener != TurnListener.NOOP;
+    }
+    /**
+     * Tên đơn vị của thẻ Insight người dùng bấm, nếu có. {@code TurnSteps.context} gắn khi nó đã nạp
+     * đơn vị để kiểm {@code focusUnitId} — không tốn thêm truy vấn nào.
+     */
+    private String focusUnitName;
+    /** Tài liệu của tổ chức mà lượt này đã đọc — chip nguồn. Chép từ {@code AgentState} như {@link #formPatch}. */
+    private List<com.kpitracking.dto.response.ai.DocumentSourceResponse> sources;
+    /**
+     * Cây đơn vị trong phạm vi người hỏi, mỗi dòng "Tên — cấp (thuộc Cha)". Nạp một lần ở bước
+     * ngữ cảnh để trợ lý biết đơn vị nào CÓ THẬT: hỏi về đơn vị không tồn tại thì nói thẳng là không
+     * có, thay vì hỏi người dùng "tên đầy đủ" (đo được 23/09 với "phòng vận hành").
+     */
+    private java.util.List<String> scopeUnits = java.util.List.of();
+    /** Các câu hỏi gợi ý tiếp theo do {@code FollowupStage} sinh; null ở lượt không có gợi ý. */
+    private FollowupResponse followups;
+    /**
+     * Lượt này model có xin mở vùng thả minh chứng trong khung chat không.
+     *
+     * <p>Pipeline chép nó từ {@code AgentState} sang đây, cùng lý do với {@code formPatch}.
+     */
+    private boolean evidenceRequested;
+    /** Lượt này model có đính tệp đang ghim vào biểu mẫu không. */
+    private boolean filesAttached;
+
+    /**
+     * Nơi nhận tiến độ của lượt. Mặc định {@link TurnListener#NOOP} nên đường JSON không phải biết
+     * gì về streaming, và pipeline không phải kiểm null ở mỗi chỗ phát.
+     */
+    private TurnListener listener = TurnListener.NOOP;
+    /**
+     * Các tool đã lên kế hoạch nhưng lần hỏi đầu không gọi — do {@code TurnSteps.needsAnotherRound} đặt trước khi
+     * cho quay lại đỉnh MODEL, để khối kế hoạch lần hai chỉ nêu đúng phần còn thiếu thay vì nhắc
+     * lại cả kế hoạch.
+     */
+    private List<String> missingPlannedTools;
+
+    /**
+     * Trạng thái của vòng lặp agent trong lượt này — lịch sử hội thoại, các tool đã gọi, bước
+     * thứ mấy. Do {@code TurnSteps.context} tạo, {@code KeyGoAssistant} chạy đồ thị trên đó.
+     *
+     * <p>Các công đoạn bọc ngoài đọc trace ở đây thay vì móc từ ThreadLocal: trạng thái đã là giá
+     * trị truyền tường minh nên không còn phụ thuộc vào việc tool chạy trên luồng nào.
+     */
+    private com.kpitracking.ai.core.agent.AgentState agentState;
+
+    public AiTurn(String question, String conversationId, String focusUnitId) {
+        this.question = question;
+        this.conversationId = conversationId;
+        this.focusUnitId = focusUnitId;
+        this.hasMemory = conversationId != null && !conversationId.isBlank();
+    }
+
+    /** Id hội thoại chỉ khi lượt này thực sự có bộ nhớ; ngược lại null. */
+    /** Các cờ tính năng của tổ chức mà bộ tool cần biết. {@code NONE} = mọi thứ tắt (an toàn khi thiếu). */
+    public record OrgFeatures(boolean conduct, boolean reward, boolean waterfall, boolean bsc, boolean okr,
+                              boolean feedback360) {
+        public static final OrgFeatures NONE = new OrgFeatures(false, false, false, false, false, false);
+
+        /** Giữ chữ ký 5 cờ cũ cho chỗ gọi không quan tâm tới 360. */
+        public OrgFeatures(boolean conduct, boolean reward, boolean waterfall, boolean bsc, boolean okr) {
+            this(conduct, reward, waterfall, bsc, okr, false);
+        }
+    }
+
+    public String memoryConversationId() {
+        return hasMemory ? conversationId : null;
+    }
+
+    /**
+     * Báo cho người dùng biết công đoạn này đang làm gì, NGAY LÚC bắt đầu làm.
+     *
+     * <p>Dành cho công đoạn bọc ngoài — thứ làm việc SAU {@code next.proceed(...)}. Với chúng,
+     * nhãn công đoạn nói sai vì chúng vào chuỗi ngay đầu lượt nhưng chỉ làm việc sau khi
+     * model đã trả lời xong.
+     *
+     * <p>Nuốt mọi lỗi: báo tiến độ là phần thêm, còn câu trả lời mới là thứ người dùng cần. Công
+     * đoạn gọi hàm này không phải tự phòng thủ.
+     *
+     * @param stage công đoạn đang báo — truyền {@code this}; tên lớp của nó thành mã sự kiện, giống
+     *              hệt nhánh pipeline tự phát, để client đối chiếu được bằng một cách duy nhất
+     */
+
+    /**
+     * Cùng việc như trên, cho những thứ KHÔNG phải {@code KeyGoAssistant} — các đỉnh của đồ thị agent.
+     *
+     * <p>Node không có tên lớp nào đáng đưa ra client (chúng là chi tiết bên trong một công đoạn
+     * duy nhất), nên chúng tự khai mã. Client vốn chỉ đọc nhãn; mã dành cho việc đối chiếu nhật ký.
+     */
+    public void progress(String code, String label) {
+        try {
+            listener.stageStarted(code, label);
+        } catch (Exception ignore) {
+            // Client ngắt giữa chừng là chuyện thường; lượt vẫn phải chạy nốt.
+        }
+    }
+}

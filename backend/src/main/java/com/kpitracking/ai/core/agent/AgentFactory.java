@@ -1,0 +1,121 @@
+package com.kpitracking.ai.core.agent;
+
+
+import com.kpitracking.ai.submission.review.CriteriaExtractionAgent;
+import com.kpitracking.ai.submission.review.CriterionReviewAgent;
+import com.kpitracking.ai.feedback360.Feedback360SummaryAgent;
+import com.kpitracking.ai.submission.review.ReviewSummaryAgent;
+import com.kpitracking.ai.submission.review.SubmissionSelfCheckAgent;
+import com.kpitracking.ai.core.memory.TurnRegistry;
+import com.kpitracking.ai.core.workflow.TurnSteps;
+import com.kpitracking.ai.core.tool.KeyGoToolProvider;
+import com.kpitracking.ai.core.tool.RequestContextBinder;
+import dev.langchain4j.agentic.AgenticServices;
+import dev.langchain4j.data.message.ToolExecutionResultMessage;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.service.AiServices;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+/**
+ * Dựng các agent LLM từ interface của chúng.
+ *
+ * <p>Mỗi agent là một bean, dựng đúng một lần; mọi thứ thay đổi theo lượt (prompt hệ thống, bộ
+ * tool, bộ nhớ, người nghe SSE) tra theo {@code @MemoryId} hoặc đi qua {@code InvocationParameters}
+ * chứ không qua việc dựng lại agent. Đó là lý do {@link AssistantAgent} dùng
+ * {@code systemMessageProvider} + {@code toolProvider} + {@code chatMemoryProvider} +
+ * {@code streamingChatModel(Function<AgenticScope, …>)} thay vì giá trị cố định.
+ *
+ * <p>{@link AssistantAgent} dựng bằng {@code AgenticServices.agentBuilder} (là {@code @Agent} đặt
+ * thẳng vào đồ thị); các agent còn lại là {@code AiServices} thường vì chúng được gọi từ code.
+ */
+@Configuration
+@Slf4j
+public class AgentFactory {
+
+    /**
+     * Trần số vòng gọi tool trong MỘT lời gọi agent chính. Giữ bằng {@code max-steps} của đồ thị cũ:
+     * vượt trần gần như chắc chắn là model đang loay hoay, và mỗi vòng là một lần trả token cho
+     * toàn bộ prompt.
+     */
+    @Value("${app.ai.agent.max-steps:10}")
+    private int maxSteps;
+
+    @Value("${app.ai.streaming.enabled:false}")
+    private boolean streamingEnabled;
+
+    @Bean
+    public AssistantAgent assistantAgent(StreamingChatModel streamingChatModel,
+                                         KeyGoToolProvider toolProvider, TurnRegistry turns,
+                                         SystemPromptRenderer prompts, RequestContextBinder contextBinder) {
+        // AgentBuilder chỉ nhận MỘT model; agent trả TokenStream nên là model streaming — chọn THEO
+        // LƯỢT: bọc để mang người dùng của lượt vào từng lời gọi và phát chữ dần nếu có người nghe.
+        return AgenticServices.agentBuilder(AssistantAgent.class)
+                .streamingChatModel(scope -> TurnStreamingChatModel.forTurn(
+                        streamingChatModel, contextBinder, TurnSteps.turnOf(scope), streamingEnabled))
+                // Render lại ở MỖI lời gọi — vòng hai của vòng lặp mới có khối "còn thiếu vế".
+                .systemMessageProvider(memoryId -> prompts.render(turns.turn(memoryId)))
+                .toolProvider(toolProvider)
+                .chatMemoryProvider(turns)
+                .maxSequentialToolsInvocations(maxSteps)
+                // Model bịa tên tool: trả lời như một tool lỗi để nó tự sửa trong lượt, thay vì ném
+                // ngoại lệ làm hỏng cả câu trả lời vì một lần gõ sai.
+                .hallucinatedToolNameStrategy(req -> ToolExecutionResultMessage.from(req,
+                        "{\"error\":\"Không có tool tên '" + req.name()
+                                + "'. Chỉ dùng đúng tên trong danh sách tool được cấp.\"}"))
+                .build();
+    }
+
+    @Bean
+    public RouterAgent routerAgent(ChatModel chatModel) {
+        return AiServices.builder(RouterAgent.class).chatModel(chatModel).build();
+    }
+
+    @Bean
+    public PlannerAgent plannerAgent(ChatModel chatModel) {
+        return AiServices.builder(PlannerAgent.class).chatModel(chatModel).build();
+    }
+
+    @Bean
+    public FollowupAgent followupAgent(ChatModel chatModel) {
+        return AiServices.builder(FollowupAgent.class).chatModel(chatModel).build();
+    }
+
+    @Bean
+    public ChartAgent chartAgent(ChatModel chatModel) {
+        return AiServices.builder(ChartAgent.class).chatModel(chatModel).build();
+    }
+
+    /** Agent thứ nhất của luồng AI đánh giá bài nộp: chất lượng nội dung của MỘT chỉ tiêu. */
+    @Bean
+    public CriterionReviewAgent criterionReviewAgent(ChatModel chatModel) {
+        return AiServices.builder(CriterionReviewAgent.class).chatModel(chatModel).build();
+    }
+
+    /** Bóc bộ tiêu chí chấm từ tài liệu tổ chức thành bảng — bước "máy bóc" (người xác nhận sau). */
+    @Bean
+    public CriteriaExtractionAgent criteriaExtractionAgent(ChatModel chatModel) {
+        return AiServices.builder(CriteriaExtractionAgent.class).chatModel(chatModel).build();
+    }
+
+    /** Agent thứ hai: tổng hợp kết quả đã kiểm thành tóm tắt chung + mức tin cậy. */
+    @Bean
+    public ReviewSummaryAgent reviewSummaryAgent(ChatModel chatModel) {
+        return AiServices.builder(ReviewSummaryAgent.class).chatModel(chatModel).build();
+    }
+
+    /** Nhân viên nhờ AI soi bài của một chỉ tiêu trước khi nộp — chỉ nhận xét, không mức, không điểm. */
+    @Bean
+    public SubmissionSelfCheckAgent submissionSelfCheckAgent(ChatModel chatModel) {
+        return AiServices.builder(SubmissionSelfCheckAgent.class).chatModel(chatModel).build();
+    }
+
+    /** Tóm tắt nhận xét báo cáo đánh giá 360. */
+    @Bean
+    public Feedback360SummaryAgent feedback360SummaryAgent(ChatModel chatModel) {
+        return AiServices.builder(Feedback360SummaryAgent.class).chatModel(chatModel).build();
+    }
+}

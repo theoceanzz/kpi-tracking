@@ -6,7 +6,7 @@ import com.kpitracking.exception.AiQuotaExceededException;
 import com.kpitracking.exception.AiRateLimitException;
 import com.kpitracking.exception.AiTokenQuotaExceededException;
 import com.kpitracking.exception.ForbiddenException;
-import com.kpitracking.service.ai.TurnListener;
+import com.kpitracking.ai.core.TurnListener;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -52,7 +52,7 @@ class SseTurnListener implements TurnListener {
     }
 
     @Override
-    public void ask(com.kpitracking.service.ai.hitl.PendingQuestion q) {
+    public void ask(com.kpitracking.ai.core.hitl.PendingQuestion q) {
         // Client vẽ thẻ hỏi rồi POST /ai/turns/{turnId}/answer; lượt đang CHỜ trên luồng nền, kết
         // nối SSE này vẫn mở nên trả lời xong là chữ chạy tiếp ngay.
         // Người dùng LUÔN tự nhập được, nên không gửi cờ allowFreeText nữa.

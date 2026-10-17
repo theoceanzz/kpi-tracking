@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Eye, Info, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import type { AiCriteriaSet } from '../api/aiReviewApi'
+import type { AiCriteriaSet } from '../../ai/submission/api/aiReviewApi'
 
 /**
  * Đơn vị đang áp tài liệu của cấp trên: nói rõ vì sao không tự thay được + xem tài liệu đó + chỗ đặt nút gửi đề

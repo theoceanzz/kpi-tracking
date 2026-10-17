@@ -1,6 +1,6 @@
 package com.kpitracking.controller;
 
-import com.kpitracking.ai.agent.help.HelpService;
+import com.kpitracking.ai.help.HelpService;
 import com.kpitracking.ai.document.store.LocalRagImageStore;
 import com.kpitracking.ai.document.ingest.DocumentIngestionPipeline;
 import com.kpitracking.ai.document.model.FileRef;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { StageEvent } from '../api/aiApi'
+import type { StageEvent } from '../../ai/chat/api/aiApi'
 
 /** Thời gian tối thiểu một nhãn được hiện, tính bằng mili-giây. */
 const MIN_VISIBLE_MS = 450

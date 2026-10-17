@@ -3,7 +3,7 @@ package com.kpitracking.controller;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.ai.AiSelfCheckAvailabilityResponse;
 import com.kpitracking.dto.response.ai.AiSelfCheckResponse;
-import com.kpitracking.service.ai.review.SubmissionSelfCheckService;
+import com.kpitracking.ai.submission.review.SubmissionSelfCheckService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

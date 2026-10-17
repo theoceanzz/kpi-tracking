@@ -18,8 +18,8 @@ import { usePinToHome } from '../grid/usePinToHome'
 import WidgetConfigPanel from '../grid/WidgetConfigPanel'
 import WidgetConfigSummary from '../grid/WidgetConfigSummary'
 import { useStatsTier } from '../hooks/useStatsTier'
-import AiShortcutButton from '../components/AiShortcutButton'
-import { aiShortcuts } from '../aiShortcuts'
+import AiShortcutButton from '../../ai/chat/components/AiShortcutButton'
+import { aiShortcuts } from '../../ai/chat/aiShortcuts'
 
 import LeaderboardPack, {
   LEADERBOARD_WIDGETS, LEADERBOARD_POSITION_LAYOUT, LEADERBOARD_GROUP_OF, LEADERBOARD_PREVIEW_OF,

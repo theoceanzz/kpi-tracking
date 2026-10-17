@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.ai;
 
-import com.kpitracking.service.ai.action.PendingAction;
+import com.kpitracking.ai.core.action.PendingAction;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

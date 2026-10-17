@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.ai;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.kpitracking.service.ai.form.FormPatch;
+import com.kpitracking.ai.core.form.FormPatch;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

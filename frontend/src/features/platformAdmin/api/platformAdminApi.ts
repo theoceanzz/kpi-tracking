@@ -1,7 +1,7 @@
 import axiosInstance from '@/lib/axios'
 import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import { AI_TIMEOUT, type RagChunk, type RagDocument, type RagSearchHit } from '@/features/analytics/api/aiApi'
+import { AI_TIMEOUT, type RagChunk, type RagDocument, type RagSearchHit } from '@/features/ai/chat/api/aiApi'
 
 export interface PlatformAdminStats {
   totalOrgs: number

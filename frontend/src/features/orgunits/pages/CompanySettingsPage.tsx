@@ -8,7 +8,7 @@ import { SidebarSettingsTab, NotificationSettingsTab } from '@/features/organiza
 import DelegationSettingsTab from '@/features/organization/components/DelegationSettingsTab'
 import EmailTemplateSettingsTab from '@/features/organization/components/EmailTemplateSettingsTab'
 import LarkSettingsTab from '@/features/organization/components/LarkSettingsTab'
-import AiDocumentsSettingsTab from '@/features/organization/components/AiDocumentsSettingsTab'
+import AiDocumentsSettingsTab from '@/features/ai/document/AiDocumentsSettingsTab'
 import WorkflowSettingsTab from '@/features/kpi/workflow/components/WorkflowSettingsTab'
 import ApprovalProcessListSection from '@/features/approvalProcess/components/ApprovalProcessListSection'
 import { useSearchParams } from 'react-router-dom'

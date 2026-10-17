@@ -2,7 +2,7 @@ import axiosInstance from '@/lib/axios'
 import { sendMultipart } from '@/lib/upload'
 import { ENV } from '@/config/env'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import type { RagChunk, RagSearchHit } from '@/features/analytics/api/aiApi'
+import type { RagChunk, RagSearchHit } from '@/features/ai/chat/api/aiApi'
 import type {
   CreateOnlineDocumentInput, DocumentPublicLink, SendDocumentEmailInput, DocumentContent,
   DocumentCapabilities, DocumentFolder, DocumentFolderList, DocumentListParams, DocumentScope, DocumentShare,

@@ -43,7 +43,7 @@ import DatasourceDetailPage from '@/features/datasources/pages/DatasourceDetailP
 import ReportsPage from '@/features/reports/pages/ReportsPage'
 import ReportDetailPage from '@/features/reports/pages/ReportDetailPage'
 import AnalyticsPage from '@/features/analytics/pages/AnalyticsPage'
-import AiAssistantPage from '@/features/analytics/pages/AiAssistantPage'
+import AiAssistantPage from '@/features/ai/chat/pages/AiAssistantPage'
 import PersonAnalyticsPage from '@/features/analytics/pages/PersonAnalyticsPage'
 import UnitAnalyticsPage from '@/features/analytics/pages/UnitAnalyticsPage'
 import DocumentsPage from '@/features/documents/DocumentsPage'

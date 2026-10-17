@@ -1,6 +1,6 @@
 package com.kpitracking.service.feedback360;
 
-import com.kpitracking.ai.agent.Feedback360SummaryAgent;
+import com.kpitracking.ai.feedback360.Feedback360SummaryAgent;
 import com.kpitracking.entity.AiTokenUsage;
 import com.kpitracking.entity.F360Campaign;
 import com.kpitracking.entity.F360Subject;
@@ -77,7 +77,7 @@ public class F360AiSummaryService {
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.FEEDBACK360);
         try {
             // Bản tóm tắt lưu lại cho cả HR lẫn người được đánh giá đọc: viết theo ngôn ngữ mặc định của tổ chức.
-            String out = agent.summarize(com.kpitracking.ai.agent.AiLanguage.prefix(c.getOrganization().getDefaultLanguage()) + in);
+            String out = agent.summarize(com.kpitracking.ai.core.agent.AiLanguage.prefix(c.getOrganization().getDefaultLanguage()) + in);
             if (out == null || out.isBlank()) return null;
             // Model đôi khi vẫn trả Markdown dù đã dặn; báo cáo hiển thị văn bản thuần.
             return out.replace("**", "").replaceAll("(?m)^#+\s*", "").trim();

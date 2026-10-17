@@ -1,6 +1,6 @@
 package com.kpitracking.event;
 
-import com.kpitracking.service.ai.review.SelfCheckRunner;
+import com.kpitracking.ai.submission.review.SelfCheckRunner;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;

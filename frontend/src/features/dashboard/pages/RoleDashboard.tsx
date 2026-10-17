@@ -12,8 +12,8 @@ import type { DashboardScope } from '../api/dashboardLayoutApi'
 import type { DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import { DashboardFilterProvider } from '../context/DashboardFilterContext'
 import CompletedPeriodEvaluationPrompt from '../components/CompletedPeriodEvaluationPrompt'
-import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
-import { aiShortcuts } from '@/features/analytics/aiShortcuts'
+import AiShortcutButton from '@/features/ai/chat/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/ai/chat/aiShortcuts'
 import {
   getAnalyticsCatalog, getAnalyticsDefaultLayout, getAnalyticsPresets, getAnalyticsWidgets,
   renderAnalyticsWidget, type OrgFlags, type ViewerScope,

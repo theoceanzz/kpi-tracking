@@ -9,10 +9,10 @@ import com.kpitracking.service.AiQuotaService;
 import com.kpitracking.service.AiRateLimiter;
 import com.kpitracking.service.AiTokenUsageRecorder;
 import com.kpitracking.service.InsightService;
-import com.kpitracking.service.ai.AiTurn;
-import com.kpitracking.service.ai.TurnListener;
-import com.kpitracking.service.ai.form.FormPatch;
-import com.kpitracking.tool.FollowupContextStore;
+import com.kpitracking.ai.core.AiTurn;
+import com.kpitracking.ai.core.TurnListener;
+import com.kpitracking.ai.core.form.FormPatch;
+import com.kpitracking.ai.core.tool.FollowupContextStore;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import org.springframework.orm.jpa.EntityManagerFactoryUtils;
@@ -30,7 +30,7 @@ import com.kpitracking.dto.request.ai.AiChatRequest;
 import com.kpitracking.dto.response.ai.AiChatResponse;
 import com.kpitracking.service.AiService;
 import com.kpitracking.service.ManagerContextResolver;
-import com.kpitracking.service.ai.hitl.PendingQuestionStore;
+import com.kpitracking.ai.core.hitl.PendingQuestionStore;
 import com.kpitracking.dto.request.ai.AiAnswerRequest;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -162,7 +162,7 @@ public class AiController {
         boolean evidenceRequested;
         boolean filesAttached;
         FollowupResponse followups;
-        com.kpitracking.service.ai.action.PendingAction pendingAction;
+        com.kpitracking.ai.core.action.PendingAction pendingAction;
         String consumedActionId;
         List<com.kpitracking.dto.response.ai.DocumentSourceResponse> sources;
         List<com.kpitracking.dto.response.ai.ChartSpec> charts;
@@ -239,9 +239,9 @@ public class AiController {
                     // Có cấu trúc (chọn một / chọn nhiều / tự nhập theo từng câu): máy chủ ghép, vì chỉ ở
                     // đây mới biết lựa chọn nào có thật trong thẻ.
                     ? pendingQuestions.peek(turnId)
-                            .map(q -> com.kpitracking.service.ai.hitl.HitlAnswerFormatter.format(q,
+                            .map(q -> com.kpitracking.ai.core.hitl.HitlAnswerFormatter.format(q,
                                     request.getAnswers().stream()
-                                            .map(a -> a == null ? null : new com.kpitracking.service.ai.hitl.HitlAnswerFormatter.ItemAnswer(a.getValues(), a.getText()))
+                                            .map(a -> a == null ? null : new com.kpitracking.ai.core.hitl.HitlAnswerFormatter.ItemAnswer(a.getValues(), a.getText()))
                                             .toList()))
                             .orElse(null)
                     : request.getAnswer();

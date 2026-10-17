@@ -1,7 +1,7 @@
 package com.kpitracking.ai.document.section;
 
 import com.kpitracking.ai.document.model.DocumentSection;
-import com.kpitracking.service.ai.review.CriteriaExtractor;
+import com.kpitracking.ai.submission.review.CriteriaExtractor;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

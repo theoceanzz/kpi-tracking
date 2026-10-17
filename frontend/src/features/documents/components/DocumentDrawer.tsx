@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { canPreview } from '@/lib/filePreview'
 import { useStateDraft } from '@/hooks/useFormDraft'
 import { formatDate, formatDateTime } from '@/i18n/format'
-import { ChunkList } from '@/features/analytics/components/rag/RagDocumentsPanel'
+import { ChunkList } from '@/features/ai/document/RagDocumentsPanel'
 import { documentApi, documentFileUrl } from '../api/documentApi'
 import {
   useCancelPromotion, useDocumentPromotions, useMarkOpened, useReindexDocument, useReplaceDocumentFile,

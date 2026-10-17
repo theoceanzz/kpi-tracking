@@ -5,7 +5,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import WizardStepper from './WizardStepper'
 import { useKpiSetupFlow } from './useKpiSetupFlow'
 import { Button } from '@/components/ui/button'
-import AiAssistantWidget from '@/features/analytics/components/AiAssistantWidget'
+import AiAssistantWidget from '@/features/ai/chat/components/AiAssistantWidget'
 import { useTranslation } from 'react-i18next'
 
 /**

@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useFormat } from '@/i18n/useFormat'
-import AiShortcutButton from '../AiShortcutButton'
+import AiShortcutButton from '../../../ai/chat/components/AiShortcutButton'
 import { useBscObjectiveContributors } from '../../hooks/useBscGoalGraph'
 import { statusLabelKey, statusTone } from './goalGraphModel'
 

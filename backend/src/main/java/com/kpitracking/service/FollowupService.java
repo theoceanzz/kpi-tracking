@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.i18n.SupportedLanguages;
 import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.ai.FollowupResponse;
-import com.kpitracking.tool.FollowupContextStore;
-import com.kpitracking.tool.FollowupContextStore.ToolResult;
+import com.kpitracking.ai.core.tool.FollowupContextStore;
+import com.kpitracking.ai.core.tool.FollowupContextStore.ToolResult;
 import lombok.extern.slf4j.Slf4j;
-import com.kpitracking.ai.agent.FollowupAgent;
+import com.kpitracking.ai.core.agent.FollowupAgent;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -77,7 +77,7 @@ public class FollowupService {
 
         String dataContext = buildDataContext(toolData, question);
         try {
-            String raw = followupAgent.suggest(com.kpitracking.ai.agent.AiLanguage.prefix(language) + dataContext);
+            String raw = followupAgent.suggest(com.kpitracking.ai.core.agent.AiLanguage.prefix(language) + dataContext);
             FollowupResponse parsed = parse(raw);
             if (parsed != null
                     && parsed.getTechnical() != null && !parsed.getTechnical().isEmpty()
