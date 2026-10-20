@@ -66,6 +66,8 @@ public class UserService {
     private final PermissionChecker permissionChecker;
     /** Người duyệt nghỉ việc / bị vô hiệu hoá: chuỗi duyệt đang chờ họ tự chuyển lên cấp trên. */
     private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
+    private final PrimaryUnitResolver primaryUnits;
+    private final KpiEffortShares effortShares;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -76,8 +78,11 @@ public class UserService {
 
     private UserResponse toResponse(User user) {
         List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
+        UserRoleOrgUnit primary = PrimaryUnitResolver.pick(assignments, user.getPrimaryOrgUnitId());
         
         List<UserMembershipResponse> memberships = assignments.stream()
+                // Đơn vị chính đứng đầu (giữ thứ tự rank → path cho phần còn lại).
+                .sorted(java.util.Comparator.comparing((UserRoleOrgUnit uro) -> uro != primary))
                 .map(uro -> {
                     OrgUnit unit = uro.getOrgUnit();
                     String roleName = uro.getRole().getName();
@@ -100,6 +105,7 @@ public class UserService {
                         .unitTypeLabel(unit.getOrgHierarchyLevel() != null ? unit.getOrgHierarchyLevel().getUnitTypeName() : null)
                         .levelOrder(unit.getOrgHierarchyLevel() != null ? unit.getOrgHierarchyLevel().getLevelOrder() : null)
                         .roleLevel(uro.getRole().getLevel())
+                        .primary(uro == primary)
                         .build();
                 })
                 .collect(Collectors.toList());
@@ -118,6 +124,7 @@ public class UserService {
                 .status(user.getStatus())
                 .organizationId(organizationId)
                 .memberships(memberships)
+                .effortShares(effortShareLines(user, assignments))
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .requirePasswordChange(user.getRequirePasswordChange())
@@ -156,8 +163,9 @@ public class UserService {
             com.kpitracking.entity.Role role = resolveRole(request.getRole(), orgId);
             validateManagerAssignment(request.getOrgUnitId(), role, null);
             assignToUnitAndImmediateParent(user, orgUnit, role, getCurrentUser());
+            primaryUnits.pin(user, orgUnit.getId());
         }
-        
+
         try {
             emailService.sendAccountDetailsEmail(user.getEmail(), user.getFullName(), request.getPassword());
         } catch (Exception e) {
@@ -167,16 +175,149 @@ public class UserService {
         return toResponse(user);
     }
 
-    private void assignToUnitAndImmediateParent(User user, OrgUnit orgUnit, com.kpitracking.entity.Role role, User assignedBy) {
-        // Assign to the selected unit
-        UserRoleOrgUnit assignment = UserRoleOrgUnit.builder()
+    /** "% công sức" từng nhánh — chỉ khi ≥ 2 nhánh, để form Sửa người dùng hiện ô nhập. */
+    private List<com.kpitracking.dto.response.user.UserEffortShareResponse> effortShareLines(User user, List<UserRoleOrgUnit> assignments) {
+        List<KpiEffortShares.Branch> branches = effortShares.branchesOf(user, user.getId(), assignments);
+        if (branches.size() < 2) return null;
+        return branches.stream().map(b -> com.kpitracking.dto.response.user.UserEffortShareResponse.builder()
+                .orgUnitId(b.unit().getId())
+                .orgUnitName(b.unit().getName())
+                .sharePercent(Math.round(b.sharePercent() * 100.0) / 100.0)
+                .configured(b.configured())
+                .build()).toList();
+    }
+
+    /**
+     * Đặt "% công sức" của người kiêm nhiệm (KpiEffortShares). Cùng luật quyền với sửa người dùng;
+     * phải gồm đủ mọi nhánh hiện tại và cộng 100% (rỗng = về chia đều). Không chặn theo khoá kỳ: chỉ
+     * đổi cách tính điểm XEM TRƯỚC — đánh giá đã lưu giữ điểm hệ thống đã chụp lúc chấm.
+     */
+    @Transactional
+    public UserResponse updateEffortShares(UUID userId, com.kpitracking.dto.request.user.UpdateEffortSharesRequest request) {
+        User currentUser = getCurrentUser();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", userId));
+        if (!permissionChecker.isGlobalAdminOverUser(currentUser.getId(), userId)) {
+            boolean hasAccess = userRoleOrgUnitRepository.findByUserId(userId).stream()
+                    .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:UPDATE", a.getOrgUnit().getId()));
+            if (!hasAccess) throw new ForbiddenException(ErrorCode.NO_PERMISSION_EDIT_USER);
+        }
+        java.util.Map<UUID, String> branchNames = new java.util.LinkedHashMap<>();
+        effortShares.branchesOf(userId).forEach(b -> branchNames.put(b.unit().getId(), b.unit().getName()));
+
+        java.util.Map<UUID, Double> shares = new java.util.LinkedHashMap<>();
+        for (var item : request.getShares()) {
+            if (!branchNames.containsKey(item.getOrgUnitId())) {
+                String name = orgUnitRepository.findById(item.getOrgUnitId()).map(OrgUnit::getName)
+                        .orElse(String.valueOf(item.getOrgUnitId()));
+                throw new BusinessException(ErrorCode.EFFORT_SHARE_UNIT_NOT_BRANCH, name);
+            }
+            shares.put(item.getOrgUnitId(), item.getSharePercent());
+        }
+        if (!shares.isEmpty()) {
+            double total = shares.values().stream().mapToDouble(Double::doubleValue).sum();
+            if (shares.size() != branchNames.size() || Math.abs(total - 100.0) > 0.05) {
+                throw new BusinessException(ErrorCode.EFFORT_SHARES_TOTAL_NOT_100,
+                        String.valueOf(Math.round(total * 100.0) / 100.0));
+            }
+        }
+        effortShares.replace(userId, shares, currentUser.getId());
+        return toResponse(user);
+    }
+
+    /**
+     * Form "Sửa người dùng" đổi ĐƠN VỊ CHÍNH và VAI TRÒ CAO NHẤT ở đó, không đụng phân công khác
+     * (kiêm nhiệm ở đơn vị khác, vai trò thứ hai cùng đơn vị, vai trò sinh từ uỷ quyền ký thay).
+     * Trước đây chỗ này xoá sạch mọi phân công rồi gán lại một dòng, nên lưu form — kể cả chỉ sửa
+     * số điện thoại — làm người kiêm nhiệm mất các đơn vị / vai trò còn lại.
+     *
+     * <p>Đơn vị chọn là nơi người đó ĐANG thuộc ⇒ chỉ đổi đơn vị chính (và vai trò cao nhất ở đó
+     * nếu có gửi). Chưa thuộc ⇒ CHUYỂN: rời đơn vị chính cũ rồi vào đơn vị mới.
+     */
+    private void changePrimaryMembership(User user, UUID newUnitId, String roleName, User currentUser) {
+        UserRoleOrgUnit primary = primaryUnits.assignmentOf(user);
+        OrgUnit oldUnit = primary != null ? primary.getOrgUnit() : null;
+        OrgUnit unit = newUnitId != null
+                ? orgUnitRepository.findById(newUnitId)
+                        .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", newUnitId))
+                : oldUnit;
+        if (unit == null) return;
+        UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
+
+        UserRoleOrgUnit topAtTarget = userRoleOrgUnitRepository.findByUserIdAndOrgUnitId(user.getId(), unit.getId()).stream()
+                .filter(a -> a.getDelegationId() == null)
+                .min(java.util.Comparator.comparingInt(a -> a.getRole().getRank() != null ? a.getRole().getRank() : 99))
+                .orElse(null);
+        com.kpitracking.entity.Role role = roleName != null && !roleName.isBlank() ? resolveRole(roleName, orgId)
+                : topAtTarget != null ? topAtTarget.getRole()
+                : primary != null ? primary.getRole()
+                : resolveRole(null, orgId);
+
+        if (topAtTarget != null) {
+            if (!topAtTarget.getRole().getId().equals(role.getId())) {
+                // Gỡ trước rồi mới kiểm: hạ chính trưởng đơn vị xuống nhân viên phải bị chặn "đơn vị chưa có trưởng".
+                userRoleOrgUnitRepository.deleteByUserIdAndRoleIdAndOrgUnitId(user.getId(), topAtTarget.getRole().getId(), unit.getId());
+                validateManagerAssignment(unit.getId(), role, user.getId());
+                validateManagerRequirement(unit, role);
+                saveAssignmentIfAbsent(user, role, unit, currentUser);
+            }
+            primaryUnits.pin(user, unit.getId());
+            return;
+        }
+
+        if (oldUnit != null) leavePrimaryUnit(user, oldUnit, unit);
+        validateManagerAssignment(unit.getId(), role, user.getId());
+        validateManagerRequirement(unit, role);
+        assignToUnitAndImmediateParent(user, unit, role, currentUser);
+        primaryUnits.pin(user, unit.getId());
+    }
+
+    /**
+     * Rời đơn vị chính cũ khi chuyển sang {@code target}: gỡ mọi vai trò THẬT ở đó, và dòng nhân
+     * viên tự sinh ở đơn vị cha của nó nếu đơn vị cha không còn liên quan (không phải đích / cha
+     * của đích, và người này không còn phân công nào khác trong nhánh đó). Kiêm nhiệm ở nơi khác
+     * và vai trò sinh từ uỷ quyền giữ nguyên.
+     */
+    private void leavePrimaryUnit(User user, OrgUnit oldUnit, OrgUnit target) {
+        List<UserRoleOrgUnit> all = userRoleOrgUnitRepository.findByUserId(user.getId());
+        for (UserRoleOrgUnit a : all) {
+            if (a.getDelegationId() == null && a.getOrgUnit().getId().equals(oldUnit.getId())) {
+                userRoleOrgUnitRepository.deleteByUserIdAndRoleIdAndOrgUnitId(user.getId(), a.getRole().getId(), oldUnit.getId());
+            }
+        }
+        OrgUnit parent = oldUnit.getParent();
+        if (parent == null || parent.getId().equals(target.getId())
+                || (target.getParent() != null && parent.getId().equals(target.getParent().getId()))) {
+            return;
+        }
+        boolean stillBelowParent = all.stream().anyMatch(a -> a.getDelegationId() == null
+                && !a.getOrgUnit().getId().equals(oldUnit.getId())
+                && !a.getOrgUnit().getId().equals(parent.getId())
+                && a.getOrgUnit().getPath() != null && parent.getPath() != null
+                && a.getOrgUnit().getPath().startsWith(parent.getPath()));
+        if (stillBelowParent) return;
+        for (UserRoleOrgUnit a : all) {
+            if (a.getDelegationId() == null && a.getOrgUnit().getId().equals(parent.getId())
+                    && a.getRole().getRank() != null && a.getRole().getRank() == 2) {
+                userRoleOrgUnitRepository.deleteByUserIdAndRoleIdAndOrgUnitId(user.getId(), a.getRole().getId(), parent.getId());
+            }
+        }
+    }
+
+    private void saveAssignmentIfAbsent(User user, com.kpitracking.entity.Role role, OrgUnit unit, User assignedBy) {
+        if (userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(user.getId(), role.getId(), unit.getId())) return;
+        userRoleOrgUnitRepository.save(UserRoleOrgUnit.builder()
                 .user(user)
                 .role(role)
-                .orgUnit(orgUnit)
+                .orgUnit(unit)
                 .assignedBy(assignedBy)
                 .assignedAt(Instant.now())
-                .build();
-        userRoleOrgUnitRepository.save(assignment);
+                .build());
+    }
+
+    private void assignToUnitAndImmediateParent(User user, OrgUnit orgUnit, com.kpitracking.entity.Role role, User assignedBy) {
+        // Assign to the selected unit
+        saveAssignmentIfAbsent(user, role, orgUnit, assignedBy);
 
         // If it's a child unit, also assign to its parent as "Nhân viên" (if not already assigned)
         if (orgUnit.getParent() != null) {
@@ -342,31 +483,7 @@ public class UserService {
         }
 
         if (request.getOrgUnitId() != null || request.getRole() != null) {
-            List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
-            OrgUnit unit = null;
-            com.kpitracking.entity.Role role = null;
-
-            if (request.getOrgUnitId() != null) {
-                unit = orgUnitRepository.findById(request.getOrgUnitId())
-                        .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", request.getOrgUnitId()));
-            } else if (!assignments.isEmpty()) {
-                unit = assignments.get(0).getOrgUnit();
-            }
-
-            if (request.getRole() != null) {
-                UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
-                role = resolveRole(request.getRole(), orgId);
-            } else if (!assignments.isEmpty()) {
-                role = assignments.get(0).getRole();
-            }
-
-            if (unit != null && role != null) {
-                userRoleOrgUnitRepository.deleteByUserId(userId);
-                validateManagerAssignment(unit.getId(), role, userId);
-                validateManagerRequirement(unit, role);
-                
-                assignToUnitAndImmediateParent(user, unit, role, currentUser);
-            }
+            changePrimaryMembership(user, request.getOrgUnitId(), request.getRole(), currentUser);
         }
 
         user = userRepository.save(user);
@@ -549,6 +666,16 @@ public class UserService {
         if (email == null || email.isBlank()) throw new BusinessException(ErrorCode.EMAIL_REQUIRED);
         if (fullName == null || fullName.isBlank()) throw new BusinessException(ErrorCode.FULL_NAME_REQUIRED);
 
+        // Người đã có tài khoản đang hoạt động + dòng có mã đơn vị ⇒ gán KIÊM NHIỆM ở đơn vị đó (không
+        // đụng hồ sơ / mật khẩu). Cùng một người nhiều dòng trong một tệp: dòng đầu tạo tài khoản và là
+        // đơn vị chính, các dòng sau là kiêm nhiệm.
+        Optional<User> existing = userRepository.findByEmail(email.trim());
+        if (existing.isPresent() && existing.get().getDeletedAt() == null
+                && existing.get().getStatus() == UserStatus.ACTIVE
+                && orgUnitCode != null && !orgUnitCode.isBlank()) {
+            return addSecondaryMembership(existing.get(), roleIdStr, orgUnitCode.trim());
+        }
+
         User user = createOrUpdateUserInternal(email, fullName, phone, employeeCode, password);
         UUID organizationId = orgUnitId; // Simplified, in processUserRow we might need to lookup the orgId from orgUnitId
         // Let's get the organization ID from the unit
@@ -592,8 +719,42 @@ public class UserService {
             if (!assignedUnits.contains(specificUnit.getId())) {
                 assignedUnits.add(specificUnit.getId());
             }
+            // Đơn vị ghi trong file là "nhà" của người này (đơn vị mặc định chỉ là chỗ treo chung).
+            primaryUnits.pin(user, specificUnit.getId());
+        } else {
+            primaryUnits.ensurePinned(user);
         }
         return assignedUnits;
+    }
+
+    /**
+     * Dòng import của người ĐÃ có tài khoản: thêm vai trò ở đơn vị {@code orgUnitCode} như màn Thành
+     * viên đơn vị (cần ROLE:ASSIGN ở đơn vị đó, cùng tổ chức, chưa thuộc đơn vị đó). Đơn vị chính giữ
+     * nguyên — ghim trước khi thêm (PrimaryUnitResolver.ensurePinned).
+     */
+    private List<UUID> addSecondaryMembership(User user, String roleIdStr, String orgUnitCode) {
+        OrgUnit unit = orgUnitRepository.findByCode(orgUnitCode)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNIT_CODE_DOES_NOT_EXIST, orgUnitCode));
+        UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
+        OrgUnit home = primaryUnits.unitOf(user);
+        if (home != null && !orgId.equals(home.getOrgHierarchyLevel().getOrganization().getId())) {
+            throw new BusinessException(ErrorCode.EMAIL_EXISTS_ACTIVE_SYSTEM, user.getEmail());
+        }
+        User me = getCurrentUser();
+        if (!permissionChecker.hasPermissionInOrgUnit(me.getId(), "ROLE:ASSIGN", unit.getId())) {
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_ASSIGN_ROLES_UNIT);
+        }
+        boolean member = userRoleOrgUnitRepository.findByUserIdAndOrgUnitId(user.getId(), unit.getId()).stream()
+                .anyMatch(a -> a.getDelegationId() == null);
+        if (member) {
+            throw new BusinessException(ErrorCode.USER_ALREADY_MEMBER_OF_UNIT, user.getEmail(), unit.getName());
+        }
+        com.kpitracking.entity.Role role = resolveRoleInternal(roleIdStr, orgId);
+        validateManagerAssignment(unit.getId(), role, user.getId());
+        primaryUnits.ensurePinned(user);
+        saveAssignmentIfAbsent(user, role, unit, me);
+        primaryUnits.ensurePinned(user);
+        return List.of(unit.getId());
     }
 
     private User createOrUpdateUserInternal(String email, String fullName, String phone, String employeeCode, String password) {
@@ -675,7 +836,9 @@ public class UserService {
             List<UserRoleOrgUnit> existing = (excludeUserId != null) 
                 ? userRoleOrgUnitRepository.findByOrgUnitIdAndRoleRankAndUserIdNot(orgUnitId, rank, excludeUserId)
                 : userRoleOrgUnitRepository.findByOrgUnitIdAndRoleRank(orgUnitId, rank);
-            
+            // Đồng trưởng tạm thời sinh từ uỷ quyền không chặn bổ nhiệm trưởng thật.
+            existing = existing.stream().filter(a -> a.getDelegationId() == null).toList();
+
             if (!existing.isEmpty()) {
                 UserRoleOrgUnit first = existing.get(0);
                 String currentName = first.getUser().getFullName();

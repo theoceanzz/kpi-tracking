@@ -75,6 +75,7 @@ public class BscTreeService {
     private final BscAccessGuard accessGuard;
     private final ApplicationEventPublisher eventPublisher;
     private final BscCycleLockGuard cycleLockGuard;
+    private final BscEmptyPolicySync emptyPolicySync;
 
     /** Sai số cho phép khi so tổng đóng góp với mục tiêu cha: 1% hoặc 0.01 tuyệt đối. */
     private static final double COVERAGE_TOLERANCE_RATIO = 0.01;
@@ -192,6 +193,15 @@ public class BscTreeService {
             OrgUnit unit = orgUnitRepository.findById(target.getOrgUnitId())
                     .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.department"), "id", target.getOrgUnitId()));
             assertCascadeTarget(parent, unit);
+            // Mục tiêu 0 thì phép chấm luôn ra 0% (perspectiveRatioFromActual) — đơn vị không bao giờ đạt.
+            // Chia chỉ tiêu (SUM) để trống thì dòng con rơi về mục tiêu của CẢ chỉ tiêu cha. Đơn vị không
+            // gánh phần nào là vai trò Hỗ trợ, không phải phần đóng góp bằng 0.
+            BscLinkType link = target.getLinkType() != null ? target.getLinkType() : defaultLink;
+            Double unitTarget = target.getTargetValue() != null ? target.getTargetValue() : target.getContributionValue();
+            if ((unitTarget != null && unitTarget <= 0) || (link == BscLinkType.SUM && unitTarget == null)) {
+                throw new BusinessException(ErrorCode.CASCADE_UNIT_TARGET_REQUIRED,
+                        parentItem.getPerspective().getName(), unit.getName());
+            }
 
             BscScorecard child = findOrCreateChild(parent, unit, orgId, actor);
 
@@ -229,7 +239,13 @@ public class BscTreeService {
             // Mục tiêu của đơn vị mặc định BẰNG mức đóng góp: hai con số này gần như luôn là một,
             // bắt nhập hai lần chỉ tạo cơ hội gõ lệch.
             row.setTargetValue(target.getTargetValue() != null ? target.getTargetValue() : target.getContributionValue());
-            row.setMinimumValue(target.getMinimumValue());
+            row.setMinimumValue(target.getMinimumValue() != null ? target.getMinimumValue()
+                    : BscCascadeService.scaledMinimum(parentItem, row.getTargetValue()));
+            if (row.getTargetValue() != null && row.getMinimumValue() != null
+                    && row.getMinimumValue() > row.getTargetValue()) {
+                throw new BusinessException(ErrorCode.ITEM_6, " '" + parentItem.getPerspective().getName() + "' (" + unit.getName() + ")",
+                        String.valueOf(row.getMinimumValue()), String.valueOf(row.getTargetValue()));
+            }
             row.setUnit(target.getUnit() != null && !target.getUnit().isBlank()
                     ? target.getUnit() : parentItem.getUnit());
             if (target.getWeightPercentage() != null) {
@@ -605,7 +621,10 @@ public class BscTreeService {
             if (child.getStatus() != null && child.getStatus().isRetired()) continue;
             boolean coversUnit = child.getOrgUnits() != null
                     && child.getOrgUnits().stream().anyMatch(u -> u.getId().equals(unit.getId()));
-            if (coversUnit) return child;
+            if (coversUnit) {
+                emptyPolicySync.inheritFromParent(child);
+                return child;
+            }
         }
 
         // 2. Thẻ đơn vị đã có sẵn cho đợt này (do trưởng phòng tự tạo trước — kịch bản (c)):
@@ -620,6 +639,10 @@ public class BscTreeService {
                 if (sc.getParentScorecard() == null) {
                     sc.setParentScorecard(parent);
                     scorecardRepository.save(sc);
+                }
+                // Nhận nuôi vào cây ⇒ chấm hạng mục rỗng theo luật của thẻ cha (BscEmptyPolicySync).
+                if (sc.getParentScorecard() != null && sc.getParentScorecard().getId().equals(parent.getId())) {
+                    emptyPolicySync.inheritFromParent(sc);
                 }
                 return sc;
             }
@@ -896,6 +919,7 @@ public class BscTreeService {
 
         child.setParentScorecard(parent);
         scorecardRepository.save(child);
+        emptyPolicySync.inheritFromParent(child);
         // Chuyển sang cha khác: dòng còn nối với chỉ tiêu của cha CŨ phải gỡ, không thì nó vẫn được
         // đếm vào độ phủ của cha cũ và linkItemsByPerspective bỏ qua nó (đã có cha).
         unlinkSelfRows(child, parent.getId());

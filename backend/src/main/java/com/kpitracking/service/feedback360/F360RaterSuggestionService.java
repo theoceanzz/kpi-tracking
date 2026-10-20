@@ -42,14 +42,21 @@ public class F360RaterSuggestionService {
         final Map<UUID, UUID> parentOf = new HashMap<>();
         final Map<UUID, List<UUID>> childrenOf = new HashMap<>();
         final Map<UUID, List<Member>> membersOf = new HashMap<>();
-        /** Đơn vị chính + hạng của từng người: phân công có rank nhỏ nhất. */
+        /** Đơn vị chính + hạng ở đó của từng người (PrimaryUnitResolver). */
         final Map<UUID, UUID> primaryUnitOf = new HashMap<>();
         final Map<UUID, Integer> primaryRankOf = new HashMap<>();
+        /** Các NHÁNH kiêm nhiệm (ngoài nhánh đơn vị chính) + hạng của người đó ở đó — xem KpiEffortShares. */
+        final Map<UUID, Map<UUID, Integer>> secondaryUnitsOf = new HashMap<>();
         final Map<UUID, User> users = new HashMap<>();
 
         public OrgUnit primaryUnit(UUID userId) {
             UUID id = primaryUnitOf.get(userId);
             return id == null ? null : units.get(id);
+        }
+
+        /** Nhánh kiêm nhiệm (đơn vị → hạng ở đó) của một người; rỗng nếu chỉ một nhánh. */
+        public Map<UUID, Integer> secondaryUnits(UUID userId) {
+            return secondaryUnitsOf.getOrDefault(userId, Map.of());
         }
 
         public Integer primaryRank(UUID userId) {
@@ -75,7 +82,8 @@ public class F360RaterSuggestionService {
             }
         }
         if (units.isEmpty()) return s;
-        for (UserRoleOrgUnit a : userRoleOrgUnitRepository.findByOrgUnitIdIn(s.units.keySet())) {
+        List<UserRoleOrgUnit> rows = userRoleOrgUnitRepository.findByOrgUnitIdIn(s.units.keySet());
+        for (UserRoleOrgUnit a : rows) {
             User user = a.getUser();
             if (user == null || a.getOrgUnit() == null || a.getRole() == null) continue;
             if (user.getDeletedAt() != null || user.isPausedAccount()) continue;
@@ -83,12 +91,39 @@ public class F360RaterSuggestionService {
             UUID unitId = a.getOrgUnit().getId();
             s.membersOf.computeIfAbsent(unitId, x -> new ArrayList<>()).add(new Member(user, rank));
             s.users.put(user.getId(), user);
-            Integer current = s.primaryRankOf.get(user.getId());
-            if (current == null || rank < current) {
-                s.primaryRankOf.put(user.getId(), rank);
-                s.primaryUnitOf.put(user.getId(), unitId);
-            }
         }
+        // rows là mọi phân công của cả tổ chức ⇒ đủ để chọn đơn vị chính không cần truy vấn thêm.
+        com.kpitracking.service.PrimaryUnitResolver.pickAll(rows).forEach((uid, a) -> {
+            if (!s.users.containsKey(uid)) return;
+            s.primaryUnitOf.put(uid, a.getOrgUnit().getId());
+            s.primaryRankOf.put(uid, a.getRole().getRank() == null ? 2 : a.getRole().getRank());
+        });
+        // Nhánh kiêm nhiệm: đơn vị người đó thuộc, bỏ đơn vị là tổ tiên của đơn vị khác họ cũng thuộc
+        // (dòng nhân viên tự sinh ở cha) và bỏ nhánh chứa đơn vị chính.
+        Map<UUID, Map<UUID, Integer>> rankAt = new HashMap<>();
+        for (UserRoleOrgUnit a : rows) {
+            if (a.getUser() == null || a.getOrgUnit() == null || a.getDelegationId() != null) continue;
+            if (!s.users.containsKey(a.getUser().getId())) continue;
+            int r = a.getRole() == null || a.getRole().getRank() == null ? 2 : a.getRole().getRank();
+            rankAt.computeIfAbsent(a.getUser().getId(), k -> new HashMap<>()).merge(a.getOrgUnit().getId(), r, Math::min);
+        }
+        rankAt.forEach((uid, unitRanks) -> {
+            if (unitRanks.size() < 2) return;
+            UUID home = s.primaryUnitOf.get(uid);
+            OrgUnit homeUnit = home != null ? s.units.get(home) : null;
+            for (Map.Entry<UUID, Integer> e : unitRanks.entrySet()) {
+                OrgUnit u = s.units.get(e.getKey());
+                if (u == null || u.getPath() == null) continue;
+                boolean ancestorOfAnother = unitRanks.keySet().stream().map(s.units::get)
+                        .anyMatch(o -> o != null && o != u && o.getPath() != null
+                                && o.getPath().startsWith(u.getPath()) && !o.getPath().equals(u.getPath()));
+                boolean homeBranch = homeUnit != null && homeUnit.getPath() != null
+                        && (homeUnit.getPath().startsWith(u.getPath()) || u.getPath().startsWith(homeUnit.getPath()));
+                if (!ancestorOfAnother && !homeBranch) {
+                    s.secondaryUnitsOf.computeIfAbsent(uid, k -> new LinkedHashMap<>()).put(u.getId(), e.getValue());
+                }
+            }
+        });
         return s;
     }
 
@@ -173,6 +208,14 @@ public class F360RaterSuggestionService {
                     .forEach(m -> peers.add(m.user()));
         }
         int peerCount = pickInto(chosen, peers, F360Relationship.PEER, rules.maxPeers(), rules, load, random, true);
+
+        // ── Cấp trên nơi kiêm nhiệm: người phối hợp (OTHER), không thay cấp trên của đơn vị chính ──
+        List<User> secondaryManagers = new ArrayList<>();
+        org.secondaryUnitsOf.getOrDefault(subjectId, Map.of()).forEach((unit, rankThere) -> {
+            User m = findManager(org, unit, rankThere, subjectId);
+            if (m != null) secondaryManagers.add(m);
+        });
+        pickInto(chosen, secondaryManagers, F360Relationship.OTHER, Integer.MAX_VALUE, rules, load, random, false);
         if (peerCount == 0) {
             warnings.add(ErrorMessages.text("f360.suggest.noPeers", ""));
         } else if (peerCount < threshold) {

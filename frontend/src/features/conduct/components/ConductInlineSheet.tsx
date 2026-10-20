@@ -9,7 +9,9 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { conductLockMessage, type ConductScoreInput, type ConductSheet, type ConductTarget } from '../api/conductApi'
+import { conductLockMessage, type ConductLevelDescriptions, type ConductScoreInput, type ConductSheet, type ConductTarget } from '../api/conductApi'
+import { levelText } from '../utils/conductLevels'
+import ConductLevelGuide from './ConductLevelGuide'
 import { exportConductSheetToExcel } from '../utils/conductSheetExport'
 import { useConductSheet } from '../hooks/useConduct'
 import { CONDUCT_MIN_SCORE, fmt, num, useConductDraft, weighted } from '../hooks/useConductDraft'
@@ -277,6 +279,8 @@ function InlineSheet({
                       </span>
                     </div>
                     <Expectations text={item.description} />
+                    <ConductLevelGuide levels={item.levelDescriptions} min={min} max={max}
+                      selfScore={num(d.selfScore)} managerScore={num(d.managerScore)} />
                   </div>
                 </div>
 
@@ -289,6 +293,7 @@ function InlineSheet({
                       min={min}
                       max={max}
                       weight={item.weight}
+                      levels={item.levelDescriptions}
                       score={d.selfScore}
                       note={d.selfEvidence}
                       notePlaceholder={t('ConductInlineSheet.giveSpecificEvidence')}
@@ -305,6 +310,7 @@ function InlineSheet({
                       min={min}
                       max={max}
                       weight={item.weight}
+                      levels={item.levelDescriptions}
                       score={d.managerScore}
                       note={d.managerComment}
                       notePlaceholder={t('ConductInlineSheet.managersComments')}
@@ -426,13 +432,15 @@ function Expectations({ text }: { text?: string | null }) {
 }
 
 function ScoreBlock({
-  tone, label, min, max, weight, score, note, notePlaceholder, editable, onScore, onNote,
+  tone, label, min, max, weight, levels, score, note, notePlaceholder, editable, onScore, onNote,
 }: {
   tone: Side
   label: string
   min: number
   max: number
   weight: number
+  /** Định nghĩa theo mức của tiêu chí — nút mỗi mức có chú thích, mức vừa chọn hiện mô tả ngay dưới thang. */
+  levels?: ConductLevelDescriptions | null
   score: string
   note: string
   notePlaceholder: string
@@ -442,6 +450,7 @@ function ScoreBlock({
 }) {
   const { t } = useTranslation('conduct')
   const w = weighted(num(score), weight)
+  const chosenText = levelText(levels, num(score))
   const accent = tone === 'self'
     ? 'text-[var(--color-info)]'
     : 'text-[var(--color-primary)]'
@@ -454,7 +463,13 @@ function ScoreBlock({
           ×TS {fmt(w)}
         </span>
       </div>
-      <ScoreScale tone={tone} min={min} max={max} value={score} editable={editable} onChange={onScore} />
+      <ScoreScale tone={tone} min={min} max={max} levels={levels} value={score} editable={editable} onChange={onScore} />
+      {chosenText && (
+        <p className={cn('text-caption leading-relaxed whitespace-pre-line pl-2 border-l-2',
+          tone === 'self' ? 'border-[var(--color-info-border)]' : 'border-[var(--color-primary)]')}>
+          {chosenText}
+        </p>
+      )}
       <AutoTextarea
         value={note}
         onChange={onNote}
@@ -480,11 +495,12 @@ function ScoreBlock({
  * là ô trống rồi, thêm 0 chỉ tạo nghĩa thứ hai cho cùng một ô.
  */
 function ScoreScale({
-  tone, min, max, value, editable, onChange,
+  tone, min, max, levels, value, editable, onChange,
 }: {
   tone: Side
   min: number
   max: number
+  levels?: ConductLevelDescriptions | null
   value: string
   editable: boolean
   onChange: (v: string) => void
@@ -533,7 +549,10 @@ function ScoreScale({
             type="button"
             disabled={!editable}
             aria-pressed={active}
-            title={editable ? (active ? t('ConductInlineSheet.clickAgainToClearTheScore') : t('ConductInlineSheet.score', { o, max })) : undefined}
+            title={[
+              editable ? (active ? t('ConductInlineSheet.clickAgainToClearTheScore') : t('ConductInlineSheet.score', { o, max })) : null,
+              levelText(levels, o),
+            ].filter(Boolean).join('\n') || undefined}
             onClick={() => onChange(active ? '' : String(o))}
             className={cn(
               'min-w-9 h-9 px-2.5 rounded-card text-sm font-semibold tabular-nums border transition-all',

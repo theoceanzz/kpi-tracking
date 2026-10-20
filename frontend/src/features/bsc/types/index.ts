@@ -42,6 +42,14 @@ export interface PerspectiveResponse {
   fixedPerspective?: BscFixedPerspective
   fixedPerspectiveName?: string
   fixedPerspectiveColor?: string
+  /**
+   * Bộ tiêu chí CHỦ của hạng mục (bộ đầu tiên tự thêm nó): chỉ sửa được hạng mục từ bộ này, bộ khác
+   * chỉ dùng lại. null = chưa bộ nào tự thêm. Luật ở backend `BscPerspectiveOwnership`.
+   */
+  ownerScorecardId?: string | null
+  ownerScorecardName?: string | null
+  /** Mọi bộ tiêu chí đang có dòng của hạng mục — khác rỗng thì không xoá được. */
+  usedInScorecardIds?: string[]
 }
 
 export interface PerspectiveRequest {

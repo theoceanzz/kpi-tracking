@@ -1,0 +1,266 @@
+/*
+ * Hiệu ứng ăn mừng (điểm danh, đổi quà, được thưởng). Nạp một lần qua CelebrationHost.
+ * Lớp: canvas pháo 1200 — trên Dialog (1000) / dropdown (1100), dưới bài hướng dẫn (1400).
+ */
+
+.celebration-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1200;
+  pointer-events: none;
+}
+
+/* "+N" bay từ nút điểm danh tới số dư — vị trí do JS (Web Animations) tính. */
+.celebration-fly {
+  position: fixed;
+  z-index: 1200;
+  pointer-events: none;
+  font-weight: 800;
+  font-size: 1.75rem;
+  color: var(--color-warning);
+  text-shadow: 0 1px 6px color-mix(in srgb, var(--color-warning) 35%, transparent);
+  white-space: nowrap;
+  will-change: transform, opacity;
+}
+
+/* Nút vừa bấm nảy lên. */
+@keyframes celebrate-pop {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.12); }
+  55% { transform: scale(0.96); }
+  80% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+.celebrate-pop { animation: celebrate-pop 600ms cubic-bezier(.3, 1.4, .5, 1); }
+
+/* Ngọn lửa chuỗi lắc nhẹ. */
+@keyframes celebrate-wiggle {
+  0%, 100% { transform: rotate(0) scale(1); }
+  20% { transform: rotate(-14deg) scale(1.15); }
+  40% { transform: rotate(12deg) scale(1.2); }
+  60% { transform: rotate(-8deg) scale(1.1); }
+  80% { transform: rotate(5deg) scale(1.05); }
+}
+.celebrate-wiggle { animation: celebrate-wiggle 750ms ease-in-out; transform-origin: 50% 90%; }
+
+/* Biểu tượng to ở đầu hộp chúc mừng / toast chúc mừng: bật ra rồi toả sáng nhịp nhàng. */
+@keyframes celebration-badge-in {
+  0% { transform: scale(0.2) rotate(-25deg); opacity: 0; }
+  60% { transform: scale(1.15) rotate(8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); }
+}
+@keyframes celebration-glow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-warning) 45%, transparent); }
+  50% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--color-warning) 0%, transparent); }
+}
+.celebration-badge {
+  animation:
+    celebration-badge-in 650ms cubic-bezier(.3, 1.5, .5, 1) both,
+    celebration-glow 1.8s ease-out 650ms infinite;
+}
+
+/* Giấy khen trượt vào từ dưới, hơi nghiêng rồi về thẳng. */
+@keyframes celebration-cert-in {
+  0% { transform: translateY(48px) rotate(-4deg) scale(0.92); opacity: 0; }
+  70% { transform: translateY(-4px) rotate(1deg) scale(1.01); opacity: 1; }
+  100% { transform: translateY(0) rotate(0) scale(1); opacity: 1; }
+}
+.celebration-cert { animation: celebration-cert-in 750ms cubic-bezier(.2, .9, .3, 1.1) 350ms both; }
+
+/* Hàng chữ trong hộp hiện lần lượt. */
+@keyframes celebration-rise {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.celebration-rise { animation: celebration-rise 400ms ease-out both; }
+
+/* ── Khoảnh khắc tặng quà to kiểu TikTok (GiftSpotlight) ─────────────────────────────────────────
+   z 1150: trên Dialog (1000) / dropdown (1100), dưới canvas pháo (1200) và bài hướng dẫn (1400). */
+@keyframes celebration-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes celebration-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes celebration-spin { to { transform: rotate(360deg); } }
+@keyframes celebration-zoom-in {
+  0% { transform: scale(0.55); opacity: 0; }
+  60% { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.celebration-spotlight {
+  position: fixed;
+  inset: 0;
+  z-index: 1150;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: center;
+  color: #fff;
+  background: radial-gradient(circle at 50% 42%, rgba(76, 36, 140, 0.62) 0%, rgba(14, 10, 32, 0.86) 58%, rgba(6, 4, 16, 0.92) 100%);
+  animation: celebration-fade-in 260ms ease-out both;
+}
+.celebration-spotlight.is-leaving { animation: celebration-fade-out 320ms ease-in forwards; }
+
+/* Tia sáng xoay sau lưng vật thể, mờ dần ra mép. */
+.celebration-spotlight-rays {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 1400px;
+  height: 1400px;
+  margin: -700px 0 0 -700px;
+  pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 217, 94, 0.22) 0deg 6deg, transparent 6deg 18deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0%, rgba(0, 0, 0, 0.6) 22%, transparent 55%);
+  mask-image: radial-gradient(circle, #000 0%, rgba(0, 0, 0, 0.6) 22%, transparent 55%);
+  animation: celebration-fade-in 600ms ease-out both, celebration-spin 10s linear infinite;
+}
+.celebration-spotlight-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: celebration-zoom-in 540ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+.celebration-spotlight-headline {
+  margin-top: -6px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+}
+.celebration-spotlight-points {
+  margin-top: 4px;
+  font-size: clamp(3rem, 9vw, 4.75rem);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, #fff7d6 0%, #ffd95e 45%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 18px rgba(255, 201, 60, 0.55)) drop-shadow(0 4px 0 rgba(120, 60, 0, 0.55));
+}
+.celebration-spotlight-points span {
+  margin-left: 10px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  -webkit-text-fill-color: #ffe58a;
+}
+.celebration-spotlight-reason {
+  margin-top: 10px;
+  max-width: 32rem;
+  font-size: 0.95rem;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.86);
+}
+.celebration-spotlight-badge {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 217, 94, 0.45);
+  background: rgba(255, 217, 94, 0.16);
+  color: #ffe58a;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.celebration-spotlight-hint {
+  position: absolute;
+  bottom: 28px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ── Banner tặng quà kiểu TikTok (GiftBanner) ─────────────────────────────────────────────────── */
+@keyframes celebration-banner-in {
+  0% { transform: translateX(-120%); opacity: 0; }
+  70% { transform: translateX(4%); opacity: 1; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes celebration-banner-out { to { transform: translateX(-120%); opacity: 0; } }
+@keyframes celebration-combo {
+  0% { transform: scale(2.6) rotate(-14deg); opacity: 0; }
+  55% { transform: scale(0.88) rotate(-6deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-8deg); opacity: 1; }
+}
+
+.celebration-banner {
+  position: fixed;
+  left: 16px;
+  top: 72px;
+  z-index: 1150;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 6px 78px 6px 6px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(90deg, rgba(124, 58, 237, 0.96) 0%, rgba(219, 39, 119, 0.94) 70%, rgba(245, 158, 11, 0.92) 100%);
+  box-shadow: 0 10px 30px rgba(124, 58, 237, 0.42), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  animation: celebration-banner-in 440ms cubic-bezier(0.2, 1.2, 0.4, 1) both;
+}
+.celebration-banner.is-leaving { animation: celebration-banner-out 350ms ease-in forwards; }
+.celebration-banner-avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  font-weight: 800;
+  color: #7c2d12;
+  background: linear-gradient(135deg, #ffe58a, #f59e0b);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+.celebration-banner-object {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  transform: translateY(-56%);
+}
+.celebration-banner-combo {
+  position: absolute;
+  right: -10px;
+  top: -24px;
+  font-size: 2rem;
+  font-weight: 900;
+  font-style: italic;
+  color: #ffe58a;
+  -webkit-text-stroke: 1.5px #b45309;
+  text-shadow: 0 3px 0 #92400e, 0 0 14px rgba(255, 201, 60, 0.8);
+  animation: celebration-combo 520ms cubic-bezier(0.2, 1.6, 0.4, 1) 200ms both;
+}
+
+/* ── Bản nhẹ: người dùng chọn mức "Nhẹ" trong hộp chuông (celebrationSettings.ts) ─────────────────────────
+   CỐ Ý không dùng @media (prefers-reduced-motion): mức hiệu ứng là lựa chọn trong app, mặc định ĐẦY ĐỦ kể cả khi
+   hệ điều hành tắt hoạt ảnh (quyết định 2026-10-19). Lớp phủ, vật thể, banner vẫn có nhưng chỉ MỜ vào/ra: không
+   xoay, không trượt, không nảy. Lớp phủ / banner đọc cờ `.is-reduced` do JS gắn; phần còn lại đọc thuộc tính
+   `data-celebration-mode` trên <html> — cả hai cùng từ isGentleMode(). */
+.celebration-spotlight.is-reduced .celebration-spotlight-rays { animation: celebration-fade-in 260ms ease-out both; }
+.celebration-spotlight.is-reduced .celebration-spotlight-body,
+.celebration-banner.is-reduced,
+.celebration-banner.is-reduced .celebration-banner-combo { animation: celebration-fade-in 260ms ease-out both; }
+.celebration-banner.is-reduced.is-leaving { animation: celebration-fade-out 350ms ease-in forwards; }
+
+html[data-celebration-mode='gentle'] .celebrate-pop,
+html[data-celebration-mode='gentle'] .celebrate-wiggle,
+html[data-celebration-mode='gentle'] .celebration-cert {
+  animation: none;
+}
+html[data-celebration-mode='gentle'] .celebration-badge,
+html[data-celebration-mode='gentle'] .celebration-rise {
+  animation: celebration-fade-in 260ms ease-out both;
+}

@@ -25,6 +25,7 @@ import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useTranslation } from 'react-i18next'
+import { useApiAllowed } from '@/hooks/useApiAllowed'
 
 
 interface MemberManagementProps {
@@ -38,6 +39,9 @@ type GroupedMember = {
   /** Lấy từ danh sách người dùng của tổ chức — bản ghi phân vai trò không có ảnh. */
   userAvatarUrl?: string | null
   userStatus?: string
+  /** Đơn vị chính ở nơi khác ⇒ ở đây là kiêm nhiệm (đánh giá, xếp loại tính ở đơn vị chính). */
+  primaryOrgUnitId?: string | null
+  primaryOrgUnitName?: string | null
   assignments: {
     roleId: string
     roleName: string
@@ -145,6 +149,8 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
           userEmail: m.userEmail,
           userAvatarUrl: userGlobal?.avatarUrl,
           userStatus: userGlobal?.status || 'ACTIVE',
+          primaryOrgUnitId: m.primaryOrgUnitId,
+          primaryOrgUnitName: m.primaryOrgUnitName,
           assignments: []
         }
       }
@@ -300,6 +306,20 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
     }
   }
 
+  // Kiêm nhiệm ⇒ đặt đơn vị đang xem làm đơn vị chính (form Sửa người dùng, chọn đơn vị người đó
+  // đang thuộc, chỉ đổi đơn vị chính — không gỡ vai trò nào).
+  const canEditUser = useApiAllowed('PUT', `/users/${showManageModal?.userId ?? '_'}`)
+  const handleMakePrimary = async () => {
+      if (!showManageModal) return
+      try {
+          await updateUserMutation.mutateAsync({ id: showManageModal.userId, data: { orgUnitId } })
+          setShowManageModal({ ...showManageModal, primaryOrgUnitId: orgUnitId, primaryOrgUnitName: orgUnit?.name })
+          toast.success(t('MemberManagement.primaryUnitSet'))
+      } catch (error) {
+          toast.error(getApiErrorMessage(error, t('MemberManagement.couldNotSetPrimaryUnit')))
+      }
+  }
+
   const handleStatusChange = async (newStatus: 'ACTIVE' | 'INACTIVE') => {
       if (!showManageModal) return
       try {
@@ -416,7 +436,10 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                                 fallbackClassName="bg-[var(--color-info-bg)] text-[var(--color-info)] font-semibold text-sm"
                             />
                             <div>
-                                <p className="text-sm font-semibold text-[var(--color-foreground)]">{member.userFullName}</p>
+                                <p className="text-sm font-semibold text-[var(--color-foreground)]">
+                                  {member.userFullName}
+                                  <SecondaryBadge member={member} orgUnitId={orgUnitId} />
+                                </p>
                                 <p className="text-xs text-[var(--color-muted-foreground)] font-medium">{member.userEmail}</p>
                             </div>
                         </div>
@@ -475,7 +498,10 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                         fallbackClassName="bg-[var(--color-info-bg)] text-[var(--color-info)] font-semibold text-sm"
                       />
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{member.userFullName}</p>
+                        <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">
+                          {member.userFullName}
+                          <SecondaryBadge member={member} orgUnitId={orgUnitId} />
+                        </p>
                         <p className="text-xs text-[var(--color-muted-foreground)] font-medium truncate">{member.userEmail}</p>
                       </div>
                     </label>
@@ -600,6 +626,19 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                       </button>
                    </div>
 
+                   {showManageModal.primaryOrgUnitId && showManageModal.primaryOrgUnitId !== orgUnitId && (
+                     <div className="p-4 rounded-card border border-[var(--color-border)] flex items-center justify-between gap-3">
+                        <p className="text-caption font-medium min-w-0">
+                            {t('MemberManagement.secondaryHere', { unit: showManageModal.primaryOrgUnitName })}
+                        </p>
+                        {canEditUser && (
+                          <Button size="sm" variant="outline" className="shrink-0" onClick={handleMakePrimary} disabled={updateUserMutation.isPending}>
+                              {t('MemberManagement.makePrimaryUnit')}
+                          </Button>
+                        )}
+                     </div>
+                   )}
+
                    <div className="space-y-4">
                       <div className="flex items-center justify-between">
                           <label className="text-label pl-1">{t('MemberManagement.currentRoles')}</label>
@@ -710,5 +749,19 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
         loading={removeAllMutation.isPending || removeBulkMutation.isPending}
       />
     </div>
+  )
+}
+
+/** Nhãn "Kiêm nhiệm" cạnh tên: đơn vị chính của người này ở nơi khác. */
+function SecondaryBadge({ member, orgUnitId }: { member: GroupedMember; orgUnitId: string }) {
+  const { t } = useTranslation('organization')
+  if (!member.primaryOrgUnitId || member.primaryOrgUnitId === orgUnitId) return null
+  return (
+    <span
+      className="ml-2 inline-flex items-center rounded-full border border-[var(--color-border)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-muted-foreground)] align-middle"
+      title={t('MemberManagement.secondaryHere', { unit: member.primaryOrgUnitName })}
+    >
+      {t('MemberManagement.secondary')}
+    </span>
   )
 }

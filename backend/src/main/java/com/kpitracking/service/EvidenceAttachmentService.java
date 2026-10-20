@@ -46,6 +46,7 @@ public class EvidenceAttachmentService {
     private final EvidenceAttachmentRepository repository;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.service.PrimaryUnitResolver primaryUnits;
     private final CloudinaryStorageService cloudinaryStorageService;
     private final AttachmentPolicy attachmentPolicy;
     private final PermissionChecker permissionChecker;
@@ -126,9 +127,8 @@ public class EvidenceAttachmentService {
         } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.INVALID_EVIDENCE_KEY);
         }
-        List<UserRoleOrgUnit> memberships = userRoleOrgUnitRepository.findByUserId(subjectId);
-        if (memberships.isEmpty()) throw new ResourceNotFoundException(Terms.of("resource.user"), "id", subjectId);
-        OrgUnit unit = memberships.get(0).getOrgUnit();
+        OrgUnit unit = primaryUnits.unitOf(subjectId);
+        if (unit == null) throw new ResourceNotFoundException(Terms.of("resource.user"), "id", subjectId);
         return new Target(subjectId, unit, unit.getOrgHierarchyLevel().getOrganization().getId());
     }
 

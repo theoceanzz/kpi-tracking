@@ -117,6 +117,7 @@ public class TaskResponseAssembler {
         tasks.forEach(t -> { if (t.getCreatedBy() != null) personIds.add(t.getCreatedBy()); });
         followers.values().forEach(l -> l.forEach(f -> personIds.add(f.getUserId())));
         assignees.values().forEach(l -> l.forEach(a -> personIds.add(a.getUserId())));
+        if (detail) files.values().forEach(l -> l.forEach(a -> personIds.add(a.getUploadedBy())));
         Map<UUID, User> persons = userRepository.findAllById(personIds).stream().collect(Collectors.toMap(User::getId, Function.identity()));
         LocalDate today = KpiTaskService.today();
         LocalTime nowTime = LocalTime.now(KpiTaskService.ZONE);
@@ -206,13 +207,20 @@ public class TaskResponseAssembler {
                 r.setChecklist(its.stream()
                         .sorted(Comparator.comparing(KpiTaskChecklistItem::getSortOrder).thenComparing(KpiTaskChecklistItem::getCreatedAt))
                         .map(mapper::toChecklistItem).toList());
-                r.setAttachments(files.getOrDefault(t.getId(), List.of()).stream().map(a -> {
+                r.setAttachments(files.getOrDefault(t.getId(), List.of()).stream()
+                        .sorted(Comparator.comparing(KpiTaskAttachment::getCreatedAt)).map(a -> {
                     KpiTaskResponse.Attachment ar = mapper.toAttachment(a);
                     Document src = library.openable(a.getSourceDocumentId());
                     if (src != null) {
                         ar.setSourceDocumentId(src.getId());
                         ar.setSourceDocumentTitle(src.getTitle());
                     }
+                    User uploader = persons.get(a.getUploadedBy());
+                    if (uploader != null) {
+                        ar.setUploadedByName(uploader.getFullName());
+                        ar.setUploadedByAvatarUrl(uploader.getAvatarUrl());
+                    }
+                    ar.setCanDelete(reason == null && scope.canRemoveFile(t, a.getUploadedBy(), a.getKind()));
                     return ar;
                 }).toList());
                 r.setReminders(reminders.getOrDefault(t.getId(), List.of()).stream()

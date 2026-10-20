@@ -172,7 +172,7 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
         onVoucherIssued={setIssued}
       />
 
-      <VoucherModal redemption={issued} onClose={() => setIssued(null)} />
+      <VoucherModal redemption={issued} onClose={() => setIssued(null)} justIssued />
     </>
   )
 }

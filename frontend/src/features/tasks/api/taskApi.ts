@@ -4,7 +4,7 @@ import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse, PageResponse } from '@/types/api'
 import type {
   CreateTaskInput, FollowerRemoval, FollowerRemovalRef, KpiTask, ReminderInput, TaskBatchInput, TaskBatchResult,
-  TaskCompletionMode, TaskEvent, TaskListParams, TaskOption, TaskReplacement, TaskActivityItem, TaskSidebar, TaskStatus, TaskViewer, UpdateTaskInput,
+  TaskAttachmentKind, TaskCompletionMode, TaskEvent, TaskListParams, TaskOption, TaskReplacement, TaskActivityItem, TaskSidebar, TaskStatus, TaskViewer, UpdateTaskInput,
 } from '../types'
 
 export interface AssignTaskInput {
@@ -129,9 +129,10 @@ export const taskApi = {
     axiosInstance.patch<ApiResponse<KpiTask>>(`${BASE}/${id}/checklist/${itemId}`, input).then(data),
   deleteChecklist: (id: string, itemId: string) =>
     axiosInstance.delete<ApiResponse<KpiTask>>(`${BASE}/${id}/checklist/${itemId}`).then(data),
-  addAttachments: (id: string, files: File[]) => {
+  addAttachments: (id: string, files: File[], kind: TaskAttachmentKind = 'REFERENCE') => {
     const form = new FormData()
     appendFilesWithSources(form, files)
+    form.append('kind', kind)
     return sendMultipart<ApiResponse<KpiTask>>(`${BASE}/${id}/attachments`, form)
       .then(data)
   },

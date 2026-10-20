@@ -1105,17 +1105,24 @@ public class KpiTaskService {
 
     /** Tệp đi lên NGOÀI transaction — khuôn chung {@link CloudinaryStorageService#uploadThenSave}. */
     public KpiTaskResponse addAttachments(UUID taskId, MultipartFile[] files) throws IOException {
-        return addAttachments(taskId, files, null);
+        return addAttachments(taskId, files, null, KpiTaskAttachmentKind.REFERENCE);
     }
 
-    /** {@code sourceDocumentIds[i]}: tài liệu thư viện mà {@code files[i]} được sao từ đó ("" / "-" = tệp từ máy). */
-    public KpiTaskResponse addAttachments(UUID taskId, MultipartFile[] files, List<String> sourceDocumentIds) throws IOException {
+    /**
+     * {@code sourceDocumentIds[i]}: tài liệu thư viện mà {@code files[i]} được sao từ đó ("" / "-" = tệp từ máy).
+     * {@code kind}: tệp đính kèm hay kết quả (V47) — ai sửa được việc thì thêm được cả hai, mỗi loại tối đa
+     * {@link CollabAttachmentPolicy#MAX_FILES_PER_TASK} tệp; thêm kết quả ghi lịch sử + báo người liên quan.
+     */
+    public KpiTaskResponse addAttachments(UUID taskId, MultipartFile[] files, List<String> sourceDocumentIds,
+                                          KpiTaskAttachmentKind kind) throws IOException {
         if (files == null || files.length == 0) throw new BusinessException(ErrorCode.NO_FILE_SELECTED_ATTACH);
+        KpiTaskAttachmentKind k = kind == null ? KpiTaskAttachmentKind.REFERENCE : kind;
+        boolean result = k == KpiTaskAttachmentKind.RESULT;
         return storage.uploadThenSave(files, "tasks/" + taskId, () -> {
             User me = currentUser();
             KpiTask task = editable(me, taskId, null, false);
-            attachmentPolicy.validate(files, attachmentRepository.countByTaskId(taskId),
-                    CollabAttachmentPolicy.MAX_FILES_PER_TASK, ErrorCode.TASK_TOO_MANY_FILES);
+            attachmentPolicy.validate(files, attachmentRepository.countByTaskIdAndKind(taskId, k),
+                    CollabAttachmentPolicy.MAX_FILES_PER_TASK, result ? ErrorCode.TASK_TOO_MANY_RESULT_FILES : ErrorCode.TASK_TOO_MANY_FILES);
             return new AttachContext(me, task);
         }, (ctx, stored) -> {
             Map<MultipartFile, AttachmentLibrarySources.Source> sources = librarySources.link(
@@ -1125,6 +1132,7 @@ public class KpiTaskService {
                 AttachmentLibrarySources.Source src = sources.get(file);
                 attachmentRepository.save(KpiTaskAttachment.builder()
                         .taskId(taskId)
+                        .kind(k)
                         .fileName(attachmentPolicy.safeFileName(file.getOriginalFilename()))
                         .fileUrl(f.url())
                         .fileSize(file.getSize())
@@ -1136,7 +1144,13 @@ public class KpiTaskService {
                         .sourceDocumentTitle(src != null ? src.title() : null)
                         .build());
             }
-            events.publishEvent(TaskEvents.Changed.of(taskId, ctx.me().getId(), TaskEvents.Kind.ATTACHMENTS_CHANGED));
+            if (result) {
+                log(ctx.task(), ctx.me(), KpiTaskEventAction.RESULT_ADDED, null, truncate(stored.stream()
+                        .map(f -> attachmentPolicy.safeFileName(f.source().getOriginalFilename()))
+                        .collect(Collectors.joining(", ")), 500));
+            }
+            events.publishEvent(TaskEvents.Changed.of(taskId, ctx.me().getId(),
+                    result ? TaskEvents.Kind.RESULT_ADDED : TaskEvents.Kind.ATTACHMENTS_CHANGED));
             return assembler.detail(ctx.me(), ctx.task());
         });
     }
@@ -1150,8 +1164,14 @@ public class KpiTaskService {
         KpiTaskAttachment att = attachmentRepository.findById(attachmentId)
                 .filter(a -> a.getTaskId().equals(taskId))
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.attachment"), "id", attachmentId));
+        if (!access.canRemoveFile(me.getId(), task, att.getUploadedBy(), att.getKind())) {
+            throw new ForbiddenException(ErrorCode.TASK_FILE_REMOVE_NOT_ALLOWED);
+        }
         if (att.getStorageKey() != null) storage.deleteFile(att.getStorageKey(), att.getContentType());
         attachmentRepository.delete(att);
+        if (att.getKind() == KpiTaskAttachmentKind.RESULT) {
+            log(task, me, KpiTaskEventAction.RESULT_REMOVED, att.getFileName(), null);
+        }
         events.publishEvent(TaskEvents.Changed.of(taskId, me.getId(), TaskEvents.Kind.ATTACHMENTS_CHANGED));
         return assembler.detail(me, task);
     }

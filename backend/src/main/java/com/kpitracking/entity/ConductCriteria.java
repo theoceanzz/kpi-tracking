@@ -2,12 +2,15 @@ package com.kpitracking.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -40,6 +43,14 @@ public class ConductCriteria {
     /** Các biểu hiện cụ thể của tiêu chí, mỗi dòng một gạch đầu dòng. */
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
+
+    /**
+     * Định nghĩa từng mức điểm (V48): khoá = mức "1".."thang", giá trị = mô tả mức đó. null = không định nghĩa theo
+     * mức. Chỉ hướng dẫn người chấm, không đổi cách cộng điểm; chuẩn hoá ở {@code ConductService.normalizeLevels}.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "level_descriptions", columnDefinition = "jsonb")
+    private Map<String, String> levelDescriptions;
 
     /** Nhóm chứa tiêu chí; null = bộ không chia nhóm. */
     @ManyToOne(fetch = FetchType.LAZY)

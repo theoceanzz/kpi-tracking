@@ -653,3 +653,31 @@ export interface CertificateCatalog {
   organizationLogoUrl?: string | null
   templates: CertificateTemplate[]
 }
+
+// ── Ăn mừng (hiệu ứng chúc mừng) ─────────────────────────────────
+
+/** Khớp `RewardCelebrationSource` ở backend. */
+export type RewardCelebrationSource = 'GRANT' | 'PROGRAM_RUN' | 'REDEMPTION'
+
+/**
+ * Một lượt chưa được ăn mừng (`GET /rewards/me/celebrations`). Dữ liệu thô — câu chúc do frontend
+ * dịch. Trường không thuộc nguồn thì null.
+ */
+export interface RewardCelebration {
+  source: RewardCelebrationSource
+  /** Gửi lại nguyên văn khi ack. */
+  refId: string
+  points: number
+  occurredAt?: string | null
+  grantorName?: string | null
+  reason?: string | null
+  certificate: boolean
+  /** Có giấy khen: đề nghị thưởng chỉ chứa dòng của người xem — đủ để vẽ giấy khen. */
+  grant?: RewardGrant | null
+  programName?: string | null
+  rank?: number | null
+  giftName?: string | null
+  giftImageUrl?: string | null
+  redemptionStatus?: RedemptionStatus | null
+  quantity?: number | null
+}

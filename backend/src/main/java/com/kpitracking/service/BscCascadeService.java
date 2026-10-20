@@ -753,4 +753,20 @@ public class BscCascadeService {
         if (sp.getMinimumValue() != null) return sp.getMinimumValue();
         return sp.getPerspective() != null ? sp.getPerspective().getMinimumValue() : null;
     }
+
+    /**
+     * Tối thiểu của phần được giao xuống: cùng tỉ lệ tối thiểu / mục tiêu với chỉ tiêu cha.
+     *
+     * <p>Để trống thì dòng con rơi về tối thiểu của hạng mục (con số của CẢ chỉ tiêu cha) — chia 1.000
+     * thành 300 + 700 mà tối thiểu vẫn 400 thì đơn vị nhận 300 có tối thiểu cao hơn mục tiêu, form
+     * không cho lưu và phép chấm ra số vô nghĩa.
+     */
+    public static Double scaledMinimum(BscScorecardPerspective parent, Double childTarget) {
+        Double parentMin = effectiveMinimum(parent);
+        Double parentTarget = effectiveTarget(parent);
+        if (childTarget == null || parentMin == null) return null;
+        if (parentTarget == null || parentTarget <= 0) return Math.min(parentMin, childTarget);
+        double scaled = Math.round(parentMin / parentTarget * childTarget * 100.0) / 100.0;
+        return Math.min(scaled, childTarget);
+    }
 }

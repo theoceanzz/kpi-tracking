@@ -40,6 +40,16 @@
     "howConductCriteriaSetsWork": "How conduct criteria sets work",
     "indicators_one": "{{count}} indicator",
     "indicators_other": "{{count}} indicators",
+    "levelsDefined_one": "{{count}} level",
+    "levelsDefined_other": "{{count}} levels",
+    "generalIndicators": "General indicators",
+    "levelDefinitions": "Definitions by score level",
+    "levelDefinitionsHint": "Optional — raters see the description of the level they pick",
+    "levelDefinitionsUnavailable": "This set's scale is not a whole number or has more than 10 levels, so levels cannot be defined.",
+    "levelPlaceholderTop": "Level {{level}} (highest) — e.g. always proactive, sets an example for others",
+    "levelPlaceholderBottom": "Level {{level}} (lowest) — e.g. repeatedly breaks the rules despite reminders",
+    "levelPlaceholder": "Behavior that matches level {{level}}",
+    "levelOfCriterion": "Definition of level {{level}} for criterion {{name}}",
     "isOneWayOfScoringConduct": "is one way of scoring conduct. Assign a set to a",
     "makeDefaultSet": "Make default set",
     "n15Matrix": "≠ 1–5 matrix",
@@ -169,7 +179,9 @@
     "yourSelfAssessment": "Your self-assessment",
     "yourSelfScore": "Your self-score",
     "scaleRange": "scale {{min}}–{{max}}",
-    "groupScore": "Group score:"
+    "groupScore": "Group score:",
+    "levelGuide_one": "{{count}} score level defined",
+    "levelGuide_other": "{{count}} score levels defined"
   },
   "conductSheetExport": {
     "assessedByTheDirectManager": "Assessed by the direct manager",
@@ -199,6 +211,7 @@
     "weightedConductScore": "Weighted conduct score:",
     "weightedRatingScore": "Weighted rating score",
     "rowNo": "No.",
+    "levelLine": "Level {{level}}: {{text}}",
     "groupTotal": "Group total: {{name}} ({{letter}})"
   },
   "ConductSheetTable": {

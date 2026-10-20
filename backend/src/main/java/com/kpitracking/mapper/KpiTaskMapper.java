@@ -70,6 +70,10 @@ public interface KpiTaskMapper {
     @Mapping(target = "image", expression = "java(CollabAttachmentPolicy.isImage(attachment.getContentType()))")
     @Mapping(target = "fromLibrary", expression = "java(attachment.getSourceDocumentId() != null)")
     @Mapping(target = "sourceDocumentId", ignore = true)
+    @Mapping(target = "uploadedById", source = "uploadedBy")
+    @Mapping(target = "uploadedByName", ignore = true)
+    @Mapping(target = "uploadedByAvatarUrl", ignore = true)
+    @Mapping(target = "canDelete", ignore = true)
     KpiTaskResponse.Attachment toAttachment(KpiTaskAttachment attachment);
 
     @Mapping(target = "actorName", ignore = true)

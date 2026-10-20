@@ -408,6 +408,8 @@ public class AuthService {
 
     private UserInfoResponse enrichUserInfo(UserInfoResponse response) {
         List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(response.getId());
+        UserRoleOrgUnit primary = PrimaryUnitResolver.pick(assignments,
+                userRepository.findById(response.getId()).map(User::getPrimaryOrgUnitId).orElse(null));
         
         List<UserMembershipResponse> memberships = assignments.stream()
                 .map(uro -> {
@@ -416,6 +418,7 @@ public class AuthService {
                     String unitTypeLabel = unit.getOrgHierarchyLevel().getUnitTypeName();
                     
                     return UserMembershipResponse.builder()
+                        .primary(uro == primary)
                         .orgUnitId(unit.getId())
                         .organizationId(unit.getOrgHierarchyLevel().getOrganization().getId())
                         .orgUnitName(unit.getName())
@@ -432,8 +435,10 @@ public class AuthService {
                 .collect(Collectors.toList());
         
 
+        // Đơn vị chính đứng đầu: nhiều màn đọc memberships[0] làm "đơn vị của tôi".
         memberships.sort((a, b) -> {
-            if (a.getLevelOrder() != b.getLevelOrder()) {
+            if (a.isPrimary() != b.isPrimary()) return a.isPrimary() ? -1 : 1;
+            if (!java.util.Objects.equals(a.getLevelOrder(), b.getLevelOrder())) {
                 return Integer.compare(b.getLevelOrder(), a.getLevelOrder());
             }
             return Integer.compare(a.getRoleRank(), b.getRoleRank());

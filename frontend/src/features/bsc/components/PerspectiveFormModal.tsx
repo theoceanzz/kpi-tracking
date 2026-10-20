@@ -45,16 +45,27 @@ interface PerspectiveFormModalProps {
   otherWeightTotal?: number
   /** Gọi sau khi lưu để bộ tiêu chí áp trọng số (và mục tiêu vừa sửa) cho hạng mục. */
   onWeightSubmit?: (perspectiveId: string, weight: number, saved?: PerspectiveTargetPatch) => void
+  /**
+   * Con số dòng của hạng mục này đang dùng trong bộ tiêu chí mở modal. Có thì form điền sẵn đúng
+   * con số người dùng đang thấy ở ngoài (không phải mặc định của hạng mục) và lưu xong dòng ăn số mới.
+   */
+  rowFigures?: PerspectiveTargetPatch
+  /** Bộ tiêu chí đang mở modal (chưa lưu thì bỏ trống) — backend chỉ cho sửa hạng mục từ bộ chủ. */
+  scorecardId?: string
 }
 
 /** Mục tiêu vừa lưu của hạng mục — bộ tiêu chí dùng để cập nhật dòng đang đi theo mặc định. */
-export type PerspectiveTargetPatch = { targetValue: number | null; minimumValue: number | null; unit: string | null }
+export type PerspectiveTargetPatch = {
+  targetValue: number | null
+  minimumValue: number | null
+  unit: string | null
+}
 
 const PRESET_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#6366f1', '#0ea5e9', '#ec4899']
 
 export default function PerspectiveFormModal({
   isOpen, onClose, organizationId, perspective, defaultFixedPerspective,
-  showWeight, defaultWeight = 0, otherWeightTotal = 0, onWeightSubmit,
+  showWeight, defaultWeight = 0, otherWeightTotal = 0, onWeightSubmit, rowFigures, scorecardId,
 }: PerspectiveFormModalProps) {
   const { t } = useTranslation('bsc')
   const { data: allPerspectives } = useBscPerspectives(organizationId)
@@ -128,9 +139,11 @@ export default function PerspectiveFormModal({
         code: perspective.code,
         name: perspective.name,
         description: perspective.description ?? '',
-        targetValue: perspective.targetValue ?? undefined,
-        minimumValue: perspective.minimumValue ?? undefined,
-        unit: perspective.unit ?? '',
+        // Mở từ một dòng của bộ tiêu chí: sửa đúng con số đang thấy ở ngoài. Hiện mặc định của hạng
+        // mục (vd. 1.000) trong khi dòng ghi 500 là người dùng không biết mình đang sửa cái gì.
+        targetValue: (rowFigures ? rowFigures.targetValue : perspective.targetValue) ?? undefined,
+        minimumValue: (rowFigures ? rowFigures.minimumValue : perspective.minimumValue) ?? undefined,
+        unit: (rowFigures ? rowFigures.unit : perspective.unit) ?? '',
         color: perspective.color || PRESET_COLORS[0],
         // Server trả null cho icon chưa đặt; schema chỉ nhận string | undefined, để null là
         // validate trượt ở một ô không hiển thị — bấm lưu không có phản hồi gì.
@@ -153,7 +166,7 @@ export default function PerspectiveFormModal({
         weightPercentage: defaultWeight,
       })
     }
-  }, [perspective, reset, isOpen, defaultFixedPerspective, defaultWeight])
+  }, [perspective, reset, isOpen, defaultFixedPerspective, defaultWeight, rowFigures])
 
   const onSubmit = ({ weightPercentage, ...data }: PerspectiveFormValues) => {
     const weight = Number.isFinite(Number(weightPercentage)) ? Number(weightPercentage) : 0
@@ -164,7 +177,9 @@ export default function PerspectiveFormModal({
       ? undefined
       : nextOrderIn(data.fixedPerspective)
     if (perspective) {
-      updatePerspective.mutate({ perspectiveId: perspective.id, data }, {
+      // Bút chì chỉ có ở bộ CHỦ của hạng mục (bộ khác chỉ dùng lại) ⇒ ghi thẳng cả con số vào hạng
+      // mục rồi đồng bộ ra dòng đang mở; các bộ nhận phân rã ăn theo tên / lĩnh vực mới.
+      updatePerspective.mutate({ perspectiveId: perspective.id, data, scorecardId }, {
         onSuccess: () => {
           if (showWeight) onWeightSubmit?.(perspective.id, weight, {
             targetValue: numOrNull(data.targetValue),
@@ -216,7 +231,7 @@ export default function PerspectiveFormModal({
             <input
               {...register('name')}
               placeholder={t('PerspectiveFormModal.eGTeaching')}
-              className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
+              className="field w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
             />
             {errors.name && <p className="text-caption text-[var(--color-error)]">{errors.name.message}</p>}
           </div>
@@ -286,7 +301,7 @@ export default function PerspectiveFormModal({
               onWheel={e => (e.target as HTMLInputElement).blur()}
               {...register('targetValue', { setValueAs: numOrNull })}
               placeholder="VD: 100"
-              className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
+              className="field w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
             />
             {errors.targetValue && <p className="text-caption text-[var(--color-error)]">{errors.targetValue.message}</p>}
           </div>
@@ -301,7 +316,7 @@ export default function PerspectiveFormModal({
               onWheel={e => (e.target as HTMLInputElement).blur()}
               {...register('minimumValue', { setValueAs: numOrNull })}
               placeholder="VD: 80"
-              className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
+              className="field w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
             />
             {errors.minimumValue && <p className="text-caption text-[var(--color-error)]">{errors.minimumValue.message}</p>}
           </div>
@@ -310,11 +325,12 @@ export default function PerspectiveFormModal({
             <input
               {...register('unit')}
               placeholder={t('PerspectiveFormModal.vndSessions')}
-              className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
+              className="field w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
             />
             {errors.unit && <p className="text-caption text-[var(--color-error)]">{errors.unit.message}</p>}
           </div>
         </div>
+        {rowFigures && <p className="text-caption ml-1 -mt-2">{t('PerspectiveFormModal.rowFiguresNote')}</p>}
         <div className={cn('p-3 rounded-card border text-xs font-medium leading-relaxed',
           hasOwnTarget
             ? 'bg-[var(--color-primary-soft)] border-[var(--color-border)] text-[var(--color-primary)]'
@@ -343,7 +359,7 @@ export default function PerspectiveFormModal({
                 max={100}
                 step={0.1}
                 {...register('weightPercentage', { setValueAs: numOrUndefined })}
-                className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-semibold focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
+                className="field w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-semibold focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
               />
               {errors.weightPercentage && <p className="text-caption text-[var(--color-error)]">{errors.weightPercentage.message}</p>}
             </div>
@@ -411,7 +427,7 @@ export default function PerspectiveFormModal({
               value={selectedColor || ''}
               onChange={e => setValue('color', e.target.value, { shouldValidate: true })}
               placeholder="#RRGGBB"
-              className="w-28 shrink-0 px-3 py-1.5 rounded-control bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-mono outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
+              className="field w-28 shrink-0 px-3 py-1.5 rounded-control bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-mono outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
             />
           </div>
           {errors.color && <p className="text-caption text-[var(--color-error)]">{errors.color.message}</p>}

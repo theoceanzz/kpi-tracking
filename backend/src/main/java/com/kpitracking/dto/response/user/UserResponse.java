@@ -20,6 +20,8 @@ public class UserResponse {
     private UserStatus status;
     private UUID organizationId;
     private java.util.List<UserMembershipResponse> memberships;
+    /** Chỉ có khi người này thuộc ≥ 2 nhánh: "% công sức" từng nhánh (đơn vị chính đứng đầu). */
+    private java.util.List<UserEffortShareResponse> effortShares;
     private Boolean isEmailVerified;
     private Instant createdAt;
     private Instant updatedAt;

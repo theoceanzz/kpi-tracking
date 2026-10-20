@@ -15,7 +15,11 @@
     "viewAllNotifications": "View all notifications",
     "enableDesktopNotifications": "Enable desktop notifications (when in another tab)",
     "muteSound": "Mute notification sound",
-    "unmuteSound": "Unmute notification sound"
+    "unmuteSound": "Unmute notification sound",
+    "celebrationEffects": "Celebration effects",
+    "celebrationFull": "Full",
+    "celebrationGentle": "Subtle",
+    "celebrationOff": "Off"
   },
   "NotificationsPage": {
     "all": "All",
@@ -55,7 +59,8 @@
     "yesterday": "Yesterday",
     "loadMore": "Load older notifications",
     "loadingMore": "Loading…",
-    "endOfList": "No more notifications"
+    "endOfList": "No more notifications",
+    "rewardPointsRevoked": "Reward points revoked"
   },
   "useNotifications": {
     "markedAllNotificationsAsRead": "Marked all notifications as read"

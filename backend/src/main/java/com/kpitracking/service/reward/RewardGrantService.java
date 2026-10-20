@@ -582,6 +582,14 @@ public class RewardGrantService {
         return toResponse(grant, grantItemRepository.findByGrantId(grantId));
     }
 
+    /**
+     * Đề nghị thưởng nhìn từ phía MỘT người nhận — chỉ chứa dòng của chính họ, cùng luật với
+     * {@link #searchMyAwards}. Hộp chúc mừng dùng để vẽ giấy khen.
+     */
+    public RewardGrantResponse toRecipientView(RewardGrant grant, RewardGrantItem mine) {
+        return toResponse(grant, List.of(mine));
+    }
+
     private RewardGrantResponse toResponse(RewardGrant grant, List<RewardGrantItem> items) {
         return RewardGrantResponse.builder()
                 .id(grant.getId())

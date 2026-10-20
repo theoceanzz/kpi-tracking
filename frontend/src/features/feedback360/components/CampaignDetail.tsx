@@ -1,14 +1,13 @@
 import { intlDateLocale } from '@/i18n/format'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  AlertTriangle, ArrowLeft, BellRing, CalendarClock, Check, FileBarChart, FileSpreadsheet, History, Lock, Megaphone, Pencil,
-  Play, Plus, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, UserPlus, Users,
+  AlertTriangle, ArrowLeft, BellRing, CalendarClock, Check, FileBarChart, FileSpreadsheet, History, ListChecks, Lock, Megaphone,
+  Pencil, Play, Plus, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, UserPlus, Users, X,
 } from 'lucide-react'
 import HeatmapCard from './HeatmapCard'
 import CampaignQuestionsCard from './CampaignQuestionsCard'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
@@ -19,7 +18,10 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import UserAvatar from '@/components/common/UserAvatar'
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
+import RowMenu, { type RowMenuItem } from '@/components/common/RowMenu'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
+import { cn } from '@/lib/utils'
 import {
   RELATIONSHIP_LABEL,
   type F360Campaign,
@@ -30,7 +32,7 @@ import {
 import {
   useF360Assignments, useF360Campaign, useF360CampaignMutations, useF360Events, useF360Subjects,
 } from '../hooks/useFeedback360'
-import CampaignFormDialog from './CampaignFormDialog'
+import CampaignFormDialog, { type Step as FormStep } from './CampaignFormDialog'
 import { AssignmentStatusBadge, CampaignStatusBadge, OrgUnitSelect, UserSearchPicker } from './F360Common'
 import { fmtDate, fmtScore, fromLocalInput, type PickedUser } from '../utils/f360Format'
 import { useTranslation } from 'react-i18next'
@@ -40,14 +42,31 @@ import { useStateDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
 
 type Confirm = 'launch' | 'start' | 'close' | 'release' | 'delete' | null
+type Tab = 'people' | 'questions' | 'results'
+type SubjectFilter = 'all' | 'incomplete' | 'warnings'
 
+const isIncomplete = (s: F360SubjectRow) => s.assignmentCount === 0 || s.submittedCount < s.assignmentCount
+
+/**
+ * Chi tiết một chiến dịch 360.
+ *
+ * <p>Bố cục theo đúng câu hỏi người quản trị có trong đầu: "chiến dịch đang ở bước nào, tôi phải bấm
+ * gì tiếp" — thanh bước + MỘT nút chính ngay dưới nó; mọi thao tác phụ (sửa, gia hạn, xuất Excel,
+ * nhật ký, xoá…) gom vào menu "⋯" thay vì một hàng nút ngang hàng nhau. Phần thân chia tab (người
+ * được đánh giá / câu hỏi / kết quả đơn vị) để danh sách người không bị đẩy xuống dưới cùng.
+ *
+ * <p>Ở bản nháp, thêm người xong là hệ thống tự chọn người chấm cho họ (`generateRaters`, không
+ * reset — chỉ sinh cho người chưa có phiếu), nên không còn bước "Sinh người chấm" riêng.
+ *
+ * <p>Vẽ trong `WorkspaceHeader` để hàng tab của trang "Quản lý hiệu suất" không biến mất khi mở chi tiết.
+ */
 export default function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: () => void }) {
   const { t } = useTranslation('feedback360')
   const { data: campaign, isLoading } = useF360Campaign(campaignId)
   const { data: subjects = [], isLoading: loadingSubjects } = useF360Subjects(campaignId)
   const m = useF360CampaignMutations()
   const [confirm, setConfirm] = useState<Confirm>(null)
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState<FormStep | null>(null)
   const [adding, setAdding] = useState(false)
   const [dueDialog, setDueDialog] = useState<'extend' | 'reopen' | null>(null)
   const [managing, setManaging] = useState<F360SubjectRow | null>(null)
@@ -55,6 +74,8 @@ export default function CampaignDetail({ campaignId, onBack }: { campaignId: str
   const [generated, setGenerated] = useState<F360GenerateResult | null>(null)
   const [showEvents, setShowEvents] = useState(false)
   const [query, setQuery] = useState('')
+  const [tab, setTab] = useState<Tab>('people')
+  const [filter, setFilter] = useState<SubjectFilter>('all')
 
   if (isLoading || !campaign) return <LoadingSkeleton rows={6} />
 
@@ -62,7 +83,7 @@ export default function CampaignDetail({ campaignId, onBack }: { campaignId: str
   const status = campaign.status
   const editableList = manage && (status === 'DRAFT' || status === 'NOMINATING' || status === 'OPEN')
   const hasResults = status === 'CLOSED' || status === 'RELEASED'
-  const pct = campaign.assignmentCount ? Math.round((campaign.submittedCount / campaign.assignmentCount) * 100) : 0
+  const activeTab: Tab = tab === 'results' && !hasResults ? 'people' : tab
 
   const runConfirm = () => {
     const done = { onSuccess: () => setConfirm(null) }
@@ -72,230 +93,206 @@ export default function CampaignDetail({ campaignId, onBack }: { campaignId: str
     if (confirm === 'release') m.release.mutate(campaign.id, done)
     if (confirm === 'delete') m.remove.mutate(campaign.id, { onSuccess: () => { setConfirm(null); onBack() } })
   }
+  const generate = (reset: boolean) => m.generateRaters.mutate({ id: campaign.id, reset }, { onSuccess: setGenerated })
 
-  // Một chiến dịch chỉ có MỘT việc cần làm tiếp theo ở mỗi thời điểm — đưa nó lên thành nút chính
-  // duy nhất, các thao tác phụ đứng cạnh ở dạng viền. Trước đây mọi nút cùng hàng nên người dùng
-  // phải tự đoán bước nào trước.
   const next = nextStep(campaign, subjects.length)
+  const primary: Record<NonNullable<NextAction>, ReactNode> = {
+    add: <Button size="sm" onClick={() => setAdding(true)}><UserPlus /> {t('CampaignDetail.addReviewees')}</Button>,
+    generate: <Button size="sm" disabled={m.generateRaters.isPending} onClick={() => generate(false)}><Sparkles /> {t('CampaignDetail.generateRaters')}</Button>,
+    launch: <Button size="sm" onClick={() => setConfirm('launch')}><Play /> {t('CampaignDetail.start')}</Button>,
+    start: <Button size="sm" onClick={() => setConfirm('start')}><Play /> {t('CampaignDetail.startScoring')}</Button>,
+    close: <Button size="sm" onClick={() => setConfirm('close')}><Lock /> {t('CampaignDetail.closeComputeResults')}</Button>,
+    release: <Button size="sm" onClick={() => setConfirm('release')}><Megaphone /> {t('CampaignDetail.publishReport')}</Button>,
+  }
+
+  // Thao tác phụ: ít dùng hoặc chỉ dùng một lần — vào menu "⋯", không tranh chỗ với nút chính.
+  const menuItems: RowMenuItem[] = []
+  if (manage) {
+    if (editableList) menuItems.push({ key: 'edit', icon: <Pencil />, label: t('CampaignDetail.editCampaign'), onSelect: () => setEditing('basics') })
+    if (status === 'OPEN') menuItems.push({ key: 'extend', icon: <CalendarClock />, label: t('CampaignDetail.extend'), onSelect: () => setDueDialog('extend') })
+    if (status === 'CLOSED') menuItems.push({ key: 'reopen', icon: <RotateCcw />, label: t('CampaignDetail.reopenTheCampaign'), onSelect: () => setDueDialog('reopen') })
+    if (hasResults) menuItems.push({ key: 'excel', icon: <FileSpreadsheet />, label: t('CampaignDetail.exportExcel'), onSelect: () => m.exportExcel.mutate(campaign.id) })
+    if (status === 'DRAFT' && campaign.assignmentCount > 0) {
+      menuItems.push({ key: 'regen', icon: <Sparkles />, label: t('CampaignDetail.regenerateRaters'), onSelect: () => generate(true) })
+    }
+    menuItems.push({ key: 'log', icon: <History />, label: t('CampaignDetail.log'), onSelect: () => setShowEvents(true), separated: menuItems.length > 0 })
+    if (status === 'DRAFT') menuItems.push({ key: 'delete', icon: <Trash2 />, label: t('CampaignDetail.deleteCampaign'), danger: true, onSelect: () => setConfirm('delete') })
+  }
+
+  const incompleteCount = subjects.filter(isIncomplete).length
+  const warningCount = subjects.filter(s => s.warnings.length > 0).length
+  // Lọc "chưa đủ phiếu" chỉ có nghĩa khi đang thu phiếu; ở nháp mọi người đều "chưa đủ".
+  const collecting = status === 'NOMINATING' || status === 'OPEN'
+  const filters: { key: SubjectFilter; label: string; count: number }[] = [
+    { key: 'all', label: t('CampaignDetail.filterAll'), count: subjects.length },
+    ...(collecting && incompleteCount > 0 ? [{ key: 'incomplete' as const, label: t('CampaignDetail.filterIncomplete'), count: incompleteCount }] : []),
+    ...(warningCount > 0 ? [{ key: 'warnings' as const, label: t('CampaignDetail.filterWarnings'), count: warningCount }] : []),
+  ]
+  const activeFilter = filters.some(f => f.key === filter) ? filter : 'all'
   const q = query.trim().toLowerCase()
-  const visibleSubjects = q
-    ? subjects.filter(s => s.fullName.toLowerCase().includes(q) || (s.orgUnitName ?? '').toLowerCase().includes(q))
-    : subjects
+  const visibleSubjects = subjects
+    .filter(s => activeFilter === 'all' || (activeFilter === 'incomplete' ? isIncomplete(s) : s.warnings.length > 0))
+    .filter(s => !q || s.fullName.toLowerCase().includes(q) || (s.orgUnitName ?? '').toLowerCase().includes(q))
+
+  const pct = campaign.assignmentCount ? Math.round((campaign.submittedCount / campaign.assignmentCount) * 100) : 0
+  const questionTotal = campaign.questionCount ?? 0
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft /> {t('CampaignDetail.allCampaigns')}</Button>
 
-      <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-        <div className="flex flex-wrap items-start gap-3 p-5 pb-4">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-section-title">{campaign.name}</h2>
-              <CampaignStatusBadge status={status} />
-            </div>
-            {campaign.description && <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">{campaign.description}</p>}
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              <MetaChip icon={<CalendarClock size={12} />}>
-                {campaign.startAt ? `${fmtDate(campaign.startAt)} → ` : t('CampaignDetail.due')}{fmtDate(campaign.dueAt)}
-              </MetaChip>
-              {campaign.kpiCycleName && <MetaChip>{t('CampaignDetail.aCycle')} {campaign.kpiCycleName}</MetaChip>}
-              <MetaChip>{campaign.templateName ?? t('CampaignDetail.noQuestionSetChosen')}</MetaChip>
-              <MetaChip icon={<ShieldCheck size={12} />}>
-                {t('CampaignDetail.anonymousFrom')} {campaign.anonymityThreshold} {t('CampaignDetail.people')}{campaign.strictAnonymity ? t('CampaignDetail.strict') : ''}
-              </MetaChip>
-              {campaign.scoringMode !== 'DEVELOPMENT_ONLY' && (
-                <MetaChip tone="warning">
-                  {t('CampaignDetail.countsTowardRating')}{campaign.scoringMode === 'BLEND_CONDUCT'
-                    ? t('CampaignDetail.managerScore360', { value: campaign.blendConductPercent ?? 60, value2: 100 - (campaign.blendConductPercent ?? 60) })
-                    : t('CampaignDetail.replacesTheConductScoreWhenNot')}
-                </MetaChip>
-              )}
-            </div>
+      <WorkspaceHeader
+        title={campaign.name}
+        description={campaign.description ?? undefined}
+        actions={(
+          <div className="flex items-center gap-2">
+            <CampaignStatusBadge status={status} />
+            {menuItems.length > 0 && <RowMenu items={menuItems} label={t('CampaignDetail.moreActions')} />}
           </div>
-          {manage && (
-            <div className="flex gap-1">
-              {(status === 'DRAFT' || status === 'NOMINATING' || status === 'OPEN') && (
-                <Button variant="ghost" size="icon-sm" aria-label={t('CampaignDetail.editCampaign')} title={t('CampaignDetail.editCampaign')} onClick={() => setEditing(true)}><Pencil /></Button>
+        )}
+      >
+        <div className="-mt-1 flex flex-wrap gap-1.5">
+          <MetaChip icon={<CalendarClock size={12} />}>
+            {campaign.startAt ? `${fmtDate(campaign.startAt)} → ` : t('CampaignDetail.due')}{fmtDate(campaign.dueAt)}
+          </MetaChip>
+          {campaign.kpiCycleName && <MetaChip>{t('CampaignDetail.aCycle')} {campaign.kpiCycleName}</MetaChip>}
+          <MetaChip icon={<ShieldCheck size={12} />}>
+            {t('CampaignDetail.anonymousFrom')} {campaign.anonymityThreshold} {t('CampaignDetail.people')}{campaign.strictAnonymity ? t('CampaignDetail.strict') : ''}
+          </MetaChip>
+          {campaign.scoringMode !== 'DEVELOPMENT_ONLY' && (
+            <MetaChip tone="warning">
+              {t('CampaignDetail.countsTowardRating')}{campaign.scoringMode === 'BLEND_CONDUCT'
+                ? t('CampaignDetail.managerScore360', { value: campaign.blendConductPercent ?? 60, value2: 100 - (campaign.blendConductPercent ?? 60) })
+                : t('CampaignDetail.replacesTheConductScoreWhenNot')}
+            </MetaChip>
+          )}
+        </div>
+
+        {/* Thanh bước + việc cần làm tiếp: một chỗ duy nhất trả lời "giờ bấm gì". */}
+        <div className="overflow-hidden rounded-card border border-[var(--color-border)]">
+          <StepTracker campaign={campaign} />
+          {manage && next && (
+            <div className="flex flex-wrap items-center gap-3 border-t border-[var(--color-border)] bg-[var(--color-primary-soft)] px-4 py-3">
+              <div className="min-w-[200px] flex-1">
+                <p className="text-sm font-semibold text-[var(--color-foreground)]">{next.title}</p>
+                <p className="text-caption">{next.hint}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {status === 'OPEN' && (
+                  <Button variant="outline" size="sm" onClick={() => m.remind.mutate(campaign.id)} disabled={m.remind.isPending}>
+                    <BellRing /> {t('CampaignDetail.remindThoseWhoHaveNotSubmitted')}
+                  </Button>
+                )}
+                {next.action && primary[next.action]}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <StatTile label={t('CampaignDetail.reviewee')} value={campaign.subjectCount} />
+          {status === 'DRAFT'
+            ? <StatTile label={t('CampaignDetail.raterForms')} value={campaign.assignmentCount} />
+            : <StatTile label={t('CampaignDetail.submitted')} value={<>{campaign.submittedCount}<span className="text-caption font-normal">/{campaign.assignmentCount} · {pct}%</span></>} progress={pct} />}
+          <StatTile label={t('CampaignDetail.evaluationDeadline')} value={fmtDate(campaign.dueAt)} />
+          <StatTile
+            label={status === 'RELEASED' ? t('CampaignDetail.publish') : status === 'DRAFT' ? t('CampaignDetail.opensOn') : t('CampaignDetail.start')}
+            value={fmtDate(status === 'RELEASED' ? campaign.releasedAt : status === 'DRAFT' ? campaign.startAt : campaign.launchedAt)}
+          />
+        </dl>
+      </WorkspaceHeader>
+
+      <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] px-4 py-2.5">
+          <div className="flex w-fit flex-wrap gap-0.5 rounded-control bg-[var(--color-muted)] p-0.5" role="tablist" aria-label={t('CampaignDetail.campaignSections')}>
+            <TabChip active={activeTab === 'people'} onClick={() => setTab('people')} icon={<Users />} label={t('CampaignDetail.reviewee')} count={subjects.length} />
+            <TabChip active={activeTab === 'questions'} onClick={() => setTab('questions')} icon={<ListChecks />} label={t('CampaignDetail.questions')} count={questionTotal} />
+            {hasResults && <TabChip active={activeTab === 'results'} onClick={() => setTab('results')} icon={<FileBarChart />} label={t('CampaignDetail.unitResults')} />}
+          </div>
+          {activeTab === 'people' && (
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              {subjects.length > 8 && (
+                <Input size="sm" type="search" value={query} onChange={e => setQuery(e.target.value)}
+                  placeholder={t('CampaignDetail.searchByNameOrUnit')} prefix={<Search size={14} />} className="w-[220px]" />
               )}
-              <Button variant="ghost" size="icon-sm" aria-label={t('CampaignDetail.log')} title={t('CampaignDetail.log')} onClick={() => setShowEvents(true)}><History /></Button>
-              {status === 'DRAFT' && (
-                <Button variant="ghost" size="icon-sm" aria-label={t('CampaignDetail.deleteCampaign')} title={t('CampaignDetail.deleteCampaign')} onClick={() => setConfirm('delete')}><Trash2 /></Button>
+              {editableList && subjects.length > 0 && (
+                <Button variant="outline" size="sm" onClick={() => setAdding(true)}><UserPlus /> {t('CampaignDetail.addPeople')}</Button>
               )}
             </div>
           )}
         </div>
 
-        <StepTracker campaign={campaign} />
-
-        {manage && next && (
-          <div className="mx-5 mb-4 flex flex-wrap items-center gap-3 rounded-control border border-[var(--color-primary)]/30 bg-[var(--color-primary-soft)] px-4 py-3">
-            <div className="min-w-[200px] flex-1">
-              <p className="text-sm font-semibold text-[var(--color-foreground)]">{next.title}</p>
-              <p className="text-caption">{next.hint}</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {status === 'OPEN' && (
-                <>
-                  <Button variant="outline" size="sm" onClick={() => m.remind.mutate(campaign.id)} disabled={m.remind.isPending}><BellRing /> {t('CampaignDetail.remindThoseWhoHaveNotSubmitted')}</Button>
-                  <Button variant="outline" size="sm" onClick={() => setDueDialog('extend')}><CalendarClock /> {t('CampaignDetail.extend')}</Button>
-                </>
-              )}
-              {status === 'CLOSED' && (
-                <Button variant="outline" size="sm" onClick={() => setDueDialog('reopen')}><RotateCcw /> {t('CampaignDetail.reopen')}</Button>
-              )}
-              {hasResults && (
-                <Button variant="outline" size="sm" onClick={() => m.exportExcel.mutate(campaign.id)} disabled={m.exportExcel.isPending}>
-                  <FileSpreadsheet /> {t('CampaignDetail.exportExcel')}
-                </Button>
-              )}
-              {next.action === 'add' && <Button size="sm" onClick={() => setAdding(true)}><UserPlus /> {t('CampaignDetail.addReviewees')}</Button>}
-              {next.action === 'generate' && (
-                <Button size="sm" disabled={m.generateRaters.isPending}
-                  onClick={() => m.generateRaters.mutate({ id: campaign.id, reset: false }, { onSuccess: setGenerated })}>
-                  <Sparkles /> {t('CampaignDetail.generateRaters')}
-                </Button>
-              )}
-              {next.action === 'launch' && <Button size="sm" onClick={() => setConfirm('launch')}><Play /> {t('CampaignDetail.start')}</Button>}
-              {next.action === 'start' && <Button size="sm" onClick={() => setConfirm('start')}><Play /> {t('CampaignDetail.startScoring')}</Button>}
-              {next.action === 'close' && <Button size="sm" onClick={() => setConfirm('close')}><Lock /> {t('CampaignDetail.closeComputeResults')}</Button>}
-              {next.action === 'release' && <Button size="sm" onClick={() => setConfirm('release')}><Megaphone /> {t('CampaignDetail.publishReport')}</Button>}
-            </div>
-          </div>
+        {activeTab === 'questions' && (
+          <CampaignQuestionsCard campaign={campaign} onEdit={manage && status === 'DRAFT' ? () => setEditing('questions') : undefined} />
         )}
 
-        {status !== 'DRAFT' && (
-          <div className="grid grid-cols-2 gap-px overflow-hidden border-t border-[var(--color-border)] bg-[var(--color-border)] sm:grid-cols-4">
-            <Stat label={t('CampaignDetail.reviewee')} value={campaign.subjectCount} />
-            <Stat label={t('CampaignDetail.forms')} value={campaign.assignmentCount} />
-            <Stat label={t('CampaignDetail.submitted')} value={<>{campaign.submittedCount} <span className="text-caption">({pct}%)</span></>} progress={pct} />
-            <Stat label={status === 'RELEASED' ? t('CampaignDetail.publish') : t('CampaignDetail.start')} value={fmtDate(status === 'RELEASED' ? campaign.releasedAt : campaign.launchedAt)} />
-          </div>
+        {activeTab === 'results' && <HeatmapCard campaignId={campaign.id} bare />}
+
+        {activeTab === 'people' && (
+          <>
+            {generated && (
+              <div className="m-4 mb-0 rounded-control border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] p-3 text-sm">
+                <div className="flex items-start gap-3">
+                  <p className="min-w-0 flex-1 font-medium">
+                    {t('CampaignDetail.created')} {generated.assignmentsCreated} {t('CampaignDetail.formsFor')} {generated.subjectsProcessed} {t('CampaignDetail.people')}
+                    {generated.warnings.length > 0 ? t('CampaignDetail.warningsToReviewBeforeStarting', { count: generated.warnings.length }) : '.'}
+                  </p>
+                  <Button variant="ghost" size="icon-sm" aria-label={t('CampaignDetail.hide')} onClick={() => setGenerated(null)}><X /></Button>
+                </div>
+                {generated.warnings.length > 0 && (
+                  <ul className="mt-1 max-h-40 list-disc space-y-0.5 overflow-y-auto pl-5 text-caption">
+                    {generated.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {filters.length > 1 && (
+              <div className="flex flex-wrap gap-1.5 px-4 pt-3">
+                {filters.map(f => (
+                  <ChoiceChip key={f.key} size="sm" selected={activeFilter === f.key} onClick={() => setFilter(f.key)}>
+                    {f.label} <span className="ml-1 tabular-nums opacity-70">{f.count}</span>
+                  </ChoiceChip>
+                ))}
+              </div>
+            )}
+
+            {loadingSubjects && <div className="p-4"><LoadingSkeleton rows={4} /></div>}
+            {!loadingSubjects && subjects.length === 0 && (
+              <EmptyState icon={Users} title={t('CampaignDetail.noRevieweesYet')}
+                description={manage ? t('CampaignDetail.addByUnitOrOneBy') : t('CampaignDetail.noOneInYourScope')}
+                action={editableList ? <Button size="sm" onClick={() => setAdding(true)}><UserPlus /> {t('CampaignDetail.addReviewees')}</Button> : undefined} />
+            )}
+            {subjects.length > 0 && visibleSubjects.length === 0 && (
+              <p className="p-6 text-center text-sm text-[var(--color-muted-foreground)]">{t('CampaignDetail.noOneMatches')}</p>
+            )}
+            {visibleSubjects.length > 0 && (
+              <SubjectList
+                campaign={campaign}
+                subjects={visibleSubjects}
+                hasResults={hasResults}
+                onManage={manage ? setManaging : undefined}
+                onRemove={editableList ? setRemoving : undefined}
+              />
+            )}
+          </>
         )}
       </section>
-
-      {generated && (
-        <div className="rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] p-4 text-sm">
-          <div className="flex items-start justify-between gap-3">
-            <p className="font-medium">
-              {t('CampaignDetail.created')} {generated.assignmentsCreated} {t('CampaignDetail.formsFor')} {generated.subjectsProcessed} {t('CampaignDetail.people')}
-              {generated.warnings.length > 0 ? t('CampaignDetail.warningsToReviewBeforeStarting', { count: generated.warnings.length }) : '.'}
-            </p>
-            <Button variant="ghost" size="sm" onClick={() => setGenerated(null)}>{t('CampaignDetail.hide')}</Button>
-          </div>
-          {generated.warnings.length > 0 && (
-            <ul className="mt-2 max-h-40 list-disc space-y-0.5 overflow-y-auto pl-5 text-caption">
-              {generated.warnings.map((w, i) => <li key={i}>{w}</li>)}
-            </ul>
-          )}
-        </div>
-      )}
-
-      <CampaignQuestionsCard campaign={campaign} onEdit={campaign.canManage ? () => setEditing(true) : undefined} />
-
-      {hasResults && <HeatmapCard campaignId={campaign.id} />}
-
-      <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] px-4 py-3">
-          <h3 className="text-sm font-semibold">{t('CampaignDetail.reviewee')} <span className="font-normal text-[var(--color-muted-foreground)]">({subjects.length})</span></h3>
-          <div className="min-w-[180px] flex-1">
-            {subjects.length > 8 && (
-              <Input size="sm" type="search" value={query} onChange={e => setQuery(e.target.value)}
-                placeholder={t('CampaignDetail.searchByNameOrUnit')} prefix={<Search size={14} />} className="max-w-xs" />
-            )}
-          </div>
-          {manage && status === 'DRAFT' && campaign.assignmentCount > 0 && (
-            <Button variant="ghost" size="sm" disabled={m.generateRaters.isPending} title={t('CampaignDetail.deleteAutoGeneratedRatersAndRegenerate')}
-              onClick={() => m.generateRaters.mutate({ id: campaign.id, reset: true }, { onSuccess: setGenerated })}>
-              <RotateCcw /> {t('CampaignDetail.regenerateRaters')}
-            </Button>
-          )}
-          {editableList && subjects.length > 0 && (
-            <Button variant="outline" size="sm" onClick={() => setAdding(true)}><UserPlus /> {t('CampaignDetail.addPeople')}</Button>
-          )}
-        </div>
-
-        {loadingSubjects && <div className="p-4"><LoadingSkeleton rows={4} /></div>}
-        {!loadingSubjects && subjects.length === 0 && (
-          <EmptyState icon={Users} title={t('CampaignDetail.noRevieweesYet')}
-            description={manage ? t('CampaignDetail.addByUnitOrOneBy') : t('CampaignDetail.noOneInYourScope')} />
-        )}
-        {subjects.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="text-left text-caption">
-                <tr className="border-b border-[var(--color-border)]">
-                  <th className="px-4 py-2 font-medium">{t('CampaignDetail.people2')}</th>
-                  <th className="px-4 py-2 font-medium">{t('CampaignDetail.progressByGroup')}</th>
-                  <th className="px-4 py-2 font-medium">{t('CampaignDetail.n360Score')}</th>
-                  <th className="px-4 py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {visibleSubjects.map(s => (
-                  <tr key={s.id} className="border-b border-[var(--color-border)] last:border-b-0 align-top">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <UserAvatar fullName={s.fullName} avatarUrl={s.avatarUrl} className="h-8 w-8 rounded-full text-xs" />
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">{s.fullName}</p>
-                          <p className="truncate text-caption">{s.orgUnitName ?? '-'}</p>
-                        </div>
-                      </div>
-                      {s.warnings.length > 0 && (
-                        <p className="mt-1.5 flex items-start gap-1 text-xs text-[var(--color-warning)]">
-                          <AlertTriangle size={12} className="mt-0.5 shrink-0" /> {s.warnings.join(' · ')}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        {s.progress.map(p => (
-                          <Badge key={p.relationship} variant={p.submitted === p.total ? 'success' : 'secondary'}>
-                            {RELATIONSHIP_LABEL()[p.relationship]} {p.submitted}/{p.total}
-                          </Badge>
-                        ))}
-                        {s.progress.length === 0 && <span className="text-caption">{t('CampaignDetail.noRatersYet')}</span>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {s.overallScore != null ? (
-                        <span className="font-semibold">{fmtScore(s.overallScore)}<span className="text-caption">/{campaign.scaleMax}</span></span>
-                      ) : s.status === 'INSUFFICIENT' ? (
-                        <Badge variant="warning">{t('CampaignDetail.missingResponses')}</Badge>
-                      ) : <span className="text-caption">—</span>}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        {(status === 'CLOSED' || status === 'RELEASED') && (
-                          <Button asChild size="sm" variant="outline">
-                            <Link to={`/feedback360/reports/${s.id}`}><FileBarChart /> {t('CampaignDetail.reports')}</Link>
-                          </Button>
-                        )}
-                        {manage && (
-                          <Button size="sm" variant="ghost" onClick={() => setManaging(s)}>{t('CampaignDetail.scorer')}</Button>
-                        )}
-                        {editableList && (
-                          <Button size="icon-sm" variant="ghost" aria-label={t('CampaignDetail.remove', { fullName: s.fullName })} onClick={() => setRemoving(s)}><Trash2 /></Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
 
       {editing && (
         <CampaignFormDialog
           campaign={campaign}
+          initialStep={editing}
           saving={m.update.isPending}
-          onClose={() => setEditing(false)}
-          onSubmit={body => m.update.mutate({ id: campaign.id, body }, { onSuccess: () => setEditing(false) })}
+          onClose={() => setEditing(null)}
+          onSubmit={body => m.update.mutate({ id: campaign.id, body }, { onSuccess: () => setEditing(null) })}
         />
       )}
-      {adding && <AddSubjectsDialog campaign={campaign} onClose={() => setAdding(false)} />}
+      {adding && (
+        <AddSubjectsDialog campaign={campaign} onClose={() => setAdding(false)}
+          // Nháp: thêm xong tự chọn người chấm cho người mới (chỉ ai chưa có phiếu), khỏi một bước bấm.
+          onAdded={status === 'DRAFT' ? () => generate(false) : undefined} />
+      )}
       {dueDialog && <DueDialog campaign={campaign} mode={dueDialog} onClose={() => setDueDialog(null)} />}
       {managing && <AssignmentsDrawer campaign={campaign} subject={managing} onClose={() => setManaging(null)} />}
       {showEvents && <EventsDrawer campaignId={campaign.id} onClose={() => setShowEvents(false)} />}
@@ -330,14 +327,22 @@ const CONFIRM_TEXT = perLanguage(() => ({
   delete: { title: i18n.t('feedback360:CampaignDetail.deleteTheDraftCampaign'), label: i18n.t('feedback360:CampaignDetail.delete'), body: i18n.t('feedback360:CampaignDetail.theCampaignAndTheGeneratedRater') },
 } as const))
 
-function Stat({ label, value, progress }: { label: string; value: React.ReactNode; progress?: number }) {
+function TabChip({ active, onClick, icon, label, count }: { active: boolean; onClick: () => void; icon: ReactNode; label: string; count?: number }) {
+  return (
+    <ChoiceChip variant="segment" size="sm" role="tab" aria-selected={active} selected={active} onClick={onClick}>
+      {icon}{label}{count != null && <span className="ml-0.5 tabular-nums text-[var(--color-muted-foreground)]">{count}</span>}
+    </ChoiceChip>
+  )
+}
+
+function StatTile({ label, value, progress }: { label: string; value: ReactNode; progress?: number }) {
   const { t } = useTranslation('feedback360')
   return (
-    <div className="bg-[var(--color-card)] px-5 py-3">
-      <p className="text-caption">{label}</p>
-      <p className="text-sm font-semibold tabular-nums">{value}</p>
+    <div className="rounded-control bg-[var(--color-muted)] px-3 py-2">
+      <dt className="text-caption">{label}</dt>
+      <dd className="text-base font-semibold tabular-nums">{value}</dd>
       {progress != null && (
-        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--color-muted)]" role="progressbar"
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--color-card)]" role="progressbar"
           aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label={t('CampaignDetail.formsSubmittedRate')}>
           <div className="h-full bg-[var(--color-primary)] transition-all" style={{ width: `${progress}%` }} />
         </div>
@@ -346,13 +351,116 @@ function Stat({ label, value, progress }: { label: string; value: React.ReactNod
   )
 }
 
-function MetaChip({ icon, tone, children }: { icon?: React.ReactNode; tone?: 'warning'; children: React.ReactNode }) {
+function MetaChip({ icon, tone, children }: { icon?: ReactNode; tone?: 'warning'; children: ReactNode }) {
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${tone === 'warning'
       ? 'border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning)]'
       : 'border-[var(--color-border)] bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'}`}>
       {icon}{children}
     </span>
+  )
+}
+
+/**
+ * Danh sách người được đánh giá: một dòng một người, tiến độ là MỘT thanh + chữ nhỏ theo nhóm (thay
+ * cho một hàng huy hiệu màu). Nháp chưa ai nộp nên chỉ đếm người chấm từng nhóm. Dòng co lại thành
+ * thẻ trên màn hẹp, không cuộn ngang.
+ */
+function SubjectList({ campaign, subjects, hasResults, onManage, onRemove }: {
+  campaign: F360Campaign
+  subjects: F360SubjectRow[]
+  hasResults: boolean
+  onManage?: (s: F360SubjectRow) => void
+  onRemove?: (s: F360SubjectRow) => void
+}) {
+  const { t } = useTranslation('feedback360')
+  const draft = campaign.status === 'DRAFT'
+  const cols = hasResults
+    ? 'md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_96px_auto]'
+    : 'md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_auto]'
+  return (
+    <div>
+      <div className={cn('hidden gap-4 border-b border-[var(--color-border)] px-4 py-2 text-caption md:grid', cols)}>
+        <span>{t('CampaignDetail.people2')}</span>
+        <span>{draft ? t('CampaignDetail.ratersByGroup') : t('CampaignDetail.progressByGroup')}</span>
+        {hasResults && <span>{t('CampaignDetail.n360Score')}</span>}
+        <span />
+      </div>
+      <ul className="divide-y divide-[var(--color-border)]">
+        {subjects.map(s => {
+          const sPct = s.assignmentCount ? Math.round((s.submittedCount / s.assignmentCount) * 100) : 0
+          const done = s.assignmentCount > 0 && s.submittedCount >= s.assignmentCount
+          return (
+            <li key={s.id} className={cn('grid items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-[var(--color-muted)]/40', cols)}>
+              <div className="min-w-0">
+                <button type="button" disabled={!onManage} onClick={() => onManage?.(s)}
+                  className="flex w-full min-w-0 items-center gap-3 text-left disabled:cursor-default">
+                  <UserAvatar fullName={s.fullName} avatarUrl={s.avatarUrl} className="size-8 shrink-0 rounded-full text-xs" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">{s.fullName}</span>
+                    <span className="block truncate text-caption">{s.orgUnitName ?? '-'}</span>
+                  </span>
+                </button>
+                {s.warnings.length > 0 && (
+                  <p className="mt-1.5 flex items-start gap-1 text-xs text-[var(--color-warning)]">
+                    <AlertTriangle size={12} className="mt-0.5 shrink-0" /> {s.warnings.join(' · ')}
+                  </p>
+                )}
+              </div>
+
+              <div className="min-w-0">
+                {s.progress.length === 0 ? (
+                  <span className="text-caption">{t('CampaignDetail.noRatersYet')}</span>
+                ) : (
+                  <>
+                    {!draft && (
+                      <div className="mb-1 flex items-center gap-2">
+                        <div className="h-1.5 w-full max-w-[180px] overflow-hidden rounded-full bg-[var(--color-muted)]">
+                          <div className={cn('h-full rounded-full', done ? 'bg-[var(--color-success-solid)]' : 'bg-[var(--color-primary)]')} style={{ width: `${sPct}%` }} />
+                        </div>
+                        <span className="text-xs font-medium tabular-nums">{s.submittedCount}/{s.assignmentCount}</span>
+                      </div>
+                    )}
+                    <p className="flex flex-wrap gap-x-2.5 gap-y-0.5 text-caption">
+                      {s.progress.map(p => (
+                        <span key={p.relationship} className={cn('inline-flex items-center gap-0.5 whitespace-nowrap', !draft && p.submitted >= p.total && 'text-[var(--color-success)]')}>
+                          {!draft && p.submitted >= p.total && <Check size={11} />}
+                          {RELATIONSHIP_LABEL()[p.relationship]} <span className="tabular-nums">{draft ? p.total : `${p.submitted}/${p.total}`}</span>
+                        </span>
+                      ))}
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {hasResults && (
+                <div>
+                  {s.overallScore != null ? (
+                    <span className="font-semibold tabular-nums">{fmtScore(s.overallScore)}<span className="text-caption font-normal">/{campaign.scaleMax}</span></span>
+                  ) : s.status === 'INSUFFICIENT' ? (
+                    <span className="text-xs font-medium text-[var(--color-warning)]">{t('CampaignDetail.missingResponses')}</span>
+                  ) : <span className="text-caption">—</span>}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-1">
+                {hasResults && (
+                  <Button asChild size="sm" variant="outline">
+                    <Link to={`/feedback360/reports/${s.id}`}><FileBarChart /> {t('CampaignDetail.reports')}</Link>
+                  </Button>
+                )}
+                {onManage && (
+                  <Button size="sm" variant="ghost" onClick={() => onManage(s)}><Users /> {t('CampaignDetail.scorer')}</Button>
+                )}
+                {onRemove && (
+                  <Button size="icon-sm" variant="ghost" aria-label={t('CampaignDetail.remove', { fullName: s.fullName })} onClick={() => onRemove(s)}><Trash2 /></Button>
+                )}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
   )
 }
 
@@ -363,14 +471,16 @@ function nextStep(c: F360Campaign, subjectCount: number): { title: string; hint:
   switch (c.status) {
     case 'DRAFT':
       if (subjectCount === 0) return { title: i18n.t('feedback360:CampaignDetail.addReviewees'), hint: i18n.t('feedback360:CampaignDetail.chooseByUnitIncludingChildUnits'), action: 'add' }
+      // Thêm người đã tự chọn người chấm; nhánh này chỉ còn cho dữ liệu cũ hoặc khi lần tự chọn bị lỗi.
       if (c.assignmentCount === 0) return { title: i18n.t('feedback360:CampaignDetail.generateRaters'), hint: i18n.t('feedback360:CampaignDetail.theSystemSuggestsManagersPeersAnd'), action: 'generate' }
       return {
         title: c.startAt && new Date(c.startAt).getTime() > Date.now()
           ? i18n.t('feedback360:CampaignDetail.readyStartsAutomaticallyOn', { startAt: fmtDate(c.startAt) })
           : i18n.t('feedback360:CampaignDetail.readyToStart'),
-        hint: (c.allowNomination
-          ? i18n.t('feedback360:CampaignDetail.startingOpensTheNominationPhaseEach')
-          : i18n.t('feedback360:CampaignDetail.startingSnapshotsTheQuestionSetAnd'))
+        hint: i18n.t('feedback360:CampaignDetail.reviewRatersThen')
+          + (c.allowNomination
+            ? i18n.t('feedback360:CampaignDetail.startingOpensTheNominationPhaseEach')
+            : i18n.t('feedback360:CampaignDetail.startingSnapshotsTheQuestionSetAnd'))
           + (c.startAt && new Date(c.startAt).getTime() > Date.now() ? i18n.t('feedback360:CampaignDetail.toOpenEarlyClickStartNow') : ''),
         action: 'launch',
       }
@@ -391,7 +501,7 @@ function nextStep(c: F360Campaign, subjectCount: number): { title: string; hint:
   }
 }
 
-/** Các bước của chiến dịch; bước đề cử chỉ có khi chiến dịch bật đề cử. */
+/** Các bước của chiến dịch; bước đề cử chỉ có khi chiến dịch bật đề cử. Giãn đều theo bề ngang. */
 function StepTracker({ campaign }: { campaign: F360Campaign }) {
   const { t } = useTranslation('feedback360')
   const steps: { key: F360Campaign['status']; label: string }[] = [
@@ -403,20 +513,21 @@ function StepTracker({ campaign }: { campaign: F360Campaign }) {
   ]
   const current = steps.findIndex(s => s.key === campaign.status)
   return (
-    <ol className="flex items-center gap-2 overflow-x-auto px-5 pb-4" aria-label={t('CampaignDetail.campaignSteps')}>
+    <ol className="flex items-center gap-2 overflow-x-auto px-4 py-3" aria-label={t('CampaignDetail.campaignSteps')}>
       {steps.map((s, i) => {
-        const done = i < current
-        const active = i === current
+        // Đã công bố là bước cuối và cũng là "xong": tô xanh luôn thay vì để một vòng xanh dương đang chạy.
+        const done = i < current || (campaign.status === 'RELEASED' && i === current)
+        const active = i === current && !done
         return (
-          <li key={s.key} className="flex shrink-0 items-center gap-2" aria-current={active ? 'step' : undefined}>
-            <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
-              done ? 'bg-[var(--color-success)] text-white'
-                : active ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
-                  : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'}`}>
-              {done ? <Check size={14} /> : i + 1}
+          <li key={s.key} className={cn('flex min-w-fit items-center gap-2', i < steps.length - 1 && 'flex-1')} aria-current={i === current ? 'step' : undefined}>
+            <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+              done ? 'bg-[var(--color-success-solid)] text-white'
+                : active ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)] ring-4 ring-[var(--color-primary-soft)]'
+                  : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]')}>
+              {done ? <Check size={14} strokeWidth={3} /> : i + 1}
             </span>
-            <span className={`text-sm ${active ? 'font-semibold text-[var(--color-foreground)]' : 'text-[var(--color-muted-foreground)]'}`}>{s.label}</span>
-            {i < steps.length - 1 && <span className={`h-px w-8 ${done ? 'bg-[var(--color-success)]' : 'bg-[var(--color-border)]'}`} />}
+            <span className={cn('whitespace-nowrap text-sm', i === current ? 'font-semibold text-[var(--color-foreground)]' : 'text-[var(--color-muted-foreground)]')}>{s.label}</span>
+            {i < steps.length - 1 && <span className={cn('h-px min-w-6 flex-1', i < current ? 'bg-[var(--color-success-solid)]' : 'bg-[var(--color-border)]')} />}
           </li>
         )
       })}
@@ -424,7 +535,7 @@ function StepTracker({ campaign }: { campaign: F360Campaign }) {
   )
 }
 
-function AddSubjectsDialog({ campaign, onClose }: { campaign: F360Campaign; onClose: () => void }) {
+function AddSubjectsDialog({ campaign, onClose, onAdded }: { campaign: F360Campaign; onClose: () => void; onAdded?: () => void }) {
   const { t } = useTranslation('feedback360')
   const m = useF360CampaignMutations()
   const [mode, setMode] = useState<'unit' | 'people'>('unit')
@@ -435,13 +546,13 @@ function AddSubjectsDialog({ campaign, onClose }: { campaign: F360Campaign; onCl
 
   const submit = () => m.addSubjects.mutate(
     { id: campaign.id, body: mode === 'unit' ? { orgUnitId: unitId, includeChildren } : { userIds: people.map(p => p.id) } },
-    { onSuccess: onClose },
+    { onSuccess: () => { onClose(); onAdded?.() } },
   )
 
   return (
     <Dialog
       open onClose={onClose} size="md" title={t('CampaignDetail.addReviewees')}
-      description={campaign.status === 'OPEN' ? t('CampaignDetail.theCampaignIsRunningRatersFor') : undefined}
+      description={campaign.status === 'DRAFT' ? t('CampaignDetail.ratersArePickedAutomatically') : t('CampaignDetail.theCampaignIsRunningRatersFor')}
       footer={<DialogFooter
         secondary={<Button variant="outline" onClick={onClose}>{t('CampaignDetail.cancel')}</Button>}
         primary={<Button onClick={submit} disabled={!ready || m.addSubjects.isPending}><Plus /> {t('CampaignDetail.add')}</Button>}

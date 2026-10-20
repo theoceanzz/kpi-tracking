@@ -40,6 +40,11 @@ public interface BscScorecardPerspectiveRepository extends JpaRepository<BscScor
             + "WHERE sp.perspective.id = :perspectiveId AND s.deletedAt IS NULL")
     List<BscScorecardPerspective> findLiveByPerspectiveId(@Param("perspectiveId") UUID perspectiveId);
 
+    /** Mọi dòng của các bộ tiêu chí còn sống trong tổ chức — một truy vấn cho danh sách hạng mục. */
+    @Query("SELECT sp FROM BscScorecardPerspective sp JOIN FETCH sp.scorecard s "
+            + "WHERE s.organization.id = :organizationId AND s.deletedAt IS NULL")
+    List<BscScorecardPerspective> findLiveByOrganizationId(@Param("organizationId") UUID organizationId);
+
     @Query("SELECT sp FROM BscScorecardPerspective sp JOIN sp.scorecard s JOIN sp.perspective p "
             + "WHERE p.sourceScorecard.id = :sourceId AND s.deletedAt IS NULL")
     List<BscScorecardPerspective> findBySourceScorecardId(@Param("sourceId") UUID sourceId);

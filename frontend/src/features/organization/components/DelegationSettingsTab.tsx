@@ -402,11 +402,14 @@ function DelegationFormModal({
           )}
         </Field>
 
+        {/* Ký thay trưởng = gán vai trò trưởng thật ở đơn vị đích, mà vai trò luôn phủ cả
+            cây con — server cũng ép như vậy, nên khoá ô này lại cho khớp. */}
         <CheckRow {...tourAnchor('delegations.form.subtree')}
-          checked={includeSubtree}
+          checked={includeSubtree || canActAsLeader}
           onChange={setIncludeSubtree}
+          disabled={canActAsLeader}
           title={t('DelegationSettingsTab.includeLowerUnits')}
-          hint={t('DelegationSettingsTab.turnOffToAssignOnlyThat')}
+          hint={canActAsLeader ? t('DelegationSettingsTab.leaderAlwaysIncludesLowerUnits') : t('DelegationSettingsTab.turnOffToAssignOnlyThat')}
         />
 
         <CheckRow {...tourAnchor('delegations.form.leader')}
@@ -574,18 +577,20 @@ function DelegateUserPicker({
 }
 
 function CheckRow({
-  checked, onChange, title, hint, ...rest
+  checked, onChange, title, hint, disabled, ...rest
 }: {
   checked: boolean
   onChange: (v: boolean) => void
   title: string
   hint: string
+  disabled?: boolean
   'data-tour'?: string
 }) {
   return (
     <ChoiceChip
       {...rest}
       selected={checked}
+      disabled={disabled}
       // ChoiceChip mặc định là chip 1 dòng (h-8, nowrap, căn giữa) — ở đây là dòng 2 tầng chữ
       className="w-full h-auto items-start justify-start gap-3 whitespace-normal px-3 py-2.5 text-left"
       onClick={() => onChange(!checked)}

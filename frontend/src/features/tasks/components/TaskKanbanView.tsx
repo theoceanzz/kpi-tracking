@@ -242,7 +242,8 @@ function DraggableCard({ task, active, onOpen, list }: { task: KpiTask; active: 
   const canDrag = task.canEdit || (!!list && (list.role === 'OWNER' || list.role === 'EDITOR'))
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, disabled: !canDrag })
   return (
-    <div ref={setNodeRef} {...attributes} {...listeners} className={cn(isDragging && 'opacity-40')}>
+    // Không kéo được ⇒ bỏ thuộc tính dnd-kit (aria-disabled="true" làm thẻ bị coi là vô hiệu dù bấm vẫn mở).
+    <div ref={setNodeRef} {...(canDrag ? attributes : {})} {...(canDrag ? listeners : {})} className={cn(isDragging && 'opacity-40')}>
       <Card task={task} active={active} onOpen={onOpen} list={list} />
     </div>
   )

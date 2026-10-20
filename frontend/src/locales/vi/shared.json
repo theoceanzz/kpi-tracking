@@ -2720,8 +2720,8 @@
         "b": "Nút này mở form chiến dịch đánh giá 360. Bấm vào nó hoặc bấm Tiếp theo để xem form."
       },
       "name": {
-        "t": "Tên chiến dịch",
-        "b": "Ví dụ \"Đánh giá 360 năm 2026\"."
+        "t": "Bước 1 · Tên chiến dịch",
+        "b": "Form chia ba bước: Thông tin & thời gian → Câu hỏi → Cách chạy. Bắt đầu bằng tên, ví dụ \"Đánh giá 360 năm 2026\"."
       },
       "purpose": {
         "t": "Mục đích",
@@ -2740,11 +2740,11 @@
         "b": "Lời nhắn cho người đánh giá, không bắt buộc."
       },
       "questions": {
-        "t": "Câu hỏi đánh giá",
+        "t": "Bước 2 · Câu hỏi đánh giá",
         "b": "Bộ năng lực và câu hỏi, mỗi năng lực có trọng số. Có thể chép câu hỏi từ chiến dịch cũ."
       },
       "process": {
-        "t": "Quy trình",
+        "t": "Bước 3 · Quy trình",
         "b": "Người được đánh giá có tự đánh giá không, có tự đề cử người chấm không, và có xem được báo cáo của mình không."
       },
       "advanced": {
@@ -2753,7 +2753,7 @@
       },
       "submit": {
         "t": "Tạo chiến dịch",
-        "b": "Chiến dịch được lưu ở dạng nháp; thêm người được đánh giá rồi mới khởi động."
+        "b": "Chiến dịch được lưu ở dạng nháp. Sau đó thêm người được đánh giá — hệ thống tự chọn người chấm cho họ — rồi khởi động."
       }
     },
     "newSub": {

@@ -19,4 +19,7 @@ public class UserRoleOrgUnitResponse {
     private String assignedByName;
     private Instant assignedAt;
     private Instant expiresAt;
+    /** Đơn vị CHÍNH của người này (PrimaryUnitResolver); khác orgUnitId ⇒ ở đây là kiêm nhiệm. */
+    private UUID primaryOrgUnitId;
+    private String primaryOrgUnitName;
 }

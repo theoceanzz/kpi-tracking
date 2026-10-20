@@ -79,7 +79,8 @@ class BscWholeCascadeItemsTest {
         service = new BscTreeService(scorecardRepository, itemRepository, mock(BscPerspectiveRepository.class),
                 mock(BscUnitResultRepository.class), unitResultItemRepository, kpiCriteriaRepository,
                 orgUnitRepository, mock(KpiPeriodRepository.class), mock(UserRepository.class),
-                mock(BscAccessGuard.class), mock(ApplicationEventPublisher.class), mock(BscCycleLockGuard.class));
+                mock(BscAccessGuard.class), mock(ApplicationEventPublisher.class), mock(BscCycleLockGuard.class),
+                mock(BscEmptyPolicySync.class));
 
         KpiPeriod period = KpiPeriod.builder().id(UUID.randomUUID()).name("Đợt 1").build();
         Organization org = Organization.builder().id(ORG).build();

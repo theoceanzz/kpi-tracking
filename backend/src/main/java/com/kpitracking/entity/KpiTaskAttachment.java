@@ -1,5 +1,6 @@
 package com.kpitracking.entity;
 
+import com.kpitracking.enums.KpiTaskAttachmentKind;
 import com.kpitracking.enums.StorageProvider;
 import jakarta.persistence.*;
 import lombok.*;
@@ -19,6 +20,12 @@ public class KpiTaskAttachment {
 
     @Column(name = "task_id", nullable = false)
     private UUID taskId;
+
+    /** Tệp đính kèm hay kết quả (V47). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kind", nullable = false, length = 20)
+    @Builder.Default
+    private KpiTaskAttachmentKind kind = KpiTaskAttachmentKind.REFERENCE;
 
     @Column(name = "file_name", nullable = false)
     private String fileName;

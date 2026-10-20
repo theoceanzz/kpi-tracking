@@ -191,6 +191,9 @@ export function abbreviateOrgUnitName(name?: string | null, maxLength = 18): str
 
 export function getPrimaryMembership(user: { memberships?: Array<any> }): any | undefined {
   if (!user.memberships || user.memberships.length === 0) return undefined;
+  // Backend đánh dấu đơn vị CHÍNH (người kiêm nhiệm nhiều đơn vị) — đừng tự đoán theo cấp đơn vị.
+  const flagged = user.memberships.find(m => m.primary)
+  if (flagged) return flagged
   return user.memberships.reduce((prev, current) => {
     // Prioritize the deepest unit (highest levelOrder)
     const prevLevel = prev.levelOrder ?? -1;

@@ -32,6 +32,7 @@ const typeConfig = perLanguage((): Record<string, { icon: LucideIcon; color: str
   BSC_RESULT: { icon: Calculator, color: 'bg-[var(--color-success-bg)] text-[var(--color-success)]', label: i18n.t('notifications:NotificationsPage.bscResults') },
   REWARD_GRANT: { icon: Award, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: i18n.t('notifications:NotificationsPage.rewardProposals') },
   REWARD_POINT: { icon: Coins, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: i18n.t('notifications:NotificationsPage.rewardPoints') },
+  REWARD_POINT_REVOKED: { icon: Coins, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.rewardPointsRevoked') },
   REWARD_GIFT: { icon: Gift, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: i18n.t('notifications:NotificationsPage.giftRedemption') },
   REWARD_GIFT_REQUEST: { icon: Gift, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.giftRedemption') },
   WALLET: { icon: Wallet, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: i18n.t('notifications:NotificationsPage.wallet') },

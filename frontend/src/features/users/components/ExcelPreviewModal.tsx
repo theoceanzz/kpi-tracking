@@ -310,7 +310,11 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
 
     // 2. Second pass: collect statistics for cross-row validation
     const managerCounts = new Map<string, number>()
-    const codeCounts = new Map<string, number>()
+    // Mã nhân viên → các email dùng nó. Cùng một người xuất hiện nhiều dòng (mỗi dòng một đơn vị =
+    // kiêm nhiệm) là hợp lệ; chỉ lỗi khi một mã gắn với HAI người khác nhau.
+    const codeEmails = new Map<string, Set<string>>()
+    // Cùng người + cùng đơn vị xuất hiện hai lần ⇒ dòng thừa.
+    const personUnitCounts = new Map<string, number>()
     const unitsWithManager = new Set<string>()
 
     validatedRows.forEach(row => {
@@ -329,7 +333,13 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
 
       if (row.EmployeeCode && row.EmployeeCode.trim()) {
         const code = row.EmployeeCode.trim().toLowerCase()
-        codeCounts.set(code, (codeCounts.get(code) || 0) + 1)
+        const emails = codeEmails.get(code) ?? new Set<string>()
+        emails.add((row.Email || '').trim().toLowerCase())
+        codeEmails.set(code, emails)
+      }
+      if (row.Email) {
+        const key = `${row.Email.trim().toLowerCase()}|${(row.OrgUnitCode || '').trim().toLowerCase()}`
+        personUnitCounts.set(key, (personUnitCounts.get(key) || 0) + 1)
       }
     })
 
@@ -358,9 +368,12 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       // Duplicate employee code check in file
       if (row.EmployeeCode && row.EmployeeCode.trim()) {
         const code = row.EmployeeCode.trim().toLowerCase()
-        if ((codeCounts.get(code) || 0) > 1) {
+        if ((codeEmails.get(code)?.size || 0) > 1) {
           errors['EmployeeCode'] = t('ExcelPreviewModal.duplicateEmployeeCodeInTheFile')
         }
+      }
+      if (row.Email && (personUnitCounts.get(`${row.Email.trim().toLowerCase()}|${(row.OrgUnitCode || '').trim().toLowerCase()}`) || 0) > 1) {
+        errors['OrgUnitCode'] = t('ExcelPreviewModal.samePersonSameUnitTwice')
       }
 
       return { ...row, _errors: Object.keys(errors).length > 0 ? errors : undefined }

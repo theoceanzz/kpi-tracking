@@ -60,7 +60,8 @@ class AiReviewSettingsResolverTest {
         OrgUnitRepository units = mock(OrgUnitRepository.class);
         ragDocs = mock(RagDocumentRepository.class);
         resolver = new AiReviewSettingsResolver(unitSettings, sets, mock(AiCriteriaSetItemRepository.class),
-                assignments, units, ragDocs);
+                assignments, new com.kpitracking.service.PrimaryUnitResolver(assignments,
+                        mock(com.kpitracking.repository.UserRepository.class)), units, ragDocs);
 
         org.setId(UUID.randomUUID());
         org.setEnableAi(true);

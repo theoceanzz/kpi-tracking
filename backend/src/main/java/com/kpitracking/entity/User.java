@@ -109,6 +109,13 @@ public class User {
     private String preferredLanguage;
 
     /**
+     * Đơn vị CHÍNH (V46) khi người này thuộc nhiều đơn vị. Đừng đọc thẳng cột này: nó có thể
+     * trống hoặc trỏ vào đơn vị họ đã rời — dùng {@code PrimaryUnitResolver}.
+     */
+    @Column(name = "primary_org_unit_id")
+    private UUID primaryOrgUnitId;
+
+    /**
      * Tài khoản đã bị tạm dừng (INACTIVE) hoặc tạm khóa (SUSPENDED) ở trang Quản lý tài khoản.
      * Mọi danh sách nhân sự ngoài trang đó phải bỏ những người này — cùng một quy tắc với
      * {@code deletedAt}: xoá mềm và tạm dừng đều là "không còn làm việc trong hệ thống".

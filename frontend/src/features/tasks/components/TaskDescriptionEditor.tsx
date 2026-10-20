@@ -83,6 +83,9 @@ export default function TaskDescriptionEditor({ doc, plain, editable, onSave, au
       },
     },
     onUpdate: ({ editor: ed }) => {
+      // Chỉ lưu thay đổi do NGƯỜI GÕ: ô chỉ đọc không bao giờ gửi PATCH (người chỉ xem nhận 403,
+      // người sửa được thì mỗi lần mở việc lại âm thầm lưu một bản và tăng version).
+      if (!ed.isEditable) return
       if (timer.current) clearTimeout(timer.current)
       timer.current = setTimeout(() => {
         const json = JSON.stringify(ed.getJSON())
@@ -102,11 +105,12 @@ export default function TaskDescriptionEditor({ doc, plain, editable, onSave, au
     }
   }, [doc, plain, editor])
 
-  useEffect(() => { editor?.setEditable(editable) }, [editor, editable])
+  // emitUpdate = false: mặc định TipTap phát 'update' khi đổi chế độ sửa, kích hoạt bộ tự lưu dù chưa gõ gì.
+  useEffect(() => { editor?.setEditable(editable, false) }, [editor, editable])
 
   // Rời bảng chi tiết khi còn thay đổi chưa lưu ⇒ lưu ngay.
   useEffect(() => () => {
-    if (timer.current && editor) {
+    if (timer.current && editor && editor.isEditable) {
       clearTimeout(timer.current)
       const json = JSON.stringify(editor.getJSON())
       if (json !== lastSaved.current) onSaveRef.current(json, editor.getText({ blockSeparator: '\n' }))

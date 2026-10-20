@@ -206,8 +206,9 @@ public class KpiCriteriaController {
     public ResponseEntity<ApiResponse<Double>> getTotalWeight(
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) UUID userId,
-            @RequestParam(required = false) UUID kpiPeriodId) {
-        Double totalWeight = kpiCriteriaService.getTotalWeight(orgUnitId, userId, kpiPeriodId);
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(defaultValue = "false") boolean sameBranch) {
+        Double totalWeight = kpiCriteriaService.getTotalWeight(orgUnitId, userId, kpiPeriodId, sameBranch);
         return ResponseEntity.ok(ApiResponse.success(totalWeight != null ? totalWeight : 0.0));
     }
 

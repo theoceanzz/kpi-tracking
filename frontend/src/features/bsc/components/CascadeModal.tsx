@@ -242,6 +242,18 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
   const unitSuffix = selectedItem?.unit ? ` ${selectedItem.unit}` : ''
   const fmt = (n: number) => n.toLocaleString(intlLocale())
   // Chỉ SUM mới cộng dồn — với SHARED thì so tổng với mục tiêu cha là vô nghĩa.
+  const parentMinimum = selectedItem?.minimumValue ?? null
+  /**
+   * Tối thiểu của đơn vị = cùng tỉ lệ tối thiểu / mục tiêu với chỉ tiêu cha — y luật backend
+   * (`BscCascadeService.scaledMinimum`), chỉ để hiện trước khi lưu.
+   */
+  const minimumOf = (r: TargetRow): number | null => {
+    const v = numOrNull(r.value)
+    const target = v ?? (!r.support && method === BscLinkType.SHARED ? parentTarget : null)
+    if (target == null || parentMinimum == null) return null
+    if (parentTarget == null || parentTarget <= 0) return Math.min(parentMinimum, target)
+    return Math.min(Math.round((parentMinimum / parentTarget) * target * 100) / 100, target)
+  }
   const showCoverage = method === BscLinkType.SUM && parentTarget != null && parentTarget > 0
   const gap = showCoverage ? parentTarget - totalContribution : null
   const covered = gap != null && Math.abs(gap) <= Math.max(0.01, Math.abs(parentTarget!) * 0.01)
@@ -270,6 +282,16 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
     // Trọng số của dòng được giao là do CẤP TRÊN đặt và bị khoá ở phía đơn vị. Bỏ trống ở đây là
     // dồn đơn vị vào ngõ cụt: dòng đó nằm im ở 0%, họ không sửa được, mà tổng thì không bao giờ
     // đủ 100% nên cũng không trình duyệt được.
+    // Mục tiêu 0 ⇒ đơn vị luôn đạt 0%; chia chỉ tiêu mà để trống ⇒ dòng con nhận nguyên mục tiêu của cha.
+    // Cùng luật với backend (`CASCADE_UNIT_TARGET_REQUIRED`). Đơn vị không gánh phần nào thì chọn Hỗ trợ.
+    const m = methodOf(item.id)
+    const badTarget = sel.filter(r => r.whole == null).filter(r => {
+      const v = numOrNull(r.value)
+      return (v != null && v <= 0) || (!r.support && m === BscLinkType.SUM && v == null)
+    })
+    if (badTarget.length > 0) {
+      return t('CascadeModal.targetRequired', { name: item.name, units: badTarget.map(r => r.name).join(', ') })
+    }
     const missingWeight = sel.filter(r => r.weight.trim() === '' || Number(r.weight) <= 0)
     if (missingWeight.length > 0) {
       return `${item.name}: ` + t('CascadeModal.enterWeightsFor') + missingWeight.map(r => r.name).join(', ')
@@ -588,6 +610,9 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
                 <span className="text-eyebrow w-28 text-right whitespace-nowrap hidden sm:block">
                   {t('CascadeModal.unitTarget')}{selectedItem.unit ? ` (${selectedItem.unit})` : ''}
                 </span>
+                {parentMinimum != null && (
+                  <span className="text-eyebrow w-16 text-right whitespace-nowrap hidden sm:block">{t('CascadeModal.unitMinimum')}</span>
+                )}
                 <span className="text-eyebrow w-20 text-right whitespace-nowrap hidden sm:block">{t('CascadeModal.weight')}</span>
               </div>
               {targetUnits.length === 0 && (
@@ -644,6 +669,15 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
                           placeholder={placeholder}
                           className={cn('w-28 px-2 py-1.5 rounded-control bg-[var(--color-muted)] border border-[var(--color-border)] text-xs font-medium text-right outline-none focus:placeholder:text-transparent',
                             r.support && 'text-[var(--color-muted-foreground)]')} />
+                        {parentMinimum != null && (() => {
+                          const m = minimumOf(r)
+                          return (
+                            <span className="w-16 text-right text-xs tabular-nums text-[var(--color-muted-foreground)]"
+                              title={t('CascadeModal.unitMinimum')}>
+                              {m != null ? fmt(m) : '—'}
+                            </span>
+                          )
+                        })()}
                         <LocaleNumberInput type="number" step="0.1" value={r.weight}
                           aria-label={t('CascadeModal.weight')}
                           onChange={e => patch(u, { weight: e.target.value })}
@@ -660,6 +694,15 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
               <b>{t('CascadeModal.roleMain')}</b>: {t('CascadeModal.roleMainHint')}{' '}
               <b>{t('CascadeModal.roleSupport')}</b>: {t('CascadeModal.roleSupportHint')}
             </p>
+            {parentMinimum != null && parentTarget != null && parentTarget > 0 && (
+              <p className="text-caption">
+                {t('CascadeModal.minimumScaledNote', {
+                  minimum: fmt(parentMinimum),
+                  target: fmt(parentTarget),
+                  percent: fmt(Math.round((parentMinimum / parentTarget) * 1000) / 10),
+                })}
+              </p>
+            )}
 
             {nextItem && (
               <div className="flex justify-end">

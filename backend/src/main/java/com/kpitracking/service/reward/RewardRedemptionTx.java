@@ -118,6 +118,9 @@ public class RewardRedemptionTx {
                 .pointsSpent(totalCost)
                 .status(settleNow ? RedemptionStatus.DELIVERED : RedemptionStatus.PENDING)
                 .deliveredAt(settleNow ? now : null)
+                // Giao ngay trong chính request của người đổi: màn hình của họ đã ăn mừng lúc nhận
+                // phản hồi, nên đánh dấu luôn — không thì lần mở app sau lại bắn pháo lần hai.
+                .celebratedAt(settleNow ? now : null)
                 .note(request.getNote())
                 .build());
 
@@ -183,11 +186,19 @@ public class RewardRedemptionTx {
         return saved;
     }
 
-    /** Hệ thống ngoài đã xuất quà: ghi mã đơn, lưu mã voucher, đóng yêu cầu. */
+    /**
+     * Hệ thống ngoài đã xuất quà: ghi mã đơn, lưu mã voucher, đóng yêu cầu.
+     *
+     * @param ownerWatching true khi đang chạy trong chính request đổi quà của người đổi (họ nhận mã ngay
+     *   trên màn hình và đã được ăn mừng ở đó) ⇒ đánh dấu đã ăn mừng. False khi bộ phận quà bấm
+     *   "Giao quà" thử lại cho đơn treo ⇒ để trống, người đổi được ăn mừng lần tới mở app.
+     */
     @Transactional
-    public RewardRedemption settleSuccess(UUID id, String externalRef, Map<String, Object> payload) {
+    public RewardRedemption settleSuccess(UUID id, String externalRef, Map<String, Object> payload,
+                                          boolean ownerWatching) {
         RewardRedemption r = load(id);
         Instant now = Instant.now();
+        if (ownerWatching) r.setCelebratedAt(now);
 
         if (externalRef != null) r.setExternalOrderId(externalRef);
         r.setFulfillmentPayload(toJson(payload));

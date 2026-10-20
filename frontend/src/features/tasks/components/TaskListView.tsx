@@ -344,7 +344,9 @@ function DraggableRow({ task, activeTaskId, onOpen, columns, list, selectable, s
         columns={columns}
         fields={list?.fields}
         dragging={drag.isDragging}
-        dragHandleProps={{ ...drag.attributes, ...drag.listeners }}
+        // Không kéo được thì KHÔNG rải thuộc tính của dnd-kit: nó gắn aria-disabled="true" lên cả dòng,
+        // trình đọc màn hình báo dòng "bị vô hiệu" dù bấm vẫn mở việc (và Playwright từ chối bấm).
+        dragHandleProps={canDrag ? { ...drag.attributes, ...drag.listeners } : undefined}
         selectable={selectable}
         selected={!!selectedIds?.has(task.id)}
         onToggleSelect={onToggleSelect}
