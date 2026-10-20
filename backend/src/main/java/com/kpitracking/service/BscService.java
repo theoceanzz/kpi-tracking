@@ -60,6 +60,7 @@ public class BscService {
     private final BscPerspectiveRepository perspectiveRepository;
     private final OrganizationRepository organizationRepository;
     private final BscScorecardRepository scorecardRepository;
+    private final BscEmptyPolicySync emptyPolicySync;
     private final BscScorecardPerspectiveRepository scorecardPerspectiveRepository;
     private final BscWeightHistoryRepository weightHistoryRepository;
     private final KpiPeriodRepository kpiPeriodRepository;
@@ -80,11 +81,15 @@ public class BscService {
 
     @Transactional(readOnly = true)
     public List<PerspectiveResponse> getPerspectives(UUID organizationId) {
+        // Một truy vấn cho mọi dòng của tổ chức thay vì hỏi từng hạng mục — để biết bộ chủ / nơi đang dùng.
+        java.util.Map<UUID, List<BscScorecardPerspective>> rowsByPerspective =
+                scorecardPerspectiveRepository.findLiveByOrganizationId(organizationId).stream()
+                        .collect(Collectors.groupingBy(sp -> sp.getPerspective().getId()));
         return perspectiveRepository.findByOrganizationIdOrderByDisplayOrderAsc(organizationId).stream()
                 // Hạng mục hệ thống của phân rã cả bộ không phải danh mục: KPI không được gắn vào,
                 // người dùng không tự tick vào bộ tiêu chí — nó chỉ đến qua phân rã.
                 .filter(p -> p.getSourceScorecard() == null)
-                .map(this::mapToPerspectiveResponse)
+                .map(p -> mapToPerspectiveResponse(p, rowsByPerspective.getOrDefault(p.getId(), List.of())))
                 .collect(Collectors.toList());
     }
 
@@ -204,10 +209,22 @@ public class BscService {
     }
 
     @Transactional
-    public PerspectiveResponse updatePerspective(UUID perspectiveId, PerspectiveRequest request) {
+    public PerspectiveResponse updatePerspective(UUID perspectiveId, PerspectiveRequest request, UUID fromScorecardId) {
         BscPerspective perspective = perspectiveRepository.findById(perspectiveId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.item")));
         assertCanChangePerspective(perspective);
+        // Hạng mục đã thuộc bộ A thì bộ khác chỉ dùng lại — kể cả quản trị (sửa ở bộ A, các bộ nhận
+        // phân rã tự đồng bộ). Sửa từ bộ chủ thì người sửa phải sửa được chính bộ đó.
+        List<BscScorecardPerspective> liveRows = scorecardPerspectiveRepository.findLiveByPerspectiveId(perspectiveId);
+        if (!BscPerspectiveOwnership.canEditFrom(liveRows, fromScorecardId)) {
+            throw new BusinessException(ErrorCode.PERSPECTIVE_OWNED_BY_OTHER_SCORECARD,
+                    BscPerspectiveOwnership.ownerOf(liveRows).getName());
+        }
+        if (fromScorecardId != null) {
+            BscScorecard from = scorecardRepository.findById(fromScorecardId)
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.scorecard")));
+            accessGuard.assertCanEditContent(from);
+        }
 
         // Mã sinh tự động và tổ chức không cho ghi đè ⇒ giữ nguyên mã cũ, bỏ qua giá trị gửi lên.
         String code = orgCodeRuleService.resolveOnUpdate(perspective.getOrganization().getId(),
@@ -257,6 +274,12 @@ public class BscService {
         BscPerspective perspective = perspectiveRepository.findById(perspectiveId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.item")));
         assertCanChangePerspective(perspective);
+        // Còn bộ nào dùng thì không xoá — kể cả quản trị: xoá mềm hạng mục mà dòng của bộ vẫn trỏ vào.
+        List<BscScorecardPerspective> liveRows = scorecardPerspectiveRepository.findLiveByPerspectiveId(perspectiveId);
+        if (!BscPerspectiveOwnership.canDelete(liveRows)) {
+            throw new BusinessException(ErrorCode.PERSPECTIVE_IN_USE, liveRows.stream()
+                    .map(r -> r.getScorecard().getName()).distinct().collect(Collectors.joining(", ")));
+        }
         // Soft-delete: KPI đã gán lĩnh vực này sẽ được DB set NULL (ON DELETE SET NULL không chạy khi soft-delete),
         // nên chỉ đánh dấu xoá mềm để giữ lịch sử điểm.
         perspective.setDeletedAt(Instant.now());
@@ -340,6 +363,8 @@ public class BscService {
                         : com.kpitracking.enums.BscEmptyPerspectivePolicy.RENORMALIZE)
                 .build();
         scorecard = scorecardRepository.save(scorecard);
+        // Tạo thẳng dưới một thẻ cha ⇒ theo luật hạng mục rỗng của cây (BscEmptyPolicySync).
+        emptyPolicySync.inheritFromParent(scorecard);
 
         User currentUser = getCurrentUserOrNull();
         if (request.getPerspectives() != null) {
@@ -378,9 +403,10 @@ public class BscService {
 
         // Phạm vi thời gian (đợt/kỳ) sửa được; phạm vi phòng ban thì không. Bỏ qua nếu client
         // không gửi gì về thời gian để các client cũ chỉ sửa trọng số vẫn chạy.
-        if (request.getApplyScope() != null
+        // Thẻ nhận phân rã / gắn vào cây đi theo đợt của thẻ cấp trên ⇒ bỏ qua như phạm vi phòng ban.
+        if (!isCascadeChild(scorecard) && (request.getApplyScope() != null
                 || request.getKpiCycleId() != null
-                || (request.getKpiPeriodIds() != null && !request.getKpiPeriodIds().isEmpty())) {
+                || (request.getKpiPeriodIds() != null && !request.getKpiPeriodIds().isEmpty()))) {
             UUID orgId = scorecard.getOrganization().getId();
             ScopeSelection scope = resolveScopeSelection(orgId, request);
             assertScopeWritable(scope);
@@ -396,9 +422,11 @@ public class BscService {
         // Phòng ban của thẻ không sửa được qua API này, nhưng cấp vẫn tính lại để dữ liệu tạo
         // trước migration (hoặc sửa thẳng DB) tự về đúng luật.
         scorecard.setLevel(resolveLevel(scorecard.getOrgUnits()));
+        boolean attachedNow = false;
         if (request.getParentScorecardId() != null) {
             scorecard.setParentScorecard(resolveParent(scorecard.getOrganization().getId(),
                     request.getParentScorecardId(), scorecard.getLevel(), scorecardId));
+            attachedNow = true;
         }
         // Đổi trạng thái là việc của luồng trình – duyệt (submit/approve/lock), không phải của form
         // sửa. Form chỉ còn đặt được khi thẻ CHƯA vào luồng — nháp hoặc đã lưu trữ; thẻ đang áp
@@ -410,7 +438,14 @@ public class BscService {
             scorecard.setStatus(request.getStatus());
         }
         if (request.getScoringMode() != null) scorecard.setScoringMode(request.getScoringMode());
-        if (request.getEmptyPerspectivePolicy() != null) scorecard.setEmptyPerspectivePolicy(request.getEmptyPerspectivePolicy());
+        // Thẻ con đi theo thẻ cha (form khoá ô, ở đây bỏ qua giá trị gửi lên); thẻ gốc đổi thì áp xuống cả cây.
+        if (BscEmptyPolicySync.followsParent(scorecard)) {
+            if (attachedNow) emptyPolicySync.inheritFromParent(scorecard);
+        } else if (request.getEmptyPerspectivePolicy() != null
+                && request.getEmptyPerspectivePolicy() != scorecard.getEmptyPerspectivePolicy()) {
+            scorecard.setEmptyPerspectivePolicy(request.getEmptyPerspectivePolicy());
+            emptyPolicySync.propagateDown(scorecard);
+        }
 
         User currentUser = getCurrentUserOrNull();
         if (request.getPerspectives() != null) {
@@ -1393,8 +1428,27 @@ public class BscService {
         }
     }
 
+    /**
+     * Thẻ con trong cây BSC (nhận phân rã, giao cả bộ hoặc được gắn vào thẻ cha): đợt/kỳ đi theo thẻ
+     * cấp trên — đổi riêng thì dòng được giao lệch đợt với chỉ tiêu cha nó cộng lên.
+     */
+    private boolean isCascadeChild(BscScorecard scorecard) {
+        return scorecard.getParentScorecard() != null
+                || scorecardPerspectiveRepository.findByScorecardIdOrderByDisplayOrderAsc(scorecard.getId()).stream()
+                        .anyMatch(BscPerspectiveOwnership::derived);
+    }
+
     private PerspectiveResponse mapToPerspectiveResponse(BscPerspective p) {
+        return mapToPerspectiveResponse(p, p.getId() != null
+                ? scorecardPerspectiveRepository.findLiveByPerspectiveId(p.getId()) : List.of());
+    }
+
+    private PerspectiveResponse mapToPerspectiveResponse(BscPerspective p, List<BscScorecardPerspective> liveRows) {
+        BscScorecard owner = BscPerspectiveOwnership.ownerOf(liveRows);
         return PerspectiveResponse.builder()
+                .ownerScorecardId(owner != null ? owner.getId() : null)
+                .ownerScorecardName(owner != null ? owner.getName() : null)
+                .usedInScorecardIds(liveRows.stream().map(r -> r.getScorecard().getId()).distinct().toList())
                 .id(p.getId())
                 .code(p.getCode())
                 .name(p.getName())

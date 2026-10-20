@@ -2722,8 +2722,8 @@
         "b": "This button opens the 360 campaign form. Click it or press Next to see the form."
       },
       "name": {
-        "t": "Campaign name",
-        "b": "E.g. \"2026 360 review\"."
+        "t": "Step 1 · Campaign name",
+        "b": "The form has three steps: Details & schedule → Questions → How it runs. Start with a name, e.g. \"2026 360 review\"."
       },
       "purpose": {
         "t": "Purpose",
@@ -2742,11 +2742,11 @@
         "b": "A note for raters, optional."
       },
       "questions": {
-        "t": "Questions",
+        "t": "Step 2 · Questions",
         "b": "Competencies and questions, each competency weighted. You can copy questions from an earlier campaign."
       },
       "process": {
-        "t": "Process",
+        "t": "Step 3 · Process",
         "b": "Whether reviewees rate themselves, nominate extra raters, and can see their own report."
       },
       "advanced": {
@@ -2755,7 +2755,7 @@
       },
       "submit": {
         "t": "Create campaign",
-        "b": "The campaign is saved as a draft; add reviewees before launching it."
+        "b": "The campaign is saved as a draft. Then add reviewees — raters are picked for them automatically — and launch it."
       }
     },
     "newSub": {

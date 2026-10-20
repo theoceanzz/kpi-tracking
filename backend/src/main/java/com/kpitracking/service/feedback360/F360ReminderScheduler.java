@@ -46,6 +46,7 @@ public class F360ReminderScheduler {
     private final F360AssignmentRepository assignmentRepository;
     private final EvaluationReminderRepository reminderRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.service.PrimaryUnitResolver primaryUnits;
     private final NotificationDispatcher dispatcher;
     private final F360CampaignService campaignService;
     private final TransactionTemplate transactionTemplate;
@@ -138,10 +139,6 @@ public class F360ReminderScheduler {
     }
 
     private OrgUnit primaryUnit(User user) {
-        return userRoleOrgUnitRepository.findByUserId(user.getId()).stream()
-                .filter(a -> a.getOrgUnit() != null && a.getRole() != null)
-                .min(Comparator.comparingInt(a -> a.getRole().getRank() == null ? Integer.MAX_VALUE : a.getRole().getRank()))
-                .map(UserRoleOrgUnit::getOrgUnit)
-                .orElse(null);
+        return primaryUnits.unitOf(user);
     }
 }

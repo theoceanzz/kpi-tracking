@@ -50,6 +50,7 @@ public class ConductService {
     private final OrgUnitRepository orgUnitRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final PermissionChecker permissionChecker;
+    private final PrimaryUnitResolver primaryUnits;
     private final com.kpitracking.service.kpi.CycleLockChecker cycleLockChecker;
 
     // ============================================================
@@ -279,7 +280,8 @@ public class ConductService {
     }
 
     private static ConductCriteriaRequest toRequest(ConductCriteria c) {
-        return ConductCriteriaRequest.builder().name(c.getName()).description(c.getDescription()).weight(c.getWeight()).build();
+        return ConductCriteriaRequest.builder().name(c.getName()).description(c.getDescription())
+                .levelDescriptions(c.getLevelDescriptions()).weight(c.getWeight()).build();
     }
 
     private static boolean inGroup(ConductCriteria c, ConductCriteriaGroup g) {
@@ -353,6 +355,7 @@ public class ConductService {
         c.setGroup(group);
         c.setName(req.getName().trim());
         c.setDescription(req.getDescription());
+        c.setLevelDescriptions(normalizeLevels(req.getLevelDescriptions(), set.getMaxScore()));
         c.setWeight(req.getWeight());
         c.setPosition(position);
         conductCriteriaRepository.save(c);
@@ -853,6 +856,7 @@ public class ConductService {
                     .criteria(c)
                     .criteriaName(c.getName())
                     .criteriaDescription(c.getDescription())
+                    .criteriaLevelDescriptions(c.getLevelDescriptions())
                     .weight(overallWeight(c))
                     .position(c.getPosition())
                     .groupName(g != null ? g.getName() : null)
@@ -968,23 +972,17 @@ public class ConductService {
     }
 
     private OrgUnit primaryUnit(UUID userId) {
-        return userRoleOrgUnitRepository.findByUserId(userId).stream()
-                .map(UserRoleOrgUnit::getOrgUnit)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
+        return primaryUnits.unitOf(userId);
     }
 
     /**
-     * XEM phiếu của người khác: có quyền EVALUATION:CREATE tại một đơn vị của người được
-     * chấm — cùng luật với đánh giá KPI theo đợt, không nới thêm.
+     * XEM phiếu của người khác: có quyền EVALUATION:CREATE tại ĐƠN VỊ CHÍNH của người được
+     * chấm — cùng luật với đánh giá KPI theo đợt, không nới thêm (kiêm nhiệm không mở quyền chấm).
      */
     private boolean canEvaluate(User evaluator, User target) {
-        return userRoleOrgUnitRepository.findByUserId(target.getId()).stream()
-                .map(UserRoleOrgUnit::getOrgUnit)
-                .filter(Objects::nonNull)
-                .anyMatch(u -> permissionChecker.hasPermissionInOrgUnit(
-                        evaluator.getId(), "EVALUATION:CREATE", u.getId()));
+        OrgUnit u = primaryUnits.unitOf(target);
+        return u != null && permissionChecker.hasPermissionInOrgUnit(
+                evaluator.getId(), "EVALUATION:CREATE", u.getId());
     }
 
     /**
@@ -993,11 +991,10 @@ public class ConductService {
      * điểm KPI vốn chia được cho cấp phó.
      */
     private boolean canScoreConduct(User evaluator, User target) {
-        return userRoleOrgUnitRepository.findByUserId(target.getId()).stream()
-                .map(UserRoleOrgUnit::getOrgUnit)
-                .filter(Objects::nonNull)
-                .anyMatch(u -> permissionChecker.hasLeaderPermissionInOrgUnit(
-                        evaluator.getId(), "EVALUATION:CREATE", u.getId()));
+        // Trưởng đơn vị CHÍNH của người được chấm (hoặc đơn vị cha) — trưởng nơi kiêm nhiệm không ký.
+        OrgUnit u = primaryUnits.unitOf(target);
+        return u != null && permissionChecker.hasLeaderPermissionInOrgUnit(
+                evaluator.getId(), "EVALUATION:CREATE", u.getId());
     }
 
     private List<UserRoleOrgUnit> subtreeAssignments(OrgUnit unit) {
@@ -1005,7 +1002,8 @@ public class ConductService {
         List<OrgUnit> subtree = orgUnitRepository.findSubtree(unit.getPath(), orgId);
         List<UUID> unitIds = subtree.isEmpty() ? List.of(unit.getId())
                 : subtree.stream().map(OrgUnit::getId).toList();
-        return userRoleOrgUnitRepository.findByOrgUnitIdIn(unitIds).stream()
+        // Chỉ người có ĐƠN VỊ CHÍNH trong nhánh — người kiêm nhiệm có phiếu ở đơn vị chính.
+        return primaryUnits.primaryWithin(unitIds).values().stream()
                 .filter(a -> a.getUser() != null && a.getUser().getDeletedAt() == null && !a.getUser().isPausedAccount())
                 .toList();
     }
@@ -1029,6 +1027,7 @@ public class ConductService {
                             .criteriaId(c.getId())
                             .name(c.getName())
                             .description(c.getDescription())
+                            .levelDescriptions(c.getLevelDescriptions())
                             .weight(w)
                             .position(c.getPosition())
                             .groupName(g != null ? g.getName() : null)
@@ -1085,6 +1084,9 @@ public class ConductService {
                         .criteriaId(i.getCriteria() != null ? i.getCriteria().getId() : null)
                         .name(i.getCriteriaName())
                         .description(i.getCriteriaDescription())
+                        // Phiếu mở trước khi tiêu chí có định nghĩa theo mức: lấy bản đang có — chỉ là hướng dẫn chấm.
+                        .levelDescriptions(i.getCriteriaLevelDescriptions() != null ? i.getCriteriaLevelDescriptions()
+                                : i.getCriteria() != null ? i.getCriteria().getLevelDescriptions() : null)
                         .weight(i.getWeight())
                         .position(i.getPosition())
                         .groupName(i.getGroupName())
@@ -1187,10 +1189,40 @@ public class ConductService {
                 .id(c.getId())
                 .name(c.getName())
                 .description(c.getDescription())
+                .levelDescriptions(c.getLevelDescriptions())
                 .weight(c.getWeight())
                 .position(c.getPosition())
                 .groupId(c.getGroup() != null ? c.getGroup().getId() : null)
                 .build();
+    }
+
+    /** Mô tả một mức tối đa bao nhiêu ký tự. */
+    static final int LEVEL_DESCRIPTION_MAX = 1000;
+
+    /**
+     * Chuẩn hoá định nghĩa theo mức: chỉ giữ mức nguyên trong thang ({@link ConductConstants#MIN_SCORE}..thang của bộ),
+     * bỏ mô tả trống, cắt quá dài; không còn mức nào ⇒ null (tiêu chí không định nghĩa theo mức).
+     */
+    static Map<String, String> normalizeLevels(Map<String, String> in, Double maxScore) {
+        if (in == null || in.isEmpty()) return null;
+        double max = maxScore != null ? maxScore : ConductConstants.DEFAULT_MAX_SCORE;
+        Map<Integer, String> out = new TreeMap<>();
+        in.forEach((k, v) -> {
+            if (k == null || v == null || v.isBlank()) return;
+            int level;
+            try {
+                level = Integer.parseInt(k.trim());
+            } catch (NumberFormatException e) {
+                return;
+            }
+            if (level < ConductConstants.MIN_SCORE || level > max) return;
+            String text = v.trim();
+            out.put(level, text.length() > LEVEL_DESCRIPTION_MAX ? text.substring(0, LEVEL_DESCRIPTION_MAX) : text);
+        });
+        if (out.isEmpty()) return null;
+        Map<String, String> result = new LinkedHashMap<>();
+        out.forEach((level, text) -> result.put(String.valueOf(level), text));
+        return result;
     }
 
     /** Thang điểm của bộ; chưa có bộ nào thì lấy giá trị nền của tổ chức. */

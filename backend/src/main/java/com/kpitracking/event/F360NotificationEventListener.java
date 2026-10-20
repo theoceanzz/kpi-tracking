@@ -43,6 +43,7 @@ public class F360NotificationEventListener {
     private final F360AssignmentRepository assignmentRepository;
     private final F360SubjectRepository subjectRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.service.PrimaryUnitResolver primaryUnits;
     private final com.kpitracking.security.PermissionChecker permissionChecker;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -191,10 +192,6 @@ public class F360NotificationEventListener {
     }
 
     private OrgUnit primaryUnit(User user) {
-        return userRoleOrgUnitRepository.findByUserId(user.getId()).stream()
-                .filter(a -> a.getOrgUnit() != null && a.getRole() != null)
-                .min(Comparator.comparingInt(a -> a.getRole().getRank() == null ? Integer.MAX_VALUE : a.getRole().getRank()))
-                .map(UserRoleOrgUnit::getOrgUnit)
-                .orElse(null);
+        return primaryUnits.unitOf(user);
     }
 }

@@ -73,8 +73,9 @@ export const kpiApi = {
   },
 
 
-  getTotalWeight: (orgUnitId?: string, kpiPeriodId?: string, userId?: string) =>
-    axiosInstance.get<ApiResponse<number>>('/kpi-criteria/total-weight', { params: { orgUnitId, kpiPeriodId, userId } }).then(r => r.data.data),
+  /** {@code sameBranch}: cùng userId + orgUnitId ⇒ chỉ cộng KPI cùng NHÁNH với đơn vị đó (người kiêm nhiệm mỗi nhánh đủ 100% riêng). */
+  getTotalWeight: (orgUnitId?: string, kpiPeriodId?: string, userId?: string, sameBranch?: boolean) =>
+    axiosInstance.get<ApiResponse<number>>('/kpi-criteria/total-weight', { params: { orgUnitId, kpiPeriodId, userId, sameBranch: sameBranch || undefined } }).then(r => r.data.data),
 
   getChildren: (id: string) =>
     axiosInstance.get<ApiResponse<KpiCriteria[]>>(`/kpi-criteria/${id}/children`).then((r) => r.data.data),

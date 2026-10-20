@@ -19,6 +19,8 @@ public interface UserRoleOrgUnitMapper {
     @Mapping(source = "orgUnit.name", target = "orgUnitName")
     @Mapping(source = "assignedBy.id", target = "assignedById")
     @Mapping(source = "assignedBy.fullName", target = "assignedByName")
+    @Mapping(target = "primaryOrgUnitId", ignore = true)
+    @Mapping(target = "primaryOrgUnitName", ignore = true)
     UserRoleOrgUnitResponse toResponse(UserRoleOrgUnit entity);
 
     List<UserRoleOrgUnitResponse> toResponseList(List<UserRoleOrgUnit> entities);

@@ -29,6 +29,7 @@ public class RewardContext {
 
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.service.PrimaryUnitResolver primaryUnits;
 
     public User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -49,17 +50,17 @@ public class RewardContext {
     }
 
     /**
-     * Đơn vị "chính" của một người: đơn vị có {@code path} ngắn nhất trong số các đơn vị
-     * họ được gán. Một người có thể thuộc nhiều đơn vị, nên cần một quy tắc xác định
-     * thay vì lấy bừa phần tử đầu — nếu không, cùng một đề nghị thưởng có thể rơi vào
-     * đơn vị khác nhau giữa hai lần chạy và người duyệt sẽ đổi theo.
+     * Đơn vị CHÍNH của một người ({@link com.kpitracking.service.PrimaryUnitResolver} — cùng luật
+     * với đánh giá, BSC, xếp loại). Một người có thể thuộc nhiều đơn vị, nên cần một quy tắc xác
+     * định thay vì lấy bừa phần tử đầu — nếu không, cùng một đề nghị thưởng có thể rơi vào đơn vị
+     * khác nhau giữa hai lần chạy và người duyệt sẽ đổi theo.
      */
     public OrgUnit getPrimaryOrgUnit(UUID userId) {
-        return userRoleOrgUnitRepository.findByUserId(userId).stream()
-                .map(UserRoleOrgUnit::getOrgUnit)
-                .filter(u -> u != null && u.getPath() != null)
-                .min(Comparator.comparing(OrgUnit::getPath))
-                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.userUnit"), "userId", userId));
+        OrgUnit unit = primaryUnits.unitOf(userId);
+        if (unit == null) {
+            throw new ResourceNotFoundException(Terms.of("resource.userUnit"), "userId", userId);
+        }
+        return unit;
     }
 
     /**

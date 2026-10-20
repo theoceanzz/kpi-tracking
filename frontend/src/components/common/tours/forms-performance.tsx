@@ -1,6 +1,8 @@
 import type { TourKey } from '@/store/tourStore'
 import type { TourDef } from './registry'
 import { tourKit, tourTarget } from './kit'
+import { runTourAction } from './actions'
+import { waitForTarget } from './engine'
 import { perLanguage } from '@/i18n/perLanguage'
 
 /**
@@ -26,6 +28,12 @@ const formsPerformanceTours = perLanguage((): Record<TourKey, TourDef> => {
   const finalize = modal('cycleeval.finalize')
   const send = modal('cycleeval.sendDialog')
   const f360 = modal('f360.form')
+  // Form chiến dịch 360 chia ba bước: mở form rồi chuyển tới đúng bước chứa ô sắp chỉ (luỹ đẳng).
+  const f360At = (step: 'basics' | 'questions' | 'process') => async () => {
+    await f360.open()
+    await waitForTarget(tourTarget('f360.form'), 3000)
+    await runTourAction('f360.form.step', step)
+  }
 
   return {
     [PENDING_REVIEW]: {
@@ -91,18 +99,19 @@ const formsPerformanceTours = perLanguage((): Record<TourKey, TourDef> => {
 
     [F360_FORM]: {
       title: t('f360Form.title'),
+      version: 2,
       cleanup: f360.close,
       steps: [
         f360.opener('f360Form.add', tourTarget('f360.create'), 'left'),
-        f360.step('f360Form.name', tourTarget('f360.form.name'), 'bottom'),
-        f360.step('f360Form.purpose', tourTarget('f360.form.purpose'), 'bottom'),
-        f360.step('f360Form.cycle', tourTarget('f360.form.cycle'), 'bottom'),
-        f360.step('f360Form.window', tourTarget('f360.form.window'), 'bottom'),
-        f360.step('f360Form.description', tourTarget('f360.form.description'), 'top'),
-        f360.step('f360Form.questions', tourTarget('f360.form.questions'), 'top'),
-        f360.step('f360Form.process', tourTarget('f360.form.process'), 'top'),
-        f360.step('f360Form.advanced', tourTarget('f360.form.advanced'), 'top'),
-        f360.step('f360Form.submit', tourTarget('f360.form.submit'), 'top'),
+        f360.step('f360Form.name', tourTarget('f360.form.name'), 'bottom', { prepare: f360At('basics') }),
+        f360.step('f360Form.purpose', tourTarget('f360.form.purpose'), 'bottom', { prepare: f360At('basics') }),
+        f360.step('f360Form.cycle', tourTarget('f360.form.cycle'), 'bottom', { prepare: f360At('basics') }),
+        f360.step('f360Form.window', tourTarget('f360.form.window'), 'bottom', { prepare: f360At('basics') }),
+        f360.step('f360Form.description', tourTarget('f360.form.description'), 'top', { prepare: f360At('basics') }),
+        f360.step('f360Form.questions', tourTarget('f360.form.questions'), 'top', { prepare: f360At('questions') }),
+        f360.step('f360Form.process', tourTarget('f360.form.process'), 'top', { prepare: f360At('process') }),
+        f360.step('f360Form.advanced', tourTarget('f360.form.advanced'), 'top', { prepare: f360At('process') }),
+        f360.step('f360Form.submit', tourTarget('f360.form.submit'), 'top', { prepare: f360At('process') }),
       ],
     },
   }

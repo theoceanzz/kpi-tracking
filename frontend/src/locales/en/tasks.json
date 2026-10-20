@@ -259,6 +259,11 @@
     "fileTooLarge": "File \"{{name}}\" is larger than 10 MB",
     "fileNotSupported": "File \"{{name}}\" is not supported",
     "tooManyFiles": "Each task can have at most {{max}} attachments",
+    "tooManyResultFiles": "Each task can have at most {{max}} deliverable files",
+    "results": "Deliverables",
+    "addResult": "Add deliverable",
+    "resultHint": "Files delivered when the task is done, kept apart from the assigner's attachments. You can also drag files here",
+    "uploadedBy": "Uploaded by {{name}} at {{at}}",
     "copyLink": "Copy link",
     "linkCopied": "Task link copied",
     "more": "More actions",
@@ -301,6 +306,7 @@
     "addSubtaskLark": "Add sub-task",
     "addChecklistLark": "Add checklist",
     "addAttachmentLark": "Add attachment",
+    "addResultLark": "Add deliverable",
     "followersCount": "{{count}} followers",
     "noFollowers": "Add followers",
     "noFollowersYet": "No followers yet",
@@ -477,7 +483,9 @@
     "AUTOMATION_RAN": "automation rule \"{{to}}\" ran",
     "IMPORTED": "imported from Excel into list \"{{to}}\"",
     "MILESTONE_CHANGED": "changed the milestone mark",
-    "PARENT_CHANGED": "changed the parent task from \"{{from}}\" to \"{{to}}\""
+    "PARENT_CHANGED": "changed the parent task from \"{{from}}\" to \"{{to}}\"",
+    "RESULT_ADDED": "added deliverables: {{to}}",
+    "RESULT_REMOVED": "removed the deliverable \"{{from}}\""
   },
   "picker": {
     "pickPerson": "Select a person",

@@ -114,6 +114,13 @@ public class RewardRedemption {
     @Column(name = "fulfilled_at")
     private Instant fulfilledAt;
 
+    /**
+     * Lúc người nhận đã được ăn mừng lượt này (hộp chúc mừng ở frontend). Null = chưa — xem
+     * {@code RewardCelebrationService}.
+     */
+    @Column(name = "celebrated_at")
+    private Instant celebratedAt;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

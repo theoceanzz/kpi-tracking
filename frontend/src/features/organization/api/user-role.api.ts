@@ -10,6 +10,9 @@ export interface UserRoleOrgUnitResponse {
   orgUnitId: string
   orgUnitName: string
   assignedAt: string
+  /** Đơn vị CHÍNH của người này; khác orgUnitId ⇒ ở đơn vị đang xem là kiêm nhiệm. */
+  primaryOrgUnitId?: string | null
+  primaryOrgUnitName?: string | null
 }
 
 export interface AssignRoleRequest {

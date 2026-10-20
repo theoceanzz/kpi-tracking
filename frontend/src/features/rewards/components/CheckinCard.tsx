@@ -109,10 +109,13 @@ export default function CheckinCard() {
 
           <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="inline-flex items-center gap-1.5 text-2xl font-semibold tracking-tight">
-              <Flame
-                size={22}
-                className={status.streakLength > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-muted-foreground)]'}
-              />
+              {/* Neo hiệu ứng ăn mừng: ngọn lửa lắc khi vừa điểm danh (CelebrationHost). */}
+              <span data-celebrate="checkin-flame" className="inline-flex">
+                <Flame
+                  size={22}
+                  className={status.streakLength > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-muted-foreground)]'}
+                />
+              </span>
               {status.streakLength} {t('CheckinCard.days')}
             </span>
             {cycleLabel && (
@@ -132,7 +135,7 @@ export default function CheckinCard() {
 
         {/* Nút nêu thẳng con số sắp nhận. "Điểm danh" trơ trọi thì nhân viên phải bấm
             mới biết được bao nhiêu, mà mốc thưởng chuỗi lại làm con số đó thay đổi. */}
-        <Button onClick={() => checkin()} disabled={!status.canCheckin || isPending}>
+        <Button data-celebrate="checkin-button" onClick={() => checkin()} disabled={!status.canCheckin || isPending}>
           {isPending ? (
             <Loader2 aria-hidden="true" className="animate-spin" />
           ) : status.checkedInToday ? (

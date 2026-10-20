@@ -8,7 +8,6 @@ import com.kpitracking.entity.Evaluation;
 import com.kpitracking.entity.EvaluationPerspectiveScore;
 import com.kpitracking.entity.KpiCriteria;
 import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.enums.BscEmptyPerspectivePolicy;
 import com.kpitracking.enums.BscScoringMode;
 import com.kpitracking.enums.KpiStatus;
@@ -17,7 +16,6 @@ import com.kpitracking.repository.BscPerspectiveRepository;
 import com.kpitracking.repository.BscScorecardRepository;
 import com.kpitracking.repository.EvaluationPerspectiveScoreRepository;
 import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -59,8 +58,9 @@ public class BscScoringService {
     private final KpiAchievementCalculator achievementCalculator;
     private final BscPerspectiveRepository perspectiveRepository;
     private final EvaluationPerspectiveScoreRepository perspectiveScoreRepository;
-    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final PrimaryUnitResolver primaryUnits;
     private final BscSourceScores sourceScores;
+    private final KpiEffortShares effortShares;
 
     /**
      * Trạng thái KPI được tính vào bộ tiêu chí. CŨNG dùng bởi KpiCriteriaService ⇒ số KPI
@@ -131,6 +131,45 @@ public class BscScoringService {
         List<KpiCriteria> kpis = kpiCriteriaRepository
                 .findByUserIdInAssigneesAndKpiPeriodId(userId, kpiPeriodId, ACTIVE_STATUSES, Pageable.unpaged())
                 .getContent();
+
+        // Kiêm nhiệm (KpiEffortShares): mỗi nhánh chấm bằng thẻ của CHÍNH đơn vị nhánh trên KPI của nhánh
+        // đó, rồi gộp theo % công sức. Hạng mục hiển thị / chặn / chế độ chấm vẫn theo thẻ đơn vị chính;
+        // nhánh không có thẻ đã duyệt (chưa áp dụng BSC) bị bỏ khỏi phép gộp. Một nhánh ⇒ như cũ.
+        KpiEffortShares.Split split = effortShares.split(userId, kpiPeriodId, kpis);
+        if (!split.active()) return scoreWith(scorecard, kpis, userId, kpiPeriodId, enableWaterfall);
+
+        Map<UUID, List<KpiCriteria>> byBranch = new LinkedHashMap<>();
+        for (KpiCriteria k : kpis) {
+            UUID b = split.branchOfKpi().get(k.getId());
+            if (b != null) byBranch.computeIfAbsent(b, x -> new ArrayList<>()).add(k);
+        }
+        UUID homeBranch = split.branches().keySet().iterator().next();
+        BscUserScore home = scoreWith(scorecard, byBranch.getOrDefault(homeBranch, List.of()), userId, kpiPeriodId, enableWaterfall);
+        List<String> unassigned = new ArrayList<>(home.getUnassignedKpiNames());
+        double sum = 0.0, shareSum = 0.0;
+        for (KpiEffortShares.Branch br : split.branches().values()) {
+            List<KpiCriteria> own = byBranch.get(br.unit().getId());
+            if (own == null || own.isEmpty()) continue;
+            BscUserScore part;
+            if (br.unit().getId().equals(homeBranch)) {
+                part = home;
+            } else {
+                BscScorecard card = resolveScorecard(br.unit(), organizationId, kpiPeriodId);
+                if (card == null) continue;
+                part = scoreWith(card, own, userId, kpiPeriodId, enableWaterfall);
+                unassigned.addAll(part.getUnassignedKpiNames());
+            }
+            if (part.getBscScore() == null) continue;
+            sum += br.sharePercent() * part.getBscScore();
+            shareSum += br.sharePercent();
+        }
+        Double combined = shareSum > 0 ? Double.valueOf(sum / shareSum) : home.getBscScore();
+        return new BscUserScore(combined, home.getPerspectives(), unassigned, scorecard.getScoringMode(), scorecard);
+    }
+
+    /** Điểm BSC của {@code kpis} theo đúng một thẻ. */
+    private BscUserScore scoreWith(BscScorecard scorecard, List<KpiCriteria> kpis, UUID userId, UUID kpiPeriodId,
+                                   boolean enableWaterfall) {
 
         List<PerspectiveScoreResponse> breakdown = new ArrayList<>();
         double weightedSum = 0.0, presentWeight = 0.0, totalWeight = 0.0;
@@ -436,31 +475,16 @@ public class BscScoringService {
     }
 
     /**
-     * Đơn vị dùng để chọn bộ tiêu chí BSC của một người: đơn vị SÂU NHẤT họ thuộc về; cùng độ sâu
-     * thì giữ thứ tự của {@code findByUserId} (vai trò cao hơn trước). Null nếu không có vai trò nào.
+     * Đơn vị dùng để chọn bộ tiêu chí BSC của một người: ĐƠN VỊ CHÍNH ({@link PrimaryUnitResolver}).
      *
      * <p>Trước đây lấy vai trò đầu tiên (sắp theo rank rồi path). Người vừa là thành viên công ty vừa
      * thuộc một phòng thì kết quả phụ thuộc rank: trưởng phòng rơi vào phòng (thẻ phòng), còn nhân viên
      * cùng rank ở cả hai nơi rơi vào gốc công ty vì path của gốc đứng trước — hai người cùng một KPI,
-     * cùng hạng mục bị chấm theo hai mục tiêu khác nhau (850 vs 1700).
+     * cùng hạng mục bị chấm theo hai mục tiêu khác nhau (850 vs 1700). Luật dự phòng của đơn vị chính
+     * (cùng rank ⇒ đơn vị sâu hơn) giữ đúng sửa đó, và người kiêm nhiệm theo thẻ của đơn vị chính.
      */
     private OrgUnit userOrgUnit(UUID userId) {
-        if (userId == null) return null;
-        OrgUnit best = null;
-        for (UserRoleOrgUnit r : userRoleOrgUnitRepository.findByUserId(userId)) {
-            OrgUnit unit = r.getOrgUnit();
-            if (unit != null && (best == null || depth(unit) > depth(best))) best = unit;
-        }
-        return best;
-    }
-
-    /** Độ sâu theo path vật chất hoá ("/KPC/" = 1, "/KPC/{id}/" = 2). */
-    private static int depth(OrgUnit unit) {
-        String path = unit.getPath();
-        if (path == null) return 0;
-        int n = 0;
-        for (String seg : path.split("/")) if (!seg.isEmpty()) n++;
-        return n;
+        return primaryUnits.unitOf(userId);
     }
 
     private static String fixedCode(BscPerspective p) {

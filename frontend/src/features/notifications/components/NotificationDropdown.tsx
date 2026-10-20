@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNotifications, useMarkAllRead, useMarkAsRead, useUnreadCount } from '../hooks/useNotifications'
 import { formatDateTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { CheckCheck, Bell, Send, FileSearch, ShieldCheck, Target, Inbox, Layers, GitBranch, Calculator, Award, Coins, Gift, Wallet, Scale, Users, Lock, FileText, Share2, ArrowUpFromLine, CalendarClock, Volume2, VolumeX, MonitorUp } from 'lucide-react'
+import { CheckCheck, Bell, Send, FileSearch, ShieldCheck, Target, Inbox, Layers, GitBranch, Calculator, Award, Coins, Gift, Wallet, Scale, Users, Lock, FileText, Share2, ArrowUpFromLine, CalendarClock, Volume2, VolumeX, MonitorUp, PartyPopper } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { notificationLink } from '../notificationLink'
@@ -13,6 +13,13 @@ import {
   requestDesktopNotificationPermission,
   setNotificationSoundEnabled,
 } from '../notificationAlert'
+import {
+  CELEBRATION_MODES,
+  getCelebrationMode,
+  setCelebrationMode,
+  type CelebrationMode,
+} from '@/features/rewards/celebration/celebrationSettings'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
@@ -36,6 +43,8 @@ const typeConfig: Record<string, { icon: LucideIcon; color: string }> = {
   BSC_RESULT: { icon: Calculator, color: 'bg-[var(--color-success-bg)] text-[var(--color-success)]' },
   REWARD_GRANT: { icon: Award, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
   REWARD_POINT: { icon: Coins, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
+  // Điểm bị trừ (thu hồi / hoàn tác chương trình) — màu cảnh báo, tách khỏi tin được cộng điểm.
+  REWARD_POINT_REVOKED: { icon: Coins, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
   REWARD_GIFT: { icon: Gift, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
   REWARD_GIFT_REQUEST: { icon: Gift, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
   WALLET: { icon: Wallet, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
@@ -56,6 +65,7 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
   const markAllRead = useMarkAllRead()
   const markRead = useMarkAsRead()
   const [soundOn, setSoundOn] = useState(isNotificationSoundEnabled)
+  const [celebrationMode, setMode] = useState<CelebrationMode>(getCelebrationMode)
   const [desktopPerm, setDesktopPerm] = useState(desktopNotificationPermission)
 
   const toggleSound = () => {
@@ -63,6 +73,17 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
     setNotificationSoundEnabled(next)
     setSoundOn(next)
     if (next) playNotificationSound()
+  }
+
+  // Mức hiệu ứng chúc mừng (điểm danh, đổi quà, được thưởng) — tuỳ chọn theo máy, mặc định Đầy đủ.
+  const chooseMode = (mode: CelebrationMode) => {
+    setCelebrationMode(mode)
+    setMode(mode)
+  }
+  const modeLabel: Record<CelebrationMode, string> = {
+    full: t('NotificationDropdown.celebrationFull'),
+    gentle: t('NotificationDropdown.celebrationGentle'),
+    off: t('NotificationDropdown.celebrationOff'),
   }
 
   const notifications = data?.content || []
@@ -224,6 +245,21 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
             </>
           )}
         </div>
+      {/* Mức hiệu ứng chúc mừng: hàng chọn ngay trong hộp, KHÔNG dùng Select/Popover — chúng mở trong portal, và
+          useOnClickOutside của chuông sẽ coi cú bấm vào đó là bấm ra ngoài rồi đóng hộp. */}
+      <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--color-border)] px-4 py-2">
+        <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-[var(--color-muted-foreground)]">
+          <PartyPopper size={14} aria-hidden="true" className="shrink-0" />
+          <span className="truncate">{t('NotificationDropdown.celebrationEffects')}</span>
+        </span>
+        <div role="group" aria-label={t('NotificationDropdown.celebrationEffects')} className="flex shrink-0 gap-0.5 rounded-control bg-[var(--color-muted)] p-0.5">
+          {CELEBRATION_MODES.map((mode) => (
+            <ChoiceChip key={mode} variant="segment" size="sm" selected={celebrationMode === mode} onClick={() => chooseMode(mode)}>
+              {modeLabel[mode]}
+            </ChoiceChip>
+          ))}
+        </div>
+      </div>
       {!isLoading && notifications.length > 0 && (
         <div className="shrink-0 border-t border-[var(--color-border)] p-2">
           <Link

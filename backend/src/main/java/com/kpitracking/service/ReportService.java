@@ -34,6 +34,7 @@ public class ReportService {
     private final OrgUnitRepository orgUnitRepository;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.service.PrimaryUnitResolver primaryUnits;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -54,10 +55,8 @@ public class ReportService {
             orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
                     .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", request.getOrgUnitId()));
         } else {
-            var assignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
-            if (!assignments.isEmpty()) {
-                orgUnit = assignments.get(0).getOrgUnit();
-            } else {
+            orgUnit = primaryUnits.unitOf(currentUser);
+            if (orgUnit == null) {
                 throw new BusinessException(ErrorCode.USER_MUST_BELONG_LEAST_ONE_UNIT);
             }
         }

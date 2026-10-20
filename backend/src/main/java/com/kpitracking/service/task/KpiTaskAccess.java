@@ -5,6 +5,7 @@ import com.kpitracking.entity.KpiTask;
 import com.kpitracking.entity.KpiTaskAssignee;
 import com.kpitracking.entity.KpiTaskFollower;
 import com.kpitracking.entity.UserRoleOrgUnit;
+import com.kpitracking.enums.KpiTaskAttachmentKind;
 import com.kpitracking.enums.KpiTaskVisibility;
 import com.kpitracking.enums.TaskListRole;
 import com.kpitracking.repository.KpiTaskAssigneeRepository;
@@ -89,6 +90,10 @@ public class KpiTaskAccess {
 
     public boolean canDelete(UUID userId, KpiTask task) {
         return task != null && userId != null && scope(userId, List.of(task)).canDelete(task);
+    }
+
+    public boolean canRemoveFile(UUID userId, KpiTask task, UUID uploadedBy, KpiTaskAttachmentKind kind) {
+        return task != null && userId != null && scope(userId, List.of(task)).canRemoveFile(task, uploadedBy, kind);
     }
 
     /** Người này có xem được (chỉ đọc) việc công khai của người khác trên KPI này không (tab Công việc của KPI). */
@@ -292,6 +297,17 @@ public class KpiTaskAccess {
             if (me.equals(t.getCreatedBy())) return true;
             TaskListRole r = listRole(t);
             return r == TaskListRole.OWNER;
+        }
+
+        /**
+         * Xoá một tệp của việc (V47) — ngoài {@link #canEdit}. Người tải lên luôn xoá được tệp của mình. Tệp đính kèm:
+         * thêm người giao (người tạo / người sửa ở việc tổ tiên / biên tập danh sách) — người thực hiện KHÔNG xoá được
+         * tài liệu người giao đưa. Kết quả: chỉ người nộp; người giao chỉ dọn được khi người nộp không còn thực hiện việc.
+         */
+        public boolean canRemoveFile(KpiTask t, UUID uploadedBy, KpiTaskAttachmentKind kind) {
+            if (me.equals(uploadedBy)) return true;
+            if (!canReassign(t)) return false;
+            return kind != KpiTaskAttachmentKind.RESULT || !assigneesOf(t).contains(uploadedBy);
         }
 
         /** Từ chối: việc không KPI, mình đang thực hiện và không phải người tạo. */

@@ -98,8 +98,8 @@ export function useBscMutations() {
   })
 
   const updatePerspective = useMutation({
-    mutationFn: ({ perspectiveId, data }: { perspectiveId: string; data: PerspectiveRequest }) =>
-      bscApi.updatePerspective(perspectiveId, data),
+    mutationFn: ({ perspectiveId, data, scorecardId }: { perspectiveId: string; data: PerspectiveRequest; scorecardId?: string }) =>
+      bscApi.updatePerspective(perspectiveId, data, scorecardId),
     onSuccess: () => {
       invalidate()
       toast.success(t('useBsc.itemUpdatedSuccessfully'))

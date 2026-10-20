@@ -69,6 +69,18 @@ class F360RaterSuggestionServiceTest {
     }
 
     @Test
+    @DisplayName("kiêm nhiệm: cấp trên nơi kiêm nhiệm được gợi ý làm người phối hợp, cấp trên chính không đổi")
+    void secondaryUnitHeadIsSuggestedAsOther() {
+        User a1 = staffA.get(0);
+        org.secondaryUnitsOf.put(a1.getId(), Map.of(deptB, 2));
+
+        Map<User, F360Relationship> r = suggest(a1, new HashMap<>());
+
+        assertThat(r.get(ta)).isEqualTo(F360Relationship.MANAGER);
+        assertThat(r.get(tb)).isEqualTo(F360Relationship.OTHER);
+    }
+
+    @Test
     @DisplayName("nhân viên: cấp trên là trưởng đơn vị, đồng nghiệp là nhân viên cùng đơn vị")
     void staff() {
         Map<User, F360Relationship> r = suggest(staffA.get(0), new HashMap<>());

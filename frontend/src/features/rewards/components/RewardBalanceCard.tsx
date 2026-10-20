@@ -3,6 +3,8 @@ import { TrendingUp, ShoppingBag, AlertTriangle } from 'lucide-react'
 import BalanceHero from '@/components/common/BalanceHero'
 import type { RewardWallet } from '../types'
 import { useTranslation } from 'react-i18next'
+import AnimatedNumber from '../celebration/AnimatedNumber'
+import { BALANCE_TARGET } from '../celebration/pointsFly'
 
 interface RewardBalanceCardProps {
   wallet?: RewardWallet
@@ -21,7 +23,8 @@ export default function RewardBalanceCard({ wallet, loading }: RewardBalanceCard
       <BalanceHero
         loading={loading}
         label={t('RewardBalanceCard.rewardPointBalance')}
-        value={fmt(balance)}
+        // Số dư tăng (điểm danh, được thưởng) thì chạy số sau khi "+N" bay tới; đây cũng là đích bay.
+        value={<AnimatedNumber value={balance} format={fmt} celebrateTarget={BALANCE_TARGET} className="inline-block" />}
         unit={t('RewardBalanceCard.points')}
         negative={balance < 0}
         hint={isEmpty ? t('RewardBalanceCard.youGetPointsWhenYourManager') : undefined}

@@ -13,6 +13,8 @@ export interface UserMembership {
   levelOrder?: number
   roleLevel?: number
   unitTypeLabel?: string
+  /** Dòng đại diện cho đơn vị CHÍNH (backend PrimaryUnitResolver) — luôn đứng đầu danh sách. */
+  primary?: boolean
 }
 
 // Matches BE: UserInfoResponse

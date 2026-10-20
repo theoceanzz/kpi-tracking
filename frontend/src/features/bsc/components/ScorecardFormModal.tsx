@@ -332,17 +332,12 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
   // Trọng số vừa nhập trong modal hạng mục (tạo mới hoặc sửa) → áp thẳng vào dòng tương ứng.
   const applyPerspectiveWeight = (perspectiveId: string, weight: number, saved?: PerspectiveTargetPatch) => {
     pendingWeights.current[perspectiveId] = weight
-    // Sửa mục tiêu của hạng mục ngay từ bộ tiêu chí: dòng đang ĐI THEO mặc định của hạng mục thì
-    // ăn luôn con số mới — nếu không dòng vẫn giữ số cũ và trông như lưu không được. Dòng đã đặt
-    // số riêng (nhãn "riêng") hoặc do cấp trên giao thì giữ nguyên, đó là chủ ý của thẻ này.
-    const before = perspectiveModal?.perspective
+    // Bút chì trên dòng sửa đúng con số của dòng (modal điền sẵn số của dòng, không phải mặc định
+    // của hạng mục) ⇒ lưu xong dòng LUÔN ăn số mới; trước đây dòng có số riêng giữ nguyên số cũ và
+    // trông như lưu không được. Dòng do cấp trên giao không có bút chì nên không tới được đây.
     updateRows(prev => prev.map(r => {
       if (r.perspectiveId !== perspectiveId) return r
-      const followsCatalog = !!before && !!saved && !r.locked
-        && (r.targetValue ?? null) === (before.targetValue ?? null)
-        && (r.minimumValue ?? null) === (before.minimumValue ?? null)
-        && (r.unit ?? null) === (before.unit ?? null)
-      return { ...r, weight, enabled: true, ...(followsCatalog ? saved : {}) }
+      return { ...r, weight, enabled: true, ...(saved && !r.locked ? saved : {}) }
     }))
   }
   const toggle = (id: string) => updateRows(prev => prev.map(r => r.perspectiveId === id ? { ...r, enabled: !r.enabled } : r))
@@ -405,6 +400,11 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
   const scopeLabel = (id: string) => flatOrgUnits.find(u => u.id === id)?.name || t('ScorecardFormModal.unit')
 
   const isCycleMode = applyScope === BscScorecardApplyScope.CYCLE
+  // Thẻ nhận phân rã / gắn vào cây đi theo đợt của thẻ cấp trên — backend cũng bỏ qua thay đổi
+  // (`BscService.isCascadeChild`). Đơn vị chỉ còn thêm hạng mục riêng của mình.
+  const policyFollowsParent = !!scorecard?.parentScorecardId
+  const periodLocked = !!scorecard && (!!scorecard.parentScorecardId || scorecard.perspectives.some(p =>
+    p.origin === BscItemOrigin.ASSIGNED || !!p.parentItemId || p.wholeSharePercent != null))
 
   const setPeriodIds = (next: string[]) => setValue('periodIds', next, { shouldValidate: true })
   const togglePeriod = (id: string) =>
@@ -518,6 +518,16 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
 
   // Trọng số đưa sẵn vào modal hạng mục: dòng đang sửa (nếu có) và tổng của các dòng còn lại.
   const editingRow = rows.find(r => r.perspectiveId === perspectiveModal?.perspective?.id)
+  // Memo theo giá trị: modal hạng mục reset form mỗi khi object này đổi — dựng mới mỗi lần render là
+  // thổi bay chữ người dùng đang gõ.
+  const rowTarget = editingRow?.targetValue ?? null
+  const rowMinimum = editingRow?.minimumValue ?? null
+  const rowUnit = editingRow?.unit ?? null
+  const editingRowId = editingRow?.perspectiveId
+  const rowFigures = useMemo(
+    () => (editingRowId ? { targetValue: rowTarget, minimumValue: rowMinimum, unit: rowUnit } : undefined),
+    [editingRowId, rowTarget, rowMinimum, rowUnit],
+  )
   const otherWeightTotal = enabledRows
     .filter(r => r.perspectiveId !== editingRow?.perspectiveId)
     .reduce((s, r) => s + (Number(r.weight) || 0), 0)
@@ -534,6 +544,12 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
     const targetOpen = openTargetRows.includes(r.perspectiveId)
     // Dòng "Kết quả cấp trên": không có mục tiêu, không phải hạng mục của danh mục để sửa/xoá.
     const isSourceRow = !!r.sourceScorecardName
+    // Hạng mục đã thuộc bộ khác (bộ đầu tiên tự thêm nó) ⇒ ở đây chỉ dùng lại. Cùng luật với backend
+    // (`BscPerspectiveOwnership`): Sửa chỉ từ bộ chủ; Xoá chỉ khi chưa bộ nào dùng (kể cả bộ này đã lưu —
+    // muốn bỏ khỏi bộ thì bỏ tick). Dòng cấp trên giao thì không bao giờ.
+    const ownedElsewhere = !!catalog?.ownerScorecardId && catalog.ownerScorecardId !== scorecard?.id
+    const canEditItem = !r.locked && !ownedElsewhere
+    const canDeleteItem = !r.locked && (catalog?.usedInScorecardIds ?? []).length === 0
     return (
     <div key={r.perspectiveId}
       draggable={dragArmed === r.perspectiveId}
@@ -574,6 +590,12 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
               <Lock size={9} /> {t('ScorecardFormModal.assignedByParent')}
             </span>
           )}
+          {r.origin !== BscItemOrigin.ASSIGNED && ownedElsewhere && (
+            <span className="text-eyebrow inline-flex items-center gap-1 px-1.5 py-0.5 rounded-control bg-[var(--color-muted)]"
+              title={t('ScorecardFormModal.sharedItemHint', { name: catalog?.ownerScorecardName ?? '' })}>
+              <Lock size={9} /> {t('ScorecardFormModal.sharedItem')}
+            </span>
+          )}
         </p>
         {isSourceRow && (
           <p className="text-caption truncate">
@@ -603,7 +625,9 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
       </div>
       {/* Cả ba nút hiện thường trực. Giấu sau hover thì người dùng không biết là có —
           riêng nút cấu hình là thao tác chính của luồng phân rã nên càng không được giấu.
-          Xoá vẫn an toàn vì phải qua hộp xác nhận nói rõ là xoá khỏi TOÀN tổ chức. */}
+          Xoá vẫn an toàn vì phải qua hộp xác nhận nói rõ là xoá khỏi TOÀN tổ chức.
+          Dòng cấp trên giao (khoá): không có Sửa / Xoá — để bút chì ở đó là mời sửa một thứ
+          không sửa được (mục tiêu do cấp trên đặt), còn xoá thì xoá luôn hạng mục của cấp trên. */}
       {!isSourceRow && <div className="flex items-center gap-0.5 shrink-0 ml-auto sm:ml-0">
         <Button {...tourAnchor('bsc.form.row-target')} variant="ghost" size="icon-sm" className={cn('',
             targetOpen || isOwnTarget || r.isGate
@@ -611,18 +635,22 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
               : 'hover:text-[var(--color-warning)] hover:bg-[var(--color-warning-bg)] dark:hover:bg-[var(--color-warning-bg)]')} type="button" onClick={() => toggleTargetRow(r.perspectiveId)} disabled={!r.enabled} title={t('ScorecardFormModal.customTargetGateItemAndData')}>
           <Target aria-hidden="true" />
         </Button>
+        {canEditItem && (
         <Button variant="ghost" size="icon-sm" aria-label={t('ScorecardFormModal.editItem')} type="button" onClick={() => setPerspectiveModal({ perspective: perspectives?.find(p => p.id === r.perspectiveId) })} title={t('ScorecardFormModal.editItem')}>
           <Edit2 aria-hidden="true" />
         </Button>
+        )}
+        {canDeleteItem && (
         <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={t('ScorecardFormModal.deleteTheItemFromTheOrganization')} type="button" onClick={() => setDeletePerspectiveTarget(r)} title={t('ScorecardFormModal.deleteTheItemFromTheOrganization')}>
           <Trash2 aria-hidden="true" />
         </Button>
+        )}
       </div>}
       <div {...tourAnchor('bsc.form.row-weight')} className="flex items-center gap-1 shrink-0">
         <LocaleNumberInput type="number" min={0} max={100} step={0.1} value={r.weight} disabled={!r.enabled || !!r.locked}
           title={r.locked ? t('ScorecardFormModal.weightSetByTheParentContact') : undefined}
           onChange={e => setWeight(r.perspectiveId, Number(e.target.value))}
-          className="w-20 px-2 py-1.5 rounded-control bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-semibold text-right outline-none focus:ring-2 focus:ring-[var(--color-ring)]"/>
+          className="field w-20 px-2 py-1.5 rounded-control bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-semibold text-right outline-none focus:ring-2 focus:ring-[var(--color-ring)]"/>
         <span className="text-xs font-semibold text-[var(--color-subtle-foreground)]">%</span>
       </div>
     </div>
@@ -634,21 +662,21 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
           <LocaleNumberInput type="number" step="any" value={r.targetValue ?? ''} disabled={!r.enabled || !!r.locked}
             onChange={e => setRowTarget(r.perspectiveId, { targetValue: e.target.value === '' ? null : Number(e.target.value) })}
             placeholder={catalog?.targetValue != null ? String(catalog.targetValue) : '—'}
-            className="w-28 px-2 py-1.5 rounded-control bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] text-sm font-medium outline-none focus:ring-2 focus:ring-[var(--color-warning-solid)] focus:placeholder:text-transparent" />
+            className="field w-28 px-2 py-1.5 rounded-control bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] text-sm font-medium outline-none focus:ring-2 focus:ring-[var(--color-warning-solid)] focus:placeholder:text-transparent" />
         </div>
         <div className="space-y-1">
           <label className="text-label block ml-0.5">{t('ScorecardFormModal.minimum')}</label>
           <LocaleNumberInput type="number" step="any" value={r.minimumValue ?? ''} disabled={!r.enabled || !!r.locked}
             onChange={e => setRowTarget(r.perspectiveId, { minimumValue: e.target.value === '' ? null : Number(e.target.value) })}
             placeholder={catalog?.minimumValue != null ? String(catalog.minimumValue) : '—'}
-            className="w-28 px-2 py-1.5 rounded-control bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] text-sm font-medium outline-none focus:ring-2 focus:ring-[var(--color-warning-solid)] focus:placeholder:text-transparent" />
+            className="field w-28 px-2 py-1.5 rounded-control bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] text-sm font-medium outline-none focus:ring-2 focus:ring-[var(--color-warning-solid)] focus:placeholder:text-transparent" />
         </div>
         <div className="space-y-1">
           <label className="text-label block ml-0.5">{t('ScorecardFormModal.unit')}</label>
           <input type="text" value={r.unit ?? ''} disabled={!r.enabled || !!r.locked}
             onChange={e => setRowTarget(r.perspectiveId, { unit: e.target.value.trim() === '' ? null : e.target.value })}
             placeholder={catalog?.unit || t('ScorecardFormModal.vndSessions')}
-            className="w-28 px-2 py-1.5 rounded-control bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] text-sm font-medium outline-none focus:ring-2 focus:ring-[var(--color-warning-solid)] focus:placeholder:text-transparent" />
+            className="field w-28 px-2 py-1.5 rounded-control bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] text-sm font-medium outline-none focus:ring-2 focus:ring-[var(--color-warning-solid)] focus:placeholder:text-transparent" />
         </div>
         {isOwnTarget && !r.locked && (
           <Button variant="ghost" size="sm" type="button" onClick={() => setRowTarget(r.perspectiveId, {
@@ -778,7 +806,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
             <div {...tourAnchor('bsc.form.name')} className="space-y-1.5">
               <label className="text-label">{t('ScorecardFormModal.criteriaSetName')} <span className="text-[var(--color-error)]">*</span></label>
               <input {...register('name')} placeholder={t('ScorecardFormModal.eGQ32026Strategy')}
-                className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"/>
+                className="field w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"/>
             </div>
             <div {...tourAnchor('bsc.form.apply-scope')} className="space-y-1.5">
               <label className="text-label">{t('ScorecardFormModal.applyBy')} <span className="text-[var(--color-error)]">*</span></label>
@@ -787,7 +815,8 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
                   { value: BscScorecardApplyScope.PERIOD, label: t('ScorecardFormModal.aPeriod') },
                   { value: BscScorecardApplyScope.CYCLE, label: t('ScorecardFormModal.aCycle') },
                 ].map(opt => (
-                  <ChoiceChip selected={applyScope === opt.value} variant="solid" key={opt.value} onClick={() => setValue('applyScope', opt.value, { shouldValidate: true })}>
+                  <ChoiceChip selected={applyScope === opt.value} variant="solid" key={opt.value} disabled={periodLocked}
+                    onClick={() => { if (!periodLocked) setValue('applyScope', opt.value, { shouldValidate: true }) }}>
                     {opt.label}
                   </ChoiceChip>
                 ))}
@@ -802,7 +831,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
             </label>
 
             {isCycleMode ? (
-              <Select value={cycleId} onValueChange={createCycle.wrap(v => setValue('cycleId', v, { shouldValidate: true }))}>
+              <Select value={cycleId} disabled={periodLocked} onValueChange={createCycle.wrap(v => setValue('cycleId', v, { shouldValidate: true }))}>
                 <SelectTrigger className="w-full h-10 rounded-card bg-[var(--color-muted)] border-[var(--color-border)] text-sm font-medium outline-none">
                   <SelectValue placeholder={t('ScorecardFormModal.chooseEvaluationCycle')} />
                 </SelectTrigger>
@@ -813,8 +842,8 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
               </Select>
             ) : (
               <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between font-normal" type="button">
+                <PopoverTrigger asChild disabled={periodLocked}>
+                  <Button variant="outline" className="w-full justify-between font-normal" type="button" disabled={periodLocked}>
                     <span className={cn('truncate text-left', periodIds.length === 0 && 'text-[var(--color-subtle-foreground)]')}>{periodTriggerLabel}</span>
                     <ChevronDown aria-hidden="true" className="opacity-50 shrink-0" />
                   </Button>
@@ -859,7 +888,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
             )}
 
             <p className="text-caption ml-1">
-              {isCycleMode
+              {periodLocked ? t('ScorecardFormModal.periodFollowsParent') : isCycleMode
                 ? cycleId
                   ? t('ScorecardFormModal.appliesToPeriodsInThisCycle', { count: cyclePeriods.length, value: cyclePeriods.length > 0 ? ': ' + cyclePeriods.map(p => p.name).join(', ') : '' })
                   : t('ScorecardFormModal.choose1CycleEveryPeriodIn')
@@ -912,7 +941,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
           <div {...tourAnchor('bsc.form.vision')} className="space-y-1.5">
             <label className="text-label">{t('ScorecardFormModal.strategyStatementVision')}</label>
             <textarea {...register('vision')} rows={2} placeholder={t('ScorecardFormModal.theCentralStrategyStatement')}
-              className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all resize-none"/>
+              className="field w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all resize-none"/>
           </div>
 
           {/* Ẩn ô trạng thái thì ô còn lại chiếm trọn dòng, không để nửa dòng trống. */}
@@ -945,7 +974,9 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
               <label className="text-label">
                 {t('ScorecardFormModal.whenAnItemHasNoKpi')}
               </label>
-              <Select value={emptyPolicy} onValueChange={v => setValue('emptyPolicy', v as BscEmptyPerspectivePolicy)}>
+              {/* Thẻ con theo luật của thẻ cha (backend `BscEmptyPolicySync` bỏ qua giá trị gửi lên và tự áp
+                  xuống cây khi thẻ cha đổi) — để mỗi phòng tự chọn thì nhân viên hai phòng chấm theo hai luật. */}
+              <Select value={emptyPolicy} disabled={policyFollowsParent} onValueChange={v => setValue('emptyPolicy', v as BscEmptyPerspectivePolicy)}>
                 <SelectTrigger className="w-full h-10 rounded-card bg-[var(--color-muted)] border-[var(--color-border)] text-sm font-medium outline-none">
                   <SelectValue />
                 </SelectTrigger>
@@ -966,6 +997,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
                 </SelectContent>
               </Select>
               <p className="text-caption ml-1 leading-relaxed">
+                {policyFollowsParent && <>{t('ScorecardFormModal.policyFollowsParent', { name: scorecard?.parentScorecardName ?? '' })} </>}
                 {EMPTY_POLICY_META()[emptyPolicy]?.example}
               </p>
             </div>
@@ -1040,6 +1072,8 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
         defaultWeight={editingRow?.weight ?? 0}
         otherWeightTotal={otherWeightTotal}
         onWeightSubmit={applyPerspectiveWeight}
+        rowFigures={rowFigures}
+        scorecardId={scorecard?.id}
       />
 
       <FixedPerspectiveFormModal

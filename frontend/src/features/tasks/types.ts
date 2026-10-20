@@ -48,7 +48,16 @@ export interface TaskAttachment {
   sourceDocumentTitle?: string | null
   /** Chỉ có khi tài liệu gốc còn và mình xem được — link "Mở bản mới nhất". */
   sourceDocumentId?: string | null
+  /** Tệp đính kèm (người giao đưa) hay kết quả (người thực hiện nộp) — V47. */
+  kind: TaskAttachmentKind
+  uploadedById: string
+  uploadedByName?: string | null
+  uploadedByAvatarUrl?: string | null
+  /** Mình xoá được tệp này (máy chủ tính theo loại tệp + người tải lên). */
+  canDelete: boolean
 }
+
+export type TaskAttachmentKind = 'REFERENCE' | 'RESULT'
 
 export interface TaskPerson {
   id: string

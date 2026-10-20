@@ -61,6 +61,10 @@ public class OrgUnitDelegation {
     @Builder.Default
     private Boolean canActAsLeader = true;
 
+    /** Lúc đã gán vai trò trưởng ở đơn vị đích (chỉ một lần) — xem {@code DelegationLeaderRoles}. */
+    @Column(name = "leader_role_granted_at")
+    private Instant leaderRoleGrantedAt;
+
     @Column(name = "reason", columnDefinition = "TEXT")
     private String reason;
 

@@ -77,6 +77,12 @@ public class RewardNotificationEventListener {
     /** Nhãn kiểu thông báo — quyết định biểu tượng ở chuông. */
     private static final String TYPE_GRANT = "REWARD_GRANT";
     private static final String TYPE_POINT = "REWARD_POINT";
+    /**
+     * Điểm bị TRỪ khỏi ví (thu hồi thưởng tay / hoàn tác chương trình). Tách khỏi {@link #TYPE_POINT} để
+     * chuông vẽ đúng biểu tượng và để không gì phía frontend nhầm nó với tin "vừa được cộng điểm" — tính
+     * năng ăn mừng tuyệt đối không được chạy cho điểm bị trừ.
+     */
+    private static final String TYPE_POINT_REVOKED = "REWARD_POINT_REVOKED";
     private static final String TYPE_GIFT = "REWARD_GIFT";
     /** Đơn đổi quà chờ người có GIFT:FULFILL xử lý — tách khỏi TYPE_GIFT để link mở hàng đợi chứ không phải quà của tôi. */
     private static final String TYPE_GIFT_REQUEST = "REWARD_GIFT_REQUEST";
@@ -218,7 +224,7 @@ public class RewardNotificationEventListener {
                     actorName, item.getPoints(), reasonOf(grant), noteSuffix(event.note()));
 
             dispatchTo(item.getUser(), orgId, "reward_grant_revoked",
-                    LocalizedText.of("notif.reward.grantRevoked.title"), message, TYPE_POINT, grant.getId(), true);
+                    LocalizedText.of("notif.reward.grantRevoked.title"), message, TYPE_POINT_REVOKED, grant.getId(), true);
         }
 
         // Người trao cũng phải biết: hạn mức của họ vừa được trả lại và đề nghị họ đứng tên
@@ -302,7 +308,7 @@ public class RewardNotificationEventListener {
                     actorName, programName, item.getPoints());
 
             dispatchTo(item.getUser(), orgId, "reward_program_reverted",
-                    LocalizedText.of("notif.reward.programReverted.title"), message, TYPE_POINT, run.getId(), true);
+                    LocalizedText.of("notif.reward.programReverted.title"), message, TYPE_POINT_REVOKED, run.getId(), true);
         }
     }
 

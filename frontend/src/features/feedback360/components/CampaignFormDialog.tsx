@@ -1,7 +1,7 @@
 import { intlDateLocale } from '@/i18n/format'
 import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
-import { CalendarRange, ChevronDown, ListChecks, Settings2, SlidersHorizontal, Target } from 'lucide-react'
+import { CalendarRange, Check, ChevronDown, ChevronLeft, ChevronRight, ListChecks, Settings2, SlidersHorizontal, Target } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -32,7 +32,10 @@ import { useStateDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
 import { blockedByTour } from '@/components/common/tours/guard'
 import { tourAnchor } from '@/components/common/tours/anchors'
+import { useTourAction } from '@/components/common/tours/actions'
 
+export type Step = 'basics' | 'questions' | 'process'
+const STEPS: Step[] = ['basics', 'questions', 'process']
 const NO_CYCLE = '__none__'
 const COPY_PLACEHOLDER = '__copy__'
 const WEIGHTED: F360Relationship[] = ['MANAGER', 'PEER', 'DIRECT_REPORT', 'OTHER', 'SELF']
@@ -49,16 +52,22 @@ const WEIGHTED: F360Relationship[] = ['MANAGER', 'PEER', 'DIRECT_REPORT', 'OTHER
  * mở và hạn trong kỳ theo `utils/f360Schedule` — vào xếp loại thì chạy cuối kỳ để kịp hiệu chỉnh/chốt,
  * phát triển thì giữa kỳ. "Điều chỉnh" cho sửa trong biên của kỳ; đổi kỳ hoặc mục đích là tính lại.
  *
+ * <p>Chia ba bước — Thông tin & thời gian → Câu hỏi → Cách chạy — thay cho một form dài phải cuộn
+ * hết mới thấy nút Tạo. Tạo mới thì đi lần lượt ("Tiếp tục" khoá khi bước đang đứng còn thiếu, chân
+ * form nói thiếu gì); sửa nháp thì ba bước là ba tab và lưu được ở bất kỳ bước nào.
+ *
  * <p>Ẩn danh, trọng số và luật chọn người chấm có mặc định tốt nên thu vào "Tuỳ chọn nâng cao".
  *
  * <p>Đang chạy (đề cử/đánh giá) chỉ đổi được tên, mô tả và hạn — phần còn lại đã quyết định phiếu
  * người ta đang điền nên được ẩn đi thay vì bày ra một loạt ô bị khoá.
  */
-export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving }: {
+export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving, initialStep }: {
   campaign: F360Campaign | null
   onClose: () => void
   onSubmit: (body: F360CampaignInput) => void
   saving: boolean
+  /** Mở thẳng một bước (vd. "Sửa câu hỏi" ở tab Câu hỏi). */
+  initialStep?: Step
 }) {
   const { t: tr } = useTranslation('feedback360')
   const locked = !!campaign && campaign.status !== 'DRAFT'
@@ -109,6 +118,9 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(f => ({ ...f, [k]: v }))
   // Chỉ nháp phần thông tin chiến dịch; bộ câu hỏi nạp bất đồng bộ từ mẫu nên không đưa vào (sẽ bị coi nhầm là "đã sửa").
   const draft = useStateDraft(form, setForm, { key: `f360-campaign:${campaign?.id ?? 'new'}`, enabled: true })
+  const [step, setStep] = useState<Step>(initialStep ?? 'basics')
+  // Bài hướng dẫn chuyển bước để chỉ ô nằm ở bước khác (chỉ là trạng thái giao diện, không ghi gì).
+  useTourAction('f360.form.step', value => { if (STEPS.includes(value as Step)) setStep(value as Step) })
   const [advancedOpen, setAdvancedOpen] = useState(false)
   // Nháp đã có ngày mở/hạn thì giữ nguyên cho tới khi người dùng đổi kỳ hoặc mục đích.
   const [adjusting, setAdjusting] = useState(false)
@@ -191,16 +203,23 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
     ? tr('CampaignFormDialog.theNominationDeadlineMustBeBetween') : null
   const scoringNeedsScale5 = scoring && !!questions && questions.scaleMax !== 5
 
-  // Một dòng lý do duy nhất ở chân form — nói thẳng vì sao nút Lưu đang khoá.
-  const blocker = !form.name.trim() ? tr('CampaignFormDialog.enterACampaignNameToSave')
-    : !locked && othersWeight <= 0 ? tr('CampaignFormDialog.theTotalWeightOfTheGroups')
-      : !locked && !questions ? tr('CampaignFormDialog.loadingQuestionSet')
-      : !locked && questionSetBlocker(questions!) ? questionSetBlocker(questions!)
-      : !locked && scoringNeedsCycle ? tr('CampaignFormDialog.aCampaignThatCountsTowardRating')
-      : !locked && scheduleProblem ? (windowNote && !startDate ? windowNote : scheduleProblem)
-      : nominationProblem ? nominationProblem
-        : !locked && scoringNeedsScale5 ? tr('CampaignFormDialog.aCampaignThatCountsTowardRating2')
-          : null
+  // Lý do khoá của TỪNG bước — chân form nói thẳng vì sao chưa đi tiếp / chưa lưu được.
+  const stepBlockers: Record<Step, string | null> = {
+    basics: !form.name.trim() ? tr('CampaignFormDialog.enterACampaignNameToSave')
+      : locked ? null
+        : scoringNeedsCycle ? tr('CampaignFormDialog.aCampaignThatCountsTowardRating')
+          : scheduleProblem ? (windowNote && !startDate ? windowNote : scheduleProblem)
+            : null,
+    questions: locked ? null
+      : !questions ? tr('CampaignFormDialog.loadingQuestionSet')
+        : questionSetBlocker(questions) ?? (scoringNeedsScale5 ? tr('CampaignFormDialog.aCampaignThatCountsTowardRating2') : null),
+    process: nominationProblem ?? (!locked && othersWeight <= 0 ? tr('CampaignFormDialog.theTotalWeightOfTheGroups') : null),
+  }
+  const blocker = stepBlockers.basics ?? stepBlockers.questions ?? stepBlockers.process
+  const stepIndex = STEPS.indexOf(step)
+  const lastStep = stepIndex === STEPS.length - 1
+  // Tạo mới: đi lần lượt từng bước. Sửa nháp: các bước là tab, lưu được ở bất kỳ bước nào.
+  const wizard = !campaign
 
   const advancedSummary = [
     tr('CampaignFormDialog.anonymousFromPeople', { count: form.anonymityThreshold, value: form.strictAnonymity ? tr('CampaignFormDialog.strict') : '' }),
@@ -252,15 +271,21 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
         : tr('CampaignFormDialog.theCampaignIsSavedAsA')}
       footer={
         <DialogFooter
-          note={blocker ?? undefined}
-          secondary={<Button variant="outline" onClick={onClose}>{tr('CampaignFormDialog.cancel')}</Button>}
-          primary={<Button {...tourAnchor('f360.form.submit')} onClick={submit} disabled={!!blocker || saving}>{saving ? tr('CampaignFormDialog.saving') : campaign ? tr('CampaignFormDialog.save') : tr('CampaignFormDialog.createCampaign')}</Button>}
+          note={(wizard ? stepBlockers[step] : blocker) ?? undefined}
+          secondary={wizard && stepIndex > 0
+            ? <Button variant="outline" onClick={() => setStep(STEPS[stepIndex - 1]!)}><ChevronLeft /> {tr('CampaignFormDialog.back')}</Button>
+            : <Button variant="outline" onClick={onClose}>{tr('CampaignFormDialog.cancel')}</Button>}
+          primary={wizard && !lastStep
+            ? <Button onClick={() => setStep(STEPS[stepIndex + 1]!)} disabled={!!stepBlockers[step]}>{tr('CampaignFormDialog.continue')} <ChevronRight /></Button>
+            : <Button {...tourAnchor('f360.form.submit')} onClick={submit} disabled={!!blocker || saving}>{saving ? tr('CampaignFormDialog.saving') : campaign ? tr('CampaignFormDialog.save') : tr('CampaignFormDialog.createCampaign')}</Button>}
         />
       }
     >
       <DraftNotice draft={draft} className="mb-4" />
+      {!locked && <FormSteps current={step} blockers={stepBlockers} onJump={setStep} wizard={wizard} />}
       <div className="space-y-5">
-        {/* ── Thông tin chính ── */}
+        {/* ── Bước 1: thông tin chính + thời gian ── */}
+        {(locked || step === 'basics') && (
         <div className="space-y-3">
           <Field {...tourAnchor('f360.form.name')} label={tr('CampaignFormDialog.campaignName')}>
             <Input value={form.name} onChange={e => set('name', e.target.value)} placeholder={tr('CampaignFormDialog.eG360ReviewFirstHalf')} />
@@ -373,10 +398,10 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
             <Textarea rows={2} value={form.description} onChange={e => set('description', e.target.value)} />
           </Field>
         </div>
+        )}
 
-        {!locked && (
-          <>
-            {/* ── Câu hỏi đánh giá: soạn thẳng tại đây ── */}
+        {/* ── Bước 2: câu hỏi đánh giá, soạn thẳng tại đây ── */}
+        {!locked && step === 'questions' && (
             <section {...tourAnchor('f360.form.questions')} className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -414,8 +439,11 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
                 ? <QuestionSetEditor value={questions} onChange={setQuestions} />
                 : <div className="h-24 animate-pulse rounded-card bg-[var(--color-muted)]" />}
             </section>
+        )}
 
-            {/* ── Quy trình: ba lựa chọn thường phải quyết cho mỗi chiến dịch ── */}
+        {/* ── Bước 3: quy trình + tuỳ chọn nâng cao ── */}
+        {!locked && step === 'process' && (
+          <>
             <section {...tourAnchor('f360.form.process')} className="space-y-1">
               <h4 className="text-sm font-semibold">{tr('CampaignFormDialog.process')}</h4>
               <Toggle label={tr('CampaignFormDialog.revieweesAssessThemselves')} hint={tr('CampaignFormDialog.forComparisonWithOthersBlindSpots')} checked={form.includeSelf} onChange={v => set('includeSelf', v)} />
@@ -484,6 +512,49 @@ export default function CampaignFormDialog({ campaign, onClose, onSubmit, saving
       </div>
 
     </Dialog>
+  )
+}
+
+/**
+ * Thanh ba bước ở đầu form. Bấm được để nhảy qua lại (dữ liệu không mất — mọi bước chung một state);
+ * bước còn thiếu gắn chấm cam để người dùng biết phải quay lại đâu trước khi Tạo.
+ */
+function FormSteps({ current, blockers, onJump, wizard }: {
+  current: Step; blockers: Record<Step, string | null>; onJump: (s: Step) => void; wizard: boolean
+}) {
+  const { t } = useTranslation('feedback360')
+  const labels: Record<Step, string> = {
+    basics: t('CampaignFormDialog.stepBasics'),
+    questions: t('CampaignFormDialog.stepQuestions'),
+    process: t('CampaignFormDialog.stepProcess'),
+  }
+  const currentIndex = STEPS.indexOf(current)
+  return (
+    <ol className="mb-5 flex items-center gap-2" aria-label={t('CampaignFormDialog.formSteps')}>
+      {STEPS.map((s, i) => {
+        const active = s === current
+        // Tạo mới: bước đã qua thì tích xanh / chấm cam. Sửa nháp: các bước là tab, chỉ báo bước còn thiếu.
+        const done = wizard && i < currentIndex && !blockers[s]
+        const warn = !active && !!blockers[s] && (!wizard || i < currentIndex)
+        return (
+          <li key={s} className={cn('flex min-w-0 items-center gap-2', i < STEPS.length - 1 && 'flex-1')}>
+            <button type="button" onClick={() => onJump(s)} aria-current={active ? 'step' : undefined} title={warn ? blockers[s] ?? undefined : undefined}
+              className={cn('flex min-w-0 items-center gap-2 rounded-control px-1.5 py-1 text-left transition-colors',
+                !active && 'hover:bg-[var(--color-muted)]')}>
+              <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+                active ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)] ring-4 ring-[var(--color-primary-soft)]'
+                  : done ? 'bg-[var(--color-success-solid)] text-white'
+                    : warn ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]'
+                      : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]')}>
+                {done ? <Check size={14} strokeWidth={3} /> : i + 1}
+              </span>
+              <span className={cn('truncate text-sm', active ? 'font-semibold text-[var(--color-foreground)]' : 'text-[var(--color-muted-foreground)]')}>{labels[s]}</span>
+            </button>
+            {i < STEPS.length - 1 && <span className={cn('h-px min-w-4 flex-1', done ? 'bg-[var(--color-success-solid)]' : 'bg-[var(--color-border)]')} />}
+          </li>
+        )
+      })}
+    </ol>
   )
 }
 

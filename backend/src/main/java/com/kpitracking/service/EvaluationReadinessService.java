@@ -40,6 +40,7 @@ public class EvaluationReadinessService {
     private final KpiSubmissionRepository kpiSubmissionRepository;
     private final EvaluationRepository evaluationRepository;
     private final KpiWorkflowConfigService workflowConfigService;
+    private final KpiEffortShares effortShares;
 
     public Map<UUID, ScoringReadinessResponse> compute(KpiPeriod period, Collection<UUID> userIds) {
         Map<UUID, ScoringReadinessResponse> out = new LinkedHashMap<>();
@@ -65,14 +66,24 @@ public class EvaluationReadinessService {
                 ? new HashSet<>(evaluationRepository.findSelfEvaluatedUserIds(period.getId(), userIds))
                 : Set.of();
 
+        // Đơn vị của từng KPI phải nộp — để ghi rõ KPI còn thiếu của người kiêm nhiệm thuộc phòng nào.
+        Map<UUID, com.kpitracking.entity.OrgUnit> unitOfKpi = new HashMap<>();
+        Set<UUID> requiredIds = new HashSet<>();
+        requiredByUser.values().forEach(rows -> rows.forEach(r -> requiredIds.add((UUID) r[0])));
+        if (!requiredIds.isEmpty()) {
+            kpiCriteriaRepository.findAllById(requiredIds).forEach(k -> unitOfKpi.put(k.getId(), k.getOrgUnit()));
+        }
+
         for (UUID userId : userIds) {
             List<Object[]> required = requiredByUser.getOrDefault(userId, List.of());
             List<String> missing = new ArrayList<>();
+            List<UUID> missingIds = new ArrayList<>();
             int submittedCount = 0;
             for (Object[] kpi : required) {
                 if (submitted.contains(kpi[0] + "|" + userId)) submittedCount++;
-                else missing.add((String) kpi[1]);
+                else { missing.add((String) kpi[1]); missingIds.add((UUID) kpi[0]); }
             }
+            missing = labelOtherBranches(userId, required, missingIds, missing, unitOfKpi);
             boolean submissionsDone = !submissionRequired || missing.isEmpty();
             boolean selfDone = !selfEvalRequired || selfEvaluated.contains(userId);
             out.put(userId, ScoringReadinessResponse.builder()
@@ -85,6 +96,31 @@ public class EvaluationReadinessService {
                     .periodEnded(periodEnded)
                     .ready(periodEnded || (!required.isEmpty() && submissionsDone && selfDone))
                     .build());
+        }
+        return out;
+    }
+
+    /**
+     * Người kiêm nhiệm (KpiEffortShares): KPI còn thiếu thuộc nhánh KHÁC đơn vị chính được ghi kèm tên
+     * đơn vị, vd. "Bài viết tháng (Team Content)" — trưởng đơn vị chính biết phải chờ / nhắc ở đâu.
+     * Chỉ tra nhánh khi KPI phải nộp đến từ ≥ 2 đơn vị, nên người một phòng không tốn thêm truy vấn.
+     */
+    private List<String> labelOtherBranches(UUID userId, List<Object[]> required, List<UUID> missingIds,
+                                            List<String> missing, Map<UUID, com.kpitracking.entity.OrgUnit> unitOfKpi) {
+        if (missing.isEmpty()) return missing;
+        long units = required.stream().map(r -> unitOfKpi.get((UUID) r[0])).filter(java.util.Objects::nonNull)
+                .map(com.kpitracking.entity.OrgUnit::getId).distinct().count();
+        if (units < 2) return missing;
+        List<KpiEffortShares.Branch> branches = effortShares.branchesOf(userId);
+        if (branches.size() < 2) return missing;
+        List<com.kpitracking.entity.OrgUnit> branchUnits = branches.stream().map(KpiEffortShares.Branch::unit).toList();
+        UUID home = branchUnits.get(0).getId();
+        List<String> out = new ArrayList<>(missing.size());
+        for (int i = 0; i < missing.size(); i++) {
+            UUID b = KpiEffortShares.branchOfUnit(branchUnits, unitOfKpi.get(missingIds.get(i)));
+            String name = branchUnits.stream().filter(u -> u.getId().equals(b)).map(com.kpitracking.entity.OrgUnit::getName)
+                    .findFirst().orElse(null);
+            out.add(b.equals(home) || name == null ? missing.get(i) : missing.get(i) + " (" + name + ")");
         }
         return out;
     }

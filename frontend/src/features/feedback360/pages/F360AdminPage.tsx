@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CalendarClock, ChevronRight, ListChecks, Plus, Users } from 'lucide-react'
+import { ArrowRight, CalendarClock, ChevronRight, ListChecks, Plus, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
@@ -15,6 +15,7 @@ import CampaignDetail from '../components/CampaignDetail'
 import CampaignFormDialog from '../components/CampaignFormDialog'
 import { CampaignStatusBadge } from '../components/F360Common'
 import { fmtDate } from '../utils/f360Format'
+import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
@@ -151,6 +152,7 @@ function CampaignCard({ campaign: c, onOpen }: { campaign: F360Campaign; onOpen:
   const { t } = useTranslation('feedback360')
   const pct = c.assignmentCount ? Math.round((c.submittedCount / c.assignmentCount) * 100) : 0
   const collecting = c.status === 'OPEN'
+  const hint = cardHint(c)
   return (
     <button
       type="button"
@@ -176,7 +178,15 @@ function CampaignCard({ campaign: c, onOpen }: { campaign: F360Campaign; onOpen:
           {c.competencyNames.length > 5 && <span className="text-caption">+{c.competencyNames.length - 5}</span>}
         </div>
       )}
-      {c.status !== 'DRAFT' && (
+      {hint && (
+        <p className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium',
+          hint.tone === 'warning' ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]'
+            : hint.tone === 'primary' ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
+              : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]')}>
+          <ArrowRight size={12} /> {hint.text}
+        </p>
+      )}
+      {c.status !== 'DRAFT' && c.status !== 'NOMINATING' && (
         <div className="w-full">
           <div className="flex justify-between text-caption">
             <span>{collecting ? t('F360AdminPage.formsSubmitted') : t('F360AdminPage.responseRate')}</span>
@@ -189,4 +199,26 @@ function CampaignCard({ campaign: c, onOpen }: { campaign: F360Campaign; onOpen:
       )}
     </button>
   )
+}
+
+/**
+ * Việc đang chờ của một chiến dịch, in thẳng trên thẻ — nhìn danh sách là biết chiến dịch nào cần
+ * mình làm gì, không phải mở từng cái. Đang thu phiếu thì thanh tiến độ đã nói đủ nên không có dòng này.
+ */
+function cardHint(c: F360Campaign): { text: string; tone: 'warning' | 'primary' | 'muted' } | null {
+  switch (c.status) {
+    case 'DRAFT':
+      if (c.subjectCount === 0) return { text: i18n.t('feedback360:F360AdminPage.needsReviewees'), tone: 'warning' }
+      if (c.assignmentCount === 0) return { text: i18n.t('feedback360:F360AdminPage.needsRaters'), tone: 'warning' }
+      if (c.startAt && new Date(c.startAt).getTime() > Date.now()) {
+        return { text: i18n.t('feedback360:CampaignDetail.readyStartsAutomaticallyOn', { startAt: fmtDate(c.startAt) }), tone: 'primary' }
+      }
+      return { text: i18n.t('feedback360:CampaignDetail.readyToStart'), tone: 'primary' }
+    case 'NOMINATING':
+      return { text: i18n.t('feedback360:CampaignDetail.nominatingRaters'), tone: 'primary' }
+    case 'CLOSED':
+      return { text: i18n.t('feedback360:F360AdminPage.awaitingPublish'), tone: 'warning' }
+    default:
+      return null
+  }
 }

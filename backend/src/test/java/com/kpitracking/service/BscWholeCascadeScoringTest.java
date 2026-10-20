@@ -60,8 +60,12 @@ class BscWholeCascadeScoringTest {
     void setUp() {
         service = new BscScoringService(scorecardRepository, kpiCriteriaRepository,
                 mock(KpiAchievementCalculator.class), mock(BscPerspectiveRepository.class),
-                mock(EvaluationPerspectiveScoreRepository.class), userRoleOrgUnitRepository,
-                new BscSourceScores(unitResultRepository));
+                mock(EvaluationPerspectiveScoreRepository.class),
+                new PrimaryUnitResolver(userRoleOrgUnitRepository, mock(com.kpitracking.repository.UserRepository.class)),
+                new BscSourceScores(unitResultRepository),
+                new KpiEffortShares(userRoleOrgUnitRepository, mock(com.kpitracking.repository.UserRepository.class),
+                        mock(com.kpitracking.repository.UserUnitEffortShareRepository.class),
+                        mock(com.kpitracking.repository.UserPeriodEffortShareRepository.class)));
 
         company = card("BSC công ty", null);
         dept = card("BSC phòng", company);

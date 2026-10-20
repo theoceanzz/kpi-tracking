@@ -259,6 +259,11 @@
     "fileTooLarge": "Tệp \"{{name}}\" vượt quá 10 MB",
     "fileNotSupported": "Tệp \"{{name}}\" không được hỗ trợ",
     "tooManyFiles": "Mỗi công việc đính kèm tối đa {{max}} tệp",
+    "tooManyResultFiles": "Mỗi công việc có tối đa {{max}} tệp kết quả",
+    "results": "Kết quả",
+    "addResult": "Thêm kết quả",
+    "resultHint": "Tệp kết quả khi làm xong việc, tách riêng với tệp người giao đính kèm. Kéo thả tệp vào đây cũng được",
+    "uploadedBy": "{{name}} tải lên lúc {{at}}",
     "copyLink": "Sao chép link",
     "linkCopied": "Đã sao chép link công việc",
     "more": "Thao tác khác",
@@ -301,6 +306,7 @@
     "addSubtaskLark": "Thêm việc con",
     "addChecklistLark": "Thêm checklist",
     "addAttachmentLark": "Thêm tệp đính kèm",
+    "addResultLark": "Thêm kết quả",
     "followersCount": "{{count}} người theo dõi",
     "noFollowers": "Thêm người theo dõi",
     "noFollowersYet": "Chưa có ai theo dõi",
@@ -477,7 +483,9 @@
     "AUTOMATION_RAN": "luật tự động \"{{to}}\" đã chạy",
     "IMPORTED": "nhập từ Excel vào danh sách \"{{to}}\"",
     "MILESTONE_CHANGED": "đổi đánh dấu mốc",
-    "PARENT_CHANGED": "đổi việc cha từ \"{{from}}\" sang \"{{to}}\""
+    "PARENT_CHANGED": "đổi việc cha từ \"{{from}}\" sang \"{{to}}\"",
+    "RESULT_ADDED": "thêm kết quả: {{to}}",
+    "RESULT_REMOVED": "xoá kết quả \"{{from}}\""
   },
   "picker": {
     "pickPerson": "Chọn người",

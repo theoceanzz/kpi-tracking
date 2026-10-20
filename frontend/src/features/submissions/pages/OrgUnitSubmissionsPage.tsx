@@ -18,7 +18,7 @@ import { useApiAllowed } from '@/hooks/useApiAllowed'
 import { scoringBlockReasons } from '../utils/scoringReadiness'
 import type { ScoringReadiness } from '@/types/evaluation'
 import { useUsers } from '@/features/users/hooks/useUsers'
-import { cn } from '@/lib/utils'
+import { cn, getPrimaryMembership } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
 import { getScoringFunctions } from '@/lib/scoring'
 import { useAuthStore } from '@/store/authStore'
@@ -431,7 +431,13 @@ export default function OrgUnitSubmissionsPage() {
     // Quản lý đã chấm ⇒ chỉ xem. Mới có bản tự đánh giá thì vẫn còn việc chấm của quản lý.
     if (!isManager || (evaluation && evaluation.evaluatorRole !== 'SELF')) return viewButton || null
 
-    const reasons = blockReasonsFor(emp.id)
+    // Danh sách sẵn sàng chỉ gồm người MÌNH chấm được (backend). Đã tải mà không có người này ⇒ chấm
+    // ở chỗ khác — thường là người kiêm nhiệm: chỉ trưởng ĐƠN VỊ CHÍNH của họ chấm đợt.
+    const primary = getPrimaryMembership(emp)
+    const notMine = !!readinessData && !readinessByUserId[emp.id]
+    const reasons = notMine
+      ? [primary ? t('ScoringReadiness.scoredInPrimaryUnit', { unit: primary.orgUnitName }) : t('ScoringReadiness.notYours')]
+      : blockReasonsFor(emp.id)
     const missing = readinessByUserId[emp.id]?.missingKpiNames ?? []
     const scoreButton = reasons.length > 0 ? (
       // Nút bị khoá không nhận hover ở mọi trình duyệt ⇒ đặt title lên khối bọc ngoài.

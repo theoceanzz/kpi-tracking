@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { conductLockMessage, type ConductItem, type ConductScoreInput, type ConductSheet } from '../api/conductApi'
 import { groupConductItems, groupLetter, groupScore } from '../utils/conductGroups'
+import ConductLevelGuide from './ConductLevelGuide'
 import { exportConductSheetToExcel } from '../utils/conductSheetExport'
 import EvidenceAttachments from '@/features/evidence/EvidenceAttachments'
 import { evidenceKey } from '@/features/evidence/evidenceApi'
@@ -93,6 +94,8 @@ export default function ConductSheetTable({
               ))}
             </ul>
           )}
+          <ConductLevelGuide levels={item.levelDescriptions} min={min} max={max}
+            selfScore={num(d.selfScore)} managerScore={num(d.managerScore)} />
         </td>
         <td className="px-3 py-4 text-center text-sm font-semibold text-[var(--color-foreground)]">
           {fmt(shownWeight)}%

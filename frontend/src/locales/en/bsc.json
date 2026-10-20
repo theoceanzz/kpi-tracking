@@ -273,7 +273,10 @@
     "revokeTitle": "Withdraw KPI?",
     "revokeDescription": "Remove KPI \"{{item}}\" from the scorecard of {{unit}}. It cannot be withdrawn if the unit has linked KPIs to it, cascaded it further down or finalized period results. The unit will be notified to redistribute its weights.",
     "viaWhole": "Whole set · {{value}}%",
-    "viaWholeHint": "This unit receives the item via \"Give the whole scorecard\" — change the weight or revoke it in that tab."
+    "viaWholeHint": "This unit receives the item via \"Give the whole scorecard\" — change the weight or revoke it in that tab.",
+    "unitMinimum": "Minimum",
+    "minimumScaledNote": "Each unit’s minimum is derived at the same ratio as the parent KPI (minimum {{minimum}} / target {{target}} = {{percent}}% of the unit’s target), so it never exceeds the assigned target.",
+    "targetRequired": "{{name}}: enter a target greater than 0 for {{units}}. If a unit carries no share, choose the Support role."
   },
   "CascadePolicyModal": {
     "alreadyHasAPolicy": " (already has a policy)",
@@ -482,7 +485,8 @@
     "use": "Use",
     "vndSessions": "VND, %, sessions...",
     "weight": "Weight (%)",
-    "whichOfTheScorecards4Fixed": "Which of the scorecard's 4 fixed areas this item belongs to."
+    "whichOfTheScorecards4Fixed": "Which of the scorecard's 4 fixed areas this item belongs to.",
+    "rowFiguresNote": "The figures this scorecard uses. After saving, the row outside updates and these figures also become the default when the item is added to other scorecards."
   },
   "perspectiveHint": {
     "floor": "floor {{minimumValue}}"
@@ -668,7 +672,11 @@
     "from": " from \"{{parentScorecardName}}\"",
     "sourceRowHint": "Takes the total result of {{name}} · no KPIs attached",
     "autoSourceHint": "detected automatically — cascaded to child units → summed from them; KPIs linked → summed from the KPIs; otherwise the owner enters it manually in the \"Period results\" tab.",
-    "noTargetYet": "No target yet — use the target button to enter one"
+    "noTargetYet": "No target yet — use the target button to enter one",
+    "sharedItem": "Shared",
+    "sharedItemHint": "This item belongs to the scorecard \"{{name}}\" — here it can only be reused, not edited or deleted. Edit this scorecard’s own target with the target button.",
+    "periodFollowsParent": "This scorecard receives cascaded KPIs, so its periods / cycle follow the parent scorecard and cannot be changed. The unit can only add its own items.",
+    "policyFollowsParent": "Follows the parent scorecard \"{{name}}\" — cannot be changed on this scorecard."
   },
   "scorecardSchema": {
     "gateItemWhenChoosingToLimit": "Gate item \"{{name}}\": when choosing to limit the rating, you must specify the cap level",

@@ -50,7 +50,7 @@ class EvaluationReadinessServiceTest {
         KpiWorkflowConfigService workflowConfig = mock(KpiWorkflowConfigService.class);
         when(workflowConfig.definitionFor(any())).thenReturn(workflow);
         service = new EvaluationReadinessService(kpiCriteriaRepository, kpiSubmissionRepository,
-                evaluationRepository, workflowConfig);
+                evaluationRepository, workflowConfig, mock(KpiEffortShares.class));
 
         period = KpiPeriod.builder()
                 .id(UUID.randomUUID())

@@ -266,7 +266,10 @@
     "revokeTitle": "Thu hồi chỉ tiêu?",
     "revokeDescription": "Gỡ chỉ tiêu \"{{item}}\" khỏi bộ tiêu chí của {{unit}}. Không thu hồi được nếu đơn vị đã gắn KPI vào chỉ tiêu, đã giao tiếp xuống cấp dưới hoặc đã chốt kết quả đợt. Đơn vị sẽ được báo để chia lại trọng số.",
     "viaWhole": "Cả bộ · {{value}}%",
-    "viaWholeHint": "Đơn vị nhận chỉ tiêu này qua \"Giao cả bộ tiêu chí\" — sửa trọng số hoặc thu hồi ở tab đó."
+    "viaWholeHint": "Đơn vị nhận chỉ tiêu này qua \"Giao cả bộ tiêu chí\" — sửa trọng số hoặc thu hồi ở tab đó.",
+    "unitMinimum": "Tối thiểu",
+    "minimumScaledNote": "Tối thiểu của mỗi đơn vị tự tính theo cùng tỉ lệ với chỉ tiêu cha (tối thiểu {{minimum}} / mục tiêu {{target}} = {{percent}}% mục tiêu của đơn vị), nên không bao giờ cao hơn mục tiêu được giao.",
+    "targetRequired": "{{name}}: nhập mục tiêu lớn hơn 0 cho {{units}}. Đơn vị không gánh phần nào thì chọn vai trò Hỗ trợ."
   },
   "CascadePolicyModal": {
     "alreadyHasAPolicy": " (đã có chính sách)",
@@ -473,7 +476,8 @@
     "use": "Dùng",
     "vndSessions": "VNĐ, %, buổi...",
     "weight": "Trọng số (%)",
-    "whichOfTheScorecards4Fixed": "Hạng mục này thuộc lĩnh vực nào trong 4 lĩnh vực cố định của bộ tiêu chí."
+    "whichOfTheScorecards4Fixed": "Hạng mục này thuộc lĩnh vực nào trong 4 lĩnh vực cố định của bộ tiêu chí.",
+    "rowFiguresNote": "Con số đang dùng trong bộ tiêu chí này. Lưu xong, dòng ở ngoài cập nhật theo và con số này cũng thành mặc định khi thêm hạng mục vào bộ tiêu chí khác."
   },
   "perspectiveHint": {
     "floor": "sàn {{minimumValue}}"
@@ -655,7 +659,11 @@
     "from": " từ \"{{parentScorecardName}}\"",
     "sourceRowHint": "Lấy kết quả tổng của {{name}} · không gắn KPI",
     "autoSourceHint": "hệ thống tự nhận — đã phân rã xuống đơn vị con thì cộng từ đơn vị con; có KPI gắn vào thì cộng từ KPI; còn lại thì người phụ trách nhập tay ở tab \"Kết quả đợt\".",
-    "noTargetYet": "Chưa có mục tiêu — bấm nút mục tiêu để nhập"
+    "noTargetYet": "Chưa có mục tiêu — bấm nút mục tiêu để nhập",
+    "sharedItem": "Dùng chung",
+    "sharedItemHint": "Hạng mục thuộc bộ tiêu chí \"{{name}}\" — ở đây chỉ dùng lại, không sửa / xoá được. Mục tiêu riêng của bộ này sửa ở nút mục tiêu.",
+    "periodFollowsParent": "Bộ tiêu chí nhận phân rã từ cấp trên nên đợt / kỳ đi theo bộ cấp trên, không sửa được. Đơn vị chỉ thêm hạng mục riêng của mình.",
+    "policyFollowsParent": "Theo bộ cấp trên \"{{name}}\" — không sửa riêng ở bộ này."
   },
   "scorecardSchema": {
     "gateItemWhenChoosingToLimit": "Hạng mục chặn \"{{name}}\": chọn kiểu giới hạn xếp loại thì phải chỉ rõ mức trần",

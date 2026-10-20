@@ -50,6 +50,7 @@ public class TaskAutomationRunner {
     private final KpiTaskAssigneeRepository assigneeRepository;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.service.PrimaryUnitResolver primaryUnits;
     private final TaskListAccess listAccess;
     private final KpiTaskAccess access;
     private final KpiTaskService taskService;
@@ -170,7 +171,7 @@ public class TaskAutomationRunner {
             // Chỉ báo người xem được việc — luật không được mở đường lộ việc.
             holder[0] = access.scope(u.getId(), List.of(task));
             if (!holder[0].canView(task)) continue;
-            OrgUnit unit = userRoleOrgUnitRepository.findByUserId(u.getId()).stream().map(UserRoleOrgUnit::getOrgUnit).findFirst().orElse(null);
+            OrgUnit unit = primaryUnits.unitOf(u);
             dispatcher.dispatchInAppOnly(list.getOrganizationId(), "task_automation", u, unit,
                     LocalizedText.of("notif.task.automation.title"),
                     LocalizedText.of("notif.task.automation.message", rule.getName(), list.getName(), task.getTitle()),
