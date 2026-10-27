@@ -9,6 +9,20 @@ export type ApprovalObjectType =
 /** Quy trình của hai đối tượng này chỉ có hiệu lực ở chế độ "Chuỗi duyệt"; đối tượng khác thì luôn có. */
 export const CHAIN_MODE_OBJECTS: ApprovalObjectType[] = ['KPI_CRITERIA', 'KPI_ADJUSTMENT']
 
+/** Loại đối tượng của chuỗi ↔ mã đối tượng của quy trình (để dùng chung nhãn `objects.*`). */
+export const OBJECT_OF_SUBJECT: Record<import('@/types/approvalChain').ApprovalSubjectType, ApprovalObjectType> = {
+  CRITERIA: 'KPI_CRITERIA',
+  SUBMISSION: 'KPI_SUBMISSION',
+  EVALUATION: 'KPI_EVALUATION',
+  ADJUSTMENT: 'KPI_ADJUSTMENT',
+  CYCLE_FINALIZE: 'CYCLE_FINALIZE',
+  BSC_SCORECARD: 'BSC_SCORECARD',
+  BSC_RESULT: 'BSC_RESULT',
+  REWARD_GRANT: 'REWARD_GRANT',
+  GIFT_REDEMPTION: 'GIFT_REDEMPTION',
+  FORM_REQUEST: 'FORM_REQUEST',
+}
+
 export type ProcessNodeType = 'START' | 'CONDITION' | 'STEP' | 'APPROVED' | 'REJECTED'
 
 /** NEXT: tiếp theo; YES / NO: hai nhánh của điều kiện; REJECT: bước → Không duyệt. */
@@ -171,6 +185,8 @@ export interface ApprovalInboxItem {
   requesterName: string | null
   processTitle: string | null
   startedAt: string
+  status: import('@/types/approvalChain').ApprovalFlowStatus
+  finishedAt: string | null
   /** Nội dung đề xuất (đánh giá đợt, chốt kỳ). */
   payload: Record<string, unknown> | null
   /** Duyệt / từ chối được ngay trong hộp; false = mở màn riêng của đối tượng. */

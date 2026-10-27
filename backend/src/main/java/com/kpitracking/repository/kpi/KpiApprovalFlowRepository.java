@@ -3,6 +3,8 @@ package com.kpitracking.repository.kpi;
 import com.kpitracking.entity.kpi.KpiApprovalFlow;
 import com.kpitracking.enums.kpi.ApprovalSubjectType;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -98,6 +100,13 @@ public interface KpiApprovalFlowRepository extends JpaRepository<KpiApprovalFlow
            "AND s.status = com.kpitracking.enums.kpi.ApprovalStepStatus.PENDING " +
            "AND a.userId = :userId")
     List<KpiApprovalFlow> findInboxAll(@Param("userId") UUID userId);
+
+    /** Đề xuất người này đã gửi đi duyệt — đang chạy hoặc đã xong — bỏ đề xuất trên KPI đã xoá, mới trước. */
+    @Query("SELECT f FROM KpiApprovalFlow f LEFT JOIN f.kpiCriteria k WHERE f.requester.id = :userId " +
+           "AND (k IS NULL OR k.deletedAt IS NULL) " +
+           "AND ((:active = true AND f.status = com.kpitracking.enums.kpi.ApprovalFlowStatus.IN_PROGRESS) OR (:active = false AND f.status <> com.kpitracking.enums.kpi.ApprovalFlowStatus.IN_PROGRESS)) " +
+           "ORDER BY f.startedAt DESC")
+    Page<KpiApprovalFlow> findByRequester(@Param("userId") UUID userId, @Param("active") boolean active, Pageable pageable);
 
     List<KpiApprovalFlow> findByAdjustmentRequestIdOrderByStartedAtDesc(UUID adjustmentRequestId);
 

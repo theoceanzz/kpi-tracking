@@ -19,6 +19,6 @@ export default function ProcessPendingBadge({ approval }: { approval: ApprovalSu
     </Badge>
   )
   return approval.canAct
-    ? <Link to="/performance?section=process-approvals" title={t('pending.openInbox')}>{badge}</Link>
+    ? <Link to="/processes?section=process-approvals" title={t('pending.openInbox')}>{badge}</Link>
     : badge
 }

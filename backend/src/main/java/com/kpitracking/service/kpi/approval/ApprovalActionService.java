@@ -1,5 +1,6 @@
 package com.kpitracking.service.kpi.approval;
 
+import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.kpi.approval.ApprovalInboxItemResponse;
 import com.kpitracking.dto.response.kpi.approval.KpiApprovalChainResponse;
 import com.kpitracking.entity.kpi.KpiApprovalFlow;
@@ -15,6 +16,8 @@ import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.kpi.KpiApprovalFlowRepository;
 import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -87,6 +90,26 @@ public class ApprovalActionService {
         return out;
     }
 
+    /**
+     * "Quy trình của tôi": đề xuất người gọi đã gửi đi duyệt, kể cả Đơn từ — để người không phải
+     * quản lý thấy việc của mình đang nằm ở bước nào, ai đang giữ.
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<ApprovalInboxItemResponse> mine(boolean active, int page, int size) {
+        User me = viewService.currentUser();
+        Set<ApprovalSubjectType> actionable = handlers().keySet();
+        Page<KpiApprovalFlow> p = flowRepository.findByRequester(me.getId(), active,
+                PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100)));
+        return PageResponse.<ApprovalInboxItemResponse>builder()
+                .content(p.getContent().stream().map(f -> toItem(f, me.getId(), actionable.contains(f.getSubjectType()))).toList())
+                .page(p.getNumber())
+                .size(p.getSize())
+                .totalElements(p.getTotalElements())
+                .totalPages(p.getTotalPages())
+                .last(p.isLast())
+                .build();
+    }
+
     public record Detail(ApprovalInboxItemResponse item, KpiApprovalChainResponse chain) {}
 
     /** Một đề xuất kèm chuỗi duyệt: người gửi, người đã/đang giữ bước, admin tổ chức xem được. */
@@ -99,7 +122,8 @@ public class ApprovalActionService {
                 || chainService.isSubjectViewer(f.getSubjectType(), f.getSubjectId(), me.getId())
                 || permissionChecker.isGlobalAdminOfOrganization(me.getId(), f.getOrganizationId());
         if (!allowed) throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_APPROVAL_FLOW);
-        KpiApprovalChainResponse chain = viewService.chainOfSubject(f.getSubjectType(), f.getSubjectId(), f.displayName(), me.getId());
+        // Màn Quy trình luôn vẽ sơ đồ (nếu flow có chụp), kể cả khi quy trình không bật "hiện trong đối tượng".
+        KpiApprovalChainResponse chain = viewService.chainOfSubject(f.getSubjectType(), f.getSubjectId(), f.displayName(), me.getId(), true);
         return new Detail(toItem(f, me.getId(), handlers().containsKey(f.getSubjectType())), chain);
     }
 
@@ -116,6 +140,8 @@ public class ApprovalActionService {
                 .requesterName(f.getRequester() == null ? null : f.getRequester().getFullName())
                 .processTitle(f.getProcessTitle())
                 .startedAt(f.getStartedAt())
+                .status(f.getStatus())
+                .finishedAt(f.getFinishedAt())
                 .payload(f.getPayload())
                 .actionable(actionable)
                 .approval(viewService.summarize(f, viewerId))

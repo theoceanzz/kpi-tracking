@@ -426,7 +426,7 @@ function Editor({ formId, version, permissions, initial, groups, canManageAll, o
                   <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
                   <span>
                     {t('process.managedBy', { title: managedProcess.name })}{' '}
-                    <Link className="font-medium underline" to={`/company/approval-processes/${managedProcess.id}`}>{t('process.openManaged')}</Link>
+                    <Link className="font-medium underline" to={`/processes/approval-processes/${managedProcess.id}`}>{t('process.openManaged')}</Link>
                   </span>
                 </div>
               )}

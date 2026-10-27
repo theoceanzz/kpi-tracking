@@ -1,6 +1,5 @@
 import {
   FileSignature,
-  Workflow,
   GitBranch,
   LayoutDashboard,
   Hash,
@@ -42,6 +41,8 @@ import {
   HeartHandshake,
   ArrowRightLeft,
   Inbox,
+  Route,
+  Workflow,
 } from 'lucide-react'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
@@ -164,14 +165,6 @@ export const navItems = perLanguage((): NavItem[] => ([
           { id: 'email', label: i18n.t('layout:navigation.emailSettings'), icon: <Mail size={18} />, permission: 'COMPANY:UPDATE', group: i18n.t('layout:navigation.system') , description: i18n.t('layout:navigation.templateContentOfTheEmailsThe') },
           { id: 'api', label: i18n.t('layout:navigation.apiSettings'), icon: <Link2 size={18} />, permission: 'COMPANY:UPDATE', group: i18n.t('layout:navigation.system') , description: i18n.t('layout:navigation.larkConnectionAndExternalIntegrations') },
           { id: 'ai-docs', label: i18n.t('layout:navigation.aiAssistantDocuments'), icon: <BookOpen size={18} />, permission: 'COMPANY:UPDATE', group: i18n.t('layout:navigation.system') , description: i18n.t('layout:navigation.companyRegulationsJobDescriptionsAndStrategy') },
-          // Từng là dòng sidebar riêng `/kpi-workflow` (nhãn "Luồng KPI") — `legacyKeys` giữ lại
-          // nhãn tổ chức đã đặt. Quyền là phép HOẶC: người cấu hình luồng (WORKFLOW:MANAGE) và
-          // quản trị công ty (COMPANY:UPDATE) đều thấy; thiếu WORKFLOW:MANAGE thì mục tự chuyển
-          // sang chỉ-xem.
-          { id: 'kpi-workflow', label: i18n.t('layout:navigation.workflowSettings'), icon: <Workflow size={18} />, permission: ['WORKFLOW:MANAGE', 'COMPANY:UPDATE'], legacyKeys: ['/kpi-workflow'], group: i18n.t('layout:navigation.system') , description: i18n.t('layout:navigation.turnOnOffAndOrderThe') },
-          // Quy trình duyệt kiểu 1Office (sơ đồ điều kiện + bước duyệt). Cùng quyền với "Luồng KPI":
-          // thiếu WORKFLOW:MANAGE thì chỉ xem.
-          { id: 'approval-processes', label: i18n.t('layout:navigation.approvalProcesses'), icon: <GitBranch size={18} />, permission: ['WORKFLOW:MANAGE', 'COMPANY:UPDATE'], group: i18n.t('layout:navigation.system') , description: i18n.t('layout:navigation.approvalProcessesDescription') },
         ],
       },
       // Cùng cách gom như "Thiết lập công ty": cả bảng cấu hình lẫn các công cụ quản lý
@@ -220,8 +213,6 @@ export const navItems = perLanguage((): NavItem[] => ([
     matchPrefix: true,
     labelKey: 'performance',
     sections: [
-      // Mọi người đăng nhập: người giữ bước của một quy trình duyệt có thể là bất kỳ ai được chỉ định.
-      { id: 'process-approvals', label: i18n.t('layout:navigation.processApprovals'), icon: <Inbox size={18} />, group: i18n.t('layout:navigation.kpis'), description: i18n.t('layout:navigation.processApprovalsDescription') },
       { id: 'kpi-criteria', label: i18n.t('layout:navigation.kpiSetup'), icon: <Target size={18} />, permission: 'KPI:VIEW', legacyKeys: ['/kpi-criteria'], group: i18n.t('layout:navigation.kpis'), description: i18n.t('layout:navigation.createAndAssignKpisToEmployees') },
       { id: 'kpi-criteria-pending', label: i18n.t('layout:navigation.kpiApproval'), icon: <ClipboardCheck size={18} />, permission: 'KPI:APPROVE_CRITERIA', legacyKeys: ['/kpi-criteria/pending'], group: i18n.t('layout:navigation.kpis'), description: i18n.t('layout:navigation.queueOfKpisSubmittedBySubordinates') },
       { id: 'kpi-adjustments-pending', label: i18n.t('layout:navigation.kpiAdjustments'), icon: <MessageSquare size={18} />, permission: 'KPI:APPROVE_ADJUSTMENT', legacyKeys: ['/kpi-adjustments/pending', '/kpi-criteria/adjustments'], group: i18n.t('layout:navigation.kpis'), description: i18n.t('layout:navigation.pendingRequestsToChangeKpisMid') },
@@ -277,6 +268,22 @@ export const navItems = perLanguage((): NavItem[] => ([
   // Công việc kiểu Lark Tasks: trang riêng 3 cột (không nằm trong "Của tôi" vì đã có cột trái riêng). Huy hiệu = việc
   // tôi phụ trách quá hạn + tới hạn hôm nay (Sidebar đọc từ useNotificationDots).
   { id: 'tasks', label: i18n.t('layout:navigation.myTasks'), path: '/tasks', icon: <ListTodo size={20} />, permission: 'TASK:VIEW_OWN', end: true, legacyKeys: ['/my-tasks'] },
+  // Quy trình duyệt kiểu 1Office: một dòng riêng (trước là mục trong Thiết lập công ty + Quản lý hiệu suất).
+  // Mọi người đăng nhập vào được: ai cũng có thể là người gửi hoặc người giữ bước được chỉ định.
+  {
+    id: 'processes',
+    label: i18n.t('layout:navigation.processes'),
+    path: '/processes',
+    icon: <Workflow size={20} />,
+    matchPrefix: true,
+    labelKey: 'processes',
+    sections: [
+      { id: 'my-processes', label: i18n.t('layout:navigation.myProcesses'), icon: <Route size={18} />, description: i18n.t('layout:navigation.myProcessesDescription') },
+      { id: 'process-approvals', label: i18n.t('layout:navigation.processApprovals'), icon: <Inbox size={18} />, description: i18n.t('layout:navigation.processApprovalsDescription') },
+      // Sơ đồ điều kiện + bước duyệt. Thiếu WORKFLOW:MANAGE thì chỉ xem.
+      { id: 'approval-processes', label: i18n.t('layout:navigation.approvalProcesses'), icon: <GitBranch size={18} />, permission: ['WORKFLOW:MANAGE', 'COMPANY:UPDATE'], description: i18n.t('layout:navigation.approvalProcessesDescription') },
+    ],
+  },
   // Đơn từ kiểu Lark Approval: mọi người đăng nhập đều vào được — đơn nào nộp được, đơn nào xem được do backend quyết.
   // Tab Quản trị hiện khi có APPROVAL_FORM:MANAGE hoặc đang quản lý ít nhất một đơn. Huy hiệu = số đơn chờ tôi duyệt.
   { id: 'requests', label: i18n.t('layout:navigation.requests'), path: '/requests', icon: <FileSignature size={20} />, end: true },

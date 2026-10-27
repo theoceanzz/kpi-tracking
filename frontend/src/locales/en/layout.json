@@ -130,13 +130,16 @@
     "documents": "Documents",
     "aiSubmissionReview": "AI submission review",
     "aiReadsSubmissionsAndAppliesRules": "Let AI pre-read submissions when scoring, and apply scoring rules per unit",
-    "approvalProcesses": "Approval processes",
-    "approvalProcessesDescription": "Condition-based KPI approval steps",
+    "approvalProcesses": "Manage processes",
+    "approvalProcessesDescription": "Design approval flows for KPIs, BSC, rewards and requests",
     "myTasks": "Tasks",
     "requests": "Requests",
     "yourTasksToCompleteKpis": "What you need to do to complete your KPIs, as a list or Kanban board",
     "processApprovals": "Awaiting my approval",
-    "processApprovalsDescription": "Everything waiting for your approval step"
+    "processApprovalsDescription": "Everything waiting for your approval step",
+    "processes": "Processes",
+    "myProcesses": "My processes",
+    "myProcessesDescription": "Which step your submitted requests are at and who is reviewing them"
   },
   "Sidebar": {
     "administrator": "Administrator",

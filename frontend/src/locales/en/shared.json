@@ -542,9 +542,6 @@
       },
       "ai-docs": {
         "b": "Internal documents K.AI reads when answering questions about the company."
-      },
-      "kpi-workflow": {
-        "b": "Turn steps of the organization's KPI flow on or off, shown as a diagram."
       }
     },
     "info": {
@@ -803,36 +800,6 @@
       "open": {
         "t": "Open the library",
         "b": "Goes to the Documents page, Company scope, to add or edit documents."
-      }
-    },
-    "workflow": {
-      "org": {
-        "t": "Organization flow",
-        "b": "Applies to everyone. Without configuration permission you can still view the running flow."
-      },
-      "graph": {
-        "t": "Flow diagram",
-        "b": "Each node is a step. Click a node to see details and turn it on or off; core steps cannot be turned off."
-      },
-      "reset": {
-        "t": "Reset to default",
-        "b": "Returns the flow to the system default."
-      },
-      "save": {
-        "t": "Save changes",
-        "b": "Saving works only when no step dependency warnings remain."
-      },
-      "fullscreen": {
-        "t": "Full screen",
-        "b": "Opens the diagram full screen; press Esc to exit."
-      },
-      "mine": {
-        "t": "My display",
-        "b": "Hide steps from your own screen only. Nothing changes for anyone else."
-      },
-      "mineToggle": {
-        "t": "Hide or show a step",
-        "b": "Click to hide this step from your screen, click again to show it."
       }
     }
   },

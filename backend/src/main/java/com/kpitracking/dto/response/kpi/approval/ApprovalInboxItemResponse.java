@@ -1,5 +1,6 @@
 package com.kpitracking.dto.response.kpi.approval;
 
+import com.kpitracking.enums.kpi.ApprovalFlowStatus;
 import com.kpitracking.enums.kpi.ApprovalSubjectType;
 import lombok.*;
 
@@ -20,6 +21,8 @@ public class ApprovalInboxItemResponse {
     private String requesterName;
     private String processTitle;
     private Instant startedAt;
+    private ApprovalFlowStatus status;
+    private Instant finishedAt;
     /** Nội dung đề xuất (đánh giá, chốt kỳ) để người duyệt đọc ngay trong hộp. */
     private Map<String, Object> payload;
     /** Duyệt / từ chối được ngay trong hộp; {@code false} = mở màn riêng của đối tượng. */

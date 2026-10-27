@@ -93,7 +93,7 @@ const performanceTours = perLanguage((): Record<TourKey, TourDef> => ({
     ],
   },
 
-  'performance/process-approvals': {
+  'processes/process-approvals': {
     version: V3,
     next: PROC_APPROVAL,
     steps: [

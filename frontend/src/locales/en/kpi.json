@@ -1,13 +1,4 @@
 {
-  "ActionStep": {
-    "doneBackToFlowSelection": "Done, back to flow selection",
-    "nextStep": "Next step",
-    "nothingIsWaitingOnYouAt": "Nothing is waiting on you at this step.",
-    "openScreen": "Open screen",
-    "openTheScreenBelowToHandle": "Open the screen below to handle it. When done, come back here to continue.",
-    "pendingTasks": "pending tasks",
-    "thisStepIsDoneBySomeone": "This step is done by someone else. You do not need to wait here — leave and come back when notified; the KPI will move to approved automatically."
-  },
   "AdjustmentKpiPickerModal": {
     "chooseTheKpiToAdjust": "Choose the KPI to adjust",
     "noKpiMatchesTheKeyword": "No KPI matches the keyword.",
@@ -77,42 +68,6 @@
     "byProcess": "Process: {{title}}",
     "viewProcessDiagram": "View process diagram",
     "processDiagram": "Approval process diagram"
-  },
-  "CriteriaStep": {
-    "actual": "% actual",
-    "addKpi": "Add KPI",
-    "addKpisForThePeriod": "Add KPIs for the period",
-    "afterAddingTheFormClearsSo": "After adding, the form clears so you can keep entering",
-    "aPeriod": "A period",
-    "bonusNotCountedToward100": "· bonus, not counted toward 100%",
-    "chooseTheAssignee": "Choose the assignee",
-    "chooseTheImplementingUnit": "Choose the implementing unit",
-    "chooseThePeriodAndImplementingUnit": "Choose the period and implementing unit, and weight tracking will appear here.",
-    "chooseThePeriodAndTheImplementing": "Choose the period and the implementing unit first.",
-    "chooseThePeriodInTheForm": "Choose the period in the form on the left",
-    "continue": "Continue",
-    "creatingFor": "Creating for",
-    "due": "due {{effectiveDeadline}}",
-    "keepAddingUntilTheUnitsTotal": "Keep adding until the unit's total weight is exactly 100%. Each KPI is saved as soon as you click add.",
-    "n100ReachedReadyToSubmitFor": "100% reached — ready to submit for approval",
-    "newKpi": "New KPI",
-    "noTargetSet": "No target set",
-    "over": " · over {{value}}%",
-    "overByReduceIt": "Over by {{value}}% — reduce it",
-    "person": "Person",
-    "remaining": "{{value}}% remaining",
-    "removeFromList": "Remove from list",
-    "short": " · short {{value}}%",
-    "theTotalWeightIsOnlyShort": "The total weight is only {{value}}%, {{value2}}% short. Add KPIs to reach 100%.",
-    "theTotalWeightIsOver100": "The total weight is {{value}}%, over 100%. Reduce it before continuing.",
-    "thisUnitHasNoKpisIn": "This unit has no KPIs in the period yet.",
-    "totalWeight": "Total weight",
-    "unit": "Unit",
-    "unitKpis": "Unit KPIs",
-    "units_one": "{{count}} unit",
-    "units_other": "{{count}} units",
-    "unitTotalTheUnassignedPartThe": "Unit total = the unassigned part + the person with the highest total.",
-    "youAreAssigningToSeveralUnits": "You are assigning to several units at once. Each unit has its own 100%, so weight tracking only shows when exactly one unit is chosen."
   },
   "CycleApprovalTimeline": {
     "approvalFlowByLevel": "Approval flow by level",
@@ -560,21 +515,6 @@
     "periodCanNoLongerBeChanged": "Period \"{{name}}\" {{toLowerCase}} — can no longer be changed.",
     "theKpiWasClosedAsClosed": "The KPI was closed as \"Closed by cycle lock\" — no more actions are possible."
   },
-  "CycleStep": {
-    "aCycleGroupsSeveralPeriodsFor": "A cycle groups several periods for an overall end-of-cycle score. Skip it if not needed — you can assign periods to a cycle later.",
-    "backToHome": "Back to home",
-    "chooseAnExistingCycle": "Choose an existing cycle",
-    "chooseOrCreateAnEvaluationCycle": "Choose or create an evaluation cycle",
-    "createANewCycle": "Create a new cycle",
-    "createANewCycleOrSkip": "Create a new cycle, or skip to go straight to creating periods.",
-    "createCycleContinue": "Create cycle & continue",
-    "noCyclesYet": "No cycles yet",
-    "periods": "periods",
-    "skipThisStep": "Skip this step"
-  },
-  "EndNode": {
-    "completed": "Completed"
-  },
   "FinalizeUnitDialog": {
     "afterLockingIndividualCycleScoresAnd": "After locking, individual cycle scores and the department score can no longer be edited; the parent will see this unit is done to approve further. To edit, \"Unlock\" — the unit goes back to the calibration step",
     "all": "All",
@@ -610,12 +550,6 @@
     "unfinishedPeriodsChooseHowToHandle": "unfinished periods — choose how to handle each one. If you do not want to lock yet, click Cancel and the cycle stays open.",
     "unitScoreToBeLocked": "Unit score to be locked",
     "curve": "Curve"
-  },
-  "FlowPicker": {
-    "eachFlowTakesYouThroughOne": "Each flow takes you through one complete line of work. You can come back here at any time after choosing.",
-    "noFlowAvailableForYouYet": "No flow available for you yet",
-    "whatWouldYouLikeToDo": "What would you like to do?",
-    "yourAccountDoesNotYetHave": "Your account does not yet have permission to take part in any step of the KPI process."
   },
   "flows": {
     "aCycle": "A cycle",
@@ -1618,17 +1552,6 @@
     "theTargetCannotBeNegative": "The target cannot be negative",
     "weightCanBeAtMost100": "Weight can be at most 100"
   },
-  "KpiSetupLayout": {
-    "chooseAnotherFlow": "Choose another flow",
-    "chooseWhatYouWantToDo": "Choose what you want to do",
-    "exit": "Exit",
-    "exitTheSetupWizard": "Exit the setup wizard",
-    "exitTheSetupWizard2": "Exit the setup wizard?",
-    "kpiSetup": "KPI setup",
-    "otherFlow": "Other flow",
-    "step": "Step {{value}} / {{length}} — {{label}}",
-    "whatYouHaveCreatedIsKept": "What you have created is kept — saved cycles and periods, and KPIs in DRAFT status on the KPI management page. You can come back and continue at any time."
-  },
   "KpiTagChips": {
     "bonusKpi": "Bonus KPI",
     "bscItem": "BSC item: {{effectivePerspectiveName}}",
@@ -1733,15 +1656,6 @@
     "youHaveNoKpisInThis": "You have no KPIs in this period yet",
     "youHaveNotBeenAssignedAny": "You have not been assigned any KPIs"
   },
-  "MyWorkflowPanel": {
-    "hidden": "Hidden",
-    "hideThisStepFromMyScreen": "Hide this step from my screen",
-    "myDisplay": "My display",
-    "onlyAffectsYourScreenNothingChanges": "Only affects your screen — nothing changes for others",
-    "showAllAgain": "Show all again",
-    "shown": "Shown",
-    "showThisStepAgain": "Show this step again"
-  },
   "nextStepHints": {
     "assignKpis": "Assign KPIs",
     "assignKpisForPeriod": "Assign KPIs for period «{{name}}»",
@@ -1757,21 +1671,6 @@
     "dismissSuggestion": "Dismiss suggestion",
     "later": "Later",
     "nextStep": "Next step"
-  },
-  "OrgWorkflowPanel": {
-    "appliesTo": "Applies to",
-    "coreStepOfTheFlowCannot": "Core step of the flow, cannot be turned off",
-    "everyone": "everyone",
-    "exitFullScreen": "Exit full screen",
-    "exitFullScreenEsc": "Exit full screen (Esc)",
-    "fullScreen": "Full screen",
-    "onlyPeopleWithPermissionToConfigure": "Only people with permission to configure the flow can edit it. You are viewing the organization's current process.",
-    "organizationFlow": "Organization flow",
-    "required": "Required",
-    "resetToDefault": "Reset to default",
-    "saveChanges": "Save changes",
-    "stepRequiresStepToBeEnabled": "Step \"{{label}}\" requires step \"{{label2}}\" to be enabled too.",
-    "turningStepsOnOffHereChanges": "— turning steps on/off here changes the business rules too. Click a step to open its settings."
   },
   "PerformancePage": {
     "performanceManagement": "Performance management",
@@ -1808,45 +1707,10 @@
     "year": "Year {{startDateObj}}",
     "youChoseDaysWhileTheStandard": "You chose {{selectedDays}} days, while the standard for period type \"{{value}}\" is {{standardDays}} days. The system will not check again — you are responsible for the chosen time range."
   },
-  "PeriodStep": {
-    "aPeriodIsTheTimeFrame": "A period is the time frame every KPI is attached to. Without a period, no KPI can be assigned.",
-    "askYourManagerToCreateA": "Ask your manager to create a period before you assign KPIs.",
-    "chooseAnExistingPeriod": "Choose an existing period",
-    "chooseOrCreateAKpiPeriod": "Choose or create a KPI period",
-    "createANewPeriod": "Create a new period",
-    "createPeriodContinue": "Create period & continue",
-    "inCycle": "· in cycle",
-    "noPeriodsYet": "No periods yet",
-    "switchToTheCreateNewPeriod": "Switch to the \"Create new period\" tab to start."
-  },
   "reviewSchema": {
     "pleaseEnterANoteWithThe": "Please enter a note with the rejection reason",
     "pleaseEnterTheRejectionReason": "Please enter the rejection reason",
     "theCompensationMustBeBetween0": "The compensation % must be between 0 and 150"
-  },
-  "ReviewStep": {
-    "aPeriod": "A period",
-    "checkOneLastTimeBeforeSending": "Check one last time before sending all KPIs to the manager for approval.",
-    "finish": "Finish",
-    "goToTheNextStep": "Go to the next step",
-    "haveBeenSentToTheManager": "have been sent to the manager for approval.",
-    "kpisOfThePeriod": "KPIs of the period",
-    "noDraftKpisLeftInThis": "No DRAFT KPIs left in this period — you may have already submitted them.",
-    "numberOfKpis": "Number of KPIs",
-    "qualitative": "Qualitative",
-    "quantitative": "Quantitative",
-    "reviewFinish": "Review & finish",
-    "reviewSubmitForApproval": "Review & submit for approval",
-    "submitKpisForApproval_one": "Submit {{count}} KPI for approval",
-    "submitKpisForApproval_other": "Submit {{count}} KPIs for approval",
-    "submittedForApproval": "Submitted for approval",
-    "theOrganizationHasTurnedOffThe": "The organization has turned off the KPI approval step, so these KPIs take effect immediately.",
-    "totalWeight": "Total weight",
-    "unit": "Unit"
-  },
-  "SelfEvalStep": {
-    "scoreYourselfForThePeriodYou": "Score yourself for the period you just submitted. The system has computed a suggested score from the results you submitted.",
-    "selfAssessment": "Self-assessment"
   },
   "SendEvaluationModal": {
     "cancel": "Cancel",
@@ -1866,56 +1730,6 @@
     "sendToPeople_other": "Send to {{count}} people",
     "theScoresSentMayStillChange": ". The scores sent may still change — it is best to finalize before sending them to employees.",
     "thisUnit": "This unit"
-  },
-  "StageInspector": {
-    "allowSavingDraftsBeforeSubmitting": "Allow saving drafts before submitting",
-    "approvalMode": "Approval mode",
-    "autoApproveEverySubmission": "Auto-approve every submission",
-    "autoRejectAfter": "Auto-reject after",
-    "days": "days",
-    "directUnitHeadParentHeadTop": "Direct unit head → parent head → … → top level. A role with “Final approval” (KPI:APPROVE_FINAL) finalizes immediately, and the levels above are skipped.",
-    "forPeopleWithSelfApprovalPermission": "For people with self-approval permission, KPIs they create are approved immediately",
-    "hierarchicalApprovalChainDefault": "Hierarchical approval chain (default)",
-    "hours": "hours",
-    "ifTheTopApprovalLevelHas": "People with self-approval permission (KPI:APPROVE_OWN) have their KPIs approved on creation, without going through the approval chain",
-    "manualApprovalByTheManagerDefault": "Manual approval by the manager (default)",
-    "oneLevelAnyoneWithApprovalPermission": "One level: anyone with approval permission in the unit",
-    "oneLevelDirectManagerPreviousWorkflow": "One level: direct manager (previous workflow)",
-    "onlyAppliesToTheOneLevel": "Only applies to the one-level approval flow. The approval chain does not auto-reject but reminds the step holder.",
-    "options": "Options",
-    "remindTheApproverWhenAStep": "Remind the approver when a step has been waiting longer than",
-    "requireEvidenceAttachments": "Require evidence attachments",
-    "requiresStep": "Requires step",
-    "whoApproves": "Who approves",
-    "approvalProcessesOverrideChain": "KPI assignments or adjustment requests that match a process under \"Approval processes\" follow that process's steps instead of this chain."
-  },
-  "StageNode": {
-    "coreStepOfTheFlowCannot": "Core step of the flow, cannot be turned off",
-    "off": "Off",
-    "turnThisStepOff": "Turn this step off",
-    "turnThisStepOn": "Turn this step on"
-  },
-  "StepShell": {
-    "back": "Back"
-  },
-  "SubmitStep": {
-    "achievedResult": "Achieved result",
-    "couldNotSubmit": "Could not submit (",
-    "doneBackToFlowSelection": "Done, back to flow selection",
-    "fillInResultsForAtLeast": "Fill in results for at least one KPI",
-    "fillInTheResultsForEach": "Fill in the results for each KPI and submit them at once — no need to open them one by one.",
-    "noKpisAreAssignedToYou": "No KPIs are assigned to you in this period.",
-    "noTargetSet": "No target set",
-    "notesOptional": "Notes (optional)",
-    "openTheFullPageToAttach": "Open the full page to attach evidence files",
-    "pts": "pts",
-    "reports": "reports",
-    "skipContinue": "Skip, continue",
-    "submissions": "· submissions",
-    "submit": "Submit",
-    "submitReport": "Submit report",
-    "target": "Target {{targetValue}}{{value}}",
-    "theOrganizationHasNotConfiguredThe": "The organization has not configured the qualitative scale, so this KPI cannot be submitted yet."
   },
   "UnitScoreDialog": {
     "backToTheMemberAverage": "Back to the member average",
@@ -2168,12 +1982,6 @@
     "failedToUpdateKpi": "Failed to update KPI",
     "kpiUpdatedSuccessfully": "KPI updated successfully"
   },
-  "WizardEntryButton": {
-    "quickSetup": "Quick setup"
-  },
-  "WizardStepper": {
-    "setupSteps": "Setup steps"
-  },
   "workflowGraphModel": {
     "approve": "Approve",
     "notApproved": "Not approved",
@@ -2203,10 +2011,6 @@
     "managersScoreEmployeesAtTheEnd": "Managers score employees at the end of the period.",
     "summarizeAndFinalizeEvaluationResultsBy": "Summarize and finalize evaluation results by cycle.",
     "unitManager": "Unit manager"
-  },
-  "WorkflowStartCard": {
-    "startKpiSetup": "Start KPI setup",
-    "tasksWaitingOnYou": "tasks waiting on you"
   },
   "KpiLinkPage": {
     "notFound": "This KPI could not be opened",

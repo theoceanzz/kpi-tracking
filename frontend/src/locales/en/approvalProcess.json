@@ -19,7 +19,7 @@
   },
   "list": {
     "title": "Approval processes",
-    "description": "Condition-based approval steps for KPIs and KPI adjustments.",
+    "description": "Condition-based approval flows for KPIs, BSC, rewards and requests.",
     "processes": "Processes",
     "add": "Add process",
     "search": "Search by title",
@@ -379,5 +379,32 @@
     "bscResultBadge": "Awaiting finalization · step {{number}}/{{total}} — {{names}}",
     "inProcess": "Approval process · step {{number}}/{{total}} — waiting for {{names}}",
     "openInbox": "Open \"Awaiting my approval\""
+  },
+  "page": {
+    "title": "Processes",
+    "subtitle": "Track your requests, act on steps assigned to you and manage approval processes."
+  },
+  "mine": {
+    "title": "My processes",
+    "description": "Everything you sent for approval: the current step, who holds it and the process diagram.",
+    "filter": "Filter by status",
+    "running": "In review",
+    "finished": "Finished",
+    "emptyRunning": "Nothing of yours is awaiting approval",
+    "emptyFinished": "No finished requests yet",
+    "emptyHint": "KPIs, submissions, proposals and requests you send through an approval process appear here.",
+    "sent": "Sent {{time}}",
+    "ended": "Ended {{time}}",
+    "holders": "Waiting for {{names}}",
+    "view": "View process",
+    "itemLabel": "requests",
+    "waitingFor": "Waiting for {{names}} to approve the current step.",
+    "status": {
+      "IN_PROGRESS": "In review",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected",
+      "CANCELLED": "Cancelled",
+      "CLOSED_BY_LOCK": "Closed by cycle lock"
+    }
   }
 }

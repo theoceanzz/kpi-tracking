@@ -236,6 +236,12 @@ public class KpiApprovalViewService {
      */
     @Transactional(readOnly = true)
     public KpiApprovalChainResponse chainOfSubject(ApprovalSubjectType type, UUID subjectId, String subjectName, UUID viewerId) {
+        return chainOfSubject(type, subjectId, subjectName, viewerId, false);
+    }
+
+    /** {@code forceDiagram}: vẽ sơ đồ quy trình dù quy trình không bật "hiện trong đối tượng". */
+    public KpiApprovalChainResponse chainOfSubject(ApprovalSubjectType type, UUID subjectId, String subjectName, UUID viewerId,
+                                                   boolean forceDiagram) {
         List<KpiApprovalFlow> flows = flowRepository.findBySubjectTypeAndSubjectIdOrderByStartedAtDesc(type, subjectId);
         Map<UUID, List<KpiApprovalEvent>> eventsByFlow = flows.isEmpty() ? Map.of()
                 : eventRepository.findByFlowIdInOrderByCreatedAtAsc(flows.stream().map(KpiApprovalFlow::getId).toList())
@@ -248,7 +254,7 @@ public class KpiApprovalViewService {
                 .chainMode(true)
                 .current(flows.stream().filter(f -> f.getStatus() == ApprovalFlowStatus.IN_PROGRESS)
                         .findFirst().map(f -> summarize(f, ctx)).orElse(null))
-                .flows(flows.stream().map(f -> toResponse(f, eventsByFlow.getOrDefault(f.getId(), List.of()))).toList())
+                .flows(flows.stream().map(f -> toResponse(f, eventsByFlow.getOrDefault(f.getId(), List.of()), forceDiagram)).toList())
                 .build();
     }
 
@@ -260,6 +266,10 @@ public class KpiApprovalViewService {
     }
 
     private ApprovalFlowResponse toResponse(KpiApprovalFlow f, List<KpiApprovalEvent> events) {
+        return toResponse(f, events, false);
+    }
+
+    private ApprovalFlowResponse toResponse(KpiApprovalFlow f, List<KpiApprovalEvent> events, boolean forceDiagram) {
         return ApprovalFlowResponse.builder()
                 .id(f.getId())
                 .subjectType(f.getSubjectType())
@@ -274,7 +284,7 @@ public class KpiApprovalViewService {
                 .currentStepOrder(f.getStatus() == ApprovalFlowStatus.IN_PROGRESS ? f.getCurrentStepOrder() : null)
                 .startedAt(f.getStartedAt())
                 .finishedAt(f.getFinishedAt())
-                .process(processOf(f))
+                .process(processOf(f, forceDiagram))
                 .steps(f.getSteps().stream().map(this::toStep).toList())
                 .events(events.stream().map(e -> ApprovalFlowResponse.Event.builder()
                         .id(e.getId())
@@ -289,10 +299,10 @@ public class KpiApprovalViewService {
                 .build();
     }
 
-    private ApprovalFlowResponse.Process processOf(KpiApprovalFlow f) {
+    private ApprovalFlowResponse.Process processOf(KpiApprovalFlow f, boolean forceDiagram) {
         if (f.getProcessId() == null && f.getProcessTitle() == null) return null;
         Map<String, Object> snap = f.getProcessSnapshot() == null ? Map.of() : f.getProcessSnapshot();
-        boolean show = Boolean.TRUE.equals(snap.get("showInObject")) && snap.get("graph") != null;
+        boolean show = (forceDiagram || Boolean.TRUE.equals(snap.get("showInObject"))) && snap.get("graph") != null;
         Object path = snap.get("pathNodeIds");
         return ApprovalFlowResponse.Process.builder()
                 .id(f.getProcessId())

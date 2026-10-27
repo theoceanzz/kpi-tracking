@@ -716,6 +716,12 @@
     "source": "ApprovalController.java"
   },
   {
+    "method": "GET",
+    "path": "/api/v1/approvals/mine",
+    "authenticated": true,
+    "source": "ApprovalController.java"
+  },
+  {
     "method": "POST",
     "path": "/api/v1/auth/change-password",
     "authenticated": true,

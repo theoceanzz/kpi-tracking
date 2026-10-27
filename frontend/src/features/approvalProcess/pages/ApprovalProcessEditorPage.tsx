@@ -25,7 +25,7 @@ import ProcessDesigner from '../components/ProcessDesigner'
 import { formConditionFields } from '@/features/approvalForms/model/formIssues'
 import i18n from 'i18next'
 
-export const APPROVAL_PROCESS_LIST_PATH = '/company?section=approval-processes'
+export const APPROVAL_PROCESS_LIST_PATH = '/processes?section=approval-processes'
 
 interface EditorState {
   info: ProcessInfo
@@ -54,7 +54,7 @@ function initialState(process: ApprovalProcess | null): EditorState {
 }
 
 /**
- * Trang tạo / sửa quy trình duyệt (/company/approval-processes/new | /:id): form thông tin phía
+ * Trang tạo / sửa quy trình duyệt (/processes/approval-processes/new | /:id): form thông tin phía
  * trên, khung vẽ sơ đồ chiếm phần còn lại. Toàn bộ trang giữ bản nháp trên máy (form + sơ đồ),
  * rời trang khi chưa lưu thì hỏi lại.
  */
@@ -174,7 +174,7 @@ function Editor({ process, catalog }: { process: ApprovalProcess | null; catalog
     setBaseline(snapshot(combined))
     if (!process) {
       leavingRef.current = true
-      navigate(`/company/approval-processes/${saved.id}`, { replace: true })
+      navigate(`/processes/approval-processes/${saved.id}`, { replace: true })
     }
   }
 

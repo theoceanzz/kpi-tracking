@@ -26,6 +26,7 @@ import EmployeePerformancePage from '@/features/dashboard/pages/EmployeePerforma
 import OrgUnitDetailPage from '@/features/organization/pages/OrgUnitDetailPage'
 import CompanySettingsPage from '@/features/orgunits/pages/CompanySettingsPage'
 import ApprovalProcessEditorPage from '@/features/approvalProcess/pages/ApprovalProcessEditorPage'
+import ProcessesPage from '@/features/approvalProcess/pages/ProcessesPage'
 import PerformancePage from '@/features/kpi/pages/PerformancePage'
 import MySpacePage from '@/features/profile/pages/MySpacePage'
 import KpiLinkPage from '@/features/kpi/pages/KpiLinkPage'
@@ -53,9 +54,6 @@ import ToolSettingsPage from '@/features/orgunits/pages/ToolSettingsPage'
 
 import DashboardPage from '@/features/dashboard/pages/DashboardPage'
 import ErrorPage from '@/features/errors/pages/ErrorPage'
-import KpiSetupLayout from '@/features/kpi/setup/KpiSetupLayout'
-import FlowPicker from '@/features/kpi/setup/FlowPicker'
-import StepRouter from '@/features/kpi/setup/StepRouter'
 import PlatformAdminPage from '@/features/platformAdmin/pages/PlatformAdminPage'
 
 export const router = createBrowserRouter([
@@ -106,30 +104,6 @@ export const router = createBrowserRouter([
       // header, thanh tiến trình hay bong bóng chat — giống một trang thanh toán.
       // Path con phải TƯƠNG ĐỐI: đây là chỗ duy nhất trong file có cha mang path, và React Router
       // ném lỗi nếu con dùng đường dẫn tuyệt đối dưới một cha như vậy.
-      {
-        // Hợp của `requiresAny` trên mọi luồng trong `setup/flows.ts`. Chỉ chặn người không có
-        // phần nào trong quy trình KPI; ai vào được thì màn chọn luồng tự lọc tiếp theo quyền.
-        element: (
-          <PermissionRoute
-            permission={[
-              'KPI_PERIOD:CREATE', 'KPI:CREATE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT',
-              'SUBMISSION:CREATE', 'KPI:VIEW_MY', 'SUBMISSION:REVIEW', 'EVALUATION:CREATE', 'CYCLE_EVAL:FINALIZE',
-            ]}
-          />
-        ),
-        children: [
-          {
-            path: '/kpi-setup',
-            element: <KpiSetupLayout />,
-            children: [
-              // Danh sách bước suy ra từ quyền + cấu hình tổ chức lúc chạy, nên router không thể
-              // khai sẵn từng bước. Một route động, `StepRouter` chọn component.
-              { index: true, element: <FlowPicker /> },
-              { path: ':flowId/:stepId', element: <StepRouter /> },
-            ],
-          },
-        ],
-      },
       // Trình sửa đơn từ: toàn màn hình như Lark (palette + khung điện thoại + thiết lập cần cả bề ngang). Quyền
       // (APPROVAL_FORM:MANAGE hoặc người quản lý của đơn) do backend kiểm theo từng đơn.
       { path: '/requests/admin/forms/new', element: <FormEditorPage /> },
@@ -139,10 +113,6 @@ export const router = createBrowserRouter([
         children: [
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/profile', element: <ProfilePage /> },
-
-          // Trang cũ giờ là một mục trong Thiết lập công ty; giữ đường dẫn để liên kết và
-          // dấu trang cũ không chết.
-          { path: '/kpi-workflow', element: <RedirectToSection to="/company" params={{ section: 'kpi-workflow' }} /> },
 
           // Vận hành KPI gom về một trang; cổng route là phép HOẶC của năm quyền, còn
           // từng mục bên trong tự lọc lại theo đúng quyền cũ của nó.
@@ -195,10 +165,13 @@ export const router = createBrowserRouter([
           },
 
           // Quy trình duyệt: trang sửa riêng (khung vẽ cần cả màn hình). Cùng phép HOẶC với mục
-          // "Quy trình duyệt" trong Thiết lập công ty; thiếu WORKFLOW:MANAGE thì trang chỉ xem.
+          // "Quản lý quy trình" trong trang Quy trình; thiếu WORKFLOW:MANAGE thì trang chỉ xem.
+          // /company/... là đường cũ, giữ cho link đã lưu.
           {
             element: <PermissionRoute permission={['WORKFLOW:MANAGE', 'COMPANY:UPDATE']} />,
             children: [
+              { path: '/processes/approval-processes/new', element: <ApprovalProcessEditorPage /> },
+              { path: '/processes/approval-processes/:id', element: <ApprovalProcessEditorPage /> },
               { path: '/company/approval-processes/new', element: <ApprovalProcessEditorPage /> },
               { path: '/company/approval-processes/:id', element: <ApprovalProcessEditorPage /> },
             ],
@@ -278,6 +251,8 @@ export const router = createBrowserRouter([
           { path: '/tasks', element: <TasksPage /> },
           // Đơn từ: quyền theo từng đơn do backend quyết — không gác ở route.
           { path: '/requests', element: <RequestsPage /> },
+          // Quy trình: mục nào hiện do quyền của từng mục (SettingsSectionLayout), không gác ở route.
+          { path: '/processes', element: <ProcessesPage /> },
           { path: '/discussions/c/:commentId', element: <DiscussionLinkPage /> },
         ],
       },

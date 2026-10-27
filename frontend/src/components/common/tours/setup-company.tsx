@@ -148,18 +148,6 @@ const setupCompanyTours = perLanguage((): Record<TourKey, TourDef> => ({
       s('aidocs.open', tourTarget('aidocs.open'), 'left'),
     ],
   },
-
-  'setup-company/kpi-workflow': {
-    steps: [
-      s('workflow.org', tourTarget('workflow.org'), 'bottom'),
-      s('workflow.graph', tourTarget('workflow.graph'), 'top'),
-      s('workflow.reset', tourTarget('workflow.reset'), 'bottom'),
-      s('workflow.save', tourTarget('workflow.save'), 'bottom'),
-      s('workflow.fullscreen', tourTarget('workflow.fullscreen'), 'left'),
-      s('workflow.mine', tourTarget('workflow.mine'), 'top'),
-      s('workflow.mineToggle', tourTarget('workflow.mine-toggle'), 'left'),
-    ],
-  },
 }))
 
 export default setupCompanyTours

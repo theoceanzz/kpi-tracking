@@ -564,7 +564,7 @@ function NodeActions({
         label={i18n.t('approvalProcess:pending.scorecard', {
           number: flow.stepNumber, total: flow.totalSteps, names: flow.holderNames.join(', '),
         })}
-        onClick={() => { window.location.assign('/performance?section=process-approvals') }} />
+        onClick={() => { window.location.assign('/processes?section=process-approvals') }} />
     ),
     canApprove && !flow && node.status === BscScorecardStatus.SUBMITTED && (
       <LifecycleAction key="approve" icon={<Check aria-hidden="true" />} label={t('BscScorecardTree.approve')} accent="emerald"

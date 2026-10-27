@@ -34,9 +34,12 @@ export function notificationLink(n: Pick<Notification, 'type' | 'referenceId'>):
     // Điều chỉnh chỉ tiêu: người duyệt → hàng chờ; người xin → yêu cầu của tôi.
     case 'ADJUSTMENT_REQUEST':
       return '/kpi-adjustments/pending'
-    // Đề xuất theo quy trình duyệt (đánh giá đợt, chốt kỳ): người duyệt và người gửi đều mở hộp chờ duyệt.
+    // Đề xuất theo quy trình duyệt (đánh giá đợt, chốt kỳ, thưởng…): mở hộp chờ duyệt, kèm đúng đề xuất
+    // (referenceId = id flow) — người duyệt duyệt được ngay, người gửi xem nó đang ở bước nào.
     case 'APPROVAL_FLOW':
-      return '/performance?section=process-approvals'
+      return n.referenceId
+        ? `/processes?section=process-approvals&flow=${encodeURIComponent(n.referenceId)}`
+        : '/processes?section=process-approvals'
     // Đơn từ (người duyệt lẫn người nộp): mở trang Trạng thái đơn, ngăn chi tiết mở đúng đơn đó.
     case 'APPROVAL_REQUEST':
       return n.referenceId ? `/requests?tab=status&request=${encodeURIComponent(n.referenceId)}` : '/requests?tab=status'

@@ -205,14 +205,14 @@ class ApprovalProcessPlannerTest {
     }
 
     @Test
-    @DisplayName("Hiển thị trong đối tượng: ảnh chụp kèm sơ đồ; tắt thì không kèm")
-    void snapshotGraphOnlyWhenShown() {
+    @DisplayName("Ảnh chụp luôn kèm sơ đồ (màn Quy trình vẽ cho người gửi); showInObject chỉ được ghi lại")
+    void snapshotAlwaysCarriesGraph() {
         ApprovalProcess p = process("Quy trình", List.of(), branching());
         active(p);
         var hidden = planner.plan(ApprovalSubjectType.CRITERIA, kpi(KpiType.QUALITATIVE), null, staff).orElseThrow();
-        assertThat(hidden.snapshot()).doesNotContainKey("graph");
+        assertThat(hidden.snapshot()).containsKey("graph").containsEntry("showInObject", false);
         p.setShowInObject(true);
         var shown = planner.plan(ApprovalSubjectType.CRITERIA, kpi(KpiType.QUALITATIVE), null, staff).orElseThrow();
-        assertThat(shown.snapshot()).containsKey("graph");
+        assertThat(shown.snapshot()).containsKey("graph").containsEntry("showInObject", true);
     }
 }

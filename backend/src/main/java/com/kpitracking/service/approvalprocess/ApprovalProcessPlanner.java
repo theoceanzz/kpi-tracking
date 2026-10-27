@@ -128,7 +128,8 @@ public class ApprovalProcessPlanner {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("showInObject", showInObject);
         snapshot.put("pathNodeIds", walk.pathNodeIds());
-        if (showInObject) snapshot.put("graph", codec.toMap(graph));
+        // Luôn chụp sơ đồ: màn Quy trình vẽ cho người gửi; showInObject chỉ quyết định màn của đối tượng.
+        snapshot.put("graph", codec.toMap(graph));
         return Optional.of(new ProcessPlan(processId, title, steps, snapshot));
     }
 

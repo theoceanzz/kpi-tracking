@@ -18,7 +18,7 @@
   },
   "list": {
     "title": "Quy trình duyệt",
-    "description": "Bước duyệt theo điều kiện cho KPI và điều chỉnh KPI.",
+    "description": "Sơ đồ điều kiện và bước duyệt cho KPI, BSC, quà thưởng và đơn từ.",
     "processes": "Quy trình",
     "add": "Thêm quy trình",
     "search": "Tìm theo tiêu đề",
@@ -372,5 +372,32 @@
     "bscResultBadge": "Chờ duyệt chốt · bước {{number}}/{{total}} — {{names}}",
     "inProcess": "Theo quy trình · bước {{number}}/{{total}} — chờ {{names}}",
     "openInbox": "Mở \"Chờ tôi duyệt\""
+  },
+  "page": {
+    "title": "Quy trình",
+    "subtitle": "Theo dõi yêu cầu của bạn, duyệt việc tới lượt bạn và quản lý quy trình duyệt."
+  },
+  "mine": {
+    "title": "Quy trình của tôi",
+    "description": "Mọi yêu cầu bạn đã gửi đi duyệt: đang ở bước nào, ai đang giữ và sơ đồ quy trình.",
+    "filter": "Lọc theo trạng thái",
+    "running": "Đang duyệt",
+    "finished": "Đã kết thúc",
+    "emptyRunning": "Không có yêu cầu nào đang chờ duyệt",
+    "emptyFinished": "Chưa có yêu cầu nào kết thúc",
+    "emptyHint": "Khi bạn gửi KPI, bài nộp, đề xuất hay đơn từ đi theo quy trình duyệt, nó sẽ hiện ở đây.",
+    "sent": "Gửi lúc {{time}}",
+    "ended": "Kết thúc {{time}}",
+    "holders": "Đang chờ {{names}}",
+    "view": "Xem quy trình",
+    "itemLabel": "yêu cầu",
+    "waitingFor": "Đang chờ {{names}} duyệt ở bước hiện tại.",
+    "status": {
+      "IN_PROGRESS": "Đang duyệt",
+      "APPROVED": "Đã duyệt",
+      "REJECTED": "Bị từ chối",
+      "CANCELLED": "Đã huỷ",
+      "CLOSED_BY_LOCK": "Đóng do khoá kỳ"
+    }
   }
 }

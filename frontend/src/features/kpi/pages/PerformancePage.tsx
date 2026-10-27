@@ -10,9 +10,7 @@ import F360AdminPage from '@/features/feedback360/pages/F360AdminPage'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useAuthStore } from '@/store/authStore'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
-import ProcessApprovalsPage from '@/features/approvalProcess/pages/ProcessApprovalsPage'
-import { approvalInboxApi } from '@/features/approvalProcess/api/approvalInboxApi'
+import { Navigate, useSearchParams } from 'react-router-dom'
 
 /**
  * Vận hành KPI trong một trang: đặt chỉ tiêu, duyệt chỉ tiêu, xử lý điều chỉnh, rồi
@@ -27,7 +25,12 @@ export default function PerformancePage() {
   const { counts } = useNotificationDots()
   const orgId = useAuthStore(s => s.user?.memberships?.[0]?.organizationId)
   const { data: org } = useOrganization(orgId)
-  const { data: approvalInbox = [] } = useQuery({ queryKey: ['approvals', 'inbox'], queryFn: approvalInboxApi.inbox })
+  const [searchParams] = useSearchParams()
+
+  // "Chờ tôi duyệt" đã sang dòng "Quy trình" — link / bookmark cũ chuyển theo.
+  if (searchParams.get('section') === 'process-approvals') {
+    return <Navigate to="/processes?section=process-approvals" replace />
+  }
 
   return (
     <>
@@ -36,11 +39,6 @@ export default function PerformancePage() {
         title={pageTitle}
         subtitle={t('PerformancePage.setKpisApproveAndScoreBy')}
         sections={[
-          {
-            id: 'process-approvals',
-            badge: approvalInbox.length > 0 ? approvalInbox.length : null,
-            render: () => <ProcessApprovalsPage />,
-          },
           { id: 'kpi-criteria', render: () => <KpiCriteriaPage /> },
           {
             id: 'kpi-criteria-pending',

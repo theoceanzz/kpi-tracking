@@ -165,7 +165,7 @@ export default function ApprovalProcessListSection() {
         description={t('list.description')}
         stats={[{ label: t('list.processes'), value: data?.totalElements ?? 0, icon: Workflow }]}
         actions={canManage && (
-          <Button onClick={() => navigate('/company/approval-processes/new')}>
+          <Button onClick={() => navigate('/processes/approval-processes/new')}>
             <Plus aria-hidden="true" /> {t('list.add')}
           </Button>
         )}
@@ -212,7 +212,7 @@ export default function ApprovalProcessListSection() {
             title={keyword || objectType !== ALL ? t('list.noMatch') : t('list.empty')}
             description={keyword || objectType !== ALL ? undefined : t('list.emptyHint')}
             action={canManage && !keyword && objectType === ALL && (
-              <Button onClick={() => navigate('/company/approval-processes/new')}>
+              <Button onClick={() => navigate('/processes/approval-processes/new')}>
                 <Plus aria-hidden="true" /> {t('list.add')}
               </Button>
             )}
@@ -224,7 +224,7 @@ export default function ApprovalProcessListSection() {
             columns={columns}
             data={rows}
             keyExtractor={(p) => p.id}
-            onRowClick={(p) => navigate(`/company/approval-processes/${p.id}`)}
+            onRowClick={(p) => navigate(`/processes/approval-processes/${p.id}`)}
             selectable={canManage}
             selectedKeys={selected}
             onSelectionChange={setSelected}

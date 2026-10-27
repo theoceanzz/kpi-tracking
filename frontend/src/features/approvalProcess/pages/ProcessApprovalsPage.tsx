@@ -19,23 +19,9 @@ import { useStateDraft } from '@/hooks/useFormDraft'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { formatDateTime, formatNumber } from '@/lib/utils'
 import ApprovalChainPanel from '@/features/kpi/components/ApprovalChainPanel'
-import type { ApprovalSubjectType } from '@/types/approvalChain'
+import { useAuthStore } from '@/store/authStore'
 import { approvalInboxApi } from '../api/approvalInboxApi'
-import type { ApprovalInboxItem, ApprovalObjectType } from '../types'
-
-/** Loại đối tượng của chuỗi ↔ mã đối tượng của quy trình (để dùng chung nhãn). */
-const OBJECT_OF: Record<ApprovalSubjectType, ApprovalObjectType> = {
-  CRITERIA: 'KPI_CRITERIA',
-  SUBMISSION: 'KPI_SUBMISSION',
-  EVALUATION: 'KPI_EVALUATION',
-  ADJUSTMENT: 'KPI_ADJUSTMENT',
-  CYCLE_FINALIZE: 'CYCLE_FINALIZE',
-  BSC_SCORECARD: 'BSC_SCORECARD',
-  BSC_RESULT: 'BSC_RESULT',
-  REWARD_GRANT: 'REWARD_GRANT',
-  GIFT_REDEMPTION: 'GIFT_REDEMPTION',
-  FORM_REQUEST: 'FORM_REQUEST',
-}
+import { OBJECT_OF_SUBJECT as OBJECT_OF, type ApprovalInboxItem } from '../types'
 
 /** Đối tượng duyệt ở màn riêng của nó (có thêm thao tác nghiệp vụ: chấm điểm, so chỉ tiêu…). */
 function ownScreen(item: ApprovalInboxItem): string {
@@ -114,12 +100,12 @@ export default function ProcessApprovalsPage() {
   )
 }
 
-/** Nội dung đề xuất — người duyệt đọc ngay, không phải mở màn khác. */
+/** Nội dung đề xuất — người duyệt đọc ngay, không phải mở màn khác. Loại không có payload: không vẽ. */
 function PayloadDetails({ item }: { item: ApprovalInboxItem }) {
   const { t } = useTranslation('approvalProcess')
   const p = item.payload ?? {}
   const units = Array.isArray(p.unitNames) && p.unitNames.length ? (p.unitNames as string[]).join(', ') : t('inbox.bsc.wholeOrg')
-  const rows: [string, string][] = item.subjectType === 'REWARD_GRANT'
+  const rows: [string, string][] | null = item.subjectType === 'REWARD_GRANT'
     ? [
         [t('inbox.reward.totalPoints'), num(p.totalPoints)],
         [t('inbox.reward.recipients'), num(p.recipientCount)],
@@ -155,13 +141,16 @@ function PayloadDetails({ item }: { item: ApprovalInboxItem }) {
         [t('inbox.eval.score'), num(p.score)],
         [t('inbox.eval.systemScore'), num(p.systemScore)],
       ]
-    : [
+    : item.subjectType === 'CYCLE_FINALIZE'
+    ? [
         [t('inbox.cycle.unit'), str(p.orgUnitName)],
         [t('inbox.cycle.cycle'), str(p.cycleName)],
         [t('inbox.cycle.members'), num(p.memberCount)],
         [t('inbox.cycle.managerScore'), num(p.managerScore)],
         [t('inbox.cycle.classification'), str(p.classification)],
       ]
+    : null
+  if (!rows || !item.payload) return null
   return (
     <div className="mt-3 space-y-2" {...tourAnchor('procapp.details')}>
       <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm sm:grid-cols-3 lg:grid-cols-5">
@@ -195,8 +184,10 @@ function PayloadDetails({ item }: { item: ApprovalInboxItem }) {
   )
 }
 
-function DecisionDialog({ item, onClose }: { item: ApprovalInboxItem; onClose: () => void }) {
+/** Duyệt / từ chối khi người xem giữ bước hiện tại; người khác (kể cả người gửi) chỉ xem chuỗi duyệt và sơ đồ. */
+export function DecisionDialog({ item, onClose }: { item: ApprovalInboxItem; onClose: () => void }) {
   const { t } = useTranslation('approvalProcess')
+  const myId = useAuthStore((s) => s.user?.id)
   const qc = useQueryClient()
   const [comment, setComment] = useState('')
   const [rejecting, setRejecting] = useState(false)
@@ -272,7 +263,7 @@ function DecisionDialog({ item, onClose }: { item: ApprovalInboxItem; onClose: (
             <GitBranch size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
             <span>
               {!canAct
-                ? t('inbox.notYourTurn', { names: item.approval.holderNames.join(', ') })
+                ? t(item.requesterId === myId ? 'mine.waitingFor' : 'inbox.notYourTurn', { names: item.approval.holderNames.join(', ') })
                 : forward ? t('inbox.willForward', { names: item.approval.nextHolderNames ?? '' }) : t('inbox.isFinal')}
             </span>
           </div>

@@ -15,7 +15,7 @@ export const ADJ_REVIEW: TourKey = 'performance/kpi-adjustments-pending+review'
 export const STAFF_EVAL: TourKey = 'performance/submissions-org-unit+score'
 export const CYCLE_EVAL_DIALOGS: TourKey = 'performance/cycle-evaluation+dialogs'
 export const F360_FORM: TourKey = 'performance/feedback360+form'
-export const PROC_APPROVAL: TourKey = 'performance/process-approvals+decide'
+export const PROC_APPROVAL: TourKey = 'processes/process-approvals+decide'
 
 const { t, modal } = tourKit('tourForms')
 

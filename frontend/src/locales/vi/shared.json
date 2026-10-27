@@ -540,9 +540,6 @@
       },
       "ai-docs": {
         "b": "Tài liệu nội bộ để K.AI đọc khi trả lời câu hỏi về công ty."
-      },
-      "kpi-workflow": {
-        "b": "Bật tắt các bước trong luồng KPI của tổ chức, xem dưới dạng sơ đồ."
       }
     },
     "info": {
@@ -801,36 +798,6 @@
       "open": {
         "t": "Mở thư viện",
         "b": "Sang trang Tài liệu, phạm vi Công ty, để thêm hoặc sửa tài liệu."
-      }
-    },
-    "workflow": {
-      "org": {
-        "t": "Luồng của tổ chức",
-        "b": "Áp dụng cho mọi người. Không có quyền cấu hình thì vẫn xem được luồng đang chạy."
-      },
-      "graph": {
-        "t": "Sơ đồ luồng",
-        "b": "Mỗi nút là một bước. Bấm một nút để xem chi tiết và bật tắt; bước lõi không tắt được."
-      },
-      "reset": {
-        "t": "Đặt lại mặc định",
-        "b": "Đưa luồng về cấu hình gốc của hệ thống."
-      },
-      "save": {
-        "t": "Lưu thay đổi",
-        "b": "Chỉ lưu được khi không còn cảnh báo phụ thuộc giữa các bước."
-      },
-      "fullscreen": {
-        "t": "Toàn màn hình",
-        "b": "Mở sơ đồ rộng hết màn hình; bấm Esc để thoát."
-      },
-      "mine": {
-        "t": "Hiển thị của tôi",
-        "b": "Ẩn bớt bước khỏi màn hình của riêng bạn. Không đổi gì với người khác."
-      },
-      "mineToggle": {
-        "t": "Ẩn hoặc hiện một bước",
-        "b": "Bấm để ẩn bước này khỏi màn hình của bạn, bấm lại để hiện."
       }
     }
   },

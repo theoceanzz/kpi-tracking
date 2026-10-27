@@ -1,6 +1,7 @@
 package com.kpitracking.controller.approvalprocess;
 
 import com.kpitracking.dto.response.ApiResponse;
+import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.kpi.approval.ApprovalInboxItemResponse;
 import com.kpitracking.enums.kpi.ApprovalOutcome;
 import com.kpitracking.service.kpi.approval.ApprovalActionService;
@@ -41,6 +42,16 @@ public class ApprovalController {
     @Operation(summary = "Mọi việc đang chờ người gọi duyệt ở bước hiện tại")
     public ResponseEntity<ApiResponse<List<ApprovalInboxItemResponse>>> inbox() {
         return ResponseEntity.ok(ApiResponse.success(actionService.inbox()));
+    }
+
+    @GetMapping("/mine")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Đề xuất người gọi đã gửi đi duyệt (đang chạy hoặc đã xong)")
+    public ResponseEntity<ApiResponse<PageResponse<ApprovalInboxItemResponse>>> mine(
+            @RequestParam(defaultValue = "true") boolean active,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.success(actionService.mine(active, page, size)));
     }
 
     @GetMapping("/flows/{flowId}")

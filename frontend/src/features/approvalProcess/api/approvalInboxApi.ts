@@ -1,5 +1,5 @@
 import axiosInstance from '@/lib/axios'
-import type { ApiResponse } from '@/types/api'
+import type { ApiResponse, PageResponse } from '@/types/api'
 import type { ApprovalOutcome, KpiApprovalChain } from '@/types/approvalChain'
 import type { ApprovalInboxItem } from '../types'
 
@@ -7,6 +7,12 @@ import type { ApprovalInboxItem } from '../types'
 export const approvalInboxApi = {
   inbox: () =>
     axiosInstance.get<ApiResponse<ApprovalInboxItem[]>>('/approvals/inbox').then((r) => r.data.data),
+
+  /** "Quy trình của tôi": đề xuất người gọi đã gửi đi duyệt; `active` = còn đang chạy. */
+  mine: (active: boolean, page: number, size = 20) =>
+    axiosInstance
+      .get<ApiResponse<PageResponse<ApprovalInboxItem>>>('/approvals/mine', { params: { active, page, size } })
+      .then((r) => r.data.data),
 
   detail: (flowId: string) =>
     axiosInstance

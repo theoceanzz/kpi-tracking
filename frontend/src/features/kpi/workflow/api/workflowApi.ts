@@ -1,6 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse } from '@/types/api'
-import type { UpdateWorkflowConfigRequest, WorkflowConfig } from '../types'
+import type { WorkflowConfig } from '../types'
 
 /**
  * Không endpoint nào nhận organizationId: backend suy tổ chức từ chính người đang đăng nhập.
@@ -10,13 +10,5 @@ export const workflowApi = {
   getConfig: () =>
     axiosInstance.get<ApiResponse<WorkflowConfig>>('/kpi-workflow/config').then((r) => r.data.data),
 
-  updateConfig: (data: UpdateWorkflowConfigRequest) =>
-    axiosInstance.put<ApiResponse<WorkflowConfig>>('/kpi-workflow/config', data).then((r) => r.data.data),
-
-  /** Kiểm mà không lưu — để hiện cảnh báo ngay trong lúc người dùng chỉnh. */
-  validateConfig: (data: UpdateWorkflowConfigRequest) =>
-    axiosInstance.post<ApiResponse<string[]>>('/kpi-workflow/config/validate', data).then((r) => r.data.data),
-
-  resetConfig: () =>
-    axiosInstance.post<ApiResponse<WorkflowConfig>>('/kpi-workflow/config/reset').then((r) => r.data.data),
+  // Backend còn PUT/validate/reset, nhưng màn cấu hình luồng đã bỏ nên frontend chỉ đọc.
 }

@@ -117,9 +117,8 @@ export default function AppLayout() {
             : 'flex-1 overflow-y-auto p-4 md:p-6 w-full max-w-full [overflow-x:clip]'
         }>
           {/* Không còn thanh tiến trình ở đây. Nó lặp lại đúng những mục vốn đã nằm trên sidebar,
-              nên chỉ thêm một hàng nhiễu ở đầu mọi trang KPI. Việc dẫn người dùng đi qua chuỗi
-              thiết lập giờ do trình thiết lập nhanh (/kpi-setup) lo, ở đó thanh bước mới có nghĩa
-              vì nó gắn với một tiến trình thật đang dở. */}
+              nên chỉ thêm một hàng nhiễu ở đầu mọi trang KPI. Dải dưới đây chỉ hiện ngay sau một
+              lần nhảy bước tự động (`?from=`), để người dùng có đường quay lại chỗ vừa rời. */}
           <WorkflowHandoffBar className="mb-5" />
           <Outlet />
         </main>
