@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.bsc;
 
-import com.kpitracking.enums.BscMeasurementSource;
+import com.kpitracking.enums.bsc.BscMeasurementSource;
 import lombok.*;
 
 import java.util.UUID;

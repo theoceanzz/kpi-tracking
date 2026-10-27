@@ -1,6 +1,6 @@
 import {
   TrendingUp, Users, Star, ListChecks, BarChart3,
-  SlidersHorizontal, Gauge, Grid3x3, Award, Building2, Network, ShieldCheck, Scale,
+  SlidersHorizontal, Gauge, Grid3x3, Award, Building2, Network, Scale,
   LayoutGrid, Medal, ClipboardList, UserRoundSearch,
 } from 'lucide-react'
 import type { DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
@@ -250,6 +250,10 @@ const ANALYTICS_WIDGETS = perLanguage((): AnalyticsWidgetDef[] => ([
   },
 
   // ── Thẻ điểm BSC (cùng component với tab; mô hình thẻ điểm) ──
+  // Hai ô SƠ ĐỒ của tab — bản đồ chiến lược và xương cá — cố ý KHÔNG có mặt ở đây: chúng cần trọn
+  // chiều ngang, có bảng chi tiết phủ bên phải và một chế độ trình chiếu, nên đặt vào lưới trang
+  // chủ (nơi ô hay bị thu còn 6 cột) là biến chúng thành một đám chữ chồng nhau. Mở ở tab Thống kê
+  // → Thẻ điểm BSC.
   {
     i: 'bsc-overview', title: i18n.t('dashboard:analyticsCatalog.bscHealthOfThePeriod'), groupLabel: GROUP().bsc, bsc: true,
     description: i18n.t('dashboard:analyticsCatalog.thePeriodsBscAchievementNumberOf'),
@@ -259,11 +263,6 @@ const ANALYTICS_WIDGETS = perLanguage((): AnalyticsWidgetDef[] => ([
     i: 'bsc-units', title: i18n.t('dashboard:analyticsCatalog.scorecardAchievementOfEachUnit'), groupLabel: GROUP().bsc, bsc: true,
     description: i18n.t('dashboard:analyticsCatalog.whichUnitsAchieveAndWhichFall'),
     icon: <BarChart3 size={20} />, w: 7, h: 11,
-  },
-  {
-    i: 'bsc-gates', title: i18n.t('dashboard:analyticsCatalog.unitsBlockedByGateItems'), groupLabel: GROUP().bsc, bsc: true,
-    description: i18n.t('dashboard:analyticsCatalog.whichUnitsAreBlockedByGate'),
-    icon: <ShieldCheck size={20} />, w: 5, h: 11,
   },
   {
     i: 'bsc-items', title: i18n.t('dashboard:analyticsCatalog.eachKpiAgainstTargetAndFloor'), groupLabel: GROUP().bsc, bsc: true,
@@ -447,7 +446,7 @@ export function getAnalyticsPresets(flags: OrgFlags, scope: ViewerScope): Layout
     {
       key: 'bsc', label: i18n.t('dashboard:analyticsCatalog.bscScorecard'),
       description: i18n.t('dashboard:analyticsCatalog.exactlyTheContentOfBscScorecard'),
-      ids: ['filter-unit', 'bsc-overview', 'bsc-units', 'bsc-gates', 'bsc-items', 'bsc-trend', 'bsc-cascade'],
+      ids: ['filter-unit', 'bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade'],
     },
     {
       key: 'risk', label: i18n.t('dashboard:analyticsCatalog.risk'),

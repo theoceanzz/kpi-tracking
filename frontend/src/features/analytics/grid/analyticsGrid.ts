@@ -255,9 +255,13 @@ const BSC_TREND_VARIANTS = perLanguage((): ChartVariantOption[] => ([
 ]))
 
 /** Mức đạt đơn vị: xếp hạng lollipop, hay bảng đủ trạng thái thẻ và hạng mục chặn. */
+/**
+ * Mức đạt đơn vị chỉ còn MỘT cách vẽ. Biến thể "theo cây" đã bỏ: ô "Cây liên kết mục tiêu" thay
+ * thế và còn đi xuống được tới người và KPI. Ô nào đang lưu biến thể `tree` tự rơi về `lollipop`
+ * ({@link widgetVariant} đối chiếu với danh sách còn lại).
+ */
 const BSC_UNIT_VARIANTS = perLanguage((): ChartVariantOption[] => ([
   { key: 'lollipop', label: i18n.t('analytics:analyticsGrid.ranking'), shape: 'lollipop', hint: i18n.t('analytics:analyticsGrid.oneAchievementDotPerUnitThe') },
-  { key: 'tree', label: i18n.t('analytics:analyticsGrid.asATree'), shape: 'table', hint: i18n.t('analytics:analyticsGrid.keepsTheCompanyDepartmentTeamOrder') },
 ]))
 
 /** Xếp loại đơn vị: bell curve của đợt/kỳ đang xét, hay tỉ trọng các mức qua các đợt. */
@@ -317,9 +321,67 @@ const SHARED_FIELD = perLanguage((): OptionField => ({
   choices: [{ value: 'ALL', label: i18n.t('analytics:analyticsGrid.all') }, { value: 'SHARED', label: i18n.t('analytics:analyticsGrid.shared') }, { value: 'PERSONAL', label: i18n.t('analytics:analyticsGrid.own') }],
 }))
 
+/**
+ * Lọc theo cổng chặn — thay cho ô "Đơn vị vướng hạng mục chặn" đã bỏ: ô đó gọi đúng hai endpoint
+ * của ô này và vẽ lại tập con mà dòng phụ của lollipop đã nói.
+ */
+const BSC_GATE_FIELD = perLanguage((): OptionField => ({
+  key: 'gate', label: i18n.t('analytics:analyticsGrid.gateItems'), kind: 'pills', default: 'ALL',
+  choices: [
+    { value: 'ALL', label: i18n.t('analytics:analyticsGrid.all') },
+    { value: 'FAILED', label: i18n.t('analytics:analyticsGrid.gateFailedOnly') },
+    { value: 'NO_GATE', label: i18n.t('analytics:analyticsGrid.noGateOnly') },
+  ],
+}))
+
+/** Bản đồ chiến lược: lọc theo trạng thái và giới hạn số mục tiêu (BRD: đừng đổ cả đồ thị lớn). */
+const GOAL_STATUS_FIELD = perLanguage((): OptionField => ({
+  key: 'status', label: i18n.t('analytics:analyticsGrid.goalStatus'), kind: 'pills', default: 'ALL',
+  choices: [
+    { value: 'ALL', label: i18n.t('analytics:analyticsGrid.all') },
+    { value: 'BEHIND', label: i18n.t('analytics:analyticsGrid.behindOnly') },
+    { value: 'NO_DATA', label: i18n.t('analytics:analyticsGrid.noDataOnly') },
+  ],
+}))
+const GOAL_LIMIT_FIELD = perLanguage((): OptionField => ({
+  key: 'limit', label: i18n.t('analytics:analyticsGrid.objectiveCount'), kind: 'pills', default: '20',
+  choices: [{ value: '10', label: '10' }, { value: '20', label: '20' }, { value: '50', label: '50' }],
+}))
+
 const BSC_SORT_FIELD = perLanguage((): OptionField => ({
   key: 'sort', label: i18n.t('analytics:analyticsGrid.sortBy'), kind: 'pills', default: 'bscScore',
   choices: [{ value: 'bscScore', label: i18n.t('analytics:analyticsGrid.bscScore') }, { value: 'systemScore', label: i18n.t('analytics:analyticsGrid.systemScore') }],
+}))
+
+/*
+  Hai bảng xếp hạng: xếp theo CỘT nào và theo CHIỀU nào.
+
+  Khai ở đây (tĩnh) chứ không qua `extraFields` như `cycleId`: nhờ vậy `optionOf` đọc được bình
+  thường, VÀ `WidgetConfigSummary` tự hiện chip "Xếp theo · Hiệu suất KPI · Cao nhất" ngay trên
+  bảng — người xem biết bảng đang xếp theo gì mà không phải mở bảng cấu hình.
+*/
+const TOP_DIR_FIELD = perLanguage((): OptionField => ({
+  key: 'dir', label: i18n.t('analytics:analyticsGrid.topDirection'), kind: 'pills', default: 'desc',
+  choices: [
+    { value: 'desc', label: i18n.t('analytics:analyticsGrid.highest') },
+    { value: 'asc', label: i18n.t('analytics:analyticsGrid.lowest') },
+  ],
+}))
+const RANK_PEOPLE_SORT_FIELD = perLanguage((): OptionField => ({
+  key: 'sortBy', label: i18n.t('analytics:analyticsGrid.sortBy'), kind: 'pills', default: 'kpi',
+  choices: [
+    { value: 'kpi', label: i18n.t('analytics:leaderboard.kpiPercent') },
+    { value: 'conduct', label: i18n.t('analytics:leaderboard.coreValues') },
+  ],
+}))
+const RANK_UNITS_SORT_FIELD = perLanguage((): OptionField => ({
+  key: 'sortBy', label: i18n.t('analytics:analyticsGrid.sortBy'), kind: 'select', default: 'bsc',
+  choices: [
+    { value: 'bsc', label: i18n.t('analytics:leaderboard.bscContribution') },
+    { value: 'kpi', label: i18n.t('analytics:leaderboard.avgKpiPercent') },
+    { value: 'kpiCount', label: i18n.t('analytics:leaderboard.kpiCount') },
+    { value: 'conduct', label: i18n.t('analytics:leaderboard.coreValues') },
+  ],
 }))
 
 /** Ô nào có tuỳ chọn gì. Ô không có mặt ở đây thì drawer không hiện mục "Tuỳ chọn". */
@@ -329,7 +391,14 @@ export const WIDGET_OPTIONS = perLanguage((): Record<string, OptionField[]> => (
   'rank-table': [METRIC_FIELD(), DIR_FIELD()],
   'mykpi-detail': [SHARED_FIELD()],
   'myobj-detail': [SHARED_FIELD()],
+  'bsc-strategy-map': [GOAL_STATUS_FIELD(), GOAL_LIMIT_FIELD()],
+  // Xương cá đọc chung payload với bản đồ nên dùng chung đúng hai tuỳ chọn này; để lệch thì hai ô
+  // sinh hai khoá truy vấn khác nhau và gọi mạng hai lần cho cùng một bộ số.
+  'bsc-fishbone': [GOAL_STATUS_FIELD(), GOAL_LIMIT_FIELD()],
+  'bsc-units': [BSC_GATE_FIELD()],
   'bsc-ranking': [BSC_SORT_FIELD()],
+  'rank-people': [RANK_PEOPLE_SORT_FIELD(), TOP_DIR_FIELD()],
+  'rank-units': [RANK_UNITS_SORT_FIELD(), TOP_DIR_FIELD()],
 }))
 
 /** Ô nào có chọn đơn vị. Danh sách đơn vị do tab cấp (`unitOptions`), drawer chỉ vẽ. */
@@ -341,7 +410,13 @@ export const WIDGET_HAS_UNIT: ReadonlySet<string> = new Set([
   'sub-detail',
   // Tab Thẻ điểm BSC: cùng cách, mỗi ô tự thu phạm vi. (Tab So sánh giữa các đơn vị KHÔNG có mặt
   // ở đây: đơn vị ở đó là cây điều hướng của trang.)
-  'bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade', 'bsc-gates', 'bsc-ranking',
+  'bsc-strategy-map', 'bsc-fishbone', 'bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade',
+  'bsc-ranking',
+  // Ba ô mở đầu trang.
+  'rank-people', 'rank-units', 'heatmap-units',
+  // Cụm So sánh đơn vị: cây đơn vị bên trái đi theo cái tab, nên mỗi ô tự chọn phạm vi.
+  'drill-summary', 'drill-classification', 'drill-cascade', 'drill-employees', 'drill-matrix',
+  'drill-children', 'drill-compare', 'drill-boxplot',
 ])
 
 /** Đơn vị của ô (phạm vi con) — `undefined` = toàn bộ phạm vi quyền của người dùng. */

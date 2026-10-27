@@ -6,7 +6,7 @@ import com.kpitracking.i18n.SupportedLanguages;
 import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.kpi.CycleUserEvaluationResponse;
 import com.kpitracking.dto.response.kpi.CycleUserEvaluationResponse.PeriodBreakdown;
-import com.kpitracking.enums.CycleEvaluationMode;
+import com.kpitracking.enums.evaluation.CycleEvaluationMode;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;

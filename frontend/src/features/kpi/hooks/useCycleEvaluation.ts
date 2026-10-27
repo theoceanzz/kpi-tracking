@@ -5,6 +5,7 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import type { LockCyclePayload } from '../types/cycleLock'
 import axios from 'axios'
 import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 /** Tổng hợp đánh giá phòng ban theo kỳ (kèm danh sách thành viên). */
 export const useUnitCycleSummary = (cycleId?: string, orgUnitId?: string) => {
@@ -47,6 +48,11 @@ export const useUnitCycleSummary = (cycleId?: string, orgUnitId?: string) => {
       kpiCycleEvaluationApi.finalizeUnit(cycleId!, orgUnitId!, comment, cycleLock),
     onSuccess: (data) => {
       invalidate()
+      qc.invalidateQueries({ queryKey: ['approvals'] })
+      if (data.approval) {
+        toast.success(i18n.t('approvalProcess:pending.cycle', { names: data.approval.holderNames.join(', ') }))
+        return
+      }
       if (data.rootUnit) invalidateCycleLock()
       toast.success(data.rootUnit
         ? t('useCycleEvaluation.resultsLockedAndCycleLockedKpis', { cycleName: data.cycleName })

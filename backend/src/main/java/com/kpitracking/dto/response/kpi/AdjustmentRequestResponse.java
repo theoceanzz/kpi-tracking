@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.kpi;
 
-import com.kpitracking.enums.AdjustmentStatus;
-import com.kpitracking.enums.KpiType;
+import com.kpitracking.enums.kpi.AdjustmentStatus;
+import com.kpitracking.enums.kpi.KpiType;
 import lombok.*;
 
 import java.time.Instant;

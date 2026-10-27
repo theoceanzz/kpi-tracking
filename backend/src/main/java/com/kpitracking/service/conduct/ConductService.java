@@ -1,0 +1,1312 @@
+package com.kpitracking.service.conduct;
+
+import com.kpitracking.service.PrimaryUnitResolver;
+
+import com.kpitracking.constant.ConductConstants;
+import com.kpitracking.dto.request.conduct.ConductCriteriaRequest;
+import com.kpitracking.dto.request.conduct.ConductGroupRequest;
+import com.kpitracking.dto.request.conduct.ConductScoreRequest;
+import com.kpitracking.dto.request.conduct.ConductSetRequest;
+import com.kpitracking.dto.response.conduct.*;
+
+import com.kpitracking.enums.conduct.ConductScope;
+import com.kpitracking.enums.conduct.ConductStatus;
+import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.exception.ForbiddenException;
+import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
+
+import com.kpitracking.security.PermissionChecker;
+import com.kpitracking.util.ConductAxisResolver;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.util.*;
+
+import com.kpitracking.entity.conduct.ConductCriteria;
+import com.kpitracking.entity.conduct.ConductCriteriaGroup;
+import com.kpitracking.entity.conduct.ConductCriteriaSet;
+import com.kpitracking.entity.conduct.ConductEvaluation;
+import com.kpitracking.entity.conduct.ConductEvaluationItem;
+import com.kpitracking.entity.evaluation.CycleUnitEvaluation;
+import com.kpitracking.entity.kpi.KpiCycle;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.conduct.ConductCriteriaGroupRepository;
+import com.kpitracking.repository.conduct.ConductCriteriaRepository;
+import com.kpitracking.repository.conduct.ConductCriteriaSetRepository;
+import com.kpitracking.repository.conduct.ConductEvaluationRepository;
+import com.kpitracking.repository.kpi.KpiCycleRepository;
+import com.kpitracking.repository.kpi.KpiPeriodRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.organization.OrganizationRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
+/**
+ * Chấm hạnh kiểm ("Đánh giá xếp loại hành vi theo triết lý giáo dục").
+ *
+ * Mỗi tổ chức có NHIỀU bộ tiêu chí kèm trọng số (bộ đầu tiên: 4 tiêu chí × 25%), mỗi bộ
+ * gán cho một số KỲ — kỳ không được gán thì dùng bộ mặc định. Cùng khuôn với hồ sơ luật
+ * của "xếp loại đơn vị". Mỗi người, trong mỗi ĐỢT hoặc mỗi KỲ, có một phiếu: tự chấm +
+ * nêu dẫn chứng, cán bộ quản lý trực tiếp chấm + nhận xét. Điểm tổng = Σ(điểm × trọng số/100).
+ *
+ * Điểm này lấp trục còn thiếu của ma trận xếp loại hiệu quả — xem {@link ConductAxisResolver}.
+ */
+@Service
+@RequiredArgsConstructor
+public class ConductService {
+
+    private final ConductCriteriaRepository conductCriteriaRepository;
+    private final ConductCriteriaGroupRepository conductCriteriaGroupRepository;
+    private final ConductCriteriaSetRepository conductCriteriaSetRepository;
+    private final ConductEvaluationRepository conductEvaluationRepository;
+    private final OrganizationRepository organizationRepository;
+    private final UserRepository userRepository;
+    private final KpiPeriodRepository kpiPeriodRepository;
+    private final KpiCycleRepository kpiCycleRepository;
+    private final OrgUnitRepository orgUnitRepository;
+    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final PermissionChecker permissionChecker;
+    private final PrimaryUnitResolver primaryUnits;
+    private final com.kpitracking.service.kpi.CycleLockChecker cycleLockChecker;
+
+    // ============================================================
+    // CẤU HÌNH BỘ TIÊU CHÍ
+    // ============================================================
+
+    @Transactional(readOnly = true)
+    public ConductConfigResponse getConfig(UUID organizationId) {
+        Organization org = requireOrg(organizationId);
+        return toConfigResponse(org, listSets(org));
+    }
+
+    /**
+     * Tạo một bộ mới. Không gửi {@code criteria} thì CHÉP từ {@code copyFromSetId} (mặc
+     * định là bộ mặc định): dựng bộ cho kỳ mới gần như luôn bắt đầu từ bộ đang dùng chứ
+     * không phải từ bảng trắng.
+     */
+    @Transactional
+    public ConductConfigResponse createSet(UUID organizationId, ConductSetRequest request) {
+        Organization org = requireOrg(organizationId);
+        List<ConductCriteriaSet> sets = listSets(org);
+
+        ConductCriteriaSet source = request.getCopyFromSetId() != null
+                ? requireSet(org, request.getCopyFromSetId())
+                : sets.stream().filter(s -> Boolean.TRUE.equals(s.getIsDefault())).findFirst().orElse(null);
+
+        Double maxScore = firstNonNull(request.getMaxScore(),
+                source != null ? source.getMaxScore() : null,
+                ConductConstants.DEFAULT_MAX_SCORE);
+
+        ConductCriteriaSet set = conductCriteriaSetRepository.save(ConductCriteriaSet.builder()
+                .organization(org)
+                .name(uniqueName(sets, request.getName(), null))
+                // Bộ đầu tiên của tổ chức phải là mặc định, nếu không mọi kỳ chưa gán sẽ không có bộ nào.
+                .isDefault(sets.isEmpty())
+                .maxScore(maxScore)
+                .kpiCycleIds(new LinkedHashSet<>())
+                .build());
+
+        boolean given = (request.getGroups() != null && !request.getGroups().isEmpty())
+                || (request.getCriteria() != null && !request.getCriteria().isEmpty());
+        if (given) replaceCriteria(org, set, request.getCriteria(), request.getGroups());
+        else {
+            CriteriaPlan copy = copyOf(source);
+            replaceCriteria(org, set, copy.criteria(), copy.groups());
+        }
+        assignCycles(org, set, request.getKpiCycleIds());
+
+        return toConfigResponse(org, listSets(org));
+    }
+
+    /**
+     * Sửa một bộ. Trường để trống = giữ nguyên, nên giao diện gửi đúng phần vừa sửa.
+     *
+     * Tiêu chí cũ bị XOÁ MỀM chứ không xoá hẳn: các phiếu đã chấm còn trỏ vào chúng, và
+     * bản chụp trong phiếu mới là thứ quyết định điểm — xoá cứng sẽ làm mất dấu vết.
+     */
+    @Transactional
+    public ConductConfigResponse updateSet(UUID organizationId, UUID setId, ConductSetRequest request) {
+        Organization org = requireOrg(organizationId);
+        ConductCriteriaSet set = requireSet(org, setId);
+
+        if (request.getName() != null && !request.getName().isBlank()) {
+            set.setName(uniqueName(listSets(org), request.getName(), set.getId()));
+        }
+        if (request.getMaxScore() != null) set.setMaxScore(request.getMaxScore());
+        conductCriteriaSetRepository.save(set);
+
+        if (request.getCriteria() != null || request.getGroups() != null) {
+            replaceCriteria(org, set, request.getCriteria(), request.getGroups());
+        }
+        if (request.getKpiCycleIds() != null) assignCycles(org, set, request.getKpiCycleIds());
+
+        return toConfigResponse(org, listSets(org));
+    }
+
+    /**
+     * Xoá mềm một bộ. Bộ mặc định không xoá được — các kỳ chưa gán sẽ không còn chỗ rơi về.
+     * Kỳ của bộ bị xoá tự động quay về bộ mặc định (bảng nối xoá theo).
+     */
+    @Transactional
+    public ConductConfigResponse deleteSet(UUID organizationId, UUID setId) {
+        Organization org = requireOrg(organizationId);
+        ConductCriteriaSet set = requireSet(org, setId);
+        if (Boolean.TRUE.equals(set.getIsDefault())) {
+            throw new BusinessException(ErrorCode.DEFAULT_SET_CANNOT_DELETED);
+        }
+        set.getKpiCycleIds().clear();
+        set.setDeletedAt(Instant.now());
+        conductCriteriaSetRepository.save(set);
+        return toConfigResponse(org, listSets(org));
+    }
+
+    /** Đặt bộ này làm mặc định; bộ mặc định cũ thôi giữ vai trò đó (mỗi tổ chức đúng một bộ). */
+    @Transactional
+    public ConductConfigResponse markDefault(UUID organizationId, UUID setId) {
+        Organization org = requireOrg(organizationId);
+        ConductCriteriaSet target = requireSet(org, setId);
+        List<ConductCriteriaSet> sets = listSets(org);
+        // Gỡ cờ ở bộ cũ TRƯỚC rồi mới gắn cho bộ mới: unique index chỉ cho một bộ mặc định
+        // còn sống, đảo thứ tự là vi phạm ngay khi flush.
+        sets.stream()
+                .filter(s -> Boolean.TRUE.equals(s.getIsDefault()) && !s.getId().equals(target.getId()))
+                .forEach(s -> s.setIsDefault(false));
+        conductCriteriaSetRepository.saveAll(sets);
+        conductCriteriaSetRepository.flush();
+
+        target.setIsDefault(true);
+        // Bộ mặc định áp cho MỌI kỳ chưa gán riêng — giữ thêm danh sách kỳ chỉ gây hiểu nhầm
+        // là nó chỉ có hiệu lực trong mấy kỳ đó.
+        target.getKpiCycleIds().clear();
+        conductCriteriaSetRepository.save(target);
+
+        return toConfigResponse(org, listSets(org));
+    }
+
+    /**
+     * Dựng bộ mặc định 4 tiêu chí NẾU tổ chức chưa có bộ nào. Bật/tắt tính năng nhiều lần
+     * không được ghi đè bộ mà tổ chức đã tự sửa.
+     */
+    @Transactional
+    public void ensureDefaultSet(Organization org) {
+        // Xét theo TIÊU CHÍ chứ không theo số bộ: di cư dữ liệu có thể để lại một bộ mặc định
+        // rỗng, mà bộ rỗng thì không mở được phiếu nào — đúng cảnh cần seed.
+        boolean configured = listSets(org).stream().anyMatch(
+                s -> !conductCriteriaRepository.findByCriteriaSetIdOrderByPositionAsc(s.getId()).isEmpty());
+        if (configured) return;
+        seedDefaultCriteria(org);
+    }
+
+    /** Bộ 4 tiêu chí mặc định — dùng khi tạo tổ chức và khi người dùng bấm "đặt lại". */
+    @Transactional
+    public List<ConductCriteria> seedDefaultCriteria(Organization org) {
+        ConductCriteriaSet set = conductCriteriaSetRepository
+                .findByOrganizationIdAndIsDefaultTrue(org.getId())
+                .orElseGet(() -> conductCriteriaSetRepository.save(ConductCriteriaSet.builder()
+                        .organization(org)
+                        .name("Bộ mặc định")
+                        .isDefault(true)
+                        .maxScore(conductMaxScore(org))
+                        .kpiCycleIds(new LinkedHashSet<>())
+                        .build()));
+        return seedDefaultCriteria(org, set);
+    }
+
+    private List<ConductCriteria> seedDefaultCriteria(Organization org, ConductCriteriaSet set) {
+        List<ConductCriteria> defaults = ConductConstants.DEFAULT_CRITERIA.stream()
+                .map(d -> ConductCriteria.builder()
+                        .organization(org)
+                        .criteriaSet(set)
+                        .name(d.getName())
+                        .description(d.getDescription())
+                        .weight(d.getWeight())
+                        .position(d.getPosition())
+                        .build())
+                .toList();
+        return conductCriteriaRepository.saveAll(defaults);
+    }
+
+    /** Đặt lại MỘT bộ về 4 tiêu chí mặc định; bỏ trống setId thì đặt lại bộ mặc định. */
+    @Transactional
+    public ConductConfigResponse resetToDefault(UUID organizationId, UUID setId) {
+        Organization org = requireOrg(organizationId);
+        ConductCriteriaSet set = setId != null
+                ? requireSet(org, setId)
+                : conductCriteriaSetRepository.findByOrganizationIdAndIsDefaultTrue(org.getId()).orElse(null);
+        if (set == null) {
+            seedDefaultCriteria(org);
+            return toConfigResponse(org, listSets(org));
+        }
+
+        softDeleteCriteria(set);
+        set.setMaxScore(ConductConstants.DEFAULT_MAX_SCORE);
+        conductCriteriaSetRepository.save(set);
+        seedDefaultCriteria(org, set);
+        return toConfigResponse(org, listSets(org));
+    }
+
+    // ── Nội bộ: bộ tiêu chí ─────────────────────────────────────────────────
+
+    private List<ConductCriteriaSet> listSets(Organization org) {
+        return new ArrayList<>(conductCriteriaSetRepository
+                .findByOrganizationIdOrderByIsDefaultDescCreatedAtAsc(org.getId()));
+    }
+
+    private ConductCriteriaSet requireSet(Organization org, UUID setId) {
+        ConductCriteriaSet set = conductCriteriaSetRepository.findById(setId)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.conductCriteriaSet"), "id", setId));
+        if (set.getOrganization() == null || !set.getOrganization().getId().equals(org.getId())) {
+            throw new ForbiddenException(ErrorCode.CRITERIA_SET_OUTSIDE_ORGANIZATION);
+        }
+        return set;
+    }
+
+    /** Tên bộ phải phân biệt được — hai bộ trùng tên thì không ai biết kỳ đang chấm theo bộ nào. */
+    private String uniqueName(List<ConductCriteriaSet> sets, String rawName, UUID selfId) {
+        String name = rawName == null ? "" : rawName.trim();
+        if (name.isEmpty()) throw new BusinessException(ErrorCode.CRITERIA_SET_NAME_CANNOT_EMPTY);
+        boolean taken = sets.stream()
+                .anyMatch(s -> !s.getId().equals(selfId) && s.getName().equalsIgnoreCase(name));
+        if (taken) throw new BusinessException(ErrorCode.CRITERIA_SET_NAMED_EXISTS, String.valueOf(name));
+        return name;
+    }
+
+    /** Tiêu chí của một bộ: phẳng ({@code groups} rỗng) hoặc theo nhóm. */
+    private record CriteriaPlan(List<ConductCriteriaRequest> criteria, List<ConductGroupRequest> groups) {}
+
+    /** Chép cấu hình (kể cả nhóm) của bộ nguồn; không có nguồn thì 4 tiêu chí mặc định. */
+    private CriteriaPlan copyOf(ConductCriteriaSet source) {
+        if (source == null) {
+            return new CriteriaPlan(ConductConstants.DEFAULT_CRITERIA.stream()
+                    .map(d -> ConductCriteriaRequest.builder()
+                            .name(d.getName()).description(d.getDescription()).weight(d.getWeight()).build())
+                    .toList(), List.of());
+        }
+        List<ConductCriteria> criteria = conductCriteriaRepository.findByCriteriaSetIdOrderByPositionAsc(source.getId());
+        List<ConductCriteriaGroup> groups = conductCriteriaGroupRepository.findByCriteriaSetIdOrderByPositionAsc(source.getId());
+        if (groups.isEmpty()) {
+            return new CriteriaPlan(criteria.stream().map(ConductService::toRequest).toList(), List.of());
+        }
+        return new CriteriaPlan(null, groups.stream()
+                .map(g -> ConductGroupRequest.builder()
+                        .name(g.getName()).weight(g.getWeight())
+                        .criteria(criteria.stream().filter(c -> inGroup(c, g)).map(ConductService::toRequest).toList())
+                        .build())
+                .toList());
+    }
+
+    private static ConductCriteriaRequest toRequest(ConductCriteria c) {
+        return ConductCriteriaRequest.builder().name(c.getName()).description(c.getDescription())
+                .levelDescriptions(c.getLevelDescriptions()).weight(c.getWeight()).build();
+    }
+
+    private static boolean inGroup(ConductCriteria c, ConductCriteriaGroup g) {
+        return c.getGroup() != null && c.getGroup().getId().equals(g.getId());
+    }
+
+    /**
+     * Thay THẾ toàn bộ tiêu chí của một bộ. Có {@code groups} thì bộ chia nhóm: trọng số các nhóm
+     * cộng 100% và trọng số tiêu chí trong MỖI nhóm cộng 100%. Không thì bộ phẳng: tổng 100%.
+     */
+    private void replaceCriteria(Organization org, ConductCriteriaSet set,
+                                 List<ConductCriteriaRequest> criteria, List<ConductGroupRequest> groups) {
+        if (groups != null && !groups.isEmpty()) {
+            replaceGroupedCriteria(org, set, groups);
+            return;
+        }
+        if (criteria == null || criteria.isEmpty()) {
+            throw new BusinessException(ErrorCode.SET_NEEDS_LEAST_ONE_CRITERION, set.getName());
+        }
+        double total = criteria.stream()
+                .mapToDouble(c -> c.getWeight() != null ? c.getWeight() : 0.0).sum();
+        if (Math.abs(total - 100.0) > 0.01) {
+            throw new BusinessException(ErrorCode.TOTAL_WEIGHT_SET_MUST_100_PERCENT, set.getName(), String.valueOf(Math.round(total * 100.0) / 100.0));
+        }
+
+        Existing existing = loadExisting(set);
+        int position = 1;
+        for (ConductCriteriaRequest req : criteria) {
+            upsertCriterion(org, set, null, req, position++, existing);
+        }
+        existing.retireLeftovers();
+    }
+
+    /**
+     * Tiêu chí / nhóm đang sống của một bộ, khoá theo id — lưu lại bộ thì SỬA TẠI CHỖ dòng có
+     * id gửi lên, chỉ dòng mới chèn thêm và dòng bị bỏ mới xoá mềm.
+     *
+     * Bản cũ xoá mềm cả bộ rồi chèn lại mỗi lần bấm Lưu: bảng phình thêm một lượt dòng sau mỗi
+     * lần lưu (kể cả khi không đổi gì) và id tiêu chí đổi liên tục, phiếu đã chấm mất liên kết.
+     */
+    private final class Existing {
+        final Map<UUID, ConductCriteria> criteria = new LinkedHashMap<>();
+        final Map<UUID, ConductCriteriaGroup> groups = new LinkedHashMap<>();
+
+        /** Dòng còn trong map sau khi duyệt request = người dùng đã bỏ ⇒ xoá mềm. */
+        void retireLeftovers() {
+            Instant now = Instant.now();
+            criteria.values().forEach(c -> c.setDeletedAt(now));
+            conductCriteriaRepository.saveAll(criteria.values());
+            groups.values().forEach(g -> g.setDeletedAt(now));
+            conductCriteriaGroupRepository.saveAll(groups.values());
+        }
+    }
+
+    private Existing loadExisting(ConductCriteriaSet set) {
+        Existing e = new Existing();
+        conductCriteriaRepository.findByCriteriaSetIdOrderByPositionAsc(set.getId())
+                .forEach(c -> e.criteria.put(c.getId(), c));
+        conductCriteriaGroupRepository.findByCriteriaSetIdOrderByPositionAsc(set.getId())
+                .forEach(g -> e.groups.put(g.getId(), g));
+        return e;
+    }
+
+    /** Id lạ (của bộ khác / đã xoá) hoặc không có id ⇒ dòng mới; Hibernate chỉ UPDATE khi giá trị thật sự đổi. */
+    private void upsertCriterion(Organization org, ConductCriteriaSet set, ConductCriteriaGroup group,
+                                 ConductCriteriaRequest req, int position, Existing existing) {
+        ConductCriteria c = req.getId() != null ? existing.criteria.remove(req.getId()) : null;
+        if (c == null) {
+            c = ConductCriteria.builder().organization(org).criteriaSet(set).build();
+        }
+        c.setGroup(group);
+        c.setName(req.getName().trim());
+        c.setDescription(req.getDescription());
+        c.setLevelDescriptions(normalizeLevels(req.getLevelDescriptions(), set.getMaxScore()));
+        c.setWeight(req.getWeight());
+        c.setPosition(position);
+        conductCriteriaRepository.save(c);
+    }
+
+    private void replaceGroupedCriteria(Organization org, ConductCriteriaSet set, List<ConductGroupRequest> groups) {
+        double groupTotal = 0;
+        for (ConductGroupRequest g : groups) {
+            if (g.getName() == null || g.getName().isBlank()) {
+                throw new BusinessException(ErrorCode.CONDUCT_GROUP_NAME_EMPTY);
+            }
+            if (g.getCriteria() == null || g.getCriteria().isEmpty()) {
+                throw new BusinessException(ErrorCode.CONDUCT_GROUP_NEEDS_CRITERION, g.getName().trim());
+            }
+            double inGroup = g.getCriteria().stream()
+                    .mapToDouble(c -> c.getWeight() != null ? c.getWeight() : 0.0).sum();
+            if (Math.abs(inGroup - 100.0) > 0.01) {
+                throw new BusinessException(ErrorCode.CONDUCT_GROUP_WEIGHT_MUST_100_PERCENT,
+                        g.getName().trim(), String.valueOf(Math.round(inGroup * 100.0) / 100.0));
+            }
+            groupTotal += g.getWeight() != null ? g.getWeight() : 0.0;
+        }
+        if (Math.abs(groupTotal - 100.0) > 0.01) {
+            throw new BusinessException(ErrorCode.TOTAL_WEIGHT_SET_MUST_100_PERCENT, set.getName(),
+                    String.valueOf(Math.round(groupTotal * 100.0) / 100.0));
+        }
+
+        Existing existing = loadExisting(set);
+        // Thứ tự tiêu chí chạy liên tục qua các nhóm: dòng phiếu khớp tiêu chí theo vị trí.
+        int position = 1;
+        int groupPosition = 1;
+        for (ConductGroupRequest g : groups) {
+            ConductCriteriaGroup group = g.getId() != null ? existing.groups.remove(g.getId()) : null;
+            if (group == null) {
+                group = ConductCriteriaGroup.builder().organization(org).criteriaSet(set).build();
+            }
+            group.setName(g.getName().trim());
+            group.setWeight(g.getWeight());
+            group.setPosition(groupPosition++);
+            group = conductCriteriaGroupRepository.save(group);
+            for (ConductCriteriaRequest req : g.getCriteria()) {
+                upsertCriterion(org, set, group, req, position++, existing);
+            }
+        }
+        existing.retireLeftovers();
+    }
+
+    /** Xoá mềm tiêu chí VÀ nhóm của bộ (phiếu đã chấm giữ bản chụp riêng). */
+    private void softDeleteCriteria(ConductCriteriaSet set) {
+        List<ConductCriteria> existing = conductCriteriaRepository
+                .findByCriteriaSetIdOrderByPositionAsc(set.getId());
+        Instant now = Instant.now();
+        existing.forEach(c -> c.setDeletedAt(now));
+        conductCriteriaRepository.saveAll(existing);
+        conductCriteriaRepository.flush();
+        List<ConductCriteriaGroup> groups = conductCriteriaGroupRepository
+                .findByCriteriaSetIdOrderByPositionAsc(set.getId());
+        groups.forEach(g -> g.setDeletedAt(now));
+        conductCriteriaGroupRepository.saveAll(groups);
+        conductCriteriaGroupRepository.flush();
+    }
+
+    /** % TRÊN TỔNG của một tiêu chí: thuộc nhóm thì % trong nhóm × % nhóm. */
+    private static double overallWeight(ConductCriteria c) {
+        double w = c.getWeight() != null ? c.getWeight() : 0.0;
+        if (c.getGroup() == null || c.getGroup().getWeight() == null) return w;
+        return w * c.getGroup().getWeight() / 100.0;
+    }
+
+    /**
+     * Gán kỳ cho bộ. Một kỳ chỉ thuộc MỘT bộ nên gán lại sẽ GỠ kỳ đó khỏi bộ đang giữ —
+     * bắt người dùng tự đi bỏ gán ở bộ cũ chỉ tạo ra một bước thừa và trạng thái nửa vời.
+     */
+    private void assignCycles(Organization org, ConductCriteriaSet set, List<UUID> cycleIds) {
+        if (Boolean.TRUE.equals(set.getIsDefault())) {
+            if (cycleIds != null && !cycleIds.isEmpty()) {
+                throw new BusinessException(ErrorCode.DEFAULT_SET_APPLIES_EVERY_UNASSIGNED_CYCLE);
+            }
+            set.getKpiCycleIds().clear();
+            conductCriteriaSetRepository.save(set);
+            return;
+        }
+
+        LinkedHashSet<UUID> wanted = new LinkedHashSet<>(cycleIds == null ? List.of() : cycleIds);
+        for (UUID cycleId : wanted) {
+            KpiCycle cycle = kpiCycleRepository.findById(cycleId)
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", cycleId));
+            if (cycle.getOrganization() == null || !cycle.getOrganization().getId().equals(org.getId())) {
+                throw new ForbiddenException(ErrorCode.CYCLE_OUTSIDE_ORGANIZATION, cycle.getName());
+            }
+        }
+
+        List<ConductCriteriaSet> stripped = new ArrayList<>();
+        for (ConductCriteriaSet other : listSets(org)) {
+            if (other.getId().equals(set.getId())) continue;
+            if (other.getKpiCycleIds().removeAll(wanted)) stripped.add(other);
+        }
+        if (!stripped.isEmpty()) {
+            conductCriteriaSetRepository.saveAll(stripped);
+            // Bảng nối khoá chính trên kpi_cycle_id: chưa xoá hàng cũ mà đã chèn hàng mới
+            // cho cùng một kỳ là đụng khoá ngay lúc flush.
+            conductCriteriaSetRepository.flush();
+        }
+
+        set.getKpiCycleIds().clear();
+        set.getKpiCycleIds().addAll(wanted);
+        conductCriteriaSetRepository.save(set);
+    }
+
+    /**
+     * Bộ tiêu chí dùng cho một đợt/kỳ: bộ được gán cho kỳ đó, không có thì bộ mặc định.
+     * Phiếu theo ĐỢT lấy bộ của kỳ chứa đợt — đợt là một phần của kỳ, không có bộ riêng.
+     */
+    private ConductCriteriaSet resolveSet(Target t) {
+        KpiCycle cycle = t.cycle() != null ? t.cycle()
+                : (t.period() != null ? t.period().getKpiCycle() : null);
+        UUID orgId = t.organization().getId();
+        if (cycle != null) {
+            var assigned = conductCriteriaSetRepository.findByCycle(orgId, cycle.getId());
+            if (assigned.isPresent()) return assigned.get();
+        }
+        return conductCriteriaSetRepository.findByOrganizationIdAndIsDefaultTrue(orgId).orElse(null);
+    }
+
+    private static Double firstNonNull(Double... values) {
+        for (Double v : values) if (v != null) return v;
+        return ConductConstants.DEFAULT_MAX_SCORE;
+    }
+
+    // ============================================================
+    // PHIẾU CHẤM
+    // ============================================================
+
+    /**
+     * Phiếu của một người trong một đợt/kỳ. Chưa từng chấm thì vẫn trả về đủ dòng tiêu chí
+     * dựng từ cấu hình (không ghi DB) — UI mở ra là chấm được ngay.
+     */
+    @Transactional(readOnly = true)
+    public ConductSheetResponse getSheet(UUID userId, ConductScope scope, UUID kpiPeriodId, UUID kpiCycleId) {
+        User current = getCurrentUser();
+        UUID targetUserId = userId != null ? userId : current.getId();
+        User target = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", targetUserId));
+
+        Target t = resolveTarget(scope, kpiPeriodId, kpiCycleId);
+        if (!targetUserId.equals(current.getId()) && !canEvaluate(current, target)) {
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_PERSON_CONDUCT_FORM);
+        }
+
+        ConductEvaluation entity = findSheet(targetUserId, t);
+        return entity != null
+                ? toSheetResponse(entity, target, t, current)
+                : blankSheet(target, t, current);
+    }
+
+    /**
+     * Dòng tiêu chí của một người trong đợt/kỳ — KHÔNG gác quyền, chỗ gọi tự gác.
+     *
+     * <p>{@link #getSheet} gác bằng {@code canEvaluate}, tức quyền CHẤM hạnh kiểm. Trang thống kê
+     * chi tiết chỉ ĐỌC và đã gác bằng luật của nhóm thống kê (xem {@code PersonDetailService}), nên
+     * dùng cửa này; đi qua {@code getSheet} thì người xem thống kê không chấm hạnh kiểm sẽ bị 403
+     * đúng ở ô radar.
+     *
+     * <p>Chưa từng chấm vẫn trả đủ dòng tiêu chí (phiếu trắng) để radar không thiếu đỉnh.
+     * Trả cả PHIẾU vì thang điểm (min/max) nằm ở phiếu, không ở từng dòng.
+     */
+    @Transactional(readOnly = true)
+    public ConductSheetResponse sheetForAnalytics(UUID userId, ConductScope scope, UUID targetId, Organization org) {
+        if (org == null || !Boolean.TRUE.equals(org.getEnableConduct()) || userId == null || targetId == null) {
+            return null;
+        }
+        User target = userRepository.findById(userId).orElse(null);
+        if (target == null) return null;
+        try {
+            Target t = resolveTarget(scope,
+                    scope == ConductScope.PERIOD ? targetId : null,
+                    scope == ConductScope.PERIOD ? null : targetId);
+            ConductEvaluation entity = findSheet(userId, t);
+            return entity != null ? toSheetResponse(entity, target, t, target) : blankSheet(target, t, target);
+        } catch (RuntimeException e) {
+            // Đợt/kỳ đã xoá hoặc chưa gắn bộ tiêu chí: radar trống còn hơn cả trang 500.
+            return null;
+        }
+    }
+
+    /** Nhân viên tự chấm: ghi cột điểm tự đánh giá và dẫn chứng. */
+    @Transactional
+    public ConductSheetResponse saveSelfScores(ConductScoreRequest request) {
+        User current = getCurrentUser();
+        UUID targetUserId = request.getUserId() != null ? request.getUserId() : current.getId();
+        if (!targetUserId.equals(current.getId())) {
+            throw new ForbiddenException(ErrorCode.ONLY_PERSON_THEMSELVES_MAY_FILL_SELF_ASSESSMENT);
+        }
+        Target t = resolveTarget(request.getScope(), request.getKpiPeriodId(), request.getKpiCycleId());
+        assertNotLocked(current, t);
+
+        ConductEvaluation entity = openSheet(current, t);
+        applyScores(entity, request, true);
+        entity.setSelfSubmittedAt(Instant.now());
+        if (entity.getStatus() == ConductStatus.DRAFT) entity.setStatus(ConductStatus.SELF_SUBMITTED);
+        conductEvaluationRepository.save(entity);
+
+        return toSheetResponse(entity, current, t, current);
+    }
+
+    /** Cán bộ quản lý trực tiếp chấm: ghi cột điểm CBQLTT và nhận xét. */
+    @Transactional
+    public ConductSheetResponse saveManagerScores(ConductScoreRequest request) {
+        User current = getCurrentUser();
+        if (request.getUserId() == null) {
+            throw new BusinessException(ErrorCode.MISSING_PERSON_SCORE_CONDUCT);
+        }
+        User target = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", request.getUserId()));
+        if (!canScoreConduct(current, target)) {
+            throw new ForbiddenException(ErrorCode.ONLY_UNIT_HEAD_MAY_SCORE_CONDUCT_PERSON);
+        }
+        Target t = resolveTarget(request.getScope(), request.getKpiPeriodId(), request.getKpiCycleId());
+        assertNotLocked(target, t);
+
+        ConductEvaluation entity = openSheet(target, t);
+        applyScores(entity, request, false);
+        if (request.getComment() != null) entity.setComment(request.getComment());
+        entity.setEvaluator(current);
+        entity.setEvaluatedAt(Instant.now());
+        entity.setStatus(ConductStatus.REVIEWED);
+        conductEvaluationRepository.save(entity);
+
+        return toSheetResponse(entity, target, t, current);
+    }
+
+    /** Danh sách chấm của một đơn vị (gồm cả đơn vị con) trong một đợt/kỳ. */
+    @Transactional(readOnly = true)
+    public List<ConductSummaryResponse> listUnitSummary(UUID orgUnitId, ConductScope scope,
+                                                        UUID kpiPeriodId, UUID kpiCycleId) {
+        Target t = resolveTarget(scope, kpiPeriodId, kpiCycleId);
+        OrgUnit unit = orgUnitRepository.findById(orgUnitId)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", orgUnitId));
+
+        User current = getCurrentUser();
+        if (!permissionChecker.hasPermissionInOrgUnit(current.getId(), "EVALUATION:VIEW", orgUnitId)
+                && !permissionChecker.hasPermissionInOrgUnit(current.getId(), "EVALUATION:CREATE", orgUnitId)) {
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_UNIT_CONDUCT);
+        }
+
+        List<UserRoleOrgUnit> assignments = subtreeAssignments(unit);
+        List<UUID> userIds = assignments.stream()
+                .map(a -> a.getUser().getId()).distinct().toList();
+        if (userIds.isEmpty()) return List.of();
+
+        Map<UUID, ConductEvaluation> sheets = new HashMap<>();
+        List<ConductEvaluation> found = t.scope() == ConductScope.PERIOD
+                ? conductEvaluationRepository.findByKpiPeriodIdAndUserIdIn(t.periodId(), userIds)
+                : conductEvaluationRepository.findByKpiCycleIdAndUserIdIn(t.cycleId(), userIds);
+        found.forEach(e -> sheets.put(e.getUser().getId(), e));
+
+        // Người chưa có phiếu vẫn phải hiện đúng thang của kỳ đang xem, không phải thang mặc định.
+        double orgMax = setMaxScore(resolveSet(t), t.organization());
+        Map<UUID, ConductSummaryResponse> rows = new LinkedHashMap<>();
+        for (UserRoleOrgUnit a : assignments) {
+            User u = a.getUser();
+            if (rows.containsKey(u.getId())) continue;
+            ConductEvaluation sheet = sheets.get(u.getId());
+            rows.put(u.getId(), ConductSummaryResponse.builder()
+                    .userId(u.getId())
+                    .userName(u.getFullName())
+                    .userAvatarUrl(u.getAvatarUrl())
+                    .roleName(a.getRole() != null ? a.getRole().getName() : null)
+                    .orgUnitId(a.getOrgUnit() != null ? a.getOrgUnit().getId() : null)
+                    .orgUnitName(a.getOrgUnit() != null ? a.getOrgUnit().getName() : null)
+                    .status(sheet != null ? sheet.getStatus() : ConductStatus.DRAFT)
+                    .selfScore(round(sheet != null ? sheet.getSelfScore() : null))
+                    .managerScore(round(sheet != null ? sheet.getManagerScore() : null))
+                    .maxScore(sheet != null && sheet.getMaxScore() != null ? sheet.getMaxScore() : orgMax)
+                    .build());
+        }
+        return new ArrayList<>(rows.values());
+    }
+
+    // ============================================================
+    // ĐIỂM DÙNG CHO MA TRẬN XẾP LOẠI
+    // ============================================================
+
+    /**
+     * Điểm hạnh kiểm dùng để tra ma trận: ưu tiên điểm CBQLTT, chưa chấm thì lấy điểm tự chấm.
+     * Trả {@code null} khi tổ chức tắt tính năng hoặc chưa có phiếu.
+     */
+    @Transactional(readOnly = true)
+    public Double effectiveScore(UUID userId, ConductScope scope, UUID targetId, Organization org) {
+        if (org == null || !Boolean.TRUE.equals(org.getEnableConduct())) return null;
+        if (userId == null || targetId == null) return null;
+        ConductEvaluation sheet = scope == ConductScope.PERIOD
+                ? conductEvaluationRepository.findByUserIdAndKpiPeriodId(userId, targetId).orElse(null)
+                : conductEvaluationRepository.findByUserIdAndKpiCycleId(userId, targetId).orElse(null);
+        if (sheet == null && scope == ConductScope.CYCLE) {
+            KpiCycle cycle = kpiCycleRepository.findById(targetId).orElse(null);
+            return periodAverageTotals(List.of(userId), cycle).get(userId);
+        }
+        return effectiveScore(sheet);
+    }
+
+    // ── Trung bình các phiếu ĐỢT trong kỳ ──────────────────────────────────
+
+    /** TB từng tiêu chí (khớp theo criteriaId, dự phòng theo vị trí) của các phiếu đợt trong kỳ. */
+    private record PeriodAverages(int periods, Map<Object, Double> self, Map<Object, Double> manager) {
+        static final PeriodAverages NONE = new PeriodAverages(0, Map.of(), Map.of());
+        Double self(UUID criteriaId, Integer position) { return pick(self, criteriaId, position); }
+        Double manager(UUID criteriaId, Integer position) { return pick(manager, criteriaId, position); }
+        private static Double pick(Map<Object, Double> m, UUID criteriaId, Integer position) {
+            Double v = criteriaId != null ? m.get(criteriaId) : null;
+            return v != null ? v : (position != null ? m.get(position) : null);
+        }
+    }
+
+    private PeriodAverages periodAverages(UUID userId, KpiCycle cycle) {
+        if (cycle == null) return PeriodAverages.NONE;
+        List<UUID> periodIds = kpiPeriodRepository.findByKpiCycleIdOrderByStartDateAsc(cycle.getId())
+                .stream().map(KpiPeriod::getId).toList();
+        if (periodIds.isEmpty()) return PeriodAverages.NONE;
+        List<ConductEvaluation> sheets = conductEvaluationRepository.findByUserIdAndKpiPeriodIdIn(userId, periodIds);
+        if (sheets.isEmpty()) return PeriodAverages.NONE;
+
+        Map<Object, double[]> selfAcc = new HashMap<>();   // key → [sum, n]
+        Map<Object, double[]> mgrAcc = new HashMap<>();
+        for (ConductEvaluation s : sheets) {
+            for (ConductEvaluationItem it : s.getItems()) {
+                Object key = it.getCriteria() != null ? it.getCriteria().getId() : it.getPosition();
+                if (key == null) continue;
+                if (it.getSelfScore() != null) accumulate(selfAcc, key, it.getSelfScore());
+                if (it.getManagerScore() != null) accumulate(mgrAcc, key, it.getManagerScore());
+                // Khớp thêm theo vị trí để tiêu chí bị xoá/thay vẫn rơi đúng dòng.
+                if (it.getCriteria() != null && it.getPosition() != null) {
+                    if (it.getSelfScore() != null) accumulate(selfAcc, it.getPosition(), it.getSelfScore());
+                    if (it.getManagerScore() != null) accumulate(mgrAcc, it.getPosition(), it.getManagerScore());
+                }
+            }
+        }
+        return new PeriodAverages(sheets.size(), averages(selfAcc), averages(mgrAcc));
+    }
+
+    private static void accumulate(Map<Object, double[]> acc, Object key, double v) {
+        double[] a = acc.computeIfAbsent(key, k -> new double[2]);
+        a[0] += v; a[1] += 1;
+    }
+
+    /** Làm tròn về 0.5 — thang chấm là các mốc nguyên, TB 2.67 hiện thành 2.5 đọc tự nhiên hơn. */
+    private static Map<Object, Double> averages(Map<Object, double[]> acc) {
+        Map<Object, Double> out = new HashMap<>();
+        acc.forEach((k, a) -> out.put(k, Math.round(a[0] / a[1] * 2.0) / 2.0));
+        return out;
+    }
+
+    /** TB tổng điểm hiệu lực (QLTT, không có thì tự chấm) của các phiếu đợt, cho nhiều người một lượt. */
+    private Map<UUID, Double> periodAverageTotals(List<UUID> userIds, KpiCycle cycle) {
+        if (cycle == null || userIds.isEmpty()) return Map.of();
+        List<UUID> periodIds = kpiPeriodRepository.findByKpiCycleIdOrderByStartDateAsc(cycle.getId())
+                .stream().map(KpiPeriod::getId).toList();
+        if (periodIds.isEmpty()) return Map.of();
+        Map<UUID, double[]> acc = new HashMap<>();
+        for (ConductEvaluation s : conductEvaluationRepository.findByUserIdInAndKpiPeriodIdIn(userIds, periodIds)) {
+            Double v = effectiveScore(s);
+            if (v == null || s.getUser() == null) continue;
+            double[] a = acc.computeIfAbsent(s.getUser().getId(), k -> new double[2]);
+            a[0] += v; a[1] += 1;
+        }
+        Map<UUID, Double> out = new HashMap<>();
+        acc.forEach((k, a) -> out.put(k, Math.round(a[0] / a[1] * 100.0) / 100.0));
+        return out;
+    }
+
+    private Double weightedTotalOf(List<ConductItemResponse> items, boolean selfSide) {
+        double sum = 0; boolean any = false;
+        for (ConductItemResponse i : items) {
+            Double w = selfSide ? i.getSelfWeighted() : i.getManagerWeighted();
+            if (w == null) continue;
+            any = true; sum += w;
+        }
+        return any ? Math.round(sum * 100.0) / 100.0 : null;
+    }
+
+    /**
+     * Thang điểm của phiếu đã chấm; chưa có phiếu thì lấy thang của BỘ mà đợt/kỳ này sẽ
+     * dùng — không phải thang của bộ mặc định, vì mỗi kỳ có thể chấm theo thang riêng.
+     */
+    @Transactional(readOnly = true)
+    public Double effectiveMaxScore(UUID userId, ConductScope scope, UUID targetId, Organization org) {
+        if (org == null) return ConductConstants.DEFAULT_MAX_SCORE;
+        ConductEvaluation sheet = userId == null || targetId == null ? null
+                : (scope == ConductScope.PERIOD
+                    ? conductEvaluationRepository.findByUserIdAndKpiPeriodId(userId, targetId).orElse(null)
+                    : conductEvaluationRepository.findByUserIdAndKpiCycleId(userId, targetId).orElse(null));
+        if (sheet != null && sheet.getMaxScore() != null) return sheet.getMaxScore();
+        if (targetId == null) return conductMaxScore(org);
+        try {
+            return setMaxScore(resolveSet(resolveTarget(scope,
+                    scope == ConductScope.PERIOD ? targetId : null,
+                    scope == ConductScope.PERIOD ? null : targetId)), org);
+        } catch (RuntimeException e) {
+            // Đợt/kỳ đã bị xoá: chấm điểm không còn nữa nên thang nào cũng vô hại, đừng để
+            // nó làm hỏng cả bảng đánh giá đang gọi tới.
+            return conductMaxScore(org);
+        }
+    }
+
+    /** Điểm hạnh kiểm của một người kèm thang của chính phiếu đó. */
+    public record ConductAxis(Double score, Double maxScore) {
+        public static final ConductAxis EMPTY = new ConductAxis(null, null);
+    }
+
+    /**
+     * Điểm hạnh kiểm của NHIỀU người trong cùng một đợt/kỳ — một truy vấn cho cả danh sách.
+     *
+     * Bảng đánh giá kỳ gọi cho từng thành viên của phòng, gọi lẻ thì mỗi người một truy vấn.
+     * Người chưa có phiếu vẫn có mặt trong map (điểm null, thang của bộ mà kỳ này dùng) để
+     * chỗ gọi không phải phân biệt "chưa chấm" với "không có trong map".
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, ConductAxis> effectiveAxes(List<UUID> userIds, ConductScope scope,
+                                                UUID targetId, Organization org) {
+        if (org == null || !Boolean.TRUE.equals(org.getEnableConduct())
+                || targetId == null || userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> ids = userIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return Map.of();
+
+        List<ConductEvaluation> found = scope == ConductScope.PERIOD
+                ? conductEvaluationRepository.findByKpiPeriodIdAndUserIdIn(targetId, ids)
+                : conductEvaluationRepository.findByKpiCycleIdAndUserIdIn(targetId, ids);
+
+        // Thang nền cho người chưa có phiếu: lấy bộ mà đợt/kỳ này dùng, KHÔNG phải bộ mặc định.
+        // Đợt/kỳ đã bị xoá thì rơi về thang của tổ chức thay vì làm hỏng cả bảng đang gọi tới.
+        double fallbackMax;
+        try {
+            fallbackMax = setMaxScore(resolveSet(resolveTarget(scope,
+                    scope == ConductScope.PERIOD ? targetId : null,
+                    scope == ConductScope.PERIOD ? null : targetId)), org);
+        } catch (RuntimeException e) {
+            fallbackMax = conductMaxScore(org);
+        }
+
+        Map<UUID, ConductAxis> byUser = new HashMap<>();
+        for (ConductEvaluation e : found) {
+            if (e.getUser() == null) continue;
+            byUser.put(e.getUser().getId(), new ConductAxis(
+                    effectiveScore(e),
+                    e.getMaxScore() != null ? e.getMaxScore() : fallbackMax));
+        }
+        // Phiếu KỲ chưa lưu ⇒ điểm hiệu lực = TB các phiếu đợt (đúng con số đang điền sẵn trên
+        // phiếu), để ma trận không trống chỉ vì quản lý chưa bấm lưu.
+        if (scope == ConductScope.CYCLE) {
+            List<UUID> missing = ids.stream().filter(id -> !byUser.containsKey(id)).toList();
+            if (!missing.isEmpty()) {
+                KpiCycle cycle = kpiCycleRepository.findById(targetId).orElse(null);
+                for (Map.Entry<UUID, Double> en : periodAverageTotals(missing, cycle).entrySet()) {
+                    byUser.put(en.getKey(), new ConductAxis(en.getValue(), fallbackMax));
+                }
+            }
+        }
+        for (UUID id : ids) byUser.putIfAbsent(id, new ConductAxis(null, fallbackMax));
+        return byUser;
+    }
+
+    private Double effectiveScore(ConductEvaluation sheet) {
+        if (sheet == null) return null;
+        return sheet.getManagerScore() != null ? sheet.getManagerScore() : sheet.getSelfScore();
+    }
+
+    // ============================================================
+    // NỘI BỘ
+    // ============================================================
+
+    /** Đợt hoặc kỳ được chấm, kèm tổ chức sở hữu nó. */
+    private record Target(ConductScope scope, UUID periodId, UUID cycleId,
+                          String name, Organization organization,
+                          KpiPeriod period, KpiCycle cycle) {}
+
+    private Target resolveTarget(ConductScope scope, UUID kpiPeriodId, UUID kpiCycleId) {
+        if (scope == ConductScope.PERIOD) {
+            if (kpiPeriodId == null) throw new BusinessException(ErrorCode.MISSING_EVALUATION_PERIOD);
+            KpiPeriod period = kpiPeriodRepository.findById(kpiPeriodId)
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationPeriod"), "id", kpiPeriodId));
+            return new Target(scope, kpiPeriodId, null, period.getName(), period.getOrganization(), period, null);
+        }
+        if (kpiCycleId == null) throw new BusinessException(ErrorCode.MISSING_EVALUATION_CYCLE);
+        KpiCycle cycle = kpiCycleRepository.findById(kpiCycleId)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", kpiCycleId));
+        return new Target(scope, null, kpiCycleId, cycle.getName(), cycle.getOrganization(), null, cycle);
+    }
+
+    private ConductEvaluation findSheet(UUID userId, Target t) {
+        return t.scope() == ConductScope.PERIOD
+                ? conductEvaluationRepository.findByUserIdAndKpiPeriodId(userId, t.periodId()).orElse(null)
+                : conductEvaluationRepository.findByUserIdAndKpiCycleId(userId, t.cycleId()).orElse(null);
+    }
+
+    /** Lấy phiếu đang có, hoặc dựng phiếu mới từ bộ tiêu chí hiện hành (chụp tên/mô tả/trọng số). */
+    private ConductEvaluation openSheet(User user, Target t) {
+        ConductEvaluation existing = findSheet(user.getId(), t);
+        if (existing != null) return existing;
+
+        Organization org = t.organization();
+        if (!Boolean.TRUE.equals(org.getEnableConduct())) {
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_ENABLED_CONDUCT_SCORING);
+        }
+        ConductCriteriaSet set = resolveSet(t);
+        List<ConductCriteria> criteria = set == null ? List.of()
+                : conductCriteriaRepository.findByCriteriaSetIdOrderByPositionAsc(set.getId());
+        if (criteria.isEmpty()) {
+            throw new BusinessException(ErrorCode.NO_CONDUCT_CRITERIA_SET_CONFIGURED_CYCLE);
+        }
+
+        ConductEvaluation sheet = ConductEvaluation.builder()
+                .organization(org)
+                .user(user)
+                .criteriaSet(set)
+                .scope(t.scope())
+                .kpiPeriod(t.period())
+                .kpiCycle(t.cycle())
+                .status(ConductStatus.DRAFT)
+                .maxScore(setMaxScore(set, org))
+                .items(new ArrayList<>())
+                .build();
+        for (ConductCriteria c : criteria) {
+            ConductCriteriaGroup g = c.getGroup();
+            sheet.getItems().add(ConductEvaluationItem.builder()
+                    .conductEvaluation(sheet)
+                    .criteria(c)
+                    .criteriaName(c.getName())
+                    .criteriaDescription(c.getDescription())
+                    .criteriaLevelDescriptions(c.getLevelDescriptions())
+                    .weight(overallWeight(c))
+                    .position(c.getPosition())
+                    .groupName(g != null ? g.getName() : null)
+                    .groupWeight(g != null ? g.getWeight() : null)
+                    .groupPosition(g != null ? g.getPosition() : null)
+                    .weightInGroup(g != null ? c.getWeight() : null)
+                    .build());
+        }
+        return conductEvaluationRepository.save(sheet);
+    }
+
+    /** Ghi điểm vào MỘT phía của phiếu rồi cộng lại điểm tổng có trọng số của phía đó. */
+    private void applyScores(ConductEvaluation sheet, ConductScoreRequest request, boolean selfSide) {
+        double max = sheet.getMaxScore() != null ? sheet.getMaxScore() : ConductConstants.DEFAULT_MAX_SCORE;
+        if (request.getItems() != null) {
+            for (var input : request.getItems()) {
+                ConductEvaluationItem item = matchItem(sheet, input.getCriteriaId(), input.getPosition());
+                if (item == null) continue;
+                Double score = input.getScore();
+                // Thang chấm là MIN_SCORE..max (1..5 mặc định) cho khớp ma trận xếp loại. Điểm CŨ
+                // nằm ngoài thang — phiếu chấm từ thời thang 0..4 — vẫn ghi lại được khi nó không
+                // đổi, nếu không thì sửa một dòng khác trong phiếu đó sẽ kéo cả phiếu thành không lưu nổi.
+                Double previous = selfSide ? item.getSelfScore() : item.getManagerScore();
+                boolean unchanged = score != null && score.equals(previous);
+                if (score != null && !unchanged
+                        && (score < ConductConstants.MIN_SCORE || score > max)) {
+                    throw new BusinessException(ErrorCode.SCORE_CRITERION_MUST_BETWEEN, item.getCriteriaName(), String.valueOf(fmtScale(ConductConstants.MIN_SCORE)), String.valueOf(fmtScale(max)));
+                }
+                if (selfSide) {
+                    item.setSelfScore(score);
+                    if (input.getNote() != null) item.setSelfEvidence(input.getNote());
+                } else {
+                    item.setManagerScore(score);
+                    if (input.getNote() != null) item.setManagerComment(input.getNote());
+                }
+            }
+        }
+        if (selfSide) sheet.setSelfScore(weightedTotal(sheet, true));
+        else sheet.setManagerScore(weightedTotal(sheet, false));
+    }
+
+    /** "5" thay vì "5.0" trong thông báo lỗi — thang điểm vốn là số nguyên. */
+    private static String fmtScale(double v) {
+        return v == Math.rint(v) ? String.valueOf((long) v) : String.valueOf(v);
+    }
+
+    private ConductEvaluationItem matchItem(ConductEvaluation sheet, UUID criteriaId, Integer position) {
+        for (ConductEvaluationItem item : sheet.getItems()) {
+            if (criteriaId != null && item.getCriteria() != null
+                    && criteriaId.equals(item.getCriteria().getId())) return item;
+        }
+        if (position == null) return null;
+        return sheet.getItems().stream()
+                .filter(i -> position.equals(i.getPosition()))
+                .findFirst().orElse(null);
+    }
+
+    /**
+     * Σ(điểm × trọng số/100). Trả {@code null} khi chưa dòng nào được chấm — phân biệt
+     * "chưa chấm" với "chấm 0 điểm".
+     */
+    private Double weightedTotal(ConductEvaluation sheet, boolean selfSide) {
+        double sum = 0.0;
+        boolean any = false;
+        for (ConductEvaluationItem item : sheet.getItems()) {
+            Double score = selfSide ? item.getSelfScore() : item.getManagerScore();
+            if (score == null) continue;
+            any = true;
+            double weight = item.getWeight() != null ? item.getWeight() : 0.0;
+            sum += score * weight / 100.0;
+        }
+        return any ? Math.round(sum * 100.0) / 100.0 : null;
+    }
+
+    /**
+     * Đơn vị đã chốt kỳ đang khoá phiếu của người này (null nếu chưa bị khoá).
+     *
+     * Điểm hạnh kiểm lấp một trục của ma trận nên nó là ĐẦU VÀO của kết quả kỳ — chốt kỳ
+     * xong mà vẫn sửa được hạnh kiểm thì con số đã công bố sẽ lệch với dữ liệu nguồn.
+     * Phiếu theo ĐỢT cũng khoá theo kỳ chứa đợt đó, vì đợt là một phần của kỳ.
+     */
+    private OrgUnit lockingUnitFor(User user, Target t) {
+        CycleUnitEvaluation e = lockFor(user, t);
+        return e != null ? e.getOrgUnit() : null;
+    }
+
+    /**
+     * Bản ghi kỳ đang khoá phiếu (kèm trạng thái), null nếu chưa bị khoá.
+     *
+     * Hai phạm vi khoá theo hai nhịp khác nhau:
+     * <ul>
+     *   <li>Phiếu theo ĐỢT là đầu vào của điểm kỳ (cùng hạng với đánh giá đợt) ⇒ đóng từ lúc
+     *       "chốt dữ liệu kỳ" (CALIBRATING).</li>
+     *   <li>Phiếu theo KỲ là một ô CHẤM trong phiếu chốt kỳ — đứng cạnh điểm chốt và mức định
+     *       tính, quản lý chấm nó ngay trong bước hiệu chỉnh ⇒ chỉ khoá khi KHOÁ KẾT QUẢ.</li>
+     * </ul>
+     */
+    private CycleUnitEvaluation lockFor(User user, Target t) {
+        KpiCycle cycle = t.cycle() != null ? t.cycle()
+                : (t.period() != null ? t.period().getKpiCycle() : null);
+        if (cycle == null) return null;
+        OrgUnit unit = primaryUnit(user.getId());
+        return t.scope() == ConductScope.CYCLE
+                ? cycleLockChecker.resultLockFor(cycle.getId(), unit)
+                : cycleLockChecker.inputLockFor(cycle.getId(), unit);
+    }
+
+    private void assertNotLocked(User user, Target t) {
+        OrgUnit locking = lockingUnitFor(user, t);
+        if (locking != null) {
+            throw new BusinessException(ErrorCode.CYCLE_EVALUATION_UNIT_FINALIZED_CONDUCT_CANNOT_SCORED, locking.getName());
+        }
+    }
+
+    private OrgUnit primaryUnit(UUID userId) {
+        return primaryUnits.unitOf(userId);
+    }
+
+    /**
+     * XEM phiếu của người khác: có quyền EVALUATION:CREATE tại ĐƠN VỊ CHÍNH của người được
+     * chấm — cùng luật với đánh giá KPI theo đợt, không nới thêm (kiêm nhiệm không mở quyền chấm).
+     */
+    private boolean canEvaluate(User evaluator, User target) {
+        OrgUnit u = primaryUnits.unitOf(target);
+        return u != null && permissionChecker.hasPermissionInOrgUnit(
+                evaluator.getId(), "EVALUATION:CREATE", u.getId());
+    }
+
+    /**
+     * CHẤM cho người khác thì chặt hơn xem: phải là TRƯỞNG đơn vị (rank 0). Phó xem được
+     * phiếu nhưng không ký thay — hạnh kiểm là chữ ký của người đứng đầu đơn vị, khác với
+     * điểm KPI vốn chia được cho cấp phó.
+     */
+    private boolean canScoreConduct(User evaluator, User target) {
+        // Trưởng đơn vị CHÍNH của người được chấm (hoặc đơn vị cha) — trưởng nơi kiêm nhiệm không ký.
+        OrgUnit u = primaryUnits.unitOf(target);
+        return u != null && permissionChecker.hasLeaderPermissionInOrgUnit(
+                evaluator.getId(), "EVALUATION:CREATE", u.getId());
+    }
+
+    private List<UserRoleOrgUnit> subtreeAssignments(OrgUnit unit) {
+        UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
+        List<OrgUnit> subtree = orgUnitRepository.findSubtree(unit.getPath(), orgId);
+        List<UUID> unitIds = subtree.isEmpty() ? List.of(unit.getId())
+                : subtree.stream().map(OrgUnit::getId).toList();
+        // Chỉ người có ĐƠN VỊ CHÍNH trong nhánh — người kiêm nhiệm có phiếu ở đơn vị chính.
+        return primaryUnits.primaryWithin(unitIds).values().stream()
+                .filter(a -> a.getUser() != null && a.getUser().getDeletedAt() == null && !a.getUser().isPausedAccount())
+                .toList();
+    }
+
+    private ConductSheetResponse blankSheet(User target, Target t, User viewer) {
+        Organization org = t.organization();
+        ConductCriteriaSet set = resolveSet(t);
+        double max = setMaxScore(set, org);
+        CycleUnitEvaluation lock = lockFor(target, t);
+        OrgUnit locking = lock != null ? lock.getOrgUnit() : null;
+        // Phiếu KỲ: điền sẵn từng tiêu chí bằng TB các phiếu đợt — như điểm chốt kỳ lấy TB đợt.
+        PeriodAverages avg = t.scope() == ConductScope.CYCLE ? periodAverages(target.getId(), t.cycle()) : PeriodAverages.NONE;
+        List<ConductItemResponse> items = (set == null ? List.<ConductCriteria>of()
+                : conductCriteriaRepository.findByCriteriaSetIdOrderByPositionAsc(set.getId())).stream()
+                .map(c -> {
+                    Double self = avg.self(c.getId(), c.getPosition());
+                    Double mgr = avg.manager(c.getId(), c.getPosition());
+                    double w = overallWeight(c);
+                    ConductCriteriaGroup g = c.getGroup();
+                    return ConductItemResponse.builder()
+                            .criteriaId(c.getId())
+                            .name(c.getName())
+                            .description(c.getDescription())
+                            .levelDescriptions(c.getLevelDescriptions())
+                            .weight(w)
+                            .position(c.getPosition())
+                            .groupName(g != null ? g.getName() : null)
+                            .groupWeight(g != null ? g.getWeight() : null)
+                            .groupPosition(g != null ? g.getPosition() : null)
+                            .weightInGroup(g != null ? c.getWeight() : null)
+                            .selfScore(self)
+                            .managerScore(mgr)
+                            .selfWeighted(weighted(self, w))
+                            .managerWeighted(weighted(mgr, w))
+                            .build();
+                })
+                .toList();
+        Double selfTotal = weightedTotalOf(items, true);
+        Double managerTotal = weightedTotalOf(items, false);
+        var axes = ConductAxisResolver.resolve(null, null,
+                managerTotal != null ? managerTotal : selfTotal, max);
+
+        return ConductSheetResponse.builder()
+                .prefilledFromPeriods(avg.periods() > 0 ? avg.periods() : null)
+                .selfScore(selfTotal)
+                .managerScore(managerTotal)
+                .effectiveScore(managerTotal != null ? managerTotal : selfTotal)
+                .behaviorEquivalent(axes.behaviorScore())
+                .percentEquivalent(axes.completionPercent())
+                .userId(target.getId())
+                .userName(target.getFullName())
+                .userAvatarUrl(target.getAvatarUrl())
+                .scope(t.scope())
+                .kpiPeriodId(t.periodId())
+                .kpiCycleId(t.cycleId())
+                .targetName(t.name())
+                .criteriaSetId(set != null ? set.getId() : null)
+                .criteriaSetName(set != null ? set.getName() : null)
+                .status(ConductStatus.DRAFT)
+                .maxScore(max)
+                .minScore(ConductConstants.MIN_SCORE)
+                .items(items)
+                .canScoreSelf(locking == null && target.getId().equals(viewer.getId()))
+                .canScoreManager(locking == null && !target.getId().equals(viewer.getId())
+                        && canScoreConduct(viewer, target))
+                .locked(locking != null)
+                .lockedByUnitName(locking != null ? locking.getName() : null)
+                .lockStage(lock != null ? lock.getStatus() : null)
+                .build();
+    }
+
+    private ConductSheetResponse toSheetResponse(ConductEvaluation e, User target, Target t, User viewer) {
+        double max = e.getMaxScore() != null ? e.getMaxScore() : ConductConstants.DEFAULT_MAX_SCORE;
+        List<ConductItemResponse> items = e.getItems().stream()
+                .sorted(Comparator.comparing(ConductEvaluationItem::getPosition,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(i -> ConductItemResponse.builder()
+                        .criteriaId(i.getCriteria() != null ? i.getCriteria().getId() : null)
+                        .name(i.getCriteriaName())
+                        .description(i.getCriteriaDescription())
+                        // Phiếu mở trước khi tiêu chí có định nghĩa theo mức: lấy bản đang có — chỉ là hướng dẫn chấm.
+                        .levelDescriptions(i.getCriteriaLevelDescriptions() != null ? i.getCriteriaLevelDescriptions()
+                                : i.getCriteria() != null ? i.getCriteria().getLevelDescriptions() : null)
+                        .weight(i.getWeight())
+                        .position(i.getPosition())
+                        .groupName(i.getGroupName())
+                        .groupWeight(i.getGroupWeight())
+                        .groupPosition(i.getGroupPosition())
+                        .weightInGroup(i.getWeightInGroup())
+                        .selfScore(i.getSelfScore())
+                        .selfEvidence(i.getSelfEvidence())
+                        .managerScore(i.getManagerScore())
+                        .managerComment(i.getManagerComment())
+                        .selfWeighted(weighted(i.getSelfScore(), i.getWeight()))
+                        .managerWeighted(weighted(i.getManagerScore(), i.getWeight()))
+                        .build())
+                .toList();
+
+        Double effective = effectiveScore(e);
+        var axes = ConductAxisResolver.resolve(null, null, effective, max);
+        CycleUnitEvaluation lock = lockFor(target, t);
+        OrgUnit locking = lock != null ? lock.getOrgUnit() : null;
+        // Phiếu chấm trước khi có bộ theo kỳ chưa ghi bộ nào — suy lại từ đợt/kỳ để nhãn
+        // không bỏ trống, chứ không đổi điểm (điểm vẫn từ bản chụp trong phiếu).
+        ConductCriteriaSet set = e.getCriteriaSet() != null ? e.getCriteriaSet() : resolveSet(t);
+
+        return ConductSheetResponse.builder()
+                .id(e.getId())
+                .userId(target.getId())
+                .userName(target.getFullName())
+                .userAvatarUrl(target.getAvatarUrl())
+                .scope(e.getScope())
+                .kpiPeriodId(t.periodId())
+                .kpiCycleId(t.cycleId())
+                .targetName(t.name())
+                .criteriaSetId(set != null ? set.getId() : null)
+                .criteriaSetName(set != null ? set.getName() : null)
+                .status(e.getStatus())
+                .maxScore(max)
+                .minScore(ConductConstants.MIN_SCORE)
+                .selfScore(round(e.getSelfScore()))
+                .managerScore(round(e.getManagerScore()))
+                .comment(e.getComment())
+                .evaluatorName(e.getEvaluator() != null ? e.getEvaluator().getFullName() : null)
+                .selfSubmittedAt(e.getSelfSubmittedAt())
+                .evaluatedAt(e.getEvaluatedAt())
+                .effectiveScore(round(effective))
+                .behaviorEquivalent(round(axes.behaviorScore()))
+                .percentEquivalent(round(effective == null ? null : effective / max * 100.0))
+                .items(items)
+                .canScoreSelf(locking == null && target.getId().equals(viewer.getId()))
+                .canScoreManager(locking == null && !target.getId().equals(viewer.getId())
+                        && canScoreConduct(viewer, target))
+                .locked(locking != null)
+                .lockedByUnitName(locking != null ? locking.getName() : null)
+                .lockStage(lock != null ? lock.getStatus() : null)
+                .build();
+    }
+
+    private ConductConfigResponse toConfigResponse(Organization org, List<ConductCriteriaSet> sets) {
+        return ConductConfigResponse.builder()
+                .enabled(Boolean.TRUE.equals(org.getEnableConduct()))
+                .sets(sets.stream().map(this::toSetResponse).toList())
+                .build();
+    }
+
+    private ConductSetResponse toSetResponse(ConductCriteriaSet set) {
+        List<ConductCriteria> criteria = conductCriteriaRepository
+                .findByCriteriaSetIdOrderByPositionAsc(set.getId());
+        List<ConductCriteriaGroup> groups = conductCriteriaGroupRepository
+                .findByCriteriaSetIdOrderByPositionAsc(set.getId());
+        // Bộ chia nhóm: tổng là tổng trọng số các NHÓM (trong từng nhóm có tổng riêng).
+        double total = groups.isEmpty()
+                ? criteria.stream().mapToDouble(c -> c.getWeight() != null ? c.getWeight() : 0.0).sum()
+                : groups.stream().mapToDouble(g -> g.getWeight() != null ? g.getWeight() : 0.0).sum();
+        return ConductSetResponse.builder()
+                .id(set.getId())
+                .name(set.getName())
+                .isDefault(Boolean.TRUE.equals(set.getIsDefault()))
+                .maxScore(set.getMaxScore())
+                .kpiCycleIds(new ArrayList<>(set.getKpiCycleIds()))
+                .totalWeight(Math.round(total * 100.0) / 100.0)
+                .criteria(criteria.stream().map(ConductService::toCriteriaResponse).toList())
+                .groups(groups.stream()
+                        .map(g -> {
+                            List<ConductCriteria> inside = criteria.stream().filter(c -> inGroup(c, g)).toList();
+                            double sum = inside.stream().mapToDouble(c -> c.getWeight() != null ? c.getWeight() : 0.0).sum();
+                            return ConductGroupResponse.builder()
+                                    .id(g.getId())
+                                    .name(g.getName())
+                                    .weight(g.getWeight())
+                                    .position(g.getPosition())
+                                    .totalWeight(Math.round(sum * 100.0) / 100.0)
+                                    .criteria(inside.stream().map(ConductService::toCriteriaResponse).toList())
+                                    .build();
+                        })
+                        .toList())
+                .build();
+    }
+
+    private static ConductCriteriaResponse toCriteriaResponse(ConductCriteria c) {
+        return ConductCriteriaResponse.builder()
+                .id(c.getId())
+                .name(c.getName())
+                .description(c.getDescription())
+                .levelDescriptions(c.getLevelDescriptions())
+                .weight(c.getWeight())
+                .position(c.getPosition())
+                .groupId(c.getGroup() != null ? c.getGroup().getId() : null)
+                .build();
+    }
+
+    /** Mô tả một mức tối đa bao nhiêu ký tự. */
+    static final int LEVEL_DESCRIPTION_MAX = 1000;
+
+    /**
+     * Chuẩn hoá định nghĩa theo mức: chỉ giữ mức nguyên trong thang ({@link ConductConstants#MIN_SCORE}..thang của bộ),
+     * bỏ mô tả trống, cắt quá dài; không còn mức nào ⇒ null (tiêu chí không định nghĩa theo mức).
+     */
+    static Map<String, String> normalizeLevels(Map<String, String> in, Double maxScore) {
+        if (in == null || in.isEmpty()) return null;
+        double max = maxScore != null ? maxScore : ConductConstants.DEFAULT_MAX_SCORE;
+        Map<Integer, String> out = new TreeMap<>();
+        in.forEach((k, v) -> {
+            if (k == null || v == null || v.isBlank()) return;
+            int level;
+            try {
+                level = Integer.parseInt(k.trim());
+            } catch (NumberFormatException e) {
+                return;
+            }
+            if (level < ConductConstants.MIN_SCORE || level > max) return;
+            String text = v.trim();
+            out.put(level, text.length() > LEVEL_DESCRIPTION_MAX ? text.substring(0, LEVEL_DESCRIPTION_MAX) : text);
+        });
+        if (out.isEmpty()) return null;
+        Map<String, String> result = new LinkedHashMap<>();
+        out.forEach((level, text) -> result.put(String.valueOf(level), text));
+        return result;
+    }
+
+    /** Thang điểm của bộ; chưa có bộ nào thì lấy giá trị nền của tổ chức. */
+    private double setMaxScore(ConductCriteriaSet set, Organization org) {
+        return set != null && set.getMaxScore() != null ? set.getMaxScore() : conductMaxScore(org);
+    }
+
+    private double conductMaxScore(Organization org) {
+        Double max = org != null ? org.getConductMaxScore() : null;
+        return max != null && max > 0 ? max : ConductConstants.DEFAULT_MAX_SCORE;
+    }
+
+    private Double weighted(Double score, Double weight) {
+        if (score == null) return null;
+        double w = weight != null ? weight : 0.0;
+        return Math.round(score * w / 100.0 * 100.0) / 100.0;
+    }
+
+    private Double round(Double v) {
+        return v == null ? null : Math.round(v * 100.0) / 100.0;
+    }
+
+    private Organization requireOrg(UUID organizationId) {
+        return organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", organizationId));
+    }
+
+    private User getCurrentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
+    }
+}

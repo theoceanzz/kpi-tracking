@@ -1,0 +1,257 @@
+package com.kpitracking.controller.kpi;
+
+import com.kpitracking.i18n.ErrorMessages;
+import com.kpitracking.dto.request.kpi.BatchUpdateWeightRequest;
+import com.kpitracking.dto.request.kpi.CreateKpiCriteriaRequest;
+import com.kpitracking.dto.request.kpi.CreateKpiFromBscRequest;
+import com.kpitracking.dto.request.kpi.RejectKpiRequest;
+import com.kpitracking.dto.request.kpi.ReplaceKpiRequest;
+import com.kpitracking.dto.request.kpi.UpdateKpiCriteriaRequest;
+import com.kpitracking.dto.response.ApiResponse;
+import com.kpitracking.dto.response.PageResponse;
+import com.kpitracking.dto.response.kpi.KpiCriteriaResponse;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.service.bsc.BscKpiPlanService;
+import com.kpitracking.service.kpi.KpiCriteriaService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1/kpi-criteria")
+@RequiredArgsConstructor
+@Tag(name = "KPI Criteria", description = "KPI Criteria management endpoints")
+public class KpiCriteriaController {
+
+    private final KpiCriteriaService kpiCriteriaService;
+    private final BscKpiPlanService bscKpiPlanService;
+
+    @PostMapping
+    @PreAuthorize("hasAuthority('KPI:CREATE')")
+    @Operation(summary = "Create KPI criteria")
+    public ResponseEntity<ApiResponse<KpiCriteriaResponse>> createKpiCriteria(
+            @Valid @RequestBody CreateKpiCriteriaRequest request) {
+        KpiCriteriaResponse response = kpiCriteriaService.createKpiCriteria(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("KPI criteria created successfully", response));
+    }
+
+    /**
+     * Tạo một loạt KPI từ MỘT chỉ tiêu BSC, mỗi đợt một KPI ("KPI = BSC").
+     *
+     * <p>Cùng quyền với tạo KPI thường: đây vẫn là thao tác tạo KPI cho đơn vị mình, chỉ khác ở
+     * chỗ con số và hạng mục được lấy thẳng từ bộ tiêu chí thay vì gõ tay.
+     */
+    @PostMapping("/from-bsc")
+    @PreAuthorize("hasAuthority('KPI:CREATE')")
+    @Operation(summary = "Create KPIs by splitting one BSC scorecard item across its periods")
+    public ResponseEntity<ApiResponse<java.util.List<KpiCriteriaResponse>>> createFromBsc(
+            @Valid @RequestBody CreateKpiFromBscRequest request) {
+        java.util.List<KpiCriteriaResponse> created = bscKpiPlanService.createFromBsc(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Đã tạo " + created.size() + " chỉ tiêu từ hạng mục BSC", created));
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAuthority('KPI:VIEW')")
+    @Operation(summary = "List KPI criteria with optional filters")
+    public ResponseEntity<ApiResponse<PageResponse<KpiCriteriaResponse>>> getKpiCriteria(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) KpiStatus status,
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID createdById,
+            @RequestParam(required = false) UUID assigneeId,
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant startDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant endDate,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) UUID objectiveId,
+            @RequestParam(required = false) UUID keyResultId,
+            @RequestParam(required = false) UUID perspectiveId,
+            @RequestParam(defaultValue = "false") boolean approvalMode,
+            @RequestParam(required = false) String kpiNature,
+            @RequestParam(required = false) Boolean isBonusKpi,
+            @RequestParam(required = false) Boolean isReverseKpi,
+            @RequestParam(required = false) com.kpitracking.enums.kpi.KpiType kpiType) {
+        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, assigneeId, kpiPeriodId, keyword, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId, perspectiveId, approvalMode, kpiNature, isBonusKpi, isReverseKpi, kpiType);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/{kpiId}")
+    @PreAuthorize("hasAuthority('KPI:VIEW')")
+    @Operation(summary = "Get KPI criteria by ID")
+    public ResponseEntity<ApiResponse<KpiCriteriaResponse>> getKpiCriteria(@PathVariable UUID kpiId) {
+        KpiCriteriaResponse response = kpiCriteriaService.getKpiCriteriaById(kpiId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PutMapping("/{kpiId}")
+    @PreAuthorize("hasAuthority('KPI:UPDATE')")
+    @Operation(summary = "Update KPI criteria (DRAFT/REJECTED only)")
+    public ResponseEntity<ApiResponse<KpiCriteriaResponse>> updateKpiCriteria(
+            @PathVariable UUID kpiId,
+            @Valid @RequestBody UpdateKpiCriteriaRequest request) {
+        KpiCriteriaResponse response = kpiCriteriaService.updateKpiCriteria(kpiId, request);
+        return ResponseEntity.ok(ApiResponse.success("KPI criteria updated successfully", response));
+    }
+
+    @PostMapping("/{kpiId}/submit")
+    @PreAuthorize("hasAuthority('KPI:CREATE')")
+    @Operation(summary = "Submit KPI for approval")
+    public ResponseEntity<ApiResponse<KpiCriteriaResponse>> submitForApproval(@PathVariable UUID kpiId) {
+        KpiCriteriaResponse response = kpiCriteriaService.submitForApproval(kpiId);
+        return ResponseEntity.ok(ApiResponse.success("KPI submitted for approval", response));
+    }
+
+    @PostMapping("/bulk-submit")
+    @PreAuthorize("hasAuthority('KPI:CREATE')")
+    @Operation(summary = "Bulk submit KPIs for approval")
+    public ResponseEntity<ApiResponse<java.util.List<KpiCriteriaResponse>>> bulkSubmitForApproval(
+            @RequestBody java.util.List<UUID> kpiIds) {
+        java.util.List<KpiCriteriaResponse> response = kpiCriteriaService.bulkSubmitForApproval(kpiIds);
+        return ResponseEntity.ok(ApiResponse.success(response.size() + " KPIs submitted for approval", response));
+    }
+
+    /**
+     * Duyệt. Ở chuỗi duyệt, quyền thao tác là "đang giữ bước hiện tại" (service kiểm), không phải
+     * một mã quyền toàn cục: người được admin gán lại có thể không mang KPI:APPROVE_CRITERIA. Luồng
+     * một cấp vẫn kiểm KPI:APPROVE_CRITERIA trong đơn vị qua HierarchyAuthorityGuard.
+     */
+    @PostMapping("/{kpiId}/approve")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Approve KPI criteria (chain: approve & forward, or final approval)")
+    public ResponseEntity<ApiResponse<KpiCriteriaResponse>> approveKpi(
+            @PathVariable UUID kpiId,
+            @RequestBody(required = false) com.kpitracking.dto.request.kpi.approval.ApproveKpiRequest request) {
+        KpiCriteriaService.ApproveResult result = kpiCriteriaService.approveKpiWithOutcome(kpiId, request);
+        // Giao diện hiện nguyên câu này (nói rõ đã chuyển lên ai) nên phải dịch theo người gọi.
+        String message = result.outcome() == com.kpitracking.enums.kpi.ApprovalOutcome.FORWARDED
+                ? ErrorMessages.text("success.kpi.approvedForwarded", "", result.nextHolderNames() == null
+                        ? ErrorMessages.text("notif.bsc.actor.superior", "") : result.nextHolderNames())
+                : ErrorMessages.text("success.kpi.approved", "");
+        return ResponseEntity.ok(ApiResponse.success(message, result.response()));
+    }
+
+    @PostMapping("/{kpiId}/reject")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Reject KPI criteria")
+    public ResponseEntity<ApiResponse<KpiCriteriaResponse>> rejectKpi(
+            @PathVariable UUID kpiId,
+            @Valid @RequestBody RejectKpiRequest request) {
+        KpiCriteriaResponse response = kpiCriteriaService.rejectKpi(kpiId, request);
+        return ResponseEntity.ok(ApiResponse.success("KPI rejected", response));
+    }
+
+    @PostMapping("/{kpiId}/revert-approval")
+    @PreAuthorize("hasAuthority('KPI:REVERT_APPROVAL')")
+    @Operation(summary = "Revert an approved KPI criteria back to pending approval (director only)")
+    public ResponseEntity<ApiResponse<KpiCriteriaResponse>> revertApproval(@PathVariable UUID kpiId) {
+        KpiCriteriaResponse response = kpiCriteriaService.revertApproval(kpiId);
+        return ResponseEntity.ok(ApiResponse.success("Đã hoàn duyệt chỉ tiêu KPI", response));
+    }
+
+    @DeleteMapping("/{kpiId}")
+    @PreAuthorize("hasAuthority('KPI:DELETE')")
+    @Operation(summary = "Soft delete KPI criteria")
+    public ResponseEntity<ApiResponse<Void>> deleteKpiCriteria(@PathVariable UUID kpiId) {
+        kpiCriteriaService.deleteKpiCriteria(kpiId);
+        return ResponseEntity.ok(ApiResponse.success("KPI criteria deleted successfully"));
+    }
+
+    @PostMapping("/bulk-delete")
+    @PreAuthorize("hasAuthority('KPI:DELETE')")
+    @Operation(summary = "Bulk soft delete KPI criteria")
+    public ResponseEntity<ApiResponse<Integer>> bulkDeleteKpiCriteria(@RequestBody java.util.List<UUID> kpiIds) {
+        int deleted = kpiCriteriaService.bulkDeleteKpiCriteria(kpiIds);
+        return ResponseEntity.ok(ApiResponse.success(deleted + " KPIs deleted successfully", deleted));
+    }
+
+    @GetMapping("/my")
+    @PreAuthorize("hasAuthority('KPI:VIEW_MY')")
+    @Operation(summary = "Get KPI assigned to current user")
+    public ResponseEntity<ApiResponse<PageResponse<KpiCriteriaResponse>>> getMyKpi(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant startDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant endDate,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) UUID objectiveId,
+            @RequestParam(required = false) UUID keyResultId) {
+        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getMyKpi(page, size, kpiPeriodId, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/{kpiId}/children")
+    @PreAuthorize("hasAuthority('KPI:VIEW')")
+    @Operation(summary = "Get child KPIs of a KPI criteria")
+    public ResponseEntity<ApiResponse<java.util.List<KpiCriteriaResponse>>> getChildren(@PathVariable UUID kpiId) {
+        java.util.List<KpiCriteriaResponse> response = kpiCriteriaService.getChildren(kpiId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/total-weight")
+    @Operation(summary = "Get total weight of KPIs for an org unit or user and period")
+    public ResponseEntity<ApiResponse<Double>> getTotalWeight(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(defaultValue = "false") boolean sameBranch) {
+        Double totalWeight = kpiCriteriaService.getTotalWeight(orgUnitId, userId, kpiPeriodId, sameBranch);
+        return ResponseEntity.ok(ApiResponse.success(totalWeight != null ? totalWeight : 0.0));
+    }
+
+    @GetMapping("/weight-headroom")
+    @PreAuthorize("hasAuthority('KPI:CREATE')")
+    @Operation(summary = "Weight already used per org unit for a new KPI that is approved on creation")
+    public ResponseEntity<ApiResponse<KpiCriteriaService.WeightHeadroom>> getWeightHeadroom(
+            @RequestParam UUID kpiPeriodId,
+            @RequestParam(required = false) java.util.List<UUID> orgUnitIds,
+            @RequestParam(required = false) java.util.List<UUID> assigneeIds,
+            @RequestParam(required = false) UUID excludeKpiId) {
+        return ResponseEntity.ok(ApiResponse.success(kpiCriteriaService.getWeightHeadroom(kpiPeriodId, orgUnitIds, assigneeIds, excludeKpiId)));
+    }
+
+    @PostMapping("/{kpiId}/replace")
+    @PreAuthorize("hasAuthority('KPI:UPDATE')")
+    @Operation(summary = "Replace a KPI criteria with a new urgent task")
+    public ResponseEntity<ApiResponse<KpiCriteriaResponse>> replaceKpiCriteria(
+            @PathVariable UUID kpiId,
+            @Valid @RequestBody ReplaceKpiRequest request) {
+        KpiCriteriaResponse response = kpiCriteriaService.replaceKpiCriteria(kpiId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("KPI đã được thay thế thành công", response));
+    }
+
+    @PatchMapping("/batch-weight")
+    @PreAuthorize("hasAuthority('KPI:UPDATE')")
+    @Operation(summary = "Batch update weights of multiple KPI criteria")
+    public ResponseEntity<ApiResponse<java.util.List<KpiCriteriaResponse>>> batchUpdateWeights(
+            @Valid @RequestBody BatchUpdateWeightRequest request) {
+        java.util.List<KpiCriteriaResponse> response = kpiCriteriaService.batchUpdateWeights(request);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật trọng số thành công", response));
+    }
+
+    @PostMapping(value = "/import", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('KPI:IMPORT')")
+    @Operation(summary = "Import KPI criteria from CSV or Excel")
+    public ResponseEntity<ApiResponse<com.kpitracking.dto.response.kpi.ImportKpiResponse>> importKpis(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) com.kpitracking.enums.kpi.KpiType kpiType) {
+        com.kpitracking.dto.response.kpi.ImportKpiResponse response = kpiCriteriaService.importKpis(file, kpiPeriodId, orgUnitId, kpiType);
+        return ResponseEntity.ok(ApiResponse.success("Import processed", response));
+    }
+}

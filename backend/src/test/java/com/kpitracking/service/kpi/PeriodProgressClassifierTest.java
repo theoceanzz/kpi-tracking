@@ -1,10 +1,10 @@
 package com.kpitracking.service.kpi;
 
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.*;
+
+
 import com.kpitracking.mapper.KpiCriteriaMapper;
-import com.kpitracking.repository.EvaluationRepository;
-import com.kpitracking.repository.KpiCriteriaRepository;
+import com.kpitracking.repository.evaluation.EvaluationRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,6 +18,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.kpitracking.entity.evaluation.Evaluation;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.submission.KpiSubmission;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.kpi.KpiFrequency;
+import com.kpitracking.enums.kpi.KpiProgressBucket;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.enums.kpi.PeriodProgress;
+import com.kpitracking.enums.submission.SubmissionStatus;
 /** Định nghĩa "KPI ở trạng thái cuối" và tiến độ đợt dùng khi khoá kỳ. */
 class PeriodProgressClassifierTest {
 

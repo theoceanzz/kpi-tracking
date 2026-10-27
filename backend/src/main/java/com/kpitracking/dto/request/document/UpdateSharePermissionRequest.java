@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.document;
 
-import com.kpitracking.enums.DocumentSharePermission;
+import com.kpitracking.enums.document.DocumentSharePermission;
 import jakarta.validation.constraints.NotNull;
 
 /** Đổi mức quyền của một lượt chia sẻ (xem ↔ chỉnh sửa). */

@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.wallet;
 
-import com.kpitracking.enums.SepayResolveMode;
+import com.kpitracking.enums.wallet.SepayResolveMode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;

@@ -1,6 +1,4 @@
 import { useCallback } from 'react'
-import { useAuthStore } from '@/store/authStore'
-import { useWorkflowPrefsStore } from '@/store/workflowPrefsStore'
 import { useKpiWorkflow } from './useKpiWorkflow'
 
 /**
@@ -15,9 +13,7 @@ import { useKpiWorkflow } from './useKpiWorkflow'
  * `StageRegistry` đăng ký cho từng bước.
  */
 export function useStageVisible() {
-  const { user } = useAuthStore()
   const { stageForPath, isEnabled } = useKpiWorkflow()
-  const isHiddenByMe = useWorkflowPrefsStore(s => s.isHidden)
 
   return useCallback(
     (paths?: (string | undefined)[]) => {
@@ -28,12 +24,10 @@ export function useStageVisible() {
       return known.some(p => {
         const stage = stageForPath(p)
         if (!stage) return true
-        // Hai tầng lọc khác hẳn nhau: tổ chức TẮT bước (luật nghiệp vụ, backend cưỡng chế) hoặc
-        // chính người dùng ẨN bước khỏi màn hình của họ (thuần hiển thị, sửa ở mục Thiết lập luồng xử lí).
-        return isEnabled(stage.code) && !isHiddenByMe(user?.id, stage.code)
+        return isEnabled(stage.code)
       })
     },
-    [stageForPath, isEnabled, isHiddenByMe, user?.id],
+    [stageForPath, isEnabled],
   )
 }
 

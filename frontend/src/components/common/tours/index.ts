@@ -14,6 +14,7 @@ import performanceTours from './performance'
 import setupCompanyTours from './setup-company'
 import setupToolsTours from './setup-tools'
 import workTours from './work'
+import requestsTours from './requests'
 
 /**
  * Điểm nạp duy nhất của toàn bộ hướng dẫn. `TourHost` import file nay mot lan khi app
@@ -36,6 +37,7 @@ registerTours(() => analyticsTours())
 registerTours(() => aiAssistantTours())
 registerTours(() => workTours())
 registerTours(() => formsWorkTours())
+registerTours(() => requestsTours())
 
 // Chỉ chạy khi i18next đã sẵn sàng: nhãn trong cảnh báo và cây nav đều là chữ đã dịch.
 if (i18n.isInitialized) warnMissingTours()

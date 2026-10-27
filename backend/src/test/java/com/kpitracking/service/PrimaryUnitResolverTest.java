@@ -1,9 +1,11 @@
 package com.kpitracking.service;
 
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.Role;
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
+import com.kpitracking.service.user.UserService;
+
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.access.Role;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

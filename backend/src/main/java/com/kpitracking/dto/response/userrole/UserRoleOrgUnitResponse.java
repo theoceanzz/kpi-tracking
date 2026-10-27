@@ -1,5 +1,7 @@
 package com.kpitracking.dto.response.userrole;
 
+import com.kpitracking.service.PrimaryUnitResolver;
+
 import lombok.*;
 
 import java.time.Instant;

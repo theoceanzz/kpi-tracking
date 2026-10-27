@@ -24,6 +24,15 @@ public final class ApprovalChainEvents {
      */
     public record AdjustmentDecided(UUID flowId) {}
 
+    /** Đề xuất theo quy trình (đánh giá đợt, chốt kỳ) đã được duyệt cuối hoặc bị từ chối — báo người gửi. */
+    public record SubjectDecided(UUID flowId) {}
+
     /** Bước cuối không còn ai giữ (người duyệt bị vô hiệu hoá) — admin phải gán lại. */
     public record ReassignNeeded(UUID flowId, UUID stepId) {}
+
+    /** Một yêu cầu vừa bắt đầu đi theo quy trình duyệt — báo người theo dõi quy trình. */
+    public record ProcessFlowStarted(UUID flowId) {}
+
+    /** Flow theo quy trình duyệt đã được duyệt cuối hoặc bị từ chối — báo người theo dõi. */
+    public record ProcessFlowFinished(UUID flowId) {}
 }

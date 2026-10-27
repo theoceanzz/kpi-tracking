@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.ai;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.kpitracking.service.ai.form.FormPatch;
+import com.kpitracking.ai.core.form.FormPatch;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -32,6 +32,12 @@ public class AiChatResponse {
      * muốn nhận. Không có gì được ghi xuống cơ sở dữ liệu ở bước này.
      */
     private FormPatch formPatch;
+
+    /**
+     * Bản nháp ĐƠN TỪ K.AI điền hộ: giao diện hiện thẻ "Mở đơn để nộp", người dùng xem lại trong hộp nộp đơn rồi tự
+     * nộp. Cùng kỷ luật với {@link #formPatch}: không ghi gì ở bước này.
+     */
+    private RequestDraftResponse requestDraft;
 
     /**
      * Câu hỏi gợi ý tiếp theo cho lượt vừa trả lời.

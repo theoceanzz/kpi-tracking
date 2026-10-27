@@ -1,0 +1,41 @@
+package com.kpitracking.repository.bsc;
+
+import com.kpitracking.entity.bsc.BscPerspective;
+import com.kpitracking.enums.bsc.BscFixedPerspective;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface BscPerspectiveRepository extends JpaRepository<BscPerspective, UUID> {
+
+    List<BscPerspective> findByOrganizationIdOrderByDisplayOrderAsc(UUID organizationId);
+
+    Optional<BscPerspective> findFirstByOrganizationIdAndCodeIgnoreCase(UUID organizationId, String code);
+
+    Optional<BscPerspective> findFirstByOrganizationIdAndNameIgnoreCase(UUID organizationId, String name);
+
+    boolean existsByOrganizationIdAndCode(UUID organizationId, String code);
+
+    boolean existsByOrganizationIdAndCodeAndIdNot(UUID organizationId, String code, UUID id);
+
+    // Thứ tự hiển thị duy nhất TRONG TỪNG lĩnh vực (không phải toàn org).
+    boolean existsByOrganizationIdAndFixedPerspectiveAndDisplayOrder(
+            UUID organizationId, BscFixedPerspective fixedPerspective, Integer displayOrder);
+
+    boolean existsByOrganizationIdAndFixedPerspectiveAndDisplayOrderAndIdNot(
+            UUID organizationId, BscFixedPerspective fixedPerspective, Integer displayOrder, UUID id);
+
+    long countByOrganizationId(UUID organizationId);
+
+    /** Hạng mục hệ thống của phân rã cả bộ — mỗi thẻ nguồn đúng một. */
+    Optional<BscPerspective> findFirstBySourceScorecardId(UUID sourceScorecardId);
+
+    /** Chỉ lấy cột mã — dùng để suy ra số thứ tự kế tiếp khi sinh mã tự động. */
+    @org.springframework.data.jpa.repository.Query(
+            "SELECT p.code FROM BscPerspective p WHERE p.organization.id = :orgId AND p.code IS NOT NULL")
+    List<String> findCodesByOrganizationId(@org.springframework.data.repository.query.Param("orgId") UUID orgId);
+}

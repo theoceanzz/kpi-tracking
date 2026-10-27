@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.kpi;
 
-import com.kpitracking.enums.KpiFrequency;
+import com.kpitracking.enums.kpi.KpiFrequency;
 import lombok.*;
 
 import java.time.Instant;
@@ -19,9 +19,9 @@ public class KpiPeriodResponse {
     private UUID cycleId;
     private String cycleName;
     /** Trạng thái kỳ chứa đợt (OPEN | LOCKED) — giao diện dùng để khoá nút. */
-    private com.kpitracking.enums.KpiCycleStatus cycleStatus;
+    private com.kpitracking.enums.kpi.KpiCycleStatus cycleStatus;
     /** ACTIVE | CLOSED_BY_LOCK | TRANSFERRED | CANCELLED. */
-    private com.kpitracking.enums.KpiPeriodStatus status;
+    private com.kpitracking.enums.kpi.KpiPeriodStatus status;
     /** Đợt sinh ra khi tách: đợt gốc ở kỳ cũ. */
     private UUID sourcePeriodId;
     /** Đợt bị tách: kỳ nhận phần KPI dở. */

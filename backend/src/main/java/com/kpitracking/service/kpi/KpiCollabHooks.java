@@ -1,7 +1,7 @@
 package com.kpitracking.service.kpi;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.User;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.user.User;
 import com.kpitracking.service.discussion.KpiDiscussionTimeline;
 import com.kpitracking.service.task.KpiTaskLifecycle;
 import lombok.RequiredArgsConstructor;

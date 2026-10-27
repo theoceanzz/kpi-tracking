@@ -1,9 +1,9 @@
 package com.kpitracking.dto.response.task;
 
-import com.kpitracking.enums.KpiTaskPriority;
-import com.kpitracking.enums.KpiTaskStatus;
-import com.kpitracking.enums.TaskFieldType;
-import com.kpitracking.enums.TaskListRole;
+import com.kpitracking.enums.task.KpiTaskPriority;
+import com.kpitracking.enums.task.KpiTaskStatus;
+import com.kpitracking.enums.task.TaskFieldType;
+import com.kpitracking.enums.task.TaskListRole;
 import lombok.*;
 
 import java.time.Instant;

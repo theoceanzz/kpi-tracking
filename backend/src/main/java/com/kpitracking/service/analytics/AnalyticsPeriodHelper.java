@@ -1,13 +1,13 @@
 package com.kpitracking.service.analytics;
 
 import com.kpitracking.exception.BusinessException;
-import com.kpitracking.entity.KpiPeriod;
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.repository.KpiPeriodRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.repository.kpi.KpiPeriodRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;

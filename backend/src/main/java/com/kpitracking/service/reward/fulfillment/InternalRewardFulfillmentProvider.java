@@ -1,7 +1,7 @@
 package com.kpitracking.service.reward.fulfillment;
 
-import com.kpitracking.entity.RewardRedemption;
-import com.kpitracking.enums.GiftItemType;
+import com.kpitracking.entity.reward.RewardRedemption;
+import com.kpitracking.enums.reward.GiftItemType;
 import org.springframework.stereotype.Component;
 
 /**

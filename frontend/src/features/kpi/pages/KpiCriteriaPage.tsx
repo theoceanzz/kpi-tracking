@@ -19,10 +19,10 @@ import {
   LayoutGrid, List, ChevronDown, GitBranch, ListPlus, CornerDownRight,
   ChevronsDownUp, ChevronsUpDown, Inbox, FileText, Clock, Loader2, Bot, Lock
 } from 'lucide-react'
-import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
-import { aiShortcuts } from '@/features/analytics/aiShortcuts'
+import AiShortcutButton from '@/features/ai/chat/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/ai/chat/aiShortcuts'
 import { useAiAssistantStore } from '@/store/aiAssistantStore'
-import { useAiAvailable } from '@/features/analytics/hooks/useAiAvailable'
+import { useAiAvailable } from '@/features/ai/chat/hooks/useAiAvailable'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import FilterBar, { SegmentedControl } from '@/components/common/FilterBar'
 import BulkActionBar from '@/components/common/BulkActionBar'

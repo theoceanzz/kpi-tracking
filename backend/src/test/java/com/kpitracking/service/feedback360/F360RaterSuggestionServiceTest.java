@@ -1,7 +1,7 @@
 package com.kpitracking.service.feedback360;
 
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.F360Relationship;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.feedback360.F360Relationship;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

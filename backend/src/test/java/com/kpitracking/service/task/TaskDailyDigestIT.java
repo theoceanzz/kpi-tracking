@@ -1,7 +1,7 @@
 package com.kpitracking.service.task;
 
 import com.kpitracking.dto.request.task.CreateKpiTaskRequest;
-import com.kpitracking.repository.KpiTaskRepository;
+import com.kpitracking.repository.task.KpiTaskRepository;
 import com.kpitracking.service.CollabITSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

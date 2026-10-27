@@ -22,6 +22,23 @@ interface Props {
   height?: number
   /** Nhãn số tại mỗi điểm. Mặc định bật khi ≤ 8 mốc và chỉ một chuỗi. */
   showValues?: boolean
+  /**
+   * Giãn nhãn trục X. Mặc định in HẾT (`0`) vì phần lớn ô chỉ có vài mốc; ô hẹp mà nhiều mốc
+   * (12 đợt trong nửa khung) thì tên đợt chồng lên nhau thành một vệt đen — truyền
+   * `"preserveStartEnd"` để Recharts tự bỏ bớt mà vẫn giữ mốc đầu và mốc cuối.
+   */
+  xInterval?: number | 'preserveStart' | 'preserveEnd' | 'preserveStartEnd'
+  /**
+   * Nối các mốc bằng BẬC THANG thay vì đường cong. Dùng cho đại lượng giữ nguyên giá trị tới lần
+   * đổi kế tiếp (xếp loại, hạng) — đường cong ở đó vẽ ra những giá trị trung gian không tồn tại.
+   */
+  step?: boolean
+  /**
+   * Trục Y là DANH MỤC đã mã hoá thành số: mỗi phần tử một vạch, in nhãn thay vì in số. Đặt prop
+   * này thì trục chỉ có đúng những vạch đó và bề rộng tự giãn theo nhãn dài nhất (mặc định 54px
+   * cắt mất chữ dài).
+   */
+  yTicks?: { value: number; label: string }[]
   format?: (value: number | string) => string
 }
 
@@ -34,11 +51,21 @@ interface Props {
  */
 export default function TrendLine({
   data, categoryKey, series, variant = 'line', unit = '', xLabel, yLabel, reference, height = 260, showValues, format,
+  xInterval = 0, step, yTicks,
 }: Props) {
   if (!data.length || !series.length) {
     return <p className="py-6 text-center text-caption">Chưa có dữ liệu trong phạm vi này</p>
   }
   const withValues = showValues ?? (series.length === 1 && data.length <= 8)
+  const curve = step ? 'stepAfter' : 'monotone'
+  const tickLabel = yTicks ? new Map(yTicks.map(t => [t.value, t.label])) : null
+  // 7px/ký tự là bề rộng thực đo của font trục ở 11px; cộng 32px cho nhãn trục dọc xoay đứng và
+  // khoảng thở — thiếu chỗ thì Recharts XUỐNG DÒNG giữa nhãn ("TRUNG BÌNH" thành hai hàng).
+  const yWidth = yTicks ? Math.max(54, Math.max(...yTicks.map(t => t.label.length)) * 7 + 32) : 54
+  // Nới hai đầu thang danh mục: không nới thì chuỗi đứng ở bậc cao nhất nằm đè lên viền trên.
+  const yDomain: [number, number] | undefined = yTicks
+    ? [Math.min(...yTicks.map(t => t.value)) - 0.4, Math.max(...yTicks.map(t => t.value)) + 0.4]
+    : undefined
   const fmt = (v: number | string) => (format ? format(v) : `${typeof v === 'number' ? Math.round(v * 10) / 10 : v}`)
 
   return (
@@ -49,16 +76,20 @@ export default function TrendLine({
           dataKey={categoryKey}
           axisLine={false}
           tickLine={false}
-          interval={0}
+          interval={xInterval}
           tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
           label={xLabel ? xAxisLabel(xLabel) : undefined}
         />
         <YAxis
           axisLine={false}
           tickLine={false}
-          width={54}
+          width={yWidth}
           tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
           label={yLabel ? yAxisLabel(yLabel) : undefined}
+          domain={yDomain}
+          ticks={yTicks ? yTicks.map(t => t.value) : undefined}
+          tickFormatter={tickLabel ? (v: number) => tickLabel.get(v) ?? '' : undefined}
+          allowDecimals={!yTicks}
         />
         <Tooltip content={<SeriesTooltip unit={unit} format={format} />} />
 
@@ -75,7 +106,7 @@ export default function TrendLine({
           const color = s.color ?? seriesColor(i)
           return variant === 'area' ? (
             <Area
-              key={s.key} type="monotone" dataKey={s.key} name={s.label}
+              key={s.key} type={curve} dataKey={s.key} name={s.label}
               stroke={color} fill={color} fillOpacity={0.18} strokeWidth={2}
               isAnimationActive={false} dot={{ r: 3, fill: color, strokeWidth: 0 }}
             >
@@ -86,7 +117,7 @@ export default function TrendLine({
             </Area>
           ) : (
             <Line
-              key={s.key} type="monotone" dataKey={s.key} name={s.label}
+              key={s.key} type={curve} dataKey={s.key} name={s.label}
               stroke={color} strokeWidth={2} isAnimationActive={false}
               dot={{ r: 3.5, fill: color, strokeWidth: 0 }} activeDot={{ r: 5 }}
             >

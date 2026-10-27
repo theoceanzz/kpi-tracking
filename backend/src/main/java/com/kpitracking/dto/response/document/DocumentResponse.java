@@ -1,8 +1,8 @@
 package com.kpitracking.dto.response.document;
 
-import com.kpitracking.enums.DocumentAiStatus;
-import com.kpitracking.enums.DocumentCategory;
-import com.kpitracking.enums.DocumentScope;
+import com.kpitracking.enums.document.DocumentAiStatus;
+import com.kpitracking.enums.document.DocumentCategory;
+import com.kpitracking.enums.document.DocumentScope;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 

@@ -1,7 +1,7 @@
 package com.kpitracking.mapper;
 
 import com.kpitracking.dto.response.organization.HierarchyLevelResponse;
-import com.kpitracking.entity.OrgHierarchyLevel;
+import com.kpitracking.entity.organization.OrgHierarchyLevel;
 import org.mapstruct.Mapper;
 
 import org.mapstruct.Mapping;

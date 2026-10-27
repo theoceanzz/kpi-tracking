@@ -5,9 +5,15 @@ import lombok.*;
 import java.util.List;
 import java.util.UUID;
 
-/** Toàn bộ lịch sử duyệt của một KPI: mọi lần gửi chỉ tiêu và mọi yêu cầu điều chỉnh. */
+/**
+ * Toàn bộ lịch sử duyệt của một KPI (mọi lần gửi chỉ tiêu và mọi yêu cầu điều chỉnh), hoặc của một
+ * đối tượng khác ({@link #subjectType} + {@link #subjectId}, vd. bài nộp) — khi đó {@code kpiCriteriaId}
+ * trống và {@code kpiName} là tên đối tượng.
+ */
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class KpiApprovalChainResponse {
+    private com.kpitracking.enums.kpi.ApprovalSubjectType subjectType;
+    private UUID subjectId;
     private UUID kpiCriteriaId;
     private String kpiName;
     /** {@code true} khi tổ chức đang dùng chuỗi duyệt; {@code false} = luồng một cấp cũ. */

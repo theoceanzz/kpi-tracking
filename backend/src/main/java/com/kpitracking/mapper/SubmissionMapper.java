@@ -2,8 +2,8 @@ package com.kpitracking.mapper;
 
 import com.kpitracking.dto.response.submission.AttachmentResponse;
 import com.kpitracking.dto.response.submission.SubmissionResponse;
-import com.kpitracking.entity.KpiSubmission;
-import com.kpitracking.entity.SubmissionAttachment;
+import com.kpitracking.entity.submission.KpiSubmission;
+import com.kpitracking.entity.submission.SubmissionAttachment;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -36,6 +36,8 @@ public interface SubmissionMapper {
     @Mapping(source = "resubmission.id", target = "resubmissionId")
     @Mapping(target = "resubmission", ignore = true)
     @Mapping(target = "previousReturnReason", ignore = true)
+    @Mapping(source = "kpiCriteria.status", target = "kpiCriteriaStatus")
+    @Mapping(target = "kpiPausePending", ignore = true)
     @Mapping(target = "awaitingResubmission", expression = "java(submission.isAwaitingResubmission(java.time.Instant.now()))")
     SubmissionResponse toResponse(KpiSubmission submission);
 

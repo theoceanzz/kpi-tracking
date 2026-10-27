@@ -1,18 +1,22 @@
 package com.kpitracking.service.feedback360;
 
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.F360CampaignStatus;
-import com.kpitracking.enums.F360ScoringMode;
+
+import com.kpitracking.enums.feedback360.F360CampaignStatus;
+import com.kpitracking.enums.feedback360.F360ScoringMode;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.repository.F360CampaignRepository;
-import com.kpitracking.repository.F360SubjectRepository;
+import com.kpitracking.repository.feedback360.F360CampaignRepository;
+import com.kpitracking.repository.feedback360.F360SubjectRepository;
 import com.kpitracking.service.kpi.CycleLockChecker;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
 
+import com.kpitracking.entity.evaluation.CycleUnitEvaluation;
+import com.kpitracking.entity.feedback360.F360Campaign;
+import com.kpitracking.entity.feedback360.F360Subject;
+import com.kpitracking.entity.organization.OrgUnit;
 /**
  * Guard HAI CHIỀU giữa chiến dịch 360 có ảnh hưởng điểm và việc khoá kỳ (§7.2-5).
  *

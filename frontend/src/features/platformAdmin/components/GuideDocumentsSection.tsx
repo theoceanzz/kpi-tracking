@@ -1,5 +1,5 @@
 import { platformAdminApi } from '../api/platformAdminApi'
-import RagDocumentsPanel, { type RagDocumentsApi } from '@/features/analytics/components/rag/RagDocumentsPanel'
+import RagDocumentsPanel, { type RagDocumentsApi } from '@/features/ai/document/RagDocumentsPanel'
 import { useTranslation } from 'react-i18next'
 
 const GUIDE_API: RagDocumentsApi = {

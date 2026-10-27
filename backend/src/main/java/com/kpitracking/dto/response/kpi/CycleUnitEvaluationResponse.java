@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.kpi;
 
-import com.kpitracking.enums.CycleEvaluationMode;
-import com.kpitracking.enums.CycleUnitEvalStatus;
+import com.kpitracking.enums.evaluation.CycleEvaluationMode;
+import com.kpitracking.enums.evaluation.CycleUnitEvalStatus;
 import lombok.*;
 
 import java.time.Instant;
@@ -65,7 +65,7 @@ public class CycleUnitEvaluationResponse {
      */
     private boolean rootUnit;
     /** Trạng thái kỳ (OPEN | LOCKED). */
-    private com.kpitracking.enums.KpiCycleStatus cycleStatus;
+    private com.kpitracking.enums.kpi.KpiCycleStatus cycleStatus;
 
     /**
      * Phân bố mức của thành viên trong kỳ, đối chiếu với khung bell curve đang áp cho đơn vị.
@@ -74,4 +74,6 @@ public class CycleUnitEvaluationResponse {
     private com.kpitracking.dto.response.stats.UnitClassificationResponses.CycleCurveResponse bellCurve;
 
     private List<CycleUserEvaluationResponse> members;
+    /** Yêu cầu chốt đang chờ duyệt theo quy trình "Chốt kỳ và công nhận kết quả". */
+    private com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse approval;
 }

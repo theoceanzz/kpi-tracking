@@ -1,15 +1,15 @@
 package com.kpitracking.service.reward;
 
 import com.kpitracking.dto.response.reward.RewardActivityResponse;
-import com.kpitracking.entity.RewardBudget;
-import com.kpitracking.entity.RewardRedemption;
-import com.kpitracking.entity.RewardTransaction;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.RewardActivityType;
-import com.kpitracking.enums.RewardSourceType;
-import com.kpitracking.repository.RewardBudgetRepository;
-import com.kpitracking.repository.RewardRedemptionRepository;
-import com.kpitracking.repository.RewardTransactionRepository;
+import com.kpitracking.entity.reward.RewardBudget;
+import com.kpitracking.entity.reward.RewardRedemption;
+import com.kpitracking.entity.reward.RewardTransaction;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.reward.RewardActivityType;
+import com.kpitracking.enums.reward.RewardSourceType;
+import com.kpitracking.repository.reward.RewardBudgetRepository;
+import com.kpitracking.repository.reward.RewardRedemptionRepository;
+import com.kpitracking.repository.reward.RewardTransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;

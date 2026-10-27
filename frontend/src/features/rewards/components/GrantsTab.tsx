@@ -1,4 +1,5 @@
 import { intlDateLocale, intlLocale } from '@/i18n/format'
+import ProcessPendingBadge from '@/features/approvalProcess/components/ProcessPendingBadge'
 import { useState } from 'react'
 import { Gift, Check, X as XIcon, Undo2, Ban, Award } from 'lucide-react'
 import DataTable from '@/components/common/DataTable'
@@ -7,8 +8,8 @@ import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { WorkspaceHeaderActions } from '@/components/common/WorkspaceTabs'
 import { useHasPermission } from '@/components/auth/PermissionGate'
-import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
-import { aiShortcuts } from '@/features/analytics/aiShortcuts'
+import AiShortcutButton from '@/features/ai/chat/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/ai/chat/aiShortcuts'
 import { useAuthStore } from '@/store/authStore'
 import AwardPointsModal from './AwardPointsModal'
 import RevokeGrantModal from './RevokeGrantModal'
@@ -176,7 +177,8 @@ export default function GrantsTab() {
                     </span>
                   </span>
                   <div className="flex gap-1">
-                    {row.status === RewardGrantStatus.PENDING_APPROVAL && canApprove && (
+                    {row.approval && <ProcessPendingBadge approval={row.approval} />}
+                    {row.status === RewardGrantStatus.PENDING_APPROVAL && canApprove && !row.approval && (
                       <>
                         <Button variant="ghost" size="sm" onClick={() => approveGrant({ id: row.id })} disabled={isApproving}>
                           {t('GrantsTab.approve')}
@@ -296,7 +298,8 @@ export default function GrantsTab() {
                 className: 'text-right align-top',
                 render: (row) => (
                   <div className="flex justify-end gap-1">
-                    {row.status === RewardGrantStatus.PENDING_APPROVAL && canApprove && (
+                    {row.approval && <ProcessPendingBadge approval={row.approval} />}
+                    {row.status === RewardGrantStatus.PENDING_APPROVAL && canApprove && !row.approval && (
                       <>
                         <Button variant="ghost" size="icon-sm" aria-label={t('GrantsTab.approve')} onClick={() => approveGrant({ id: row.id })} disabled={isApproving} title={t('GrantsTab.approve')}>
                           <Check aria-hidden="true" />

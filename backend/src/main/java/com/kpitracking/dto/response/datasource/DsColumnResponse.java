@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.datasource;
 
-import com.kpitracking.enums.ColumnDataType;
+import com.kpitracking.enums.report.ColumnDataType;
 import lombok.*;
 
 import java.util.UUID;

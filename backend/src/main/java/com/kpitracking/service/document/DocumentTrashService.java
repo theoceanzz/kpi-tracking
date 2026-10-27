@@ -1,15 +1,15 @@
 package com.kpitracking.service.document;
 
 import com.kpitracking.dto.response.document.DocumentResponse;
-import com.kpitracking.entity.Document;
-import com.kpitracking.entity.DocumentVersion;
-import com.kpitracking.enums.DocumentAiStatus;
+import com.kpitracking.entity.document.Document;
+import com.kpitracking.entity.document.DocumentVersion;
+import com.kpitracking.enums.document.DocumentAiStatus;
 import com.kpitracking.event.DocumentIndexRequestedEvent;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
-import com.kpitracking.repository.DocumentRepository;
-import com.kpitracking.repository.DocumentVersionRepository;
+import com.kpitracking.repository.document.DocumentRepository;
+import com.kpitracking.repository.document.DocumentVersionRepository;
 import com.kpitracking.security.audit.SecurityAuditEvent;
 import com.kpitracking.security.audit.SecurityAuditService;
 import lombok.extern.slf4j.Slf4j;

@@ -1,0 +1,102 @@
+package com.kpitracking.repository.user;
+
+import com.kpitracking.entity.user.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface UserRepository extends JpaRepository<User, UUID> {
+
+    Optional<User> findByEmail(String email);
+
+    boolean existsByEmailAndDeletedAtIsNull(String email);
+
+    Optional<User> findByEmployeeCode(String employeeCode);
+    
+    boolean existsByEmployeeCodeAndDeletedAtIsNull(String employeeCode);
+
+    boolean existsByEmployeeCodeAndIdNotAndDeletedAtIsNull(String employeeCode, UUID id);
+
+    boolean existsByPhoneAndDeletedAtIsNull(String phone);
+
+    Optional<User> findByResetPasswordToken(String resetPasswordToken);
+
+    Optional<User> findByVerifyEmailToken(String verifyEmailToken);
+
+    Optional<User> findByLarkOpenIdHash(String larkOpenIdHash);
+
+    @Query("SELECT DISTINCT u FROM User u " +
+           "LEFT JOIN UserRoleOrgUnit uro ON u.id = uro.user.id " +
+           "LEFT JOIN uro.role r " +
+           "WHERE (:organizationId IS NULL OR uro.orgUnit.orgHierarchyLevel.organization.id = :organizationId) " +
+           "AND (:isGlobalAdmin = true OR EXISTS (SELECT 1 FROM UserRoleOrgUnit uro2 JOIN uro2.orgUnit ou WHERE uro2.user.id = u.id AND EXISTS (SELECT 1 FROM OrgUnit p WHERE ou.path LIKE CONCAT(p.path, '%') AND p.id IN :allowedOrgUnitIds))) " +
+           "AND (:keyword IS NULL OR :keyword = '' OR LOWER(CAST(u.fullName AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+           "OR LOWER(CAST(u.email AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
+           "AND (:roleName IS NULL OR r.name = :roleName) " +
+           "AND (:orgUnitIds IS NULL OR uro.orgUnit.id IN :orgUnitIds) " +
+           "AND (u.deletedAt IS NULL) " +
+           // Tài khoản đã tạm dừng / tạm khóa mặc định không xuất hiện ở bất kỳ danh sách nhân sự
+           // nào (chọn người nhận KPI, đánh giá đợt, uỷ quyền...). Chỉ trang Quản lý tài khoản gửi
+           // includeInactive=true để còn thấy mà bật lại.
+           "AND (:includeInactive = true OR u.status NOT IN (com.kpitracking.enums.user.UserStatus.INACTIVE, com.kpitracking.enums.user.UserStatus.SUSPENDED)) " +
+           "AND (:excludeSelf = false OR u.id != :currentUserId) " +
+           "AND (:excludeAdmin = false OR u.id = :currentUserId OR NOT EXISTS (SELECT 1 FROM RolePermission rp3 JOIN UserRoleOrgUnit uro3 ON rp3.role.id = uro3.role.id WHERE uro3.user.id = u.id AND rp3.permission.code = 'SYSTEM:ADMIN')) " +
+           "AND (:excludeManager = false OR u.id = :currentUserId OR NOT EXISTS (SELECT 1 FROM RolePermission rp4 JOIN UserRoleOrgUnit uro4 ON rp4.role.id = uro4.role.id WHERE uro4.user.id = u.id AND rp4.permission.code = 'KPI:APPROVE')) " +
+           "AND (:isGlobalAdmin = true OR u.id = :currentUserId OR uro.orgUnit.orgHierarchyLevel.levelOrder > :currentUserLevel OR (:currentUserRank IS NULL OR r.rank > :currentUserRank))")
+    Page<User> searchUsers(
+            @Param("isGlobalAdmin") boolean isGlobalAdmin,
+            @Param("organizationId") UUID organizationId,
+            @Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,
+            @Param("keyword") String keyword, 
+            @Param("roleName") String roleName, 
+            @Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds,
+            @Param("currentUserId") UUID currentUserId,
+            @Param("currentUserRank") Integer currentUserRank,
+            @Param("currentUserLevel") Integer currentUserLevel,
+            @Param("excludeSelf") boolean excludeSelf,
+            @Param("excludeAdmin") boolean excludeAdmin,
+            @Param("excludeManager") boolean excludeManager,
+            @Param("includeInactive") boolean includeInactive,
+            Pageable pageable
+    );
+
+    // Lọc theo phân công bằng EXISTS chứ không phải DISTINCT + JOIN: PostgreSQL từ chối
+    // "SELECT DISTINCT … ORDER BY <biểu thức không có trong select>" (SQLState 42P10), nên bản
+    // DISTINCT hỏng ở MỌI lời gọi có từ khoá — tool search(user) và resolveUser đều ăn lỗi này
+    // (đo được: "Tìm nhân viên tên Staff" trả "hệ thống gặp lỗi khi tìm kiếm"). Người gọi luôn đưa
+    // orgId nên người không có phân công nào trong tổ chức vốn đã không lọt vào; ngữ nghĩa giữ nguyên.
+    @Query("SELECT u FROM User u " +
+           "WHERE u.deletedAt IS NULL " +
+           // Tài khoản tạm dừng / ngừng hoạt động không hiện với trợ lý — cùng luật với danh sách nhân sự.
+           "AND u.status NOT IN (com.kpitracking.enums.user.UserStatus.INACTIVE, com.kpitracking.enums.user.UserStatus.SUSPENDED) " +
+           "AND EXISTS (SELECT 1 FROM UserRoleOrgUnit uro WHERE uro.user.id = u.id " +
+           "     AND (:orgId IS NULL OR uro.orgUnit.orgHierarchyLevel.organization.id = :orgId) " +
+           "     AND (:orgUnitId IS NULL OR uro.orgUnit.id = :orgUnitId) " +
+           "     AND (:positionName IS NULL OR :positionName = '' OR LOWER(uro.role.name) LIKE LOWER(CONCAT('%', :positionName, '%')))) " +
+           "AND (:keyword IS NULL OR :keyword = '' " +
+           "     OR LOWER(CAST(u.fullName AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+           "     OR LOWER(CAST(u.email AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+           "     OR u.phone LIKE CONCAT('%', :keyword, '%')) " +
+           // Khớp CHÍNH XÁC lên đầu. Truy vấn này có LIMIT, mà khớp mờ "%tu khoa%" kéo về rất
+           // nhiều dòng — không sắp thứ tự thì đúng cái tên người dùng gõ có thể bị cắt mất khỏi
+           // trang đầu. Đo được: search(kpi, "a") trả 10 dòng KHÔNG có KPI nào tên "a", nên trợ lý
+           // đi hỏi làm rõ về một KPI khác hẳn, còn tên người dùng vừa nêu thì biến mất.
+           "ORDER BY CASE WHEN LOWER(CAST(u.fullName AS string)) = LOWER(CAST(:keyword AS string)) THEN 0 ELSE 1 END, u.fullName")
+    List<User> searchForTool(
+            @Param("orgId") UUID orgId,
+            @Param("orgUnitId") UUID orgUnitId,
+            @Param("positionName") String positionName,
+            @Param("keyword") String keyword,
+            Pageable pageable);
+
+    /** Quản trị nền tảng đang hoạt động — người nhận mặc định của cảnh báo bảo mật (ForbiddenBurstAlerter). */
+    java.util.List<User> findByIsPlatformAdminTrueAndStatus(com.kpitracking.enums.user.UserStatus status);
+}

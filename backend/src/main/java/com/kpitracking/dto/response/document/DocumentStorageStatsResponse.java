@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.document;
 
-import com.kpitracking.enums.DocumentScope;
+import com.kpitracking.enums.document.DocumentScope;
 
 import java.util.List;
 import java.util.UUID;

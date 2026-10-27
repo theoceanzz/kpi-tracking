@@ -1,9 +1,9 @@
 package com.kpitracking.ai.document.retrieve;
 
 import com.kpitracking.ai.document.store.VectorStoreSchemaInitializer;
-import com.kpitracking.entity.Document;
-import com.kpitracking.enums.DocumentCategory;
-import com.kpitracking.enums.DocumentScope;
+import com.kpitracking.entity.document.Document;
+import com.kpitracking.enums.document.DocumentCategory;
+import com.kpitracking.enums.document.DocumentScope;
 import com.kpitracking.service.document.DocumentAccess;
 import com.kpitracking.service.document.DocumentAccessResolverTestHook;
 import com.kpitracking.service.document.DocumentIndexer;

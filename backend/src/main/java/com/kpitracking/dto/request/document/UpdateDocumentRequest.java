@@ -1,7 +1,7 @@
 package com.kpitracking.dto.request.document;
 
-import com.kpitracking.enums.DocumentCategory;
-import com.kpitracking.enums.DocumentScope;
+import com.kpitracking.enums.document.DocumentCategory;
+import com.kpitracking.enums.document.DocumentScope;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 

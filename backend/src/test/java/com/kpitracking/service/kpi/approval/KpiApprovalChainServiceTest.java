@@ -1,12 +1,13 @@
 package com.kpitracking.service.kpi.approval;
 
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.*;
+
+
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.StaleStateException;
-import com.kpitracking.repository.*;
+
 import com.kpitracking.security.PermissionChecker;
+import com.kpitracking.service.approvalprocess.ApprovalProcessPlanner;
 import com.kpitracking.service.kpi.CycleStatusGuard;
 import com.kpitracking.workflow.KpiWorkflowConfigService;
 import com.kpitracking.workflow.StageRegistry;
@@ -30,8 +31,37 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.kpitracking.entity.access.Permission;
+import com.kpitracking.entity.access.Role;
+import com.kpitracking.entity.access.RolePermission;
+import com.kpitracking.entity.kpi.KpiAdjustmentRequest;
+import com.kpitracking.entity.kpi.KpiApprovalFlow;
+import com.kpitracking.entity.kpi.KpiApprovalStep;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.organization.OrgHierarchyLevel;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.enums.kpi.ApprovalEventAction;
+import com.kpitracking.enums.kpi.ApprovalFlowStatus;
+import com.kpitracking.enums.kpi.ApprovalOutcome;
+import com.kpitracking.enums.kpi.ApprovalStepKind;
+import com.kpitracking.enums.kpi.ApprovalStepStatus;
+import com.kpitracking.enums.kpi.ApprovalSubjectType;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.enums.organization.OrgUnitRelationType;
+import com.kpitracking.enums.user.UserStatus;
+import com.kpitracking.repository.access.RolePermissionRepository;
+import com.kpitracking.repository.kpi.KpiApprovalEventRepository;
+import com.kpitracking.repository.kpi.KpiApprovalFlowRepository;
+import com.kpitracking.repository.kpi.KpiApprovalStepRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 /**
  * Luật duyệt của chuỗi trên cây mẫu: Phòng A ⊂ Khối B ⊂ Công ty C (gốc).
  * Nhân viên thuộc Phòng A; trưởng A, trưởng B, giám đốc C; admin là người có SYSTEM:ADMIN ở gốc.
@@ -52,6 +82,7 @@ class KpiApprovalChainServiceTest {
     @Mock CycleStatusGuard cycleStatusGuard;
     @Mock ApplicationEventPublisher eventPublisher;
     @Mock EntityManager entityManager;
+    @Mock ApprovalProcessPlanner processPlanner;
 
     private KpiApprovalChainService service;
 
@@ -66,7 +97,8 @@ class KpiApprovalChainServiceTest {
         service = new KpiApprovalChainService(flowRepository, eventRepository,
                 mock(com.kpitracking.service.discussion.KpiDiscussionTimeline.class), stepRepository, uroRepository,
                 rolePermissionRepository, orgUnitRepository, userRepository, permissionChecker,
-                workflowConfigService, cycleStatusGuard, eventPublisher, entityManager);
+                workflowConfigService, cycleStatusGuard, eventPublisher, entityManager, processPlanner);
+        when(processPlanner.plan(any(), any(), any(), any())).thenReturn(Optional.empty());
 
         Organization org = Organization.builder().id(orgId).build();
         OrgHierarchyLevel level = OrgHierarchyLevel.builder().id(UUID.randomUUID()).organization(org).build();
@@ -148,9 +180,9 @@ class KpiApprovalChainServiceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = com.kpitracking.enums.OrgUnitRelationType.class, names = {"ADVISORY", "SUPERVISORY"})
+    @EnumSource(value = com.kpitracking.enums.organization.OrgUnitRelationType.class, names = {"ADVISORY", "SUPERVISORY"})
     @DisplayName("Quan hệ tham mưu/giám sát CHỈ để vẽ sơ đồ: chuỗi duyệt vẫn đi lên đơn vị cha như trực tuyến")
-    void sideRelationStillFollowsParentChain(com.kpitracking.enums.OrgUnitRelationType relation) {
+    void sideRelationStillFollowsParentChain(com.kpitracking.enums.organization.OrgUnitRelationType relation) {
         unitA.setParentRelation(relation);
         unitB.setParentRelation(relation);
 
@@ -356,5 +388,99 @@ class KpiApprovalChainServiceTest {
         service.reassign(step.getId(), admin, other.getId(), "Trưởng A nghỉ phép dài");
         assertThat(flow.currentStep().orElseThrow().isHeldBy(other.getId())).isTrue();
         assertThat(approve(flow, other)).isEqualTo(ApprovalOutcome.FORWARDED);
+    }
+
+    private ApprovalProcessPlanner.ProcessPlan processPlan(ApprovalProcessPlanner.PlannedStep... steps) {
+        return new ApprovalProcessPlanner.ProcessPlan(UUID.randomUUID(), "Duyệt KPI định tính", List.of(steps),
+                Map.of("showInObject", false, "pathNodeIds", List.of("start", "s1", "s2")));
+    }
+
+    private static ApprovalProcessPlanner.PlannedStep processStep(String code, String name, User... holders) {
+        return new ApprovalProcessPlanner.PlannedStep("node-" + code, code, name,
+                Arrays.stream(holders).map(u -> new ApprovalProcessPlanner.Holder(u.getId(), u.getFullName())).toList(),
+                holders.length == 0 ? ApprovalProcessPlanner.REASON_NO_APPROVER : null);
+    }
+
+    @Test
+    @DisplayName("Có quy trình khớp ⇒ bước lấy theo quy trình (tên, mã, người giữ) thay cho chuỗi trưởng đơn vị")
+    void processStepsReplaceUnitHeads() {
+        when(processPlanner.plan(eq(ApprovalSubjectType.CRITERIA), any(), any(), any())).thenReturn(Optional.of(
+                processPlan(processStep("1", "Giám đốc duyệt", headC), processStep("2", "Trưởng B xác nhận", headB))));
+        KpiApprovalFlow flow = submit(kpi(staff), staff);
+
+        assertThat(flow.getProcessTitle()).isEqualTo("Duyệt KPI định tính");
+        assertThat(flow.getSteps()).extracting(KpiApprovalStep::getKind)
+                .containsOnly(ApprovalStepKind.PROCESS_STEP);
+        assertThat(flow.getSteps()).extracting(KpiApprovalStep::displayName)
+                .containsExactly("1 · Giám đốc duyệt", "2 · Trưởng B xác nhận");
+        assertThat(flow.currentStep().orElseThrow().isHeldBy(headC.getId())).isTrue();
+
+        assertThat(approve(flow, headC)).isEqualTo(ApprovalOutcome.FORWARDED);
+        assertThat(approve(flow, headB)).isEqualTo(ApprovalOutcome.FINAL);
+        assertThat(flow.getStatus()).isEqualTo(ApprovalFlowStatus.APPROVED);
+        verify(eventPublisher).publishEvent(any(com.kpitracking.event.ApprovalChainEvents.ProcessFlowStarted.class));
+        verify(eventPublisher).publishEvent(any(com.kpitracking.event.ApprovalChainEvents.ProcessFlowFinished.class));
+    }
+
+    @Test
+    @DisplayName("Bước quy trình không còn ai giữ bị bỏ qua; hết bước thao tác được thì chuyển admin")
+    void processWithoutApproverFallsBackToAdmin() {
+        when(processPlanner.plan(any(), any(), any(), any())).thenReturn(Optional.of(
+                processPlan(processStep("1", "Bước trống"))));
+        KpiApprovalFlow flow = submit(kpi(staff), staff);
+        assertThat(statuses(flow)).containsExactly(ApprovalStepStatus.SKIPPED_NO_HEAD, ApprovalStepStatus.PENDING);
+        assertThat(flow.getSteps().get(1).getKind()).isEqualTo(ApprovalStepKind.ADMIN_FALLBACK);
+        assertThat(flow.currentStep().orElseThrow().isHeldBy(admin.getId())).isTrue();
+    }
+
+    // ── Đối tượng khác KPI (bài nộp kết quả) ──
+
+    private KpiApprovalChainService.Subject submissionSubject(UUID id) {
+        return new KpiApprovalChainService.Subject(ApprovalSubjectType.SUBMISSION, id, "Doanh thu", unitA, null, null);
+    }
+
+    @Test
+    @DisplayName("Đối tượng khác KPI không có quy trình khớp ⇒ không mở flow (giữ luật duyệt cũ), không lui về chuỗi trưởng đơn vị")
+    void subjectWithoutProcessOpensNoFlow() {
+        when(processPlanner.plan(any(), any(), any())).thenReturn(Optional.empty());
+        assertThat(service.startSubject(submissionSubject(UUID.randomUUID()), staff, true)).isEmpty();
+        verify(flowRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Bài nộp đi đủ các bước quy trình: KPI:APPROVE_FINAL không cho duyệt vượt bước như với chỉ tiêu")
+    void subjectFollowsEveryProcessStep() {
+        when(processPlanner.plan(any(), any(), any())).thenReturn(Optional.of(
+                processPlan(processStep("1", "Trưởng A duyệt", headA), processStep("2", "Giám đốc duyệt", headC))));
+        when(flowRepository.findRunningIdBySubject(any(), any())).thenReturn(Optional.empty());
+        grantFinal(headA, true);
+        UUID submissionId = UUID.randomUUID();
+
+        KpiApprovalFlow flow = service.startSubject(submissionSubject(submissionId), staff, true).orElseThrow();
+        assertThat(flow.getSubjectId()).isEqualTo(submissionId);
+        assertThat(flow.getKpiCriteria()).isNull();
+        assertThat(flow.unit()).isEqualTo(unitA);
+
+        assertThat(approve(flow, headA)).isEqualTo(ApprovalOutcome.FORWARDED);
+        assertThatThrownBy(() -> approve(flow, headA)).isInstanceOf(ForbiddenException.class);
+        assertThat(approve(flow, headC)).isEqualTo(ApprovalOutcome.FINAL);
+        assertThat(flow.getStatus()).isEqualTo(ApprovalFlowStatus.APPROVED);
+    }
+
+    @Test
+    @DisplayName("Gửi lại bài nộp: flow cũ đang chạy bị huỷ trước khi mở flow mới")
+    void resubmittingSubjectCancelsRunningFlow() {
+        when(processPlanner.plan(any(), any(), any())).thenReturn(Optional.of(
+                processPlan(processStep("1", "Trưởng A duyệt", headA))));
+        UUID submissionId = UUID.randomUUID();
+        when(flowRepository.findRunningIdBySubject(any(), any())).thenReturn(Optional.empty());
+        KpiApprovalFlow first = service.startSubject(submissionSubject(submissionId), staff, true).orElseThrow();
+
+        when(flowRepository.findRunningIdBySubject(ApprovalSubjectType.SUBMISSION, submissionId))
+                .thenReturn(Optional.of(first.getId()));
+        KpiApprovalFlow second = service.startSubject(submissionSubject(submissionId), staff, true).orElseThrow();
+
+        assertThat(first.getStatus()).isEqualTo(ApprovalFlowStatus.CANCELLED);
+        assertThat(second.getStatus()).isEqualTo(ApprovalFlowStatus.IN_PROGRESS);
     }
 }

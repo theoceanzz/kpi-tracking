@@ -48,6 +48,12 @@ export interface BscOverview {
   unitsWithResult: number
   unitsGatePassed: number
   unitsGateFailed: number
+  /** Thẻ có hạng mục chặn nhưng chưa kết luận được — trước đây bị gộp vào "đạt". */
+  unitsGateUnknown: number
+  /** Thẻ đã có kết quả nhưng còn DRAFT; không nằm trong các số tổng hợp. */
+  unitsProvisional: number
+  /** Kết quả của chính thẻ gốc còn là nháp. */
+  provisional: boolean
   coverage: BscCoverageCounts
 }
 

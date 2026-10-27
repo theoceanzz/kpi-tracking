@@ -1,12 +1,12 @@
 package com.kpitracking.event;
 
 import com.kpitracking.i18n.LocalizedText;
-import com.kpitracking.entity.*;
+
 import com.kpitracking.event.KpiCycleLockEvents.CycleLockedEvent;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.KpiCycleRepository;
-import com.kpitracking.repository.KpiPeriodRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.kpi.KpiCycleRepository;
+import com.kpitracking.repository.kpi.KpiPeriodRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.service.notification.NotificationDispatcher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +19,12 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.*;
 
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.kpi.KpiCycle;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
 /**
  * Thông báo khi khoá kỳ.
  *

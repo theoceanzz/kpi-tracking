@@ -1,6 +1,6 @@
 package com.kpitracking.workflow.engine;
 
-import com.kpitracking.entity.User;
+import com.kpitracking.entity.user.User;
 import com.kpitracking.workflow.WorkflowAction;
 import com.kpitracking.workflow.def.WorkflowDefinition;
 import lombok.Builder;

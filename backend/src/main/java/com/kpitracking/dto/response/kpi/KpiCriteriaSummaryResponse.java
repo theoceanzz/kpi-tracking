@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.kpi;
 
-import com.kpitracking.enums.KpiFrequency;
-import com.kpitracking.enums.KpiStatus;
+import com.kpitracking.enums.kpi.KpiFrequency;
+import com.kpitracking.enums.kpi.KpiStatus;
 import lombok.*;
 
 import java.util.UUID;

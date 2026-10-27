@@ -1,9 +1,9 @@
 package com.kpitracking.dto.request.reward;
 
-import com.kpitracking.enums.RewardProgramScope;
-import com.kpitracking.enums.RewardRankWithin;
-import com.kpitracking.enums.RewardRankingMetric;
-import com.kpitracking.enums.RewardTiePolicy;
+import com.kpitracking.enums.reward.RewardProgramScope;
+import com.kpitracking.enums.reward.RewardRankWithin;
+import com.kpitracking.enums.reward.RewardRankingMetric;
+import com.kpitracking.enums.reward.RewardTiePolicy;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;

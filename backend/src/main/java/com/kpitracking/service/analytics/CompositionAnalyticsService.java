@@ -2,7 +2,7 @@ package com.kpitracking.service.analytics;
 
 import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.stats.advanced.CompositionResponses.*;
-import com.kpitracking.repository.KpiSubmissionRepository;
+import com.kpitracking.repository.submission.KpiSubmissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

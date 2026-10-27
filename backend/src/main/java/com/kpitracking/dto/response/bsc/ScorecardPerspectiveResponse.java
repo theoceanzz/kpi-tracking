@@ -1,10 +1,10 @@
 package com.kpitracking.dto.response.bsc;
 
-import com.kpitracking.enums.BscGateEffect;
-import com.kpitracking.enums.BscGateScope;
-import com.kpitracking.enums.BscItemOrigin;
-import com.kpitracking.enums.BscLinkType;
-import com.kpitracking.enums.BscMeasurementSource;
+import com.kpitracking.enums.bsc.BscGateEffect;
+import com.kpitracking.enums.bsc.BscGateScope;
+import com.kpitracking.enums.bsc.BscItemOrigin;
+import com.kpitracking.enums.bsc.BscLinkType;
+import com.kpitracking.enums.bsc.BscMeasurementSource;
 import lombok.*;
 
 import java.util.UUID;

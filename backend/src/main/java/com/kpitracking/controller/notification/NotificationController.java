@@ -1,0 +1,82 @@
+package com.kpitracking.controller.notification;
+
+import com.kpitracking.dto.request.notification.SaveNotificationConfigRequest;
+import com.kpitracking.dto.request.notification.SendKpiReminderRequest;
+import com.kpitracking.dto.response.ApiResponse;
+import com.kpitracking.dto.response.CursorPageResponse;
+import com.kpitracking.dto.response.notification.NotificationConfigResponse;
+import com.kpitracking.dto.response.notification.NotificationResponse;
+import com.kpitracking.service.notification.NotificationService;
+import com.kpitracking.service.notification.OrgNotificationConfigService;
+import com.kpitracking.service.notification.ReminderService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1/notifications")
+@RequiredArgsConstructor
+@Tag(name = "Notifications", description = "Notification endpoints")
+public class NotificationController {
+
+    private final NotificationService notificationService;
+    private final OrgNotificationConfigService orgNotificationConfigService;
+    private final ReminderService reminderService;
+
+    @GetMapping
+    @Operation(summary = "Get current user's notifications (keyset pagination: gửi lại nextCursor để lấy trang kế)")
+    public ResponseEntity<ApiResponse<CursorPageResponse<NotificationResponse>>> getMyNotifications(
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String cursor) {
+        // Tham số `page` cũ (OFFSET) không còn dùng — client cũ gửi page=0 vẫn nhận trang đầu.
+        CursorPageResponse<NotificationResponse> response = notificationService.getMyNotifications(size, cursor);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PatchMapping("/{notificationId}/read")
+    @Operation(summary = "Mark notification as read")
+    public ResponseEntity<ApiResponse<NotificationResponse>> markAsRead(@PathVariable UUID notificationId) {
+        NotificationResponse response = notificationService.markAsRead(notificationId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/unread-count")
+    @Operation(summary = "Get unread notifications count")
+    public ResponseEntity<ApiResponse<Long>> getUnreadCount() {
+        long count = notificationService.getUnreadCount();
+        return ResponseEntity.ok(ApiResponse.success(count));
+    }
+
+    @PatchMapping("/read-all")
+    @Operation(summary = "Mark all notifications as read")
+    public ResponseEntity<ApiResponse<Void>> markAllAsRead() {
+        notificationService.markAllAsRead();
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @GetMapping("/config")
+    @Operation(summary = "Get notification config for current user's organization")
+    public ResponseEntity<ApiResponse<List<NotificationConfigResponse>>> getNotificationConfig() {
+        return ResponseEntity.ok(ApiResponse.success(orgNotificationConfigService.getMyOrgConfigs()));
+    }
+
+    @PutMapping("/config")
+    @Operation(summary = "Save notification config for current user's organization")
+    public ResponseEntity<ApiResponse<List<NotificationConfigResponse>>> saveNotificationConfig(
+            @Valid @RequestBody SaveNotificationConfigRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(orgNotificationConfigService.saveMyOrgConfigs(request)));
+    }
+
+    @PostMapping("/kpi-reminder")
+    @Operation(summary = "Gửi email nhắc tiến độ KPI cho một nhân sự trong phạm vi quản lý")
+    public ResponseEntity<ApiResponse<Void>> sendKpiReminder(@Valid @RequestBody SendKpiReminderRequest request) {
+        reminderService.sendProgressReminder(request);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+}

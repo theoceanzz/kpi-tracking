@@ -22,6 +22,8 @@ const ACCOUNTS = {
 const COMMON_PAGES = [
   '/dashboard', '/me', '/my-kpi', '/my-tasks', '/tasks', '/submissions', '/submissions/new',
   '/evaluations', '/my-adjustments', '/notifications', '/profile', '/documents', '/kpi-setup',
+  '/requests', '/requests?tab=status',
+  '/processes?section=my-processes', '/processes?section=process-approvals',
   // OKR/BSC của tôi mở cho MỌI vai trò, kể cả giám đốc không có KPI:VIEW_MY.
   '/me?section=my-okr', '/me?section=my-bsc',
 ]
@@ -29,6 +31,7 @@ const COMMON_PAGES = [
 const MANAGER_PAGES = [
   '/kpi-criteria', '/kpi-criteria/pending', '/kpi-adjustments/pending', '/submissions/org-unit',
   '/kpi-cycles/evaluation', '/org-structure', '/analytics', '/performance',
+  '/processes?section=approval-processes',
 ]
 
 interface Offence { page: string; what: string }

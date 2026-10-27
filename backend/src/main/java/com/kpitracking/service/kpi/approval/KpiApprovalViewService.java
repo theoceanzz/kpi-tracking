@@ -6,16 +6,16 @@ import com.kpitracking.dto.response.kpi.KpiCriteriaResponse;
 import com.kpitracking.dto.response.kpi.approval.ApprovalFlowResponse;
 import com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse;
 import com.kpitracking.dto.response.kpi.approval.KpiApprovalChainResponse;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.*;
+
+
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.i18n.Terms;
 import com.kpitracking.mapper.KpiCriteriaMapper;
-import com.kpitracking.repository.KpiApprovalEventRepository;
-import com.kpitracking.repository.KpiApprovalFlowRepository;
-import com.kpitracking.repository.KpiCriteriaRepository;
+import com.kpitracking.repository.kpi.KpiApprovalEventRepository;
+import com.kpitracking.repository.kpi.KpiApprovalFlowRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
 import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,6 +25,17 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.kpitracking.entity.kpi.KpiApprovalEvent;
+import com.kpitracking.entity.kpi.KpiApprovalFlow;
+import com.kpitracking.entity.kpi.KpiApprovalStep;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.kpi.ApprovalFlowStatus;
+import com.kpitracking.enums.kpi.ApprovalOutcome;
+import com.kpitracking.enums.kpi.ApprovalStepKind;
+import com.kpitracking.enums.kpi.ApprovalStepStatus;
+import com.kpitracking.enums.kpi.ApprovalSubjectType;
+import com.kpitracking.enums.kpi.KpiStatus;
 /**
  * Chuỗi duyệt KPI — phần ĐỌC: vị trí hiện tại cho bảng danh sách, stepper + lịch sử cho màn chi
  * tiết, và hộp "chờ tôi duyệt".
@@ -44,7 +55,7 @@ public class KpiApprovalViewService {
     private final KpiApprovalChainService chainService;
     private final com.kpitracking.service.kpi.KpiAccessPolicy kpiAccessPolicy;
 
-    private final com.kpitracking.repository.UserRepository userRepository;
+    private final com.kpitracking.repository.user.UserRepository userRepository;
 
     public User currentUser() {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
@@ -104,6 +115,20 @@ public class KpiApprovalViewService {
         return out;
     }
 
+    /** Tóm tắt flow đang chạy của các đối tượng (bài nộp…), theo id đối tượng. */
+    @Transactional(readOnly = true)
+    public Map<UUID, ApprovalSummaryResponse> summariesForSubjects(ApprovalSubjectType type, Collection<UUID> subjectIds,
+                                                                 UUID viewerId) {
+        if (subjectIds == null || subjectIds.isEmpty() || viewerId == null) return Map.of();
+        Ctx ctx = new Ctx(viewerId);
+        Map<UUID, ApprovalSummaryResponse> out = new HashMap<>();
+        for (KpiApprovalFlow f : flowRepository.findRunningBySubjects(type, subjectIds)) {
+            ApprovalSummaryResponse s = summarize(f, ctx);
+            if (s != null) out.put(f.getSubjectId(), s);
+        }
+        return out;
+    }
+
     public ApprovalSummaryResponse summarize(KpiApprovalFlow flow, UUID viewerId) {
         return summarize(flow, new Ctx(viewerId));
     }
@@ -121,7 +146,7 @@ public class KpiApprovalViewService {
         ApprovalOutcome kind = null;
         if (canAct) {
             boolean isFinal = next.isEmpty() || step.getKind() == ApprovalStepKind.ADMIN_FALLBACK
-                    || ctx.hasFinal(flow.getKpiCriteria().getOrgUnit().getId());
+                    || (flow.isKpiSubject() && ctx.hasFinal(flow.unit().getId()));
             kind = isFinal ? ApprovalOutcome.FINAL : ApprovalOutcome.FORWARDED;
         }
 
@@ -132,14 +157,14 @@ public class KpiApprovalViewService {
                 .stepId(step.getId())
                 .stepNumber(number)
                 .totalSteps(counted.size())
-                .currentUnitName(step.getOrgUnitName())
+                .currentUnitName(step.displayName())
                 .holderIds(step.getApprovers().stream().map(KpiApprovalStep.StepApprover::getUserId).toList())
                 .holderNames(step.getApprovers().stream().map(KpiApprovalStep.StepApprover::getUserName).toList())
                 .pendingSince(step.getPendingSince())
                 .canAct(canAct)
                 .actionKind(kind)
                 .nextHolderNames(kind == ApprovalOutcome.FORWARDED ? next.map(KpiApprovalStep::approverNames).orElse(null) : null)
-                .nextUnitName(kind == ApprovalOutcome.FORWARDED ? next.map(KpiApprovalStep::getOrgUnitName).orElse(null) : null)
+                .nextUnitName(kind == ApprovalOutcome.FORWARDED ? next.map(KpiApprovalStep::displayName).orElse(null) : null)
                 .canReassign(ctx.isAdmin(flow.getOrganizationId()))
                 .build();
     }
@@ -195,11 +220,41 @@ public class KpiApprovalViewService {
                 .findFirst().map(f -> summarize(f, ctx)).orElse(null);
 
         return KpiApprovalChainResponse.builder()
+                .subjectType(ApprovalSubjectType.CRITERIA)
+                .subjectId(kpi.getId())
                 .kpiCriteriaId(kpi.getId())
                 .kpiName(kpi.getName())
                 .chainMode(chainService.isChainMode(kpi))
                 .current(current)
                 .flows(flows.stream().map(f -> toResponse(f, eventsByFlow.getOrDefault(f.getId(), List.of()))).toList())
+                .build();
+    }
+
+    /**
+     * Chuỗi duyệt của một đối tượng khác KPI (vd. bài nộp). KHÔNG kiểm quyền xem — phía gọi (service
+     * của đối tượng) kiểm bằng luật xem của chính đối tượng trước khi gọi.
+     */
+    @Transactional(readOnly = true)
+    public KpiApprovalChainResponse chainOfSubject(ApprovalSubjectType type, UUID subjectId, String subjectName, UUID viewerId) {
+        return chainOfSubject(type, subjectId, subjectName, viewerId, false);
+    }
+
+    /** {@code forceDiagram}: vẽ sơ đồ quy trình dù quy trình không bật "hiện trong đối tượng". */
+    public KpiApprovalChainResponse chainOfSubject(ApprovalSubjectType type, UUID subjectId, String subjectName, UUID viewerId,
+                                                   boolean forceDiagram) {
+        List<KpiApprovalFlow> flows = flowRepository.findBySubjectTypeAndSubjectIdOrderByStartedAtDesc(type, subjectId);
+        Map<UUID, List<KpiApprovalEvent>> eventsByFlow = flows.isEmpty() ? Map.of()
+                : eventRepository.findByFlowIdInOrderByCreatedAtAsc(flows.stream().map(KpiApprovalFlow::getId).toList())
+                        .stream().collect(Collectors.groupingBy(e -> e.getFlow().getId()));
+        Ctx ctx = new Ctx(viewerId);
+        return KpiApprovalChainResponse.builder()
+                .subjectType(type)
+                .subjectId(subjectId)
+                .kpiName(subjectName)
+                .chainMode(true)
+                .current(flows.stream().filter(f -> f.getStatus() == ApprovalFlowStatus.IN_PROGRESS)
+                        .findFirst().map(f -> summarize(f, ctx)).orElse(null))
+                .flows(flows.stream().map(f -> toResponse(f, eventsByFlow.getOrDefault(f.getId(), List.of()), forceDiagram)).toList())
                 .build();
     }
 
@@ -211,10 +266,16 @@ public class KpiApprovalViewService {
     }
 
     private ApprovalFlowResponse toResponse(KpiApprovalFlow f, List<KpiApprovalEvent> events) {
+        return toResponse(f, events, false);
+    }
+
+    private ApprovalFlowResponse toResponse(KpiApprovalFlow f, List<KpiApprovalEvent> events, boolean forceDiagram) {
         return ApprovalFlowResponse.builder()
                 .id(f.getId())
                 .subjectType(f.getSubjectType())
-                .kpiCriteriaId(f.getKpiCriteria().getId())
+                .subjectId(f.getSubjectId())
+                .subjectName(f.displayName())
+                .kpiCriteriaId(f.getKpiCriteria() == null ? null : f.getKpiCriteria().getId())
                 .adjustmentRequestId(f.getAdjustmentRequest() == null ? null : f.getAdjustmentRequest().getId())
                 .round(f.getRound())
                 .status(f.getStatus())
@@ -223,6 +284,7 @@ public class KpiApprovalViewService {
                 .currentStepOrder(f.getStatus() == ApprovalFlowStatus.IN_PROGRESS ? f.getCurrentStepOrder() : null)
                 .startedAt(f.getStartedAt())
                 .finishedAt(f.getFinishedAt())
+                .process(processOf(f, forceDiagram))
                 .steps(f.getSteps().stream().map(this::toStep).toList())
                 .events(events.stream().map(e -> ApprovalFlowResponse.Event.builder()
                         .id(e.getId())
@@ -237,6 +299,21 @@ public class KpiApprovalViewService {
                 .build();
     }
 
+    private ApprovalFlowResponse.Process processOf(KpiApprovalFlow f, boolean forceDiagram) {
+        if (f.getProcessId() == null && f.getProcessTitle() == null) return null;
+        Map<String, Object> snap = f.getProcessSnapshot() == null ? Map.of() : f.getProcessSnapshot();
+        boolean show = (forceDiagram || Boolean.TRUE.equals(snap.get("showInObject"))) && snap.get("graph") != null;
+        Object path = snap.get("pathNodeIds");
+        return ApprovalFlowResponse.Process.builder()
+                .id(f.getProcessId())
+                .title(f.getProcessTitle())
+                .showDiagram(show)
+                .graph(show ? snap.get("graph") : null)
+                .pathNodeIds(path instanceof List<?> l ? l.stream().map(String::valueOf).toList() : List.of())
+                .currentNodeId(f.currentStep().map(KpiApprovalStep::getProcessNodeId).orElse(null))
+                .build();
+    }
+
     private ApprovalFlowResponse.Step toStep(KpiApprovalStep s) {
         return ApprovalFlowResponse.Step.builder()
                 .id(s.getId())
@@ -244,6 +321,9 @@ public class KpiApprovalViewService {
                 .kind(s.getKind())
                 .orgUnitId(s.getOrgUnitId())
                 .orgUnitName(s.getOrgUnitName())
+                .stepName(s.getStepName())
+                .stepCode(s.getStepCode())
+                .processNodeId(s.getProcessNodeId())
                 .mergedUnitNames(s.getMergedUnits() == null ? List.of()
                         : s.getMergedUnits().stream().map(m -> String.valueOf(m.get("name"))).toList())
                 .status(s.getStatus())

@@ -1,13 +1,13 @@
 package com.kpitracking.service.task;
 
-import com.kpitracking.entity.TaskList;
-import com.kpitracking.entity.TaskListField;
-import com.kpitracking.enums.KpiTaskPriority;
-import com.kpitracking.enums.KpiTaskStatus;
+import com.kpitracking.entity.task.TaskList;
+import com.kpitracking.entity.task.TaskListField;
+import com.kpitracking.enums.task.KpiTaskPriority;
+import com.kpitracking.enums.task.KpiTaskStatus;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.repository.TaskListFieldRepository;
-import com.kpitracking.repository.TaskListSectionRepository;
+import com.kpitracking.repository.task.TaskListFieldRepository;
+import com.kpitracking.repository.task.TaskListSectionRepository;
 
 import java.util.Map;
 import java.util.Set;

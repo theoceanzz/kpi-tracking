@@ -1,7 +1,7 @@
 package com.kpitracking.dto.request.reward;
 
-import com.kpitracking.enums.CertificateOrientation;
-import com.kpitracking.enums.CertificateTemplateStatus;
+import com.kpitracking.enums.reward.CertificateOrientation;
+import com.kpitracking.enums.reward.CertificateTemplateStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;

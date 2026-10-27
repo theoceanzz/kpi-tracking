@@ -1,12 +1,12 @@
 package com.kpitracking.mapper;
 
 import com.kpitracking.dto.response.document.DocumentResponse;
-import com.kpitracking.entity.Document;
-import com.kpitracking.entity.DocumentUserState;
-import com.kpitracking.entity.RagDocument;
-import com.kpitracking.enums.DocumentAiStatus;
-import com.kpitracking.enums.DocumentCategory;
-import com.kpitracking.enums.DocumentScope;
+import com.kpitracking.entity.document.Document;
+import com.kpitracking.entity.document.DocumentUserState;
+import com.kpitracking.entity.ai.RagDocument;
+import com.kpitracking.enums.document.DocumentAiStatus;
+import com.kpitracking.enums.document.DocumentCategory;
+import com.kpitracking.enums.document.DocumentScope;
 import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.service.document.DocumentAccess;
 import org.mapstruct.AfterMapping;

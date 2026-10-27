@@ -1,8 +1,10 @@
 package com.kpitracking.workflow.def;
 
-import com.kpitracking.enums.AdjustmentStatus;
-import com.kpitracking.enums.KpiStatus;
-import com.kpitracking.enums.SubmissionStatus;
+import com.kpitracking.service.kpi.KpiCriteriaService;
+
+import com.kpitracking.enums.kpi.AdjustmentStatus;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.enums.submission.SubmissionStatus;
 import com.kpitracking.workflow.StageDescriptor;
 import com.kpitracking.workflow.StageRegistry;
 import com.kpitracking.workflow.WorkflowAction;

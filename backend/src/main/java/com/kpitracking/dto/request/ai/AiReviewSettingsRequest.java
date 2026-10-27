@@ -1,14 +1,20 @@
 package com.kpitracking.dto.request.ai;
 
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/** Cờ bật/tắt và trọng số (%) điểm đề xuất của tính năng AI đánh giá bài nộp. Tổng ba trọng số = 100. */
+import java.math.BigDecimal;
+import java.util.List;
+
+/** Cờ bật/tắt và THANG ĐIỂM AI (các mức AI chọn khi chấm chất lượng bài nộp). Thứ tự danh sách = thứ tự hiển thị. */
 @Data
 @Builder
 @NoArgsConstructor
@@ -16,10 +22,21 @@ import lombok.NoArgsConstructor;
 public class AiReviewSettingsRequest {
     @NotNull
     private Boolean enabled;
-    @NotNull @Min(0) @Max(100)
-    private Integer weightTarget;
-    @NotNull @Min(0) @Max(100)
-    private Integer weightQuality;
-    @NotNull @Min(0) @Max(100)
-    private Integer weightOnTime;
+    @NotNull @Valid
+    private List<Level> levels;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Level {
+        @NotBlank @Size(max = 100)
+        private String name;
+        @NotNull @DecimalMin("0") @DecimalMax("1000")
+        private BigDecimal points;
+        @Size(max = 20)
+        private String color;
+        @Size(max = 500)
+        private String description;
+    }
 }

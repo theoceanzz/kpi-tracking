@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.wallet;
 
-import com.kpitracking.enums.CashSourceType;
-import com.kpitracking.enums.CashTransactionType;
+import com.kpitracking.enums.wallet.CashSourceType;
+import com.kpitracking.enums.wallet.CashTransactionType;
 import lombok.*;
 
 import java.time.Instant;

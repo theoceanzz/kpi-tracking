@@ -2,12 +2,12 @@ package com.kpitracking.service.task;
 
 import com.kpitracking.dto.request.task.*;
 import com.kpitracking.dto.response.task.KpiTaskResponse;
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.enums.*;
+import com.kpitracking.entity.kpi.KpiCriteria;
+
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.repository.KpiCriteriaRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
 import com.kpitracking.service.CollabITSupport;
-import com.kpitracking.service.KpiCriteriaService;
+import com.kpitracking.service.kpi.KpiCriteriaService;
 import com.kpitracking.service.discussion.DiscussionService;
 import com.kpitracking.service.kpi.KpiCollabHooks;
 import org.junit.jupiter.api.Test;
@@ -21,6 +21,10 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.kpitracking.enums.discussion.DiscussionTargetType;
+import com.kpitracking.enums.task.KpiTaskEventAction;
+import com.kpitracking.enums.task.KpiTaskStatus;
+import com.kpitracking.enums.task.KpiTaskVisibility;
 /**
  * Công việc gắn KPI trên PostgreSQL THẬT. Chạy tay: {@code ./mvnw test -Dtest=KpiTaskIT}. Test 7–12 của đặc tả.
  */

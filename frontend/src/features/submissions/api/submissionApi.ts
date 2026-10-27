@@ -1,8 +1,9 @@
 import axiosInstance from '@/lib/axios'
 import { sendMultipart } from '@/lib/upload'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import type { Submission, CreateSubmissionRequest, UpdateSubmissionRequest, ReviewSubmissionRequest, ReturnSubmissionRequest, Attachment } from '@/types/submission'
+import type { Submission, CreateSubmissionRequest, UpdateSubmissionRequest, ReviewSubmissionRequest, ReturnSubmissionRequest, Attachment, SubmissionEvaluatorScore } from '@/types/submission'
 import type { SubmissionStatus } from '@/types/submission'
+import type { KpiApprovalChain } from '@/types/approvalChain'
 
 export const submissionApi = {
   getAll: (params: { 
@@ -29,6 +30,18 @@ export const submissionApi = {
     kpiPeriodId?: string;
   } = {}) =>
     axiosInstance.get<ApiResponse<PageResponse<Submission>>>('/submissions/my', { params }).then((r) => r.data.data),
+
+  /** Điểm từng chỉ tiêu theo TỪNG người chấm của một nhân viên trong một đợt (quản lý, rồi các cấp trên). */
+  getEvaluatorScores: (userId: string, kpiPeriodId: string) =>
+    axiosInstance.get<ApiResponse<SubmissionEvaluatorScore[]>>('/submissions/evaluator-scores', { params: { userId, kpiPeriodId } })
+      .then((r) => r.data.data),
+
+  /** Bài đang chờ người gọi ở bước hiện tại của quy trình duyệt. */
+  awaitingMyApproval: () =>
+    axiosInstance.get<ApiResponse<Submission[]>>('/submissions/awaiting-my-approval').then((r) => r.data.data),
+
+  approvalChain: (id: string) =>
+    axiosInstance.get<ApiResponse<KpiApprovalChain>>(`/submissions/${id}/approval-chain`).then((r) => r.data.data),
 
   getById: (id: string) =>
     axiosInstance.get<ApiResponse<Submission>>(`/submissions/${id}`).then((r) => r.data.data),

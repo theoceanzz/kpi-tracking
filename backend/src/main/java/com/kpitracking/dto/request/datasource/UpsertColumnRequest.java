@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.datasource;
 
-import com.kpitracking.enums.ColumnDataType;
+import com.kpitracking.enums.report.ColumnDataType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;

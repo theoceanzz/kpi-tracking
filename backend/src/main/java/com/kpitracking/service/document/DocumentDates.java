@@ -1,6 +1,6 @@
 package com.kpitracking.service.document;
 
-import com.kpitracking.entity.Document;
+import com.kpitracking.entity.document.Document;
 
 import java.time.LocalDate;
 import java.time.ZoneId;

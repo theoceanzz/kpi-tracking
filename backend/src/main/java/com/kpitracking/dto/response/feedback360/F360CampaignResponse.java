@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.feedback360;
 
-import com.kpitracking.enums.F360CampaignStatus;
-import com.kpitracking.enums.F360ScoringMode;
+import com.kpitracking.enums.feedback360.F360CampaignStatus;
+import com.kpitracking.enums.feedback360.F360ScoringMode;
 import lombok.*;
 
 import java.time.Instant;

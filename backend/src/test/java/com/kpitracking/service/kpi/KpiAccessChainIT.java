@@ -1,11 +1,11 @@
 package com.kpitracking.service.kpi;
 
 import com.kpitracking.dto.response.kpi.KpiCriteriaResponse;
-import com.kpitracking.enums.DiscussionTargetType;
+import com.kpitracking.enums.discussion.DiscussionTargetType;
 import com.kpitracking.exception.CodedException;
 import com.kpitracking.exception.ErrorCode;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.service.KpiCriteriaService;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.service.kpi.KpiCriteriaService;
 import com.kpitracking.service.discussion.DiscussionService;
 import com.kpitracking.service.discussion.DiscussionSubscriptionGuard;
 import org.junit.jupiter.api.AfterEach;

@@ -182,7 +182,7 @@ export default function MyOkrPage() {
         <div className="flex flex-wrap gap-2 sm:justify-end">
           {analyticsSection && (
             <Button {...tourAnchor('myokr.analytics')} asChild variant="outline">
-              <Link to={`/analytics?section=${analyticsSection}`}><TrendingUp aria-hidden="true" /> {t('MyOkrPage.viewAnalytics')}</Link>
+              <Link to="/analytics"><TrendingUp aria-hidden="true" /> {t('MyOkrPage.viewAnalytics')}</Link>
             </Button>
           )}
           {hasPermission('OKR:MANAGE') && (

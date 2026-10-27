@@ -2,10 +2,10 @@ package com.kpitracking.mapper;
 
 import com.kpitracking.dto.response.task.KpiTaskEventResponse;
 import com.kpitracking.dto.response.task.KpiTaskResponse;
-import com.kpitracking.entity.KpiTask;
-import com.kpitracking.entity.KpiTaskAttachment;
-import com.kpitracking.entity.KpiTaskChecklistItem;
-import com.kpitracking.entity.KpiTaskEvent;
+import com.kpitracking.entity.task.KpiTask;
+import com.kpitracking.entity.task.KpiTaskAttachment;
+import com.kpitracking.entity.task.KpiTaskChecklistItem;
+import com.kpitracking.entity.task.KpiTaskEvent;
 import com.kpitracking.service.discussion.CollabAttachmentPolicy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -63,7 +63,7 @@ public interface KpiTaskMapper {
     @Mapping(target = "depth", expression = "java(task.getDepth() == null ? 0 : task.getDepth().intValue())")
     KpiTaskResponse toResponse(KpiTask task);
 
-    KpiTaskResponse.Reminder toReminder(com.kpitracking.entity.KpiTaskReminder reminder);
+    KpiTaskResponse.Reminder toReminder(com.kpitracking.entity.task.KpiTaskReminder reminder);
 
     KpiTaskResponse.ChecklistItem toChecklistItem(KpiTaskChecklistItem item);
 

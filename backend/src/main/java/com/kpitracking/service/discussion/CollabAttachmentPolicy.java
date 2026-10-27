@@ -3,7 +3,7 @@ package com.kpitracking.service.discussion;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.i18n.ErrorMessages;
-import com.kpitracking.service.AttachmentPolicy;
+import com.kpitracking.service.submission.AttachmentPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;

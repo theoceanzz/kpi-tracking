@@ -1,5 +1,7 @@
 package com.kpitracking.util;
 
+import com.kpitracking.service.evaluation.EvaluationService;
+
 import com.kpitracking.i18n.ErrorMessages;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,7 +45,7 @@ public final class PerformanceMatrixResolver {
      * đợt vẫn có thể thiếu trục — vd chỉ được giao KPI định tính mà tổ chức không chấm hạnh
      * kiểm — khi đó không có xếp loại cho người đó, chứ không bịa trục để ép ra hạng.
      */
-    public static boolean usesMatrix(com.kpitracking.entity.Organization org) {
+    public static boolean usesMatrix(com.kpitracking.entity.organization.Organization org) {
         return org != null && (Boolean.TRUE.equals(org.getEnableQualitative())
                 || Boolean.TRUE.equals(org.getEnableConduct())
                 // 360 ảnh hưởng xếp loại cũng cấp được trục hành vi (BehaviorAxisResolver).

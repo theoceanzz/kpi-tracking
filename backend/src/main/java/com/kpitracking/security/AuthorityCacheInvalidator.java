@@ -1,8 +1,8 @@
 package com.kpitracking.security;
 
-import com.kpitracking.entity.Role;
-import com.kpitracking.entity.RolePermission;
-import com.kpitracking.entity.UserRoleOrgUnit;
+import com.kpitracking.entity.access.Role;
+import com.kpitracking.entity.access.RolePermission;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;

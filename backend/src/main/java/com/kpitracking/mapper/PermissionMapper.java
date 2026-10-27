@@ -1,7 +1,7 @@
 package com.kpitracking.mapper;
 
 import com.kpitracking.dto.response.permission.PermissionResponse;
-import com.kpitracking.entity.Permission;
+import com.kpitracking.entity.access.Permission;
 import org.mapstruct.Mapper;
 
 import java.util.List;

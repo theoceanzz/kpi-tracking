@@ -1,9 +1,9 @@
 package com.kpitracking.service.notification;
 
-import com.kpitracking.entity.NotificationEmailDigestItem;
-import com.kpitracking.entity.User;
-import com.kpitracking.repository.NotificationEmailDigestItemRepository;
-import com.kpitracking.service.EmailService;
+import com.kpitracking.entity.notification.NotificationEmailDigestItem;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.repository.notification.NotificationEmailDigestItemRepository;
+import com.kpitracking.service.email.EmailService;
 import com.kpitracking.service.email.EmailTemplateCatalog;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

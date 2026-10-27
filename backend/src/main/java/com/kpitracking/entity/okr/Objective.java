@@ -1,0 +1,82 @@
+package com.kpitracking.entity.okr;
+
+import com.kpitracking.enums.okr.OkrStatus;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+import com.kpitracking.entity.bsc.BscPerspective;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.Organization;
+@Entity
+@Table(name = "objectives")
+@EntityListeners(AuditingEntityListener.class)
+@SQLRestriction("deleted_at IS NULL")
+@Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+public class Objective {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
+
+    @Column(name = "code")
+    private String code;
+
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    @Builder.Default
+    private OkrStatus status = OkrStatus.ACTIVE;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "perspective_id")
+    private BscPerspective perspective;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "objective_org_units",
+        joinColumns = @JoinColumn(name = "objective_id"),
+        inverseJoinColumns = @JoinColumn(name = "org_unit_id")
+    )
+    @Builder.Default
+    private List<OrgUnit> orgUnits = new ArrayList<>();
+
+    @OneToMany(mappedBy = "objective", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<KeyResult> keyResults = new ArrayList<>();
+
+    @CreatedDate
+    @Column(name = "created_at", updatable = false)
+    private Instant createdAt;
+
+    @LastModifiedDate
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+}

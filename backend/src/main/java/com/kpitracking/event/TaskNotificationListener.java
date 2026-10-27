@@ -1,10 +1,10 @@
 package com.kpitracking.event;
 
-import com.kpitracking.entity.*;
+
 import com.kpitracking.i18n.LocalizedText;
-import com.kpitracking.repository.*;
-import com.kpitracking.service.NotificationService;
-import com.kpitracking.service.OrgNotificationConfigService;
+
+import com.kpitracking.service.notification.NotificationService;
+import com.kpitracking.service.notification.OrgNotificationConfigService;
 import com.kpitracking.service.kpi.KpiAccessPolicy;
 import com.kpitracking.service.notification.NotificationDispatcher;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +22,21 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.notification.Notification;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.task.KpiTask;
+import com.kpitracking.entity.task.TaskList;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.notification.NotificationRepository;
+import com.kpitracking.repository.task.KpiTaskAssigneeRepository;
+import com.kpitracking.repository.task.KpiTaskFollowerRepository;
+import com.kpitracking.repository.task.KpiTaskRepository;
+import com.kpitracking.repository.task.TaskListRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 /**
  * Hậu xử lý của công việc, chạy SAU COMMIT:
  * <ul>

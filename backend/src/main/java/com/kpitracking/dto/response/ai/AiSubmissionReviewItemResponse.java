@@ -53,6 +53,13 @@ public class AiSubmissionReviewItemResponse {
     private Double actualValue;
     /** Định tính: mức người nộp tự đánh giá ở bài mới nhất. */
     private String selfLevel;
-    /** Định tính: mức gần nhất với điểm AI gợi ý trên thang hành vi. */
-    private String suggestedLevel;
+    /** Mức tin cậy RIÊNG của chỉ tiêu (CAO | TRUNG_BINH | THAP), mã nguồn tính; {@code null} với lượt trước V46. */
+    private String confidence;
+    /** Mã lý do của mức tin cậy ({@code ReviewResultValidator.REASON_*}) — giao diện dịch. */
+    private List<String> confidenceReasons;
+    private Integer filesRead;
+    private Integer filesTotal;
+    /** Lượt đã chấm chỉ tiêu này — kết quả hiện hành gộp item mới nhất của từng chỉ tiêu từ nhiều lượt. */
+    private UUID reviewId;
+    private java.time.Instant reviewedAt;
 }

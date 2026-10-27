@@ -1,6 +1,6 @@
 package com.kpitracking.ai.document.profile;
 
-import com.kpitracking.entity.RagDocument;
+import com.kpitracking.entity.ai.RagDocument;
 
 /**
  * Loại tài liệu theo NGHIỆP VỤ (khác định dạng tệp). Mỗi loại có một {@link DocumentProfile} quyết định cách

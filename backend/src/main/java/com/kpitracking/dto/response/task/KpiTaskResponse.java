@@ -1,9 +1,9 @@
 package com.kpitracking.dto.response.task;
 
-import com.kpitracking.enums.KpiStatus;
-import com.kpitracking.enums.KpiTaskPriority;
-import com.kpitracking.enums.KpiTaskStatus;
-import com.kpitracking.enums.KpiTaskVisibility;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.enums.task.KpiTaskPriority;
+import com.kpitracking.enums.task.KpiTaskStatus;
+import com.kpitracking.enums.task.KpiTaskVisibility;
 import lombok.*;
 
 import java.time.Instant;
@@ -65,7 +65,7 @@ public class KpiTaskResponse {
     private String parentTitle;
     private int subtaskDone;
     private int subtaskTotal;
-    private com.kpitracking.entity.TaskRecurrence recurrence;
+    private com.kpitracking.entity.task.TaskRecurrence recurrence;
     private LocalDate recurrenceEndDate;
     private UUID seriesId;
     private List<Person> followers;
@@ -82,7 +82,7 @@ public class KpiTaskResponse {
     private String kpiState;
     private LocalDate startDate;
     private LocalTime startTime;
-    private com.kpitracking.enums.TaskCompletionMode completionMode;
+    private com.kpitracking.enums.task.TaskCompletionMode completionMode;
     private UUID rootTaskId;
     private int depth;
     /** Việc mốc (Lark "Mark as Milestone"). */
@@ -103,7 +103,7 @@ public class KpiTaskResponse {
     private List<UUID> blockedByIds;
     /** Chỉ ở màn chi tiết. */
     private List<DependencyRef> dependencies;
-    private com.kpitracking.entity.TaskSourceRef sourceRef;
+    private com.kpitracking.entity.task.TaskSourceRef sourceRef;
     private boolean canDecline;
     /** Gắn / đổi / gỡ KPI (việc gốc, người giao lại được). */
     private boolean canSetKpi;
@@ -163,7 +163,7 @@ public class KpiTaskResponse {
     @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
     public static class Reminder {
         private UUID id;
-        private com.kpitracking.enums.KpiTaskReminderKind kind;
+        private com.kpitracking.enums.task.KpiTaskReminderKind kind;
         private Integer offsetMinutes;
         private Instant customAt;
         private Instant remindAt;
@@ -193,7 +193,7 @@ public class KpiTaskResponse {
         /** Chỉ có khi tài liệu gốc còn và người xem mở được nó — link "Mở bản mới nhất". */
         private UUID sourceDocumentId;
         /** Tệp đính kèm hay kết quả (V47). */
-        private com.kpitracking.enums.KpiTaskAttachmentKind kind;
+        private com.kpitracking.enums.task.KpiTaskAttachmentKind kind;
         private UUID uploadedById;
         private String uploadedByName;
         private String uploadedByAvatarUrl;

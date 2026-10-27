@@ -1,6 +1,6 @@
 package com.kpitracking.workflow.guard;
 
-import com.kpitracking.entity.User;
+import com.kpitracking.entity.user.User;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.i18n.Terms;
 import com.kpitracking.security.PermissionChecker;

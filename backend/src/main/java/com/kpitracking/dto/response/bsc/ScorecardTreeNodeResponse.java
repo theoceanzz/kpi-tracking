@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.bsc;
 
-import com.kpitracking.enums.BscScorecardLevel;
-import com.kpitracking.enums.BscScorecardStatus;
+import com.kpitracking.enums.bsc.BscScorecardLevel;
+import com.kpitracking.enums.bsc.BscScorecardStatus;
 import lombok.*;
 
 import java.util.List;

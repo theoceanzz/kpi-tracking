@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Bot, ChevronDown, CloudUpload, FilePlus2 } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { useAiAvailable } from '@/features/analytics/hooks/useAiAvailable'
+import { useAiAvailable } from '@/features/ai/chat/hooks/useAiAvailable'
 import { tourAnchor } from '@/components/common/tours/anchors'
 import { FileTypeIcon, FolderIcon } from './docUi'
 

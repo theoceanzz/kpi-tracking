@@ -1,6 +1,6 @@
 package com.kpitracking.ai.document.parse;
 
-import com.kpitracking.ai.config.TokenUsageListener;
+import com.kpitracking.ai.core.config.TokenUsageListener;
 import dev.langchain4j.data.message.ImageContent;
 import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.UserMessage;

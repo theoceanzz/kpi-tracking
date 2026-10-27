@@ -1,7 +1,7 @@
 package com.kpitracking.service.reward;
 
 import com.kpitracking.dto.response.reward.RewardCelebrationResponse;
-import com.kpitracking.enums.RewardCelebrationSource;
+import com.kpitracking.enums.reward.RewardCelebrationSource;
 import com.kpitracking.security.JwtTokenProvider;
 import com.kpitracking.service.CollabITSupport;
 import org.junit.jupiter.api.AfterEach;

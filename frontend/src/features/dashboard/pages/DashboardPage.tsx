@@ -1,7 +1,6 @@
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useSearchParams, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import WorkflowStartCard from '@/features/kpi/workflow/components/WorkflowStartCard'
 import { Building2, UserCircle } from 'lucide-react'
 import RoleDashboard from './RoleDashboard'
 import { ChoiceChip } from '@/components/ui/choice-chip'
@@ -45,14 +44,7 @@ const DashboardPage = () => {
   // Không có quyền vào bảng nào thì về trang cá nhân
   if (!scope) return <Navigate to="/profile" replace />
 
-  // Thẻ khởi động đứng TRÊN mọi biến thể dashboard: nó tự ẩn với người không có quyền ở bước
-  // đầu của luồng, nên không cần lặp lại phép kiểm vai trò ở đây.
-  const dashboard = (
-    <>
-      <WorkflowStartCard />
-      <RoleDashboard key={scope} scope={scope} />
-    </>
-  )
+  const dashboard = <RoleDashboard key={scope} scope={scope} />
 
   if (!showViewSwitch) return dashboard
 

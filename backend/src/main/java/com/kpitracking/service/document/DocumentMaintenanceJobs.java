@@ -1,17 +1,17 @@
 package com.kpitracking.service.document;
 
-import com.kpitracking.entity.Document;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.DocumentScope;
+import com.kpitracking.entity.document.Document;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.document.DocumentScope;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.service.notification.NotificationDispatcher;
 import com.kpitracking.service.reward.RewardContext;
-import com.kpitracking.entity.DocumentVersion;
-import com.kpitracking.repository.DocumentFolderRepository;
-import com.kpitracking.repository.DocumentRepository;
-import com.kpitracking.repository.DocumentVersionRepository;
+import com.kpitracking.entity.document.DocumentVersion;
+import com.kpitracking.repository.document.DocumentFolderRepository;
+import com.kpitracking.repository.document.DocumentRepository;
+import com.kpitracking.repository.document.DocumentVersionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;

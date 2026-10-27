@@ -9,7 +9,7 @@
 // Chỉ đọc luật ở CONTROLLER (class + method). Luật sâu hơn trong service (theo đơn vị, theo người…)
 // không đưa vào: bảng này chỉ chặn những lời gọi CHẮC CHẮN bị 403 vì thiếu quyền toàn cục.
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -108,8 +108,12 @@ const join2 = (a, b) => ('/' + [a, b].filter(Boolean).join('/')).replace(/\/+/g,
 
 export function extractRules(dir = CONTROLLER_DIR) {
   const rules = []
-  for (const file of readdirSync(dir).filter(f => f.endsWith('.java')).sort()) {
-    const src = readFileSync(join(dir, file), 'utf8')
+  // controller/ chia gói con theo nghiệp vụ ⇒ đọc đệ quy; sắp theo tên file để bảng sinh ra không đổi thứ tự.
+  const files = readdirSync(dir, { recursive: true }).filter(f => f.endsWith('.java'))
+    .sort((a, b) => (basename(a) < basename(b) ? -1 : 1))
+  for (const rel of files) {
+    const file = basename(rel)
+    const src = readFileSync(join(dir, rel), 'utf8')
     const constants = stringConstants(src)
     const bs = blocks(src)
     const cls = bs.find(b => /\bclass\s+\w+/.test(b.decl))

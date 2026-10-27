@@ -2,12 +2,12 @@ package com.kpitracking.service.analytics;
 
 import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.stats.advanced.RankingResponses.*;
-import com.kpitracking.entity.KpiCycle;
-import com.kpitracking.entity.Organization;
-import com.kpitracking.repository.CycleUnitEvaluationRepository;
-import com.kpitracking.repository.EvaluationRepository;
-import com.kpitracking.repository.KpiCycleRepository;
-import com.kpitracking.repository.OrganizationRepository;
+import com.kpitracking.entity.kpi.KpiCycle;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.repository.evaluation.CycleUnitEvaluationRepository;
+import com.kpitracking.repository.evaluation.EvaluationRepository;
+import com.kpitracking.repository.kpi.KpiCycleRepository;
+import com.kpitracking.repository.organization.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

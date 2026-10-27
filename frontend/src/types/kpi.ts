@@ -157,6 +157,8 @@ export interface CycleCurve {
 }
 
 export interface CycleUnitEvaluation {
+  /** Yêu cầu chốt đang chờ duyệt theo quy trình "Chốt kỳ và công nhận kết quả". */
+  approval?: import('./approvalChain').ApprovalSummary | null
   /** Đơn vị gốc (không có cấp cha): khoá kết quả ở đây = khoá luôn kỳ; mở khoá = mở lại kỳ. */
   rootUnit?: boolean
   cycleStatus?: KpiCycleStatus | null

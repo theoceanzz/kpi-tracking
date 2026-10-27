@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.discussion;
 
-import com.kpitracking.enums.DiscussionTargetType;
+import com.kpitracking.enums.discussion.DiscussionTargetType;
 import lombok.*;
 
 import java.util.UUID;

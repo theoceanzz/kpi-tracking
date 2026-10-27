@@ -28,6 +28,41 @@ interface Props {
   format?: (value: number | string) => string
 }
 
+/** Chia tên theo từ thành tối đa `maxLines` dòng, mỗi dòng ≤ `max` ký tự; dư thì "…" ở dòng cuối. */
+function wrapWords(text: string, max: number, maxLines: number): string[] {
+  const lines: string[] = []
+  let cur = ''
+  for (const w of text.split(/\s+/).filter(Boolean)) {
+    const next = cur ? `${cur} ${w}` : w
+    if (next.length <= max || !cur) cur = next
+    else { lines.push(cur); cur = w }
+  }
+  if (cur) lines.push(cur)
+  const cut = (l: string) => (l.length > max ? `${l.slice(0, max - 1).trimEnd()}…` : l)
+  if (lines.length <= maxLines) return lines.map(cut)
+  const kept = lines.slice(0, maxLines)
+  kept[maxLines - 1] = `${kept[maxLines - 1]!.slice(0, max - 1).trimEnd()}…`
+  return kept.map(cut)
+}
+
+/**
+ * Nhãn hạng mục xuống dòng theo BỀ RỘNG MỖI CỘT. Khung chat K.AI hẹp mà tên hạng mục dài ("Chỉ tiêu KPI chờ duyệt")
+ * thì nhãn một dòng đè lên nhau thành một vệt chữ (07/10). Tên bị cắt vẫn đọc đủ ở tooltip SVG.
+ */
+function WrappedTick({ x, y, payload, width, visibleTicksCount }: {
+  x?: number; y?: number; payload?: { value: string | number }; width?: number; visibleTicksCount?: number
+}) {
+  const text = String(payload?.value ?? '')
+  const slot = width && visibleTicksCount ? width / visibleTicksCount : 120
+  const lines = wrapWords(text, Math.max(6, Math.floor((slot - 8) / 6.2)), 3)
+  return (
+    <text x={x} y={y} textAnchor="middle" fill={AXIS_COLORS.tick} fontSize={11} fontWeight={500}>
+      <title>{text}</title>
+      {lines.map((l, i) => <tspan key={i} x={x} dy={i === 0 ? 12 : 13}>{l}</tspan>)}
+    </text>
+  )
+}
+
 /**
  * Cột dọc đơn hoặc nhóm — kiểu so sánh cơ bản nhất giữa các hạng mục.
  *
@@ -45,6 +80,8 @@ export default function SimpleBar({
   const withValues = showValues ?? (single && data.length <= 12)
   const dim = (name: string) => highlight?.length ? !highlight.includes(name) : false
   const fmt = (v: number | string) => (format ? format(v) : `${typeof v === 'number' ? Math.round(v * 10) / 10 : v}`)
+  // Ít hạng mục: nhãn xuống dòng theo bề rộng cột. Nhiều hạng mục (cột quá hẹp để xuống dòng): xoay nghiêng.
+  const angled = data.length > 6
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -56,11 +93,11 @@ export default function SimpleBar({
           axisLine={false}
           tickLine={false}
           interval={0}
-          tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
+          tick={angled ? { fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 } : <WrappedTick />}
           // Tên đơn vị/người dài thì xoay thay vì để Recharts bỏ bớt nhãn.
-          angle={data.length > 6 ? -20 : 0}
-          textAnchor={data.length > 6 ? 'end' : 'middle'}
-          height={data.length > 6 ? 56 : 30}
+          angle={angled ? -20 : 0}
+          textAnchor={angled ? 'end' : 'middle'}
+          height={angled ? 56 : 48}
           label={xLabel ? xAxisLabel(xLabel) : undefined}
         />
         <YAxis

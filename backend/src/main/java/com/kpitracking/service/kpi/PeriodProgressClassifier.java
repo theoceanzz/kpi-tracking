@@ -1,18 +1,18 @@
 package com.kpitracking.service.kpi;
 
-import com.kpitracking.entity.Evaluation;
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.KpiPeriod;
-import com.kpitracking.entity.KpiSubmission;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.KpiFrequency;
-import com.kpitracking.enums.KpiParentRelationType;
-import com.kpitracking.enums.KpiProgressBucket;
-import com.kpitracking.enums.PeriodProgress;
-import com.kpitracking.enums.SubmissionStatus;
+import com.kpitracking.entity.evaluation.Evaluation;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.submission.KpiSubmission;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.kpi.KpiFrequency;
+import com.kpitracking.enums.kpi.KpiParentRelationType;
+import com.kpitracking.enums.kpi.KpiProgressBucket;
+import com.kpitracking.enums.kpi.PeriodProgress;
+import com.kpitracking.enums.submission.SubmissionStatus;
 import com.kpitracking.mapper.KpiCriteriaMapper;
-import com.kpitracking.repository.EvaluationRepository;
-import com.kpitracking.repository.KpiCriteriaRepository;
+import com.kpitracking.repository.evaluation.EvaluationRepository;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

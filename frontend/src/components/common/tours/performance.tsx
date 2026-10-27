@@ -3,7 +3,7 @@ import type { TourDef } from './registry'
 import { tourKit, tourTarget } from './kit'
 import { KPI_CREATE_1 } from './kpi-create'
 import { perLanguage } from '@/i18n/perLanguage'
-import { ADJ_REVIEW, CYCLE_EVAL_DIALOGS, F360_FORM, PENDING_REVIEW, STAFF_EVAL } from './forms-performance'
+import { ADJ_REVIEW, CYCLE_EVAL_DIALOGS, F360_FORM, PENDING_REVIEW, PROC_APPROVAL, STAFF_EVAL } from './forms-performance'
 
 /**
  * Hướng dẫn cho "Quản lý hiệu suất" — trang gộp và sáu mục bên trong.
@@ -84,13 +84,23 @@ const performanceTours = perLanguage((): Record<TourKey, TourDef> => ({
       s('subs.unit', tourTarget('subs.unit'), 'bottom'),
       s('subs.period', tourTarget('subs.period'), 'bottom'),
       s('subs.search', tourTarget('filter.search'), 'bottom'),
-      s('subs.aiBatch', tourTarget('subs.ai-batch'), 'bottom'),
       s('subs.aiApprove', tourTarget('subs.ai-approve'), 'bottom'),
       s('subs.aiRemind', tourTarget('subs.ai-remind'), 'bottom'),
       s('subs.table', tourTarget('subs.table'), 'top'),
       s('subs.score', tourTarget('subs.score'), 'left'),
       s('subs.viewEval', tourTarget('subs.view-eval'), 'left'),
       s('subs.next', tourTarget('subs.next'), 'top'),
+    ],
+  },
+
+  'processes/process-approvals': {
+    version: V3,
+    next: PROC_APPROVAL,
+    steps: [
+      s('procapp.stats', tourTarget('ws.stats'), 'bottom'),
+      s('procapp.list', tourTarget('procapp.list'), 'top'),
+      s('procapp.details', tourTarget('procapp.details'), 'top'),
+      s('procapp.open', tourTarget('procapp.open'), 'left'),
     ],
   },
 

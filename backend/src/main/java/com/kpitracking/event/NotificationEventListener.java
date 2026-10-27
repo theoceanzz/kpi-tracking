@@ -1,10 +1,10 @@
 package com.kpitracking.event;
 
 import com.kpitracking.i18n.LocalizedText;
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.KpiSubmission;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.SubmissionStatus;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.submission.KpiSubmission;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.submission.SubmissionStatus;
 import com.kpitracking.event.KpiEvents.KpiCriteriaApprovedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaRejectedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaApprovalRevertedEvent;
@@ -71,6 +71,13 @@ public class NotificationEventListener {
                 submitter.getFullName(), kpi.getName(), submission.getActualValue());
 
         UUID orgId = getOrgId(submission);
+        // Bài đi theo quy trình duyệt: người giữ bước đầu đã được chuỗi duyệt báo riêng — cấp duyệt
+        // gần nhất có khi không nằm trong quy trình, báo họ thì họ mở ra cũng không duyệt được.
+        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.kpi.ApprovalSubjectType.SUBMISSION,
+                submission.getId()).isPresent()) {
+            return;
+        }
+
         Set<UUID> notifiedIds = new HashSet<>();
         notifiedIds.add(submitter.getId());
 

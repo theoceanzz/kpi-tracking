@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.conduct;
 
-import com.kpitracking.enums.ConductScope;
-import com.kpitracking.enums.ConductStatus;
+import com.kpitracking.enums.conduct.ConductScope;
+import com.kpitracking.enums.conduct.ConductStatus;
 import lombok.*;
 
 import java.time.Instant;
@@ -74,5 +74,5 @@ public class ConductSheetResponse {
      * Đơn vị khoá đang ở bước nào: CALIBRATING (đã chốt dữ liệu, mở lại về nháp là sửa được)
      * hay FINALIZED (đã khoá kết quả, phải mở khoá rồi mới mở lại về nháp).
      */
-    private com.kpitracking.enums.CycleUnitEvalStatus lockStage;
+    private com.kpitracking.enums.evaluation.CycleUnitEvalStatus lockStage;
 }

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
-import { Gauge, Layers, ShieldCheck, ShieldAlert, GitBranch, Lock } from 'lucide-react'
+import { Gauge, Layers, ShieldCheck, ShieldAlert, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ChoiceChip } from '@/components/ui/choice-chip'
 import Pagination from '@/components/common/Pagination'
@@ -11,7 +11,7 @@ import {
   useBscOverview, useBscUnitAttainment, useBscItemAttainment, useBscAttainmentTrend, useBscCascadeCoverage,
   useBscRankings,
 } from '../../hooks/useAnalytics'
-import type { BscUnitAttainmentRow, BscItemRow } from '../../api/bscAnalyticsApi'
+import type { BscItemRow } from '../../api/bscAnalyticsApi'
 import type { PinnedFilter } from './pinnedWidgetRegistry'
 import { xAxisLabel, yAxisLabel } from '@/components/charts/axisLabel'
 import { SeriesTooltip } from '@/components/charts/ChartTooltip'
@@ -102,11 +102,9 @@ export function BscOverviewMetrics({ filter }: { filter?: PinnedFilter }) {
   const { t } = useTranslation('analytics')
   const scope = useBscScope(filter)
   const { data: o } = useBscOverview(scope)
-  const mode = o?.scoringMode
   const statusEntries = Object.entries(o?.unitStatusCounts ?? {})
   const active = o?.unitStatusCounts?.ACTIVE ?? 0
   const pending = o?.unitStatusCounts?.SUBMITTED ?? 0
-  const cov = o?.coverage
 
   if (o && !o.scorecardId) {
     return <EmptyState>{t('bscWidgets.aPeriod')} {o.periodName ?? t('bscWidgets.this')} {t('bscWidgets.hasNoBscScorecardYetCreate')}</EmptyState>
@@ -114,22 +112,16 @@ export function BscOverviewMetrics({ filter }: { filter?: PinnedFilter }) {
 
   return (
     <div className="flex-1 min-h-0 space-y-3">
+      {/* Huy hiệu "Chạy song song (SHADOW)" đã bỏ: đó là thuật ngữ cấu hình nội bộ (thẻ điểm đang
+          chạy thử hay đã dùng chính thức), người xem báo cáo không hiểu và cũng không làm gì được
+          với nó. `scoringMode` vẫn còn trong payload cho công cụ AI và màn hình quản lý BSC. */}
       <div className="flex flex-wrap items-center gap-2">
-        {mode && (
-          <span className={cn(
-            'inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full',
-            mode === 'SHADOW'
-              ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-              : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-          )}>
-            {mode === 'SHADOW' ? t('bscWidgets.runningInParallelShadow') : t('bscWidgets.officialOfficial')}
-          </span>
-        )}
         {o?.periodName && (
           <span className="text-xs font-medium text-slate-400">
             {t('bscWidgets.aPeriod')} {o.periodName}
             {o.scorecardName ? ` · ${o.scorecardName}` : ''}
-            {o.resultStatus === 'DRAFT' ? t('bscWidgets.draftResults') : o.achievementPercent == null ? t('bscWidgets.resultsNotComputed2') : ''}
+            {o.provisional ? t('bscWidgets.draftResults') : o.achievementPercent == null ? t('bscWidgets.resultsNotComputed2') : ''}
+            {(o.unitsProvisional ?? 0) > 0 ? ` · ${t('bscWidgets.unitsStillDraft', { count: o.unitsProvisional })}` : ''}
           </span>
         )}
       </div>
@@ -154,17 +146,13 @@ export function BscOverviewMetrics({ filter }: { filter?: PinnedFilter }) {
           </p>
           <p className={cn('text-xs font-medium', (o?.unitsGateFailed ?? 0) > 0 ? 'text-rose-500' : 'text-slate-400')}>
             {(o?.unitsGateFailed ?? 0) > 0 ? t('bscWidgets.unitsFailedTheGate', { count: o?.unitsGateFailed }) : t('bscWidgets.noUnitIsBlockedByA')}
+            {/* Đơn vị có hạng mục chặn nhưng mọi hạng mục đó chưa có %đạt — trước đây bị đếm là ĐẠT. */}
+            {(o?.unitsGateUnknown ?? 0) > 0 ? ` · ${t('bscWidgets.gateNotConcluded', { count: o?.unitsGateUnknown })}` : ''}
           </p>
         </Tile>
-        <Tile icon={<GitBranch size={22} />} label={t('bscWidgets.cascadeCoverage')}>
-          <p className="text-2xl font-semibold tabular-nums">
-            {cov?.ok ?? 0}<span className="text-base text-slate-400">/{cov?.total ?? 0}</span>
-          </p>
-          <p className="text-xs font-medium text-slate-400 truncate">
-            {[cov?.under ? t('bscWidgets.under', { under: cov.under }) : null, cov?.over ? t('bscWidgets.over', { over: cov.over }) : null, cov?.notCascaded ? t('bscWidgets.notCascaded', { notCascaded: cov.notCascaded }) : null]
-              .filter(Boolean).join(' · ') || t('bscWidgets.allKpisFullyCascaded')}
-          </p>
-        </Tile>
+        {/* Thẻ "độ phủ phân rã" đã bỏ: ô "Độ phủ phân rã chỉ tiêu" vẽ đúng bốn con số này từ cùng
+            một lời gọi, nên để ở đây là nói hai lần. Trường `coverage` vẫn còn trong payload cho
+            công cụ AI đọc. */}
       </div>
     </div>
   )
@@ -193,9 +181,16 @@ function Tile({ icon, label, tone = 'neutral', children }: {
  * Mỗi thẻ điểm dưới thẻ gốc một chấm %đạt (lollipop, sắp giảm dần), hoặc bảng giữ thứ tự cây kèm
  * trạng thái thẻ và hạng mục chặn.
  */
-export function BscUnitAttainmentWidget({ filter, variant = 'lollipop', meta }: {
+/**
+ * Mức đạt thẻ điểm của từng đơn vị.
+ *
+ * <p>`gate` thay cho ô "Đơn vị vướng hạng mục chặn" đã bỏ: ô đó gọi đúng hai endpoint này và vẽ
+ * lại tập con mà dòng phụ của mỗi chấm đã nói. Lọc ngay tại đây giữ một nguồn, một chỗ đọc.
+ */
+export function BscUnitAttainmentWidget({ filter, gate = 'ALL', meta }: {
   filter?: PinnedFilter
-  variant?: 'lollipop' | 'tree'
+  /** ALL = mọi đơn vị · FAILED = chỉ đơn vị không qua cổng chặn · NO_GATE = đơn vị không có cổng nào */
+  gate?: 'ALL' | 'FAILED' | 'NO_GATE'
   meta?: React.ReactNode
 }) {
   const { t } = useTranslation('analytics')
@@ -203,7 +198,12 @@ export function BscUnitAttainmentWidget({ filter, variant = 'lollipop', meta }: 
   const { data: rows } = useBscUnitAttainment(scope)
   const { data: overview } = useBscOverview(scope)
   const list = rows ?? []
-  const children = list.filter(r => r.depth > 0)
+  const allChildren = list.filter(r => r.depth > 0)
+  const children = useMemo(() => allChildren.filter(r => {
+    if (gate === 'FAILED') return r.gatePassed === false
+    if (gate === 'NO_GATE') return (r.gateCount ?? 0) === 0
+    return true
+  }), [allChildren, gate])
   const withResult = children.filter(r => r.achievementPercent != null)
 
   const lollipop = useMemo(() => [...withResult]
@@ -225,11 +225,9 @@ export function BscUnitAttainmentWidget({ filter, variant = 'lollipop', meta }: 
       {list.length === 0 ? (
         <EmptyState>{t('bscWidgets.noScorecardForThisPeriodYet')}</EmptyState>
       ) : children.length === 0 ? (
-        <EmptyState>{t('bscWidgets.theRootScorecardHasNotBeen')}</EmptyState>
-      ) : variant === 'tree' ? (
-        <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
-          <UnitTreeTable rows={list} />
-        </div>
+        <EmptyState>{gate === 'ALL'
+          ? t('bscWidgets.theRootScorecardHasNotBeen')
+          : t('bscWidgets.noUnitMatchesThisGateFilter')}</EmptyState>
       ) : withResult.length === 0 ? (
         <EmptyState>{t('bscWidgets.noUnitHasComputedBscResults')}</EmptyState>
       ) : (
@@ -251,54 +249,6 @@ export function BscUnitAttainmentWidget({ filter, variant = 'lollipop', meta }: 
   )
 }
 
-function UnitTreeTable({ rows }: { rows: BscUnitAttainmentRow[] }) {
-  const { t } = useTranslation('analytics')
-  return (
-    <table className="w-full text-left">
-      <thead className="bg-[var(--color-muted)] sticky top-0 z-10">
-        <tr className="text-xs font-medium text-slate-500">
-          <th className="px-3 py-3">{t('bscWidgets.scorecard')}</th>
-          <th className="px-3 py-3 whitespace-nowrap">{t('bscWidgets.status')}</th>
-          <th className="px-3 py-3 text-right whitespace-nowrap">{t('bscWidgets.achievement')}</th>
-          <th className="px-3 py-3 whitespace-nowrap">{t('bscWidgets.gateItems')}</th>
-          <th className="px-3 py-3 text-right whitespace-nowrap hidden lg:table-cell">{t('bscWidgets.kpis')}</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-[var(--color-border)]">
-        {rows.map(r => (
-          <tr key={r.scorecardId} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-            <td className="px-3 py-2.5">
-              <div className="flex items-center gap-2" style={{ paddingLeft: r.depth * 16 }}>
-                {r.depth > 0 && <span className="w-3 h-px bg-[var(--color-border)] shrink-0" aria-hidden="true" />}
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{r.orgUnitName ?? (r.level === 'COMPANY' ? t('bscWidgets.company') : r.name)}</p>
-                  <p className="text-xs text-slate-400 truncate">{r.name}</p>
-                </div>
-              </div>
-            </td>
-            <td className="px-3 py-2.5">
-              <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap', scorecardStatusMeta(r.status).badgeClass)}>
-                {scorecardStatusMeta(r.status).label}
-              </span>
-            </td>
-            <td className={cn('px-3 py-2.5 text-right text-sm font-semibold tabular-nums', attainColor(r.achievementPercent))}>
-              {r.achievementPercent == null ? <span className="text-xs font-medium text-slate-400">{t('bscWidgets.notComputed')}</span> : fmtPct(r.achievementPercent)}
-            </td>
-            <td className="px-3 py-2.5">
-              {r.gateCount === 0 ? <span className="text-xs text-slate-400">—</span>
-                : r.gatePassed == null ? <span className="text-xs text-slate-400">{r.gateCount} {t('bscWidgets.gateNotComputed')}</span>
-                : r.gatePassed ? <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600"><ShieldCheck size={13} /> {t('bscWidgets.passed')}</span>
-                : <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-600" title={r.gateFailedItems ?? ''}><ShieldAlert size={13} /> {t('bscWidgets.failed')}{r.gateFailedItems ? `: ${r.gateFailedItems}` : ''}</span>}
-            </td>
-            <td className="px-3 py-2.5 text-right text-xs text-slate-500 tabular-nums whitespace-nowrap hidden lg:table-cell">
-              {r.itemCount}{r.assignedCount ? t('bscWidgets.assignedDown', { assignedCount: r.assignedCount }) : ''}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
 
 // ── 3. Mức đạt từng chỉ tiêu (bullet) ──────────────────────────────────────
 
@@ -556,58 +506,6 @@ function CoverageTable({ items }: { items: CoverageItemResponse[] }) {
 
 // ── 6. Hạng mục chặn ──────────────────────────────────────────────────────
 
-/** Đơn vị nào đang vướng cửa chặn trong đợt, vướng ở chỉ tiêu nào. */
-export function BscGateWidget({ filter, meta }: { filter?: PinnedFilter; meta?: React.ReactNode }) {
-  const { t } = useTranslation('analytics')
-  const scope = useBscScope(filter)
-  const { data: rows } = useBscUnitAttainment(scope)
-  const { data: overview } = useBscOverview(scope)
-  const list = (rows ?? []).filter(r => r.gateCount > 0)
-  const judged = list.filter(r => r.gatePassed != null)
-  const failed = judged.filter(r => r.gatePassed === false)
-
-  return (
-    <div className="flex-1 min-h-0 flex flex-col gap-3">
-      {meta}
-      <PeriodNote periodName={overview?.periodName} resultStatus={overview?.resultStatus} hasResult={judged.length > 0} />
-      {list.length === 0 ? (
-        <EmptyState>{t('bscWidgets.scorecardsInThisScopeHaveNo')}</EmptyState>
-      ) : judged.length === 0 ? (
-        <EmptyState>{t('bscWidgets.periodResultsAreNotComputedYet')}</EmptyState>
-      ) : (
-        <>
-          <div className="flex items-center gap-3 shrink-0">
-            <div className={cn('w-11 h-11 rounded-full flex items-center justify-center shrink-0',
-              failed.length ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400')}>
-              {failed.length ? <ShieldAlert size={22} /> : <ShieldCheck size={22} />}
-            </div>
-            <div>
-              <p className="text-2xl font-semibold tabular-nums">{judged.length - failed.length}<span className="text-base text-slate-400">/{judged.length}</span></p>
-              <p className="text-xs font-medium text-slate-500">{t('bscWidgets.scorecardsPassingEveryGate')}</p>
-            </div>
-          </div>
-          <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
-            {failed.length === 0 ? (
-              <p className="text-sm text-emerald-600 font-medium">{t('bscWidgets.noUnitIsBlockedByA2')}</p>
-            ) : (
-              <ul className="divide-y divide-[var(--color-border)]">
-                {failed.map(r => (
-                  <li key={r.scorecardId} className="py-2.5 flex items-start gap-2">
-                    <ShieldAlert size={15} className="text-rose-500 mt-0.5 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{r.orgUnitName ?? r.name}</p>
-                      <p className="text-xs text-slate-500">{t('bscWidgets.failed2')} {r.gateFailedItems || t('bscWidgets.gateKpis')} {t('bscWidgets.achievement3')} {fmtPct(r.achievementPercent)}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
 
 // ── 7. Xếp hạng nhân sự (giữ lại) ──────────────────────────────────────────
 

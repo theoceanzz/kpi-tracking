@@ -1,12 +1,12 @@
 package com.kpitracking.event;
 
 import com.kpitracking.i18n.LocalizedText;
-import com.kpitracking.entity.*;
+
 import com.kpitracking.event.F360Events.*;
-import com.kpitracking.repository.F360AssignmentRepository;
-import com.kpitracking.repository.F360CampaignRepository;
-import com.kpitracking.repository.F360SubjectRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.repository.feedback360.F360AssignmentRepository;
+import com.kpitracking.repository.feedback360.F360CampaignRepository;
+import com.kpitracking.repository.feedback360.F360SubjectRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.service.notification.NotificationDispatcher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +22,12 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+import com.kpitracking.entity.feedback360.F360Assignment;
+import com.kpitracking.entity.feedback360.F360Campaign;
+import com.kpitracking.entity.feedback360.F360Subject;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
 /**
  * Thông báo của đánh giá 360.
  *

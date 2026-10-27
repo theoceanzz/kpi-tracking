@@ -4,15 +4,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.feedback360.F360HeatmapResponse;
 import com.kpitracking.dto.response.feedback360.F360ResultSnapshot;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.F360SubjectStatus;
+
+import com.kpitracking.enums.feedback360.F360SubjectStatus;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.i18n.Terms;
-import com.kpitracking.repository.F360CampaignRepository;
-import com.kpitracking.repository.F360SubjectRepository;
+import com.kpitracking.repository.feedback360.F360CampaignRepository;
+import com.kpitracking.repository.feedback360.F360SubjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
@@ -23,6 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayOutputStream;
 import java.util.*;
 
+import com.kpitracking.entity.feedback360.F360Campaign;
+import com.kpitracking.entity.feedback360.F360Subject;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.User;
 /**
  * Góc nhìn tổng hợp của một chiến dịch 360: heatmap năng lực × đơn vị, trung bình đơn vị để so trong
  * báo cáo, và xuất Excel. Mọi thứ ở đây đọc từ BẢN CHỤP đã qua ngưỡng ẩn danh — không đụng câu trả

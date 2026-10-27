@@ -1,0 +1,25 @@
+package com.kpitracking.repository.conduct;
+
+import com.kpitracking.entity.conduct.ConductEvaluation;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface ConductEvaluationRepository extends JpaRepository<ConductEvaluation, UUID> {
+
+    Optional<ConductEvaluation> findByUserIdAndKpiPeriodId(UUID userId, UUID kpiPeriodId);
+
+    Optional<ConductEvaluation> findByUserIdAndKpiCycleId(UUID userId, UUID kpiCycleId);
+
+    List<ConductEvaluation> findByKpiPeriodIdAndUserIdIn(UUID kpiPeriodId, List<UUID> userIds);
+
+    List<ConductEvaluation> findByKpiCycleIdAndUserIdIn(UUID kpiCycleId, List<UUID> userIds);
+
+    List<ConductEvaluation> findByUserIdAndKpiPeriodIdIn(UUID userId, List<UUID> kpiPeriodIds);
+
+    List<ConductEvaluation> findByUserIdInAndKpiPeriodIdIn(List<UUID> userIds, List<UUID> kpiPeriodIds);
+}

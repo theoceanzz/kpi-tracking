@@ -129,7 +129,7 @@ function report(id, title, problems, extra) {
   if (args.includes('--acceptance')) return acceptance();
   if (args.includes('--enable')) {
     const r = await call('director', 'PUT', '/ai/submission-reviews/settings',
-      { enabled: true, weightTarget: 60, weightQuality: 30, weightOnTime: 10 });
+      { enabled: true, maxPoints: 10 });
     console.log('Bật tính năng cho tổ chức demo:', r.status === 200 ? 'xong' : `HTTP ${r.status}`);
   }
 
@@ -158,8 +158,8 @@ function report(id, title, problems, extra) {
       if (!/AI gợi ý/.test(review.disclaimer || '')) problems.push('thiếu nhãn "Kết quả do AI gợi ý"');
       if (!review.items.length) problems.push('không có kết quả chỉ tiêu nào');
       for (const it of review.items) {
-        if (it.suggestedScore != null && it.weight != null && it.suggestedScore > it.weight + 1e-9) {
-          problems.push(`${it.kpiCriteriaName}: điểm ${it.suggestedScore} vượt trọng số ${it.weight}`);
+        if (it.suggestedScore != null && it.maxPoints != null && it.suggestedScore > it.maxPoints + 1e-9) {
+          problems.push(`${it.kpiCriteriaName}: điểm ${it.suggestedScore} vượt tối đa ${it.maxPoints}`);
         }
         if (it.qualityComment && !(it.evidenceQuotes || []).length) {
           problems.push(`${it.kpiCriteriaName}: nhận xét chất lượng không kèm trích dẫn`);
@@ -263,7 +263,7 @@ async function phase2(staff) {
     const problems = [];
     const unitId = sql(`select org_unit_id from user_role_org_units where user_id='${staff.id}' limit 1`);
     const put = await call('director', 'PUT', `/ai/submission-reviews/unit-settings/${unitId}`,
-      { enabled: false, weightTarget: 60, weightQuality: 30, weightOnTime: 10 });
+      { enabled: false, maxPoints: 10 });
     if (put.status !== 200) problems.push('lưu cấu hình đơn vị: HTTP ' + put.status);
     const denied = await call('head', 'POST', '/ai/submission-reviews', { kpiPeriodId: p.id, userId: staff.id });
     if (denied.status !== 403) problems.push('đơn vị tắt mà vẫn HTTP ' + denied.status + ', mong 403');

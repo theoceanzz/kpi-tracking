@@ -1,7 +1,7 @@
 package com.kpitracking.service.discussion;
 
-import com.kpitracking.enums.DiscussionTargetType;
-import com.kpitracking.repository.UserRepository;
+import com.kpitracking.enums.discussion.DiscussionTargetType;
+import com.kpitracking.repository.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -26,7 +26,7 @@ public class DiscussionSubscriptionGuard {
     private final UserRepository userRepository;
     private final DiscussionTargets targets;
     private final com.kpitracking.service.task.KpiTaskAccess taskAccess;
-    private final com.kpitracking.repository.KpiTaskRepository taskRepository;
+    private final com.kpitracking.repository.task.KpiTaskRepository taskRepository;
 
     public static boolean applies(String destination) {
         return destination != null && (destination.startsWith(PREFIX) || destination.startsWith(TASK_PREFIX));

@@ -1,10 +1,12 @@
 package com.kpitracking.service.task;
 
+import com.kpitracking.enums.task.KpiTaskAttachmentKind;
+
 import com.kpitracking.dto.request.task.*;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.task.*;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.*;
+
+
 import com.kpitracking.event.TaskEvents;
 import com.kpitracking.event.TaskListEvents;
 import com.kpitracking.exception.BusinessException;
@@ -13,7 +15,7 @@ import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.exception.StaleStateException;
 import com.kpitracking.i18n.Terms;
-import com.kpitracking.repository.*;
+
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.CloudinaryStorageService;
 import com.kpitracking.service.discussion.AttachmentLibrarySources;
@@ -36,6 +38,55 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.kpitracking.entity.access.Scope;
+import com.kpitracking.entity.kpi.KpiCriteria;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.task.KpiTask;
+import com.kpitracking.entity.task.KpiTaskAssignee;
+import com.kpitracking.entity.task.KpiTaskAttachment;
+import com.kpitracking.entity.task.KpiTaskChecklistItem;
+import com.kpitracking.entity.task.KpiTaskEvent;
+import com.kpitracking.entity.task.KpiTaskFollower;
+import com.kpitracking.entity.task.TaskDependency;
+import com.kpitracking.entity.task.TaskFieldValue;
+import com.kpitracking.entity.task.TaskList;
+import com.kpitracking.entity.task.TaskListField;
+import com.kpitracking.entity.task.TaskListItem;
+import com.kpitracking.entity.task.TaskListUserPref;
+import com.kpitracking.entity.task.TaskRecurrence;
+import com.kpitracking.entity.task.TaskSourceRef;
+import com.kpitracking.entity.task.TaskTag;
+import com.kpitracking.entity.task.TaskTagLink;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.enums.StorageProvider;
+import com.kpitracking.enums.kpi.KpiStatus;
+import com.kpitracking.enums.task.KpiTaskEventAction;
+import com.kpitracking.enums.task.KpiTaskPriority;
+import com.kpitracking.enums.task.KpiTaskStatus;
+import com.kpitracking.enums.task.KpiTaskVisibility;
+import com.kpitracking.enums.task.TaskCompletionMode;
+import com.kpitracking.enums.task.TaskFieldType;
+import com.kpitracking.enums.task.TaskListRole;
+import com.kpitracking.repository.kpi.KpiCriteriaRepository;
+import com.kpitracking.repository.task.KpiTaskAssigneeRepository;
+import com.kpitracking.repository.task.KpiTaskAttachmentRepository;
+import com.kpitracking.repository.task.KpiTaskChecklistItemRepository;
+import com.kpitracking.repository.task.KpiTaskEventRepository;
+import com.kpitracking.repository.task.KpiTaskFollowerRepository;
+import com.kpitracking.repository.task.KpiTaskReminderRepository;
+import com.kpitracking.repository.task.KpiTaskRepository;
+import com.kpitracking.repository.task.TaskDependencyRepository;
+import com.kpitracking.repository.task.TaskFieldValueRepository;
+import com.kpitracking.repository.task.TaskListFieldRepository;
+import com.kpitracking.repository.task.TaskListItemRepository;
+import com.kpitracking.repository.task.TaskListRepository;
+import com.kpitracking.repository.task.TaskListSectionRepository;
+import com.kpitracking.repository.task.TaskListUserPrefRepository;
+import com.kpitracking.repository.task.TaskTagLinkRepository;
+import com.kpitracking.repository.task.TaskTagRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 /**
  * Công việc kiểu Lark (docs/TASKS_DESIGN.md): KPI TUỲ CHỌN, nhiều người thực hiện, việc con nhiều cấp, lặp lại, hạn có
  * giờ, ngày bắt đầu, nhắc theo việc, mô tả có định dạng, danh sách, nhãn, phụ thuộc. Chỉ để theo dõi — không đổi kết quả KPI.

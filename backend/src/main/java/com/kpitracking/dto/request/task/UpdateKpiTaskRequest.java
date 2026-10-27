@@ -1,12 +1,12 @@
 package com.kpitracking.dto.request.task;
 
-import com.kpitracking.enums.KpiTaskPriority;
-import com.kpitracking.enums.KpiTaskVisibility;
+import com.kpitracking.enums.task.KpiTaskPriority;
+import com.kpitracking.enums.task.KpiTaskVisibility;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
-import com.kpitracking.entity.TaskRecurrence;
-import com.kpitracking.enums.TaskCompletionMode;
+import com.kpitracking.entity.task.TaskRecurrence;
+import com.kpitracking.enums.task.TaskCompletionMode;
 
 import java.time.LocalDate;
 import java.time.LocalTime;

@@ -1,7 +1,7 @@
 package com.kpitracking.mapper;
 
 import com.kpitracking.dto.response.userrole.UserRoleOrgUnitResponse;
-import com.kpitracking.entity.UserRoleOrgUnit;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

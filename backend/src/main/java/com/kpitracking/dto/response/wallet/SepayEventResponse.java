@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.wallet;
 
-import com.kpitracking.enums.SepayEventStatus;
+import com.kpitracking.enums.wallet.SepayEventStatus;
 import lombok.*;
 
 import java.time.Instant;

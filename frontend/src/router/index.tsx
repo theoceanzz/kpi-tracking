@@ -25,11 +25,15 @@ import EmployeePerformancePage from '@/features/dashboard/pages/EmployeePerforma
 
 import OrgUnitDetailPage from '@/features/organization/pages/OrgUnitDetailPage'
 import CompanySettingsPage from '@/features/orgunits/pages/CompanySettingsPage'
+import ApprovalProcessEditorPage from '@/features/approvalProcess/pages/ApprovalProcessEditorPage'
+import ProcessesPage from '@/features/approvalProcess/pages/ProcessesPage'
 import PerformancePage from '@/features/kpi/pages/PerformancePage'
 import MySpacePage from '@/features/profile/pages/MySpacePage'
 import KpiLinkPage from '@/features/kpi/pages/KpiLinkPage'
 import DiscussionLinkPage from '@/features/discussion/pages/DiscussionLinkPage'
 import TasksPage from '@/features/tasks/pages/TasksPage'
+import RequestsPage from '@/features/approvalForms/pages/RequestsPage'
+import FormEditorPage from '@/features/approvalForms/pages/FormEditorPage'
 import NewSubmissionPage from '@/features/submissions/pages/NewSubmissionPage'
 import SubmissionDetailPage from '@/features/submissions/pages/SubmissionDetailPage'
 import ProfilePage from '@/features/profile/pages/ProfilePage'
@@ -40,7 +44,9 @@ import DatasourceDetailPage from '@/features/datasources/pages/DatasourceDetailP
 import ReportsPage from '@/features/reports/pages/ReportsPage'
 import ReportDetailPage from '@/features/reports/pages/ReportDetailPage'
 import AnalyticsPage from '@/features/analytics/pages/AnalyticsPage'
-import AiAssistantPage from '@/features/analytics/pages/AiAssistantPage'
+import AiAssistantPage from '@/features/ai/chat/pages/AiAssistantPage'
+import PersonAnalyticsPage from '@/features/analytics/pages/PersonAnalyticsPage'
+import UnitAnalyticsPage from '@/features/analytics/pages/UnitAnalyticsPage'
 import DocumentsPage from '@/features/documents/DocumentsPage'
 import DocumentEditorPage from '@/features/documents/LazyDocumentEditorPage'
 import PublicDocumentPage from '@/features/documents/public/LazyPublicDocumentPage'
@@ -48,9 +54,6 @@ import ToolSettingsPage from '@/features/orgunits/pages/ToolSettingsPage'
 
 import DashboardPage from '@/features/dashboard/pages/DashboardPage'
 import ErrorPage from '@/features/errors/pages/ErrorPage'
-import KpiSetupLayout from '@/features/kpi/setup/KpiSetupLayout'
-import FlowPicker from '@/features/kpi/setup/FlowPicker'
-import StepRouter from '@/features/kpi/setup/StepRouter'
 import PlatformAdminPage from '@/features/platformAdmin/pages/PlatformAdminPage'
 
 export const router = createBrowserRouter([
@@ -101,39 +104,15 @@ export const router = createBrowserRouter([
       // header, thanh tiến trình hay bong bóng chat — giống một trang thanh toán.
       // Path con phải TƯƠNG ĐỐI: đây là chỗ duy nhất trong file có cha mang path, và React Router
       // ném lỗi nếu con dùng đường dẫn tuyệt đối dưới một cha như vậy.
-      {
-        // Hợp của `requiresAny` trên mọi luồng trong `setup/flows.ts`. Chỉ chặn người không có
-        // phần nào trong quy trình KPI; ai vào được thì màn chọn luồng tự lọc tiếp theo quyền.
-        element: (
-          <PermissionRoute
-            permission={[
-              'KPI_PERIOD:CREATE', 'KPI:CREATE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT',
-              'SUBMISSION:CREATE', 'KPI:VIEW_MY', 'SUBMISSION:REVIEW', 'EVALUATION:CREATE', 'CYCLE_EVAL:FINALIZE',
-            ]}
-          />
-        ),
-        children: [
-          {
-            path: '/kpi-setup',
-            element: <KpiSetupLayout />,
-            children: [
-              // Danh sách bước suy ra từ quyền + cấu hình tổ chức lúc chạy, nên router không thể
-              // khai sẵn từng bước. Một route động, `StepRouter` chọn component.
-              { index: true, element: <FlowPicker /> },
-              { path: ':flowId/:stepId', element: <StepRouter /> },
-            ],
-          },
-        ],
-      },
+      // Trình sửa đơn từ: toàn màn hình như Lark (palette + khung điện thoại + thiết lập cần cả bề ngang). Quyền
+      // (APPROVAL_FORM:MANAGE hoặc người quản lý của đơn) do backend kiểm theo từng đơn.
+      { path: '/requests/admin/forms/new', element: <FormEditorPage /> },
+      { path: '/requests/admin/forms/:id', element: <FormEditorPage /> },
       {
         element: <AppLayout />,
         children: [
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/profile', element: <ProfilePage /> },
-
-          // Trang cũ giờ là một mục trong Thiết lập công ty; giữ đường dẫn để liên kết và
-          // dấu trang cũ không chết.
-          { path: '/kpi-workflow', element: <RedirectToSection to="/company" params={{ section: 'kpi-workflow' }} /> },
 
           // Vận hành KPI gom về một trang; cổng route là phép HOẶC của năm quyền, còn
           // từng mục bên trong tự lọc lại theo đúng quyền cũ của nó.
@@ -185,6 +164,19 @@ export const router = createBrowserRouter([
             ],
           },
 
+          // Quy trình duyệt: trang sửa riêng (khung vẽ cần cả màn hình). Cùng phép HOẶC với mục
+          // "Quản lý quy trình" trong trang Quy trình; thiếu WORKFLOW:MANAGE thì trang chỉ xem.
+          // /company/... là đường cũ, giữ cho link đã lưu.
+          {
+            element: <PermissionRoute permission={['WORKFLOW:MANAGE', 'COMPANY:UPDATE']} />,
+            children: [
+              { path: '/processes/approval-processes/new', element: <ApprovalProcessEditorPage /> },
+              { path: '/processes/approval-processes/:id', element: <ApprovalProcessEditorPage /> },
+              { path: '/company/approval-processes/new', element: <ApprovalProcessEditorPage /> },
+              { path: '/company/approval-processes/:id', element: <ApprovalProcessEditorPage /> },
+            ],
+          },
+
           // Admin / HR Management (Strict)
           {
             element: <PermissionRoute permission={['ORG:VIEW', 'USER:VIEW', 'ROLE:VIEW']} requireAll={true} />,
@@ -215,10 +207,12 @@ export const router = createBrowserRouter([
           { path: '/datasources/:id', element: <DatasourceDetailPage /> },
           { path: '/reports', element: <ReportsPage /> },
           { path: '/reports/:id', element: <ReportDetailPage /> },
-          // Tab nằm ở đoạn đường dẫn chứ không ở query param: nhờ vậy Back/Forward đi qua lại giữa
-          // các tab thay vì văng thẳng ra khỏi trang. Đoạn tuỳ chọn `?` cho phép `/analytics` trống
-          // khớp cùng một route — tách thành hai mục sẽ làm trang gắn lại ở lần chuyển hướng đầu.
-          { path: '/analytics/:tab?', element: <AnalyticsPage /> },
+          // Thống kê gộp về MỘT trang: không còn tab nào nên đoạn `:tab?` cũ (vốn đã chết — trang
+          // chưa bao giờ đọc tới nó) cũng đi theo.
+          { path: '/analytics', element: <AnalyticsPage /> },
+          // Bấm một hàng trên bảng xếp hạng thì tới đây.
+          { path: '/analytics/person/:userId', element: <PersonAnalyticsPage /> },
+          { path: '/analytics/unit/:orgUnitId', element: <UnitAnalyticsPage /> },
           // Link cũ của BSC (Dashboard và Bản đồ chiến lược đã bỏ). Đứng ngoài nhóm Thiết lập công cụ:
           // người chỉ có quyền xem BSC được đưa về "BSC của tôi" thay vì trang 403.
           { path: '/bsc', element: <BscLegacyRedirect /> },
@@ -255,6 +249,10 @@ export const router = createBrowserRouter([
           { path: '/kpi/:id', element: <KpiLinkPage /> },
           // Quyền theo từng việc do backend quyết (KpiTaskAccess) — không gác ở route.
           { path: '/tasks', element: <TasksPage /> },
+          // Đơn từ: quyền theo từng đơn do backend quyết — không gác ở route.
+          { path: '/requests', element: <RequestsPage /> },
+          // Quy trình: mục nào hiện do quyền của từng mục (SettingsSectionLayout), không gác ở route.
+          { path: '/processes', element: <ProcessesPage /> },
           { path: '/discussions/c/:commentId', element: <DiscussionLinkPage /> },
         ],
       },

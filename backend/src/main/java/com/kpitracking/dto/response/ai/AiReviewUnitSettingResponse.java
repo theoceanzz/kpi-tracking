@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 
-/** Cấu hình AI đánh giá riêng của một đơn vị (áp cả cho các đơn vị con không có cấu hình riêng). */
+/** Đơn vị tắt AI đánh giá bài nộp (áp cả cho các đơn vị con không có cấu hình riêng). */
 @Data
 @Builder
 @NoArgsConstructor
@@ -16,7 +16,4 @@ public class AiReviewUnitSettingResponse {
     private UUID orgUnitId;
     private String orgUnitName;
     private Boolean enabled;
-    private Integer weightTarget;
-    private Integer weightQuality;
-    private Integer weightOnTime;
 }

@@ -5,8 +5,8 @@ import com.kpitracking.dto.response.task.KpiTaskEventResponse;
 import com.kpitracking.dto.response.task.KpiTaskResponse;
 import com.kpitracking.dto.response.task.TaskFollowerRemovalResponse;
 import com.kpitracking.dto.response.task.TaskListResponses;
-import com.kpitracking.entity.TaskRecurrence;
-import com.kpitracking.enums.*;
+import com.kpitracking.entity.task.TaskRecurrence;
+
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.service.CollabITSupport;
 import org.junit.jupiter.api.AfterEach;
@@ -22,6 +22,12 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.kpitracking.enums.task.KpiTaskEventAction;
+import com.kpitracking.enums.task.KpiTaskStatus;
+import com.kpitracking.enums.task.KpiTaskVisibility;
+import com.kpitracking.enums.task.TaskCompletionMode;
+import com.kpitracking.enums.task.TaskFieldType;
+import com.kpitracking.enums.task.TaskListRole;
 /**
  * Công việc kiểu Lark đầy đủ (V42, docs/TASKS_DESIGN.md) trên PostgreSQL THẬT: KPI tuỳ chọn và các ĐƯỜNG LÁCH LUẬT khi
  * gắn / gỡ KPI, nhiều người thực hiện, từ chối, tab Đơn vị, danh sách (lọc không cấp quyền), trường tuỳ chỉnh, phụ thuộc,

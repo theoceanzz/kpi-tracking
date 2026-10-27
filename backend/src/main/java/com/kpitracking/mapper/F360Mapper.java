@@ -4,13 +4,19 @@ import com.kpitracking.dto.response.feedback360.F360AssignmentRowResponse;
 import com.kpitracking.dto.response.feedback360.F360CampaignResponse;
 import com.kpitracking.dto.response.feedback360.F360EventResponse;
 import com.kpitracking.dto.response.feedback360.F360TemplateResponse;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.F360Relationship;
+
+import com.kpitracking.enums.feedback360.F360Relationship;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 import java.util.List;
 
+import com.kpitracking.entity.feedback360.F360Assignment;
+import com.kpitracking.entity.feedback360.F360Campaign;
+import com.kpitracking.entity.feedback360.F360Competency;
+import com.kpitracking.entity.feedback360.F360Event;
+import com.kpitracking.entity.feedback360.F360Question;
+import com.kpitracking.entity.feedback360.F360Template;
 /**
  * Ánh xạ entity 360 → DTO. Chỉ các phần thuần chép trường; con số tổng hợp (tiến độ, điểm) do
  * service đặt thêm sau khi map.

@@ -5,14 +5,26 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/** Cấu hình AI đánh giá bài nộp của tổ chức. */
+import java.math.BigDecimal;
+import java.util.List;
+
+/** Cấu hình AI đánh giá bài nộp của tổ chức: cờ bật/tắt + thang điểm AI (xếp theo điểm tăng dần). */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class AiReviewSettingsResponse {
     private Boolean enabled;
-    private Integer weightTarget;
-    private Integer weightQuality;
-    private Integer weightOnTime;
+    private List<Level> levels;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Level {
+        private String name;
+        private BigDecimal points;
+        private String color;
+        private String description;
+    }
 }

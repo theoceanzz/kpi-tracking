@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.reward;
 
-import com.kpitracking.enums.RedemptionStatus;
+import com.kpitracking.enums.reward.RedemptionStatus;
 import lombok.Builder;
 import lombok.Data;
 
@@ -58,4 +58,7 @@ public class RedemptionResponse {
 
     /** Điều kiện sử dụng (HTML) chụp lại lúc nhập quà — UrBox bắt buộc hiển thị. */
     private String giftTerms;
+
+    /** Đang chờ duyệt theo quy trình "Duyệt đổi quà": bước hiện tại, tính cho người xem. */
+    private com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse approval;
 }

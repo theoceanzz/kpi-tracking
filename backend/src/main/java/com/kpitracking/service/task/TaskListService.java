@@ -5,15 +5,15 @@ import com.kpitracking.dto.request.task.CreateKpiTaskRequest;
 import com.kpitracking.dto.request.task.TaskListRequests;
 import com.kpitracking.dto.response.task.KpiTaskResponse;
 import com.kpitracking.dto.response.task.TaskListResponses;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.*;
+
+
 import com.kpitracking.event.TaskEvents;
 import com.kpitracking.event.TaskListEvents;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.mapper.TaskListMapper;
-import com.kpitracking.repository.*;
+
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.kpi.KpiAccessPolicy;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +28,43 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.kpitracking.entity.access.Scope;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.task.KpiTask;
+import com.kpitracking.entity.task.KpiTaskAssignee;
+import com.kpitracking.entity.task.KpiTaskChecklistItem;
+import com.kpitracking.entity.task.TaskList;
+import com.kpitracking.entity.task.TaskListAutomation;
+import com.kpitracking.entity.task.TaskListField;
+import com.kpitracking.entity.task.TaskListItem;
+import com.kpitracking.entity.task.TaskListMember;
+import com.kpitracking.entity.task.TaskListSection;
+import com.kpitracking.entity.task.TaskListTemplate;
+import com.kpitracking.entity.task.TaskListUserPref;
+import com.kpitracking.entity.task.TaskRecurrence;
+import com.kpitracking.entity.task.TaskSavedView;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.task.KpiTaskEventAction;
+import com.kpitracking.enums.task.KpiTaskPriority;
+import com.kpitracking.enums.task.KpiTaskStatus;
+import com.kpitracking.enums.task.TaskFieldType;
+import com.kpitracking.enums.task.TaskListRole;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.task.KpiTaskAssigneeRepository;
+import com.kpitracking.repository.task.KpiTaskChecklistItemRepository;
+import com.kpitracking.repository.task.KpiTaskRepository;
+import com.kpitracking.repository.task.TaskFieldValueRepository;
+import com.kpitracking.repository.task.TaskListAutomationRepository;
+import com.kpitracking.repository.task.TaskListFieldRepository;
+import com.kpitracking.repository.task.TaskListItemRepository;
+import com.kpitracking.repository.task.TaskListMemberRepository;
+import com.kpitracking.repository.task.TaskListRepository;
+import com.kpitracking.repository.task.TaskListSectionRepository;
+import com.kpitracking.repository.task.TaskListTemplateRepository;
+import com.kpitracking.repository.task.TaskListUserPrefRepository;
+import com.kpitracking.repository.task.TaskSavedViewRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 /**
  * Danh sách công việc kiểu Lark (docs/TASKS_DESIGN.md §4, §8, §9): thành viên (người / đơn vị), nhóm, việc trong danh
  * sách (nhóm + thứ tự gắn với CẶP việc–danh sách), trường tuỳ chỉnh, chế độ xem đã lưu, mẫu, tự động hoá, thống kê.

@@ -1,10 +1,10 @@
 package com.kpitracking.dto.response.bsc;
 
-import com.kpitracking.enums.BscEmptyPerspectivePolicy;
-import com.kpitracking.enums.BscScorecardApplyScope;
-import com.kpitracking.enums.BscScorecardLevel;
-import com.kpitracking.enums.BscScorecardStatus;
-import com.kpitracking.enums.BscScoringMode;
+import com.kpitracking.enums.bsc.BscEmptyPerspectivePolicy;
+import com.kpitracking.enums.bsc.BscScorecardApplyScope;
+import com.kpitracking.enums.bsc.BscScorecardLevel;
+import com.kpitracking.enums.bsc.BscScorecardStatus;
+import com.kpitracking.enums.bsc.BscScoringMode;
 import lombok.*;
 
 import java.time.Instant;
@@ -40,4 +40,8 @@ public class ScorecardResponse {
     private Double totalWeight;
     private Instant createdAt;
     private Instant updatedAt;
+    /** Đang chờ duyệt theo quy trình "Lập và phê duyệt thẻ điểm": bước hiện tại, tính cho người xem. */
+    private com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse approval;
+    /** Tổ chức đang bật quy trình "Lập và phê duyệt thẻ điểm" — thẻ nháp phải trình, không duyệt thẳng. */
+    private boolean approvalProcessActive;
 }

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { FileText } from 'lucide-react'
-import type { DocumentSource } from '@/features/analytics/api/aiApi'
+import type { DocumentSource } from '@/features/ai/chat/api/aiApi'
 
 /** Tab của trang Tài liệu chứa tài liệu thuộc phạm vi này. */
 const TAB_OF: Record<string, string> = { PERSONAL: 'mine', UNIT: 'unit', COMPANY: 'company' }

@@ -1,6 +1,6 @@
 package com.kpitracking.util;
 
-import com.kpitracking.enums.F360Relationship;
+import com.kpitracking.enums.feedback360.F360Relationship;
 
 import java.util.Arrays;
 import java.util.List;

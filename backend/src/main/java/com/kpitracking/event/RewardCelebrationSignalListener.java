@@ -1,13 +1,13 @@
 package com.kpitracking.event;
 
-import com.kpitracking.entity.RewardGrantItem;
-import com.kpitracking.entity.RewardProgramRunItem;
-import com.kpitracking.entity.RewardRedemption;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.RedemptionStatus;
-import com.kpitracking.repository.RewardGrantItemRepository;
-import com.kpitracking.repository.RewardProgramRunItemRepository;
-import com.kpitracking.repository.RewardRedemptionRepository;
+import com.kpitracking.entity.reward.RewardGrantItem;
+import com.kpitracking.entity.reward.RewardProgramRunItem;
+import com.kpitracking.entity.reward.RewardRedemption;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.reward.RedemptionStatus;
+import com.kpitracking.repository.reward.RewardGrantItemRepository;
+import com.kpitracking.repository.reward.RewardProgramRunItemRepository;
+import com.kpitracking.repository.reward.RewardRedemptionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;

@@ -1,8 +1,8 @@
 package com.kpitracking.dto.request.bsc;
 
-import com.kpitracking.enums.BscGateEffect;
-import com.kpitracking.enums.BscGateScope;
-import com.kpitracking.enums.BscMeasurementSource;
+import com.kpitracking.enums.bsc.BscGateEffect;
+import com.kpitracking.enums.bsc.BscGateScope;
+import com.kpitracking.enums.bsc.BscMeasurementSource;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 

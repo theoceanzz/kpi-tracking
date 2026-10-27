@@ -2,14 +2,14 @@ package com.kpitracking.service.task;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kpitracking.entity.*;
-import com.kpitracking.enums.KpiTaskEventAction;
-import com.kpitracking.enums.KpiTaskPriority;
-import com.kpitracking.enums.KpiTaskStatus;
-import com.kpitracking.enums.TaskListRole;
+
+import com.kpitracking.enums.task.KpiTaskEventAction;
+import com.kpitracking.enums.task.KpiTaskPriority;
+import com.kpitracking.enums.task.KpiTaskStatus;
+import com.kpitracking.enums.task.TaskListRole;
 import com.kpitracking.event.TaskListEvents;
 import com.kpitracking.i18n.LocalizedText;
-import com.kpitracking.repository.*;
+
 import com.kpitracking.service.notification.NotificationDispatcher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +22,23 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import java.time.Instant;
 import java.util.*;
 
+import com.kpitracking.entity.access.Scope;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.task.KpiTask;
+import com.kpitracking.entity.task.TaskFieldValue;
+import com.kpitracking.entity.task.TaskList;
+import com.kpitracking.entity.task.TaskListAutomation;
+import com.kpitracking.entity.task.TaskListItem;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.task.KpiTaskAssigneeRepository;
+import com.kpitracking.repository.task.KpiTaskRepository;
+import com.kpitracking.repository.task.TaskFieldValueRepository;
+import com.kpitracking.repository.task.TaskListAutomationRepository;
+import com.kpitracking.repository.task.TaskListItemRepository;
+import com.kpitracking.repository.task.TaskListRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 /**
  * Chạy luật tự động hoá của danh sách công việc ({@link TaskAutomationRule}) SAU COMMIT, mỗi lượt một transaction riêng.
  *

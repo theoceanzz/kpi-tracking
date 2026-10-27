@@ -1,7 +1,7 @@
 package com.kpitracking.security;
 
-import com.kpitracking.entity.User;
-import com.kpitracking.repository.UserRepository;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.repository.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -48,7 +48,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         return new AppUserPrincipal(
                 user.getEmail(),
                 user.getPassword(),
-                user.getStatus() == com.kpitracking.enums.UserStatus.ACTIVE,
+                user.getStatus() == com.kpitracking.enums.user.UserStatus.ACTIVE,
                 authorities,
                 user.getId(),
                 // Tổ chức của vai trò đầu tiên — chỉ để ghi MDC/log, không dùng cho phân quyền.

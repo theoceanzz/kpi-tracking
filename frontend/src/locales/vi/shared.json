@@ -540,9 +540,6 @@
       },
       "ai-docs": {
         "b": "Tài liệu nội bộ để K.AI đọc khi trả lời câu hỏi về công ty."
-      },
-      "kpi-workflow": {
-        "b": "Bật tắt các bước trong luồng KPI của tổ chức, xem dưới dạng sơ đồ."
       }
     },
     "info": {
@@ -801,36 +798,6 @@
       "open": {
         "t": "Mở thư viện",
         "b": "Sang trang Tài liệu, phạm vi Công ty, để thêm hoặc sửa tài liệu."
-      }
-    },
-    "workflow": {
-      "org": {
-        "t": "Luồng của tổ chức",
-        "b": "Áp dụng cho mọi người. Không có quyền cấu hình thì vẫn xem được luồng đang chạy."
-      },
-      "graph": {
-        "t": "Sơ đồ luồng",
-        "b": "Mỗi nút là một bước. Bấm một nút để xem chi tiết và bật tắt; bước lõi không tắt được."
-      },
-      "reset": {
-        "t": "Đặt lại mặc định",
-        "b": "Đưa luồng về cấu hình gốc của hệ thống."
-      },
-      "save": {
-        "t": "Lưu thay đổi",
-        "b": "Chỉ lưu được khi không còn cảnh báo phụ thuộc giữa các bước."
-      },
-      "fullscreen": {
-        "t": "Toàn màn hình",
-        "b": "Mở sơ đồ rộng hết màn hình; bấm Esc để thoát."
-      },
-      "mine": {
-        "t": "Hiển thị của tôi",
-        "b": "Ẩn bớt bước khỏi màn hình của riêng bạn. Không đổi gì với người khác."
-      },
-      "mineToggle": {
-        "t": "Ẩn hoặc hiện một bước",
-        "b": "Bấm để ẩn bước này khỏi màn hình của bạn, bấm lại để hiện."
       }
     }
   },
@@ -1355,8 +1322,8 @@
         "b": "Tắt thì nút nhờ AI biến mất khỏi màn chấm của mọi người."
       },
       "weights": {
-        "t": "Trọng số điểm gợi ý",
-        "b": "Điểm gợi ý ghép từ nhiều phần; chỉnh tỉ trọng từng phần ở đây."
+        "t": "Thang điểm AI",
+        "b": "Các mức AI chọn khi chấm chất lượng bài nộp; điểm AI là điểm của mức."
       },
       "save": {
         "t": "Lưu",
@@ -1399,6 +1366,9 @@
       },
       "feedback360": {
         "b": "Chiến dịch lấy ý kiến cấp trên, đồng nghiệp và cấp dưới về từng người."
+      },
+      "process-approvals": {
+        "b": "Mọi yêu cầu đang chờ đúng bạn duyệt theo quy trình: báo cáo kết quả, đánh giá đợt, chốt kỳ… Bắt đầu ngày làm việc ở đây."
       }
     },
     "criteria": {
@@ -1556,10 +1526,6 @@
         "t": "Tìm nhân sự",
         "b": "Gõ tên để tìm nhanh."
       },
-      "aiBatch": {
-        "t": "Nhờ AI xem trước cả đơn vị",
-        "b": "AI đọc trước bài nộp của mọi người bạn chấm được, chạy nền; lúc chấm sẽ có sẵn điểm gợi ý."
-      },
       "aiApprove": {
         "t": "Duyệt bằng K.AI",
         "b": "K.AI rà bài nộp đang chờ và đề xuất điểm để bạn xác nhận."
@@ -1635,6 +1601,24 @@
       "list": {
         "t": "Danh sách chiến dịch",
         "b": "Mỗi thẻ cho biết hạn và số phiếu đã nộp. Phiếu đồng nghiệp và cấp dưới được ẩn danh."
+      }
+    },
+    "procapp": {
+      "stats": {
+        "t": "Đang chờ bạn",
+        "b": "Số yêu cầu đang ở bước của bạn."
+      },
+      "list": {
+        "t": "Danh sách chờ duyệt",
+        "b": "Cũ nhất ở trên. Mỗi dòng ghi loại yêu cầu, người gửi và bạn đang ở bước mấy."
+      },
+      "details": {
+        "t": "Nội dung đề xuất",
+        "b": "Đánh giá đợt và chốt kỳ hiện đủ số liệu ngay tại đây — đọc là quyết được."
+      },
+      "open": {
+        "t": "Duyệt",
+        "b": "Đề xuất duyệt ngay trong hộp; bài nộp, chỉ tiêu, điều chỉnh mở màn riêng để chấm hoặc so chỉ tiêu."
       }
     }
   },
@@ -3382,6 +3366,25 @@
         "t": "Cần một danh sách bạn sửa được",
         "b": "Việc nhập từ Excel đi vào một danh sách mà bạn là chủ hoặc được sửa. Bạn chưa có danh sách như vậy: tạo một danh sách bằng nút + cạnh \"Danh sách\" ở cột trái, rồi chạy lại bài này."
       }
+    },
+    "procApproval": {
+      "title": "Duyệt một đề xuất theo quy trình",
+      "dialog": {
+        "t": "Hộp duyệt",
+        "b": "Đầu hộp ghi bạn là bước giữa (duyệt sẽ chuyển tiếp) hay bước cuối (duyệt là có hiệu lực)."
+      },
+      "comment": {
+        "t": "Nhận xét / lý do",
+        "b": "Nhận xét tuỳ chọn khi duyệt; từ chối thì bắt buộc ghi lý do."
+      },
+      "reject": {
+        "t": "Từ chối",
+        "b": "Từ chối ở bước nào cũng kết thúc quy trình và báo người gửi kèm lý do."
+      },
+      "approve": {
+        "t": "Duyệt",
+        "b": "Bước cuối duyệt xong, hệ thống kiểm lại dữ liệu rồi mới ghi điểm / chốt kỳ."
+      }
     }
   },
   "EditorToolbar": {
@@ -3475,5 +3478,50 @@
     "finalized": "BSC đơn vị {{percent}}% (đã chốt)",
     "projected": "Khung dự kiến: \"{{band}}\" — BSC đơn vị {{percent}}%, chưa chốt. Đang kiểm theo khung mặc định; khung đổi khi chốt xong BSC.",
     "thresholds": "Vượt ≥ {{exceed}}% · Đạt {{meet}}–dưới {{exceed}}% · Chưa đạt < {{meet}}% (điểm BSC đơn vị sau trần)"
+  },
+  "tourRequests": {
+    "intro": {
+      "t": "Đơn từ",
+      "b": "Nộp đơn nghỉ phép, thanh toán, mua sắm… và theo dõi đơn đến khi được duyệt."
+    },
+    "tabs": {
+      "t": "Ba tab",
+      "b": "Nộp đơn, Trạng thái đơn (đơn chờ bạn duyệt, đơn bạn đã nộp) và Quản trị đơn từ nếu bạn quản lý đơn."
+    },
+    "search": {
+      "t": "Tìm đơn",
+      "b": "Gõ tên đơn hoặc tên nhóm để lọc nhanh."
+    },
+    "groups": {
+      "t": "Nhóm đơn",
+      "b": "Bấm một nhóm để cuộn tới các đơn của nhóm đó."
+    },
+    "forms": {
+      "t": "Chọn đơn",
+      "b": "Bấm một thẻ để mở đơn và điền."
+    },
+    "form": {
+      "title": "Nộp một đơn",
+      "open": {
+        "t": "Mở đơn",
+        "b": "Bấm vào một thẻ đơn để mở hộp nộp đơn."
+      },
+      "dialog": {
+        "t": "Điền đơn",
+        "b": "Trường có dấu * là bắt buộc. Có trường chỉ hiện khi bạn chọn một phương án ở phía trên. Bản nháp được giữ trên máy."
+      },
+      "flow": {
+        "t": "Người duyệt",
+        "b": "Các bước duyệt tự tính theo nội dung bạn điền — ví dụ số tiền lớn có thể thêm một cấp duyệt."
+      },
+      "send": {
+        "t": "Nộp",
+        "b": "Nộp xong, theo dõi đơn ở tab Trạng thái đơn. Đơn còn chờ duyệt thì rút được."
+      }
+    },
+    "ai": {
+      "t": "Tạo đơn bằng K.AI",
+      "b": "Nói K.AI bạn cần làm đơn gì (nghỉ phép, thanh toán…). K.AI chọn mẫu và điền sẵn, bạn xem lại rồi tự bấm Nộp."
+    }
   }
 }

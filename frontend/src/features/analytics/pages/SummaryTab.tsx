@@ -1,3 +1,7 @@
+/* eslint-disable react-refresh/only-export-components --
+   Một CỤM Ô = khai báo ô (danh sách, nhóm, mô tả) + bộ vẽ ra chúng. Tách đôi để chiều quy tắc
+   fast-refresh thì mỗi cụm nằm ở hai tệp và sửa một ô phải mở cả hai; cái giá thật ở đây chỉ là
+   tải lại cả trang thay vì nóng khi sửa tệp này lúc phát triển. */
 import { useCallback, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSummaryStats, useSummaryRankings } from '../hooks/useAnalytics'
@@ -11,7 +15,6 @@ import {
   ChevronRight, Medal, ArrowUpRight, ArrowDownRight,
   ChevronDown, Filter, ArrowUpDown, MousePointerClick,
 } from 'lucide-react'
-import AnalyticsTabSkeleton from '@/components/common/AnalyticsTabSkeleton'
 import type { RankingItem } from '@/types/stats'
 import { useNavigate } from 'react-router-dom'
 import Lollipop from '@/components/charts/primitives/Lollipop'
@@ -36,25 +39,17 @@ import { orgUnitKpiApi } from '@/features/dashboard/api/orgUnitKpiApi'
 import OrgUnitKpiDrawer from '../components/OrgUnitKpiDrawer'
 import { usePerformanceScale } from '../hooks/usePerformanceScale'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
-import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
-import {
-  useAnalyticsGrid, useAnalyticsScopeData, useUnitOptions, usePositionLayout, widgetFilter, widgetUnit, widgetVariant,
-  tableViewControl, optionOf, PAGE_DEFAULT_INTENT,
-} from '../grid/analyticsGrid'
+import { widgetFilter, widgetUnit, widgetVariant, tableViewControl, optionOf } from '../grid/analyticsGrid'
+import type { WidgetPackProps } from '../grid/widgetPack'
+import WidgetConfigSummary from '../grid/WidgetConfigSummary'
 import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
 import { UnitKpiMetrics } from '../components/pinned/metricWidgets'
-import { usePinToHome } from '../grid/usePinToHome'
-import WidgetConfigPanel from '../grid/WidgetConfigPanel'
-import WidgetConfigSummary from '../grid/WidgetConfigSummary'
-import AiShortcutButton from '../components/AiShortcutButton'
-import { aiShortcuts } from '../aiShortcuts'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
-import { tourAnchor } from '@/components/common/tours/anchors'
 
 /** Tên "report ẩn" của kho cũ — chỉ còn dùng để vớt bố cục một lần. */
-const LEGACY_REPORT_NAME = '__SUMMARY_DASHBOARD_CONFIG__'
+export const SUMMARY_LEGACY_REPORT_NAME = '__SUMMARY_DASHBOARD_CONFIG__'
 
 
 // Biểu đồ phân bổ lấy TRỌN một kỳ chứ không phân trang. Trần này chỉ để chặn một tổ chức bất
@@ -71,7 +66,7 @@ const ALL_UNITS = '__ALL__'
 
 type SummaryWidget = DashboardWidget
 
-const DEFAULT_SUMMARY_WIDGETS = perLanguage((): SummaryWidget[] => ([
+export const SUMMARY_WIDGETS = perLanguage((): SummaryWidget[] => ([
   // Hàng thẻ chỉ số từng nằm NGOÀI lưới, bám hai bộ chọn (đơn vị, khoảng thời gian) trên đầu trang.
   // Hai bộ chọn đó nay nằm trong bảng cấu hình của từng ô, nên hàng thẻ cũng phải là một ô — cùng id
   // với danh mục trang chủ để ghim được ngay.
@@ -101,7 +96,7 @@ const DEFAULT_SUMMARY_WIDGETS = perLanguage((): SummaryWidget[] => ([
  * choáng: ban giám đốc cần so đơn vị và nhìn phân phối, trưởng đơn vị cần từng KPI và từng
  * người, phó đơn vị chỉ phụ trách một mảng nên gọn nhất. Ô còn lại vẫn nằm trong thư viện.
  */
-const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
+export const SUMMARY_POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
   DIRECTOR: ['unit-kpi-metrics', 'trend-chart', 'unit-perf', 'rank-table', 'score-histogram'],
   HEAD: ['unit-kpi-metrics', 'trend-chart', 'kpi-detail', 'rank-table', 'self-vs-manager'],
   DEPUTY: ['unit-kpi-metrics', 'kpi-detail', 'rank-table'],
@@ -120,7 +115,7 @@ const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
  * enum sẵn có. Khi tải lên, loại thật suy lại từ `chartConfig.i` nên giá trị lưu không ảnh hưởng
  * hiển thị — nhờ vậy thêm biểu đồ mới không cần migration DB.
  */
-const GROUP_OF = perLanguage((): Record<string, string> => ({
+export const SUMMARY_GROUP_OF = perLanguage((): Record<string, string> => ({
   'unit-kpi-metrics': i18n.t('analytics:SummaryTab.figures'),
   'trend-chart': i18n.t('analytics:SummaryTab.trendCharts'),
   'unit-perf': i18n.t('analytics:SummaryTab.comparisonCharts'),
@@ -130,7 +125,7 @@ const GROUP_OF = perLanguage((): Record<string, string> => ({
   'score-histogram': i18n.t('analytics:SummaryTab.distributionCharts'),
   'rank-table': i18n.t('analytics:SummaryTab.rankingCharts'),
 }))
-const PREVIEW_OF: Record<string, 'line' | 'groupedBar' | 'treemap' | 'stackedBar' | 'histogram' | 'lollipop' | 'metricCard'> = {
+export const SUMMARY_PREVIEW_OF: Record<string, 'line' | 'groupedBar' | 'treemap' | 'stackedBar' | 'histogram' | 'lollipop' | 'metricCard'> = {
   'unit-kpi-metrics': 'metricCard',
   'trend-chart': 'line',
   'unit-perf': 'groupedBar',
@@ -140,7 +135,7 @@ const PREVIEW_OF: Record<string, 'line' | 'groupedBar' | 'treemap' | 'stackedBar
   'score-histogram': 'histogram',
   'rank-table': 'lollipop',
 }
-const DESC_OF = perLanguage((): Record<string, string> => ({
+export const SUMMARY_DESC_OF = perLanguage((): Record<string, string> => ({
   'unit-kpi-metrics': i18n.t('analytics:SummaryTab.aRowOfFiguresProgressPerformance'),
   'trend-chart': i18n.t('analytics:SummaryTab.isTheUnitGoingUpOr'),
   'unit-perf': i18n.t('analytics:SummaryTab.childUnitsSideBySideOn'),
@@ -150,35 +145,19 @@ const DESC_OF = perLanguage((): Record<string, string> => ({
   'score-histogram': i18n.t('analytics:SummaryTab.whereEvaluationScoresInTheUnit'),
   'self-vs-manager': i18n.t('analytics:SummaryTab.theGapBetweenMembersSelfAssessment'),
 }))
-const SUMMARY_CATALOG = perLanguage(() => (DEFAULT_SUMMARY_WIDGETS().map(t => ({
-  template: t,
-  icon: null,
-  groupLabel: GROUP_OF()[t.i],
-  preview: PREVIEW_OF[t.i],
-  description: DESC_OF()[t.i],
-}))))
 
-export default function SummaryTab() {
+/**
+ * Cụm ô "Đơn vị tôi quản lý" trên lưới Thống kê.
+ */
+export default function SummaryPack({ widget, openConfig, pageIntent, periods, cycles, unitOptions, widgets, updateWidgetSettings }: WidgetPackProps) {
   const { t } = useTranslation('analytics')
   const onlyApproved = false
-  const { periods, cycles } = useAnalyticsScopeData()
-  // Không còn bộ lọc cấp trang: đơn vị lẫn khoảng thời gian đều nằm trong cài đặt từng ô. "Mặc định"
-  // chỉ còn là hằng số cho ô chưa đặt gì.
-  const pageIntent = PAGE_DEFAULT_INTENT
-  const pin = usePinToHome()
-  const grid = usePositionLayout(DEFAULT_SUMMARY_WIDGETS(), POSITION_LAYOUT, 'HEAD')
-  const dash = useAnalyticsGrid({
-    scope: 'ANALYTICS_SUMMARY',
-    defaultWidgets: grid.defaultWidgets,
-    legacyReportName: LEGACY_REPORT_NAME,
-  })
   /** Khoảng của một ô cụ thể: riêng nếu đã đặt, không thì theo mặc định. */
-  const filterOf = (i: string) => widgetFilter(dash.widgets.find(w => w.i === i), pageIntent, periods, cycles)
+  const filterOf = (i: string) => widgetFilter(widgets.find(x => x.i === i), pageIntent, periods, cycles)
   /** Đơn vị (phạm vi con) của một ô — `undefined` = toàn bộ phạm vi quyền. */
-  const unitOf = (i: string) => widgetUnit(dash.widgets.find(w => w.i === i))
+  const unitOf = (i: string) => widgetUnit(widgets.find(x => x.i === i))
   const trendF = filterOf('trend-chart')
   const allocF = filterOf('kpi-detail')
-  const unitOptions = useUnitOptions()
 
   // ── New KPI data ──────────────────────────────────────────────────────────
   // Đơn vị của ô phải nằm trong CẢ queryKey lẫn params. Thiếu ở queryKey thì React Query coi hai
@@ -225,7 +204,7 @@ export default function SummaryTab() {
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
 
   // ── Existing summary data (unchanged widgets) ─────────────────────────────
-  const { data: mainData, isLoading: isMainLoading } = useSummaryStats(unitOf('member-dist'))
+  const { data: mainData } = useSummaryStats(unitOf('member-dist'))
   // ── Widget config (dùng hook + chrome dùng chung) ─────────────────────────
 
 
@@ -344,137 +323,98 @@ export default function SummaryTab() {
     )
   }, [allocPage, expandedPeriods, weightBudget, isAllocLoading, t])
 
+  // Mỗi ô tự mang khoảng thời gian của riêng nó (hoặc mặc định trang nếu chưa đặt).
+  const f = widgetFilter(widget, pageIntent, periods, cycles)
+  const unit = widgetUnit(widget)
+  const advancedFilter = { orgUnitId: unit, periodId: f.periodId, periodIdTo: f.periodIdTo, from: f.from, to: f.to }
+  const meta = (
+    <WidgetConfigSummary
+      widget={widget} pageIntent={pageIntent} periods={periods} cycles={cycles}
+      unitOptions={unitOptions} onOpen={openConfig}
+    />
+  )
+  const set = (patch: Parameters<typeof updateWidgetSettings>[1]) => updateWidgetSettings(widget.i, patch)
+
   /*
-    `useCallback` là bắt buộc chứ không phải tối ưu tuỳ hứng: lưới cache phần tử từng ô theo
-    định danh hàm này. Hàm mới mỗi render là mọi biểu đồ vẽ lại mỗi lần tab render — kể cả khi
-    chỉ dòng "Đang lưu…" đổi chữ.
+    Ngăn kéo chi tiết KPI từng nằm ở khung trang, ngoài lưới. Khung trang không còn, nên nó về
+    đứng cạnh chính ô mở ra nó — `selectedKpiId` do ô đó đặt.
   */
-  const { updateWidgetSettings } = dash
-  const renderWidgetContent = useCallback((widget: SummaryWidget, ctx: { openConfig: () => void }) => {
-    // Mỗi ô tự mang khoảng thời gian của riêng nó (hoặc mặc định trang nếu chưa đặt).
-    const f = widgetFilter(widget, pageIntent, periods, cycles)
-    const unit = widgetUnit(widget)
-    const advancedFilter = { orgUnitId: unit, periodId: f.periodId, periodIdTo: f.periodIdTo, from: f.from, to: f.to }
-    // Dòng tóm tắt "ô này đang theo cấu hình gì" — bấm vào là mở đúng bảng cấu hình của ô.
-    const meta = (
-      <WidgetConfigSummary
-        widget={widget} pageIntent={pageIntent} periods={periods} cycles={cycles}
-        unitOptions={unitOptions} onOpen={ctx.openConfig}
-      />
-    )
-    const set = (patch: Parameters<typeof updateWidgetSettings>[1]) => updateWidgetSettings(widget.i, patch)
+  const body = ((): React.ReactNode => {
     switch (widget.type) {
-      case 'STATS': return (
-        // Chromeless: mỗi thẻ đã là một card, bọc thêm card nữa là card lồng card. Chip ở trên
-        // cho biết hàng số này đang theo đơn vị nào, khoảng nào.
-        <div id="tour-analytics-metrics" className="h-full flex flex-col gap-2 min-h-0">
-          {meta}
-          <UnitKpiMetrics filter={{ from: f.from, to: f.to, periodId: f.periodId, periodIdTo: f.periodIdTo, onlyApproved }} orgUnitId={unit} />
-        </div>
-      )
-      case 'TREND_CHART': return (
-        <ChartWrapper chromeless title={widget.title} icon={<TrendingUp size={20} className="text-slate-400" />}>
-          <AnalyticsComboChart
-            data={chartData?.points || []}
-            isLoading={isChartLoading}
-            itemName={t('SummaryTab.unitKpis')}
-            title={widget.title}
-            shareTitle={t('SummaryTab.oldAndNewCompositionOfUnit')}
-            fillHeight
-            mode={widgetVariant(widget) === 'area' ? 'share' : 'trend'}
-            onModeChange={m => set({ v: m === 'share' ? 'area' : 'line' })}
-            hideModeToggle
-            meta={meta}
-          />
-        </ChartWrapper>
-      )
-      case 'KPI_DETAIL': return (
-        <ChartWrapper
+    case 'STATS': return (
+      // Chromeless: mỗi thẻ đã là một card, bọc thêm card nữa là card lồng card. Chip ở trên
+      // cho biết hàng số này đang theo đơn vị nào, khoảng nào.
+      <div id="tour-analytics-metrics" className="h-full flex flex-col gap-2 min-h-0">
+        {meta}
+        <UnitKpiMetrics filter={{ from: f.from, to: f.to, periodId: f.periodId, periodIdTo: f.periodIdTo, onlyApproved }} orgUnitId={unit} />
+      </div>
+    )
+    case 'TREND_CHART': return (
+      <ChartWrapper chromeless title={widget.title} icon={<TrendingUp size={20} className="text-slate-400" />}>
+        <AnalyticsComboChart
+          data={chartData?.points || []}
+          isLoading={isChartLoading}
+          itemName={t('SummaryTab.unitKpis')}
           title={widget.title}
-          icon={<Target size={20} className="text-slate-400" />}
+          shareTitle={t('SummaryTab.oldAndNewCompositionOfUnit')}
+          fillHeight
+          mode={widgetVariant(widget) === 'area' ? 'share' : 'trend'}
+          onModeChange={m => set({ v: m === 'share' ? 'area' : 'line' })}
+          hideModeToggle
           meta={meta}
-          extraHeaderContent={
-            <span className="text-xs font-medium text-slate-400">{allocPage?.totalElements ?? 0} KPI</span>
-          }
-        >
-          {renderKpiByPeriodBody()}
-        </ChartWrapper>
-      )
-      case 'UNIT_PERFORMANCE': return (
-        <ChartWrapper title={widget.title} icon={<TrendingUp size={20} className="text-slate-400" />} meta={meta}>
-          <UnitComparisonBarChart
-            orgUnitId={unit}
-            from={f.from} to={f.to} onlyApproved={onlyApproved} periodId={f.periodId} periodIdTo={f.periodIdTo}
-            rank={optionOf(widget, 'rank') as 'BEST' | 'WORST'}
-            topN={optionOf(widget, 'topN') as 'ALL' | '5' | '10'}
-            hideControls
-          />
-        </ChartWrapper>
-      )
-      case 'MEMBER_DIST': return (
-        <ChartWrapper title={widget.title} icon={<Users size={20} className="text-slate-400" />} meta={meta}>
-          <MemberRoleChart data={mainData?.roleDistribution} />
-        </ChartWrapper>
-      )
-      case 'SCORE_HISTOGRAM': return <ScoreHistogramWidget filter={advancedFilter} meta={meta} title={widget.title} />
-      case 'SELF_VS_MANAGER': return <SelfVsManagerWidget filter={advancedFilter} meta={meta} title={widget.title} />
-      case 'RANKING_TABLE': return (
-        <EmployeeRankingTableSection
-          title={widget.title}
+        />
+      </ChartWrapper>
+    )
+    case 'KPI_DETAIL': return (
+      <ChartWrapper
+        title={widget.title}
+        icon={<Target size={20} className="text-slate-400" />}
+        meta={meta}
+        extraHeaderContent={
+          <span className="text-xs font-medium text-slate-400">{allocPage?.totalElements ?? 0} KPI</span>
+        }
+      >
+        {renderKpiByPeriodBody()}
+      </ChartWrapper>
+    )
+    case 'UNIT_PERFORMANCE': return (
+      <ChartWrapper title={widget.title} icon={<TrendingUp size={20} className="text-slate-400" />} meta={meta}>
+        <UnitComparisonBarChart
           orgUnitId={unit}
           from={f.from} to={f.to} onlyApproved={onlyApproved} periodId={f.periodId} periodIdTo={f.periodIdTo}
-          viewControl={tableViewControl(widget, updateWidgetSettings)}
-          metric={optionOf(widget, 'metric') as 'performance' | 'avgProgress'}
-          dir={optionOf(widget, 'dir') as 'ASC' | 'DESC'}
-          onSortChange={(m, d) => set({ o: { ...widget.s?.o, metric: m, dir: d } })}
+          rank={optionOf(widget, 'rank') as 'BEST' | 'WORST'}
+          topN={optionOf(widget, 'topN') as 'ALL' | '5' | '10'}
           hideControls
-          meta={meta}
         />
-      )
+      </ChartWrapper>
+    )
+    case 'MEMBER_DIST': return (
+      <ChartWrapper title={widget.title} icon={<Users size={20} className="text-slate-400" />} meta={meta}>
+        <MemberRoleChart data={mainData?.roleDistribution} />
+      </ChartWrapper>
+    )
+    case 'SCORE_HISTOGRAM': return <ScoreHistogramWidget filter={advancedFilter} meta={meta} title={widget.title} />
+    case 'SELF_VS_MANAGER': return <SelfVsManagerWidget filter={advancedFilter} meta={meta} title={widget.title} />
+    case 'RANKING_TABLE': return (
+      <EmployeeRankingTableSection
+        title={widget.title}
+        orgUnitId={unit}
+        from={f.from} to={f.to} onlyApproved={onlyApproved} periodId={f.periodId} periodIdTo={f.periodIdTo}
+        viewControl={tableViewControl(widget, updateWidgetSettings)}
+        metric={optionOf(widget, 'metric') as 'performance' | 'avgProgress'}
+        dir={optionOf(widget, 'dir') as 'ASC' | 'DESC'}
+        onSortChange={(m, d) => set({ o: { ...widget.s?.o, metric: m, dir: d } })}
+        hideControls
+        meta={meta}
+      />
+    )
       default: return null
     }
-  }, [pageIntent, periods, cycles, unitOptions, updateWidgetSettings, onlyApproved, chartData, isChartLoading, allocPage, mainData, renderKpiByPeriodBody, t])
-
-  if (isMainLoading && !mainData) return <AnalyticsTabSkeleton variant="default" className="p-6" />
+  })()
 
   return (
-    <div className="space-y-8 pb-12">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">{t('SummaryTab.unitsIManage')}</h2>
-        <div id="tour-analytics-customize" {...tourAnchor('analytics.toolbar')} className="flex items-center gap-3 flex-wrap">
-          <AiShortcutButton {...tourAnchor('analytics.ai')} size="sm" label={t('SummaryTab.rankChanges')} prompt={aiShortcuts.rankDelta()} title={t('SummaryTab.kAiComparesTheRanksOf')} />
-          <DashboardEditToolbar api={dash} />
-        </div>
-      </div>
-
-      {/* Hàng thẻ chỉ số nay là ô đầu lưới (unit-kpi-metrics) — bộ chọn đơn vị & khoảng thời gian
-          của nó nằm trong bảng cấu hình như mọi ô khác. */}
-
-      {/* Biểu đồ xu hướng & bảng chi tiết KPI giờ là widget trong lưới tuỳ chỉnh bên dưới. */}
-
-      {/* ── Lưới widget tuỳ chỉnh ─────────────────────────────────────────── */}
-      <div id="tour-analytics-widgets">
-        <DashboardCustomizeChrome
-          api={dash}
-          renderWidget={renderWidgetContent}
-          catalog={SUMMARY_CATALOG()}
-          ready={!!mainData}
-          presets={grid.presets}
-          recommendedIds={grid.recommendedIds}
-          recommendedLabel={grid.recommendedLabel}
-          onTogglePin={pin.enabled ? pin.toggle : undefined}
-          isPinned={pin.isPinned}
-          renderConfig={(w, update) => (
-            <WidgetConfigPanel
-              widget={w} update={update} pageIntent={pageIntent} periods={periods} cycles={cycles}
-              unitOptions={unitOptions}
-            />
-          )}
-        />
-      </div>
-
-      {/* AiAssistantWidget đã chuyển sang AppLayout để hiện trên mọi trang */}
-
+    <>
+      {body}
       {selectedKpiId && (
         <OrgUnitKpiDrawer
           kpiId={selectedKpiId}
@@ -486,7 +426,7 @@ export default function SummaryTab() {
           globalPeriodIdTo={allocF.periodIdTo}
         />
       )}
-    </div>
+    </>
   )
 }
 

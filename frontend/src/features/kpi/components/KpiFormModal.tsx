@@ -24,8 +24,8 @@ import {
   Loader2, Check, Target, Users, LayoutGrid, SlidersHorizontal, BarChart3,
   CalendarRange, AlertTriangle, Link2, Unlink, SplitSquareHorizontal,
 } from 'lucide-react'
-import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
-import { aiShortcuts } from '@/features/analytics/aiShortcuts'
+import AiShortcutButton from '@/features/ai/chat/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/ai/chat/aiShortcuts'
 import type { KpiCriteria } from '@/types/kpi'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'

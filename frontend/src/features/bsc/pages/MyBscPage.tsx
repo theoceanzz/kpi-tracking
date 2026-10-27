@@ -196,7 +196,7 @@ export default function MyBscPage() {
           <div className="flex flex-wrap gap-2 sm:justify-end">
             {hasPermission('BSC:MANAGE') && (
               <Button {...tourAnchor('mybsc.analytics')} asChild variant="outline">
-                <Link to="/analytics?section=bsc"><TrendingUp aria-hidden="true" /> {t('MyBscPage.viewAnalytics')}</Link>
+                <Link to="/analytics"><TrendingUp aria-hidden="true" /> {t('MyBscPage.viewAnalytics')}</Link>
               </Button>
             )}
             {canManage && (

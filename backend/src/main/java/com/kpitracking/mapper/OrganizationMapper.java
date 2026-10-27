@@ -1,7 +1,7 @@
 package com.kpitracking.mapper;
 
 import com.kpitracking.dto.response.organization.OrganizationResponse;
-import com.kpitracking.entity.Organization;
+import com.kpitracking.entity.organization.Organization;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

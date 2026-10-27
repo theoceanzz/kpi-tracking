@@ -1,7 +1,9 @@
 package com.kpitracking.dto.response.bsc;
 
-import com.kpitracking.enums.BscFixedPerspective;
-import com.kpitracking.enums.BscPerspectiveStatus;
+import com.kpitracking.service.bsc.BscPerspectiveOwnership;
+
+import com.kpitracking.enums.bsc.BscFixedPerspective;
+import com.kpitracking.enums.bsc.BscPerspectiveStatus;
 import lombok.*;
 
 import java.util.List;

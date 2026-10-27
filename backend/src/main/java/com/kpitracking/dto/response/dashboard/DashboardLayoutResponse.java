@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.dashboard;
 
-import com.kpitracking.enums.DashboardScope;
+import com.kpitracking.enums.dashboard.DashboardScope;
 import lombok.*;
 
 import java.time.Instant;

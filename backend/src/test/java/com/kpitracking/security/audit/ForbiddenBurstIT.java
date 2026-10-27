@@ -1,7 +1,7 @@
 package com.kpitracking.security.audit;
 
 import com.kpitracking.security.JwtTokenProvider;
-import com.kpitracking.service.EmailService;
+import com.kpitracking.service.email.EmailService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,0 +1,243 @@
+package com.kpitracking.service.kpi;
+
+import com.kpitracking.exception.BusinessException;
+import com.kpitracking.dto.response.PageResponse;
+import com.kpitracking.dto.response.kpi.KpiPeriodResponse;
+import com.kpitracking.entity.kpi.KpiPeriod;
+import com.kpitracking.entity.organization.Organization;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
+import com.kpitracking.repository.kpi.KpiPeriodRepository;
+import com.kpitracking.repository.organization.OrganizationRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.time.Instant;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class KpiPeriodService {
+
+    private final KpiPeriodRepository kpiPeriodRepository;
+    private final com.kpitracking.repository.kpi.KpiCriteriaRepository kpiCriteriaRepository;
+    private final com.kpitracking.repository.kpi.KpiCycleRepository kpiCycleRepository;
+    private final OrganizationRepository organizationRepository;
+    private final UserRepository userRepository;
+    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.security.PermissionChecker permissionChecker;
+    private final com.kpitracking.service.kpi.CycleStatusGuard cycleStatusGuard;
+
+    private com.kpitracking.entity.user.User getCurrentUser() {
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
+    }
+
+    /** Chỉ cho sắp xếp theo cột đã biết; tên lạ (do client gửi) rơi về mặc định thay vì nổ 500. */
+    private static final java.util.Set<String> SORTABLE = java.util.Set.of(
+            "name", "startDate", "endDate", "createdAt", "updatedAt", "status");
+
+    private static String safeSort(String sortBy) {
+        return sortBy != null && SORTABLE.contains(sortBy) ? sortBy : "startDate";
+    }
+
+    private UUID getCurrentUserOrganizationId(com.kpitracking.entity.user.User user) {
+        java.util.List<com.kpitracking.entity.user.UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(user.getId());
+        if (roles.isEmpty()) return null;
+        return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<KpiPeriodResponse> getKpiPeriods(
+            int page, int size, String sortBy, String direction, String keyword, 
+            com.kpitracking.enums.kpi.KpiFrequency periodType, 
+            java.time.Instant startDate, java.time.Instant endDate, UUID organizationId) {
+        
+        com.kpitracking.entity.user.User currentUser = getCurrentUser();
+        UUID userOrgId = getCurrentUserOrganizationId(currentUser);
+
+        Sort sort = "asc".equalsIgnoreCase(direction) ? Sort.by(safeSort(sortBy)).ascending() : Sort.by(safeSort(sortBy)).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Specification<KpiPeriod> spec = Specification.where(null);
+
+        if (StringUtils.hasText(keyword)) {
+            spec = spec.and((root, query, cb) -> 
+                cb.like(cb.lower(root.get("name")), "%" + keyword.toLowerCase() + "%"));
+        }
+
+        if (periodType != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("periodType"), periodType));
+        }
+
+        // Không truyền organizationId thì mặc định lấy tổ chức của người đang đăng nhập.
+        // Trước đây userOrgId được tính rồi bỏ không dùng, nên client nào quên truyền
+        // tham số sẽ nhận về đợt của MỌI tổ chức — rò rỉ dữ liệu giữa các khách hàng.
+        // Platform admin không gắn với đơn vị nào (userOrgId = null) nên vẫn xem được
+        // xuyên tổ chức như cũ.
+        // organizationId do client gửi chỉ có nghĩa với platform admin (không thuộc tổ chức nào);
+        // người dùng thường luôn bị khoá vào tổ chức của chính mình.
+        UUID effectiveOrgId = userOrgId != null ? userOrgId : organizationId;
+        if (effectiveOrgId != null) {
+            final UUID orgFilter = effectiveOrgId;
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("organization").get("id"), orgFilter));
+        }
+
+        if (startDate != null) {
+            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("startDate"), startDate));
+        }
+
+        if (endDate != null) {
+            spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("endDate"), endDate));
+        }
+
+        Page<KpiPeriod> pagedResult = kpiPeriodRepository.findAll(spec, pageable);
+
+        return PageResponse.<KpiPeriodResponse>builder()
+                .content(pagedResult.getContent().stream().map(this::toResponse).toList())
+                .page(pagedResult.getNumber())
+                .size(pagedResult.getSize())
+                .totalElements(pagedResult.getTotalElements())
+                .totalPages(pagedResult.getTotalPages())
+                .last(pagedResult.isLast())
+                .build();
+    }
+
+    @Transactional
+    public KpiPeriodResponse createKpiPeriod(com.kpitracking.dto.request.kpi.KpiPeriodRequest request) {
+        validateDates(request.getStartDate(), request.getEndDate(), request.getNotificationDate());
+        
+        Organization organization = organizationRepository.findById(request.getOrganizationId())
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", request.getOrganizationId()));
+
+        Instant notificationDate = request.getNotificationDate();
+        if (notificationDate == null && request.getStartDate() != null && request.getEndDate() != null) {
+            long mid = (request.getEndDate().toEpochMilli() + request.getStartDate().toEpochMilli()) / 2;
+            notificationDate = java.time.Instant.ofEpochMilli(mid);
+        }
+
+        KpiPeriod period = KpiPeriod.builder()
+                .name(request.getName())
+                .periodType(request.getPeriodType())
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .notificationDate(notificationDate)
+                .organization(organization)
+                .kpiCycle(resolveCycle(request.getCycleId(), request.getStartDate(), request.getEndDate()))
+                .build();
+
+        period = kpiPeriodRepository.save(period);
+        return toResponse(period);
+    }
+
+    @Transactional
+    public KpiPeriodResponse updateKpiPeriod(UUID id, com.kpitracking.dto.request.kpi.KpiPeriodRequest request) {
+        validateDates(request.getStartDate(), request.getEndDate(), request.getNotificationDate());
+
+        KpiPeriod period = kpiPeriodRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpiPeriod"), "id", id));
+        // Kỳ hiện tại đã khoá (hoặc đợt đã đóng khi khoá kỳ) ⇒ không sửa, không kéo sang kỳ khác.
+        cycleStatusGuard.assertWritable(period);
+
+        period.setName(request.getName());
+        period.setPeriodType(request.getPeriodType());
+        period.setStartDate(request.getStartDate());
+        period.setEndDate(request.getEndDate());
+
+        Instant notificationDate = request.getNotificationDate();
+        if (notificationDate == null && request.getStartDate() != null && request.getEndDate() != null) {
+            long mid = (request.getEndDate().toEpochMilli() + request.getStartDate().toEpochMilli()) / 2;
+            notificationDate = java.time.Instant.ofEpochMilli(mid);
+        }
+        period.setNotificationDate(notificationDate);
+        period.setKpiCycle(resolveCycle(request.getCycleId(), request.getStartDate(), request.getEndDate()));
+
+        if (request.getOrganizationId() != null && !request.getOrganizationId().equals(period.getOrganization().getId())) {
+            Organization organization = organizationRepository.findById(request.getOrganizationId())
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", request.getOrganizationId()));
+            period.setOrganization(organization);
+        }
+
+        period = kpiPeriodRepository.save(period);
+        return toResponse(period);
+    }
+
+    private void validateDates(Instant start, Instant end, Instant notification) {
+        if (start == null || end == null) return;
+        
+        if (!end.isAfter(start)) {
+            throw new BusinessException(ErrorCode.END_TIME_MUST_AFTER_START_TIME);
+        }
+        
+        if (notification != null) {
+            if (!notification.isAfter(start) || !notification.isBefore(end)) {
+                throw new BusinessException(ErrorCode.NOTIFICATION_TIME_MUST_BETWEEN_START_END_TIMES);
+            }
+        }
+    }
+
+    @Transactional
+    public void deleteKpiPeriod(UUID id) {
+        KpiPeriod period = kpiPeriodRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpiPeriod"), "id", id));
+        cycleStatusGuard.assertWritable(period);
+        // KPI vẫn trỏ tới đợt sau khi đợt bị xoá mềm -> mọi màn hình đọc KPI đó (dashboard, bài nộp,
+        // đánh giá) ném EntityNotFoundException. Bắt xoá/chuyển KPI trước (prod 2026-09-15: 7 KPI mồ côi).
+        long inUse = kpiCriteriaRepository.countByKpiPeriodId(id);
+        if (inUse > 0) {
+            throw new BusinessException(ErrorCode.PERIOD_KPIS_USE, String.valueOf(inUse));
+        }
+        period.setDeletedAt(java.time.Instant.now());
+        kpiPeriodRepository.save(period);
+    }
+
+    /**
+     * Lấy kỳ và kiểm tra thời gian đợt phải nằm gọn trong thời gian của kỳ
+     * (kỳ là tầng gom nhiều đợt nên đợt không được vượt ra ngoài kỳ).
+     */
+    private com.kpitracking.entity.kpi.KpiCycle resolveCycle(UUID cycleId, Instant start, Instant end) {
+        if (cycleId == null) return null;
+        com.kpitracking.entity.kpi.KpiCycle cycle = kpiCycleRepository.findById(cycleId)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", cycleId));
+        // Không tạo đợt mới / chuyển đợt vào kỳ đã khoá.
+        cycleStatusGuard.assertWritable(cycle);
+
+        Instant cycleStart = cycle.getStartDate();
+        Instant cycleEnd = cycle.getEndDate();
+        if (cycleStart != null && cycleEnd != null && start != null && end != null
+                && (start.isBefore(cycleStart) || end.isAfter(cycleEnd))) {
+            throw new BusinessException(ErrorCode.PERIOD_DATES_MUST_WITHIN_DATES_CYCLE, cycle.getName());
+        }
+        return cycle;
+    }
+
+    private KpiPeriodResponse toResponse(KpiPeriod period) {
+        com.kpitracking.entity.kpi.KpiCycle cycle = period.getKpiCycle();
+        return KpiPeriodResponse.builder()
+                .id(period.getId())
+                .name(period.getName())
+                .periodType(period.getPeriodType())
+                .startDate(period.getStartDate())
+                .endDate(period.getEndDate())
+                .notificationDate(period.getNotificationDate())
+                .organizationId(period.getOrganization().getId())
+                .cycleId(cycle != null ? cycle.getId() : null)
+                .cycleName(cycle != null ? cycle.getName() : null)
+                .cycleStatus(cycle != null ? cycle.getStatus() : null)
+                .status(period.getStatus())
+                .sourcePeriodId(period.getSourcePeriod() != null ? period.getSourcePeriod().getId() : null)
+                .transferredToCycleId(period.getTransferredToCycle() != null ? period.getTransferredToCycle().getId() : null)
+                .build();
+    }
+}

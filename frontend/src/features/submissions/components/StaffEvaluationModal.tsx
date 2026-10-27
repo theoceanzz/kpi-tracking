@@ -1,5 +1,8 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
-import AiReviewPanel from './AiReviewPanel'
+import { useState, useMemo, useEffect, useRef, useCallback, type ReactNode } from 'react'
+import AiReviewDetailDialog from '../../ai/submission/components/AiReviewDetailDialog'
+import AiScoreBar from '../../ai/submission/components/AiScoreBar'
+import { useAiReview, useRequestAiReview } from '../../ai/submission/hooks/useAiReview'
+import type { AiReviewItem } from '../../ai/submission/api/aiReviewApi'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -11,8 +14,9 @@ import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   Loader2, CheckCircle, Target, Zap,
-  AlertCircle, Lock, Undo2
+  AlertCircle, Lock, Undo2, Sparkles, Eye, RefreshCw
 } from 'lucide-react'
+import i18n from 'i18next'
 import { format } from 'date-fns'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
 import StatusBadge from '@/components/common/StatusBadge'
@@ -22,7 +26,9 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Section, ScoreRow, AxisLine, Collapsible } from '@/components/common/ScoreForm'
-import type { Submission } from '@/types/submission'
+import type { Submission, SubmissionEvaluatorScore } from '@/types/submission'
+import { useHasPermission } from '@/components/auth/PermissionGate'
+import { NEUTRAL_COLOR, seriesColor } from '@/components/charts/chartPalette'
 import EvidenceAttachments from '@/features/evidence/EvidenceAttachments'
 import AttachmentChips from '@/features/evidence/AttachmentChips'
 import { evidenceKey } from '@/features/evidence/evidenceApi'
@@ -118,6 +124,14 @@ export default function StaffEvaluationModal({
       size: 100 
     }),
     enabled: open
+  })
+
+  // Điểm từng chỉ tiêu theo TỪNG người chấm (sổ V41): "Quản lý chấm" và "Sếp chấm" đứng cạnh nhau thay vì cấp sau
+  // đè mất điểm cấp trước như ô managerScore của bài nộp.
+  const { data: evaluatorScores } = useQuery({
+    queryKey: ['submissions', 'evaluator-scores', userId, periodId],
+    queryFn: () => submissionApi.getEvaluatorScores(userId, periodId),
+    enabled: open && !!userId && !!periodId,
   })
 
   // Mỗi người chấm có MỘT bản riêng cho (người, đợt) — xem EvaluationService.createEvaluation.
@@ -245,19 +259,22 @@ export default function StaffEvaluationModal({
   // đúng như điểm hệ thống ở backend (KpiEffortShares). Không có bảng hệ số ⇒ quy đổi chung như cũ.
   const normOf = useCallback((s: Submission) => weightFactors?.[s.kpiCriteriaId] ?? normFactor, [weightFactors, normFactor])
 
-  // Initialize individual scores when data loaded
+  // Initialize individual scores when data loaded. Đã chấm rồi thì lấy điểm CỦA MÌNH trong sổ theo người chấm:
+  // điểm trên bài nộp là của người chấm cuối, mở lại sau khi cấp trên chấm sẽ thấy điểm của cấp trên trong ô của mình.
   useEffect(() => {
     if (submissionList.length > 0) {
       const scores: Record<string, number> = {}
       const levels: Record<string, string> = {}
       submissionList.forEach(s => {
-        scores[s.id] = Math.round((s.managerScore ?? s.autoScore ?? 0) * normOf(s))
-        if (s.qualitativeLevelId) levels[s.id] = s.qualitativeLevelId
+        const own = evaluatorScores?.find(r => r.submissionId === s.id && r.evaluatorId === user?.id)
+        scores[s.id] = Math.round((own?.managerScore ?? s.managerScore ?? s.autoScore ?? 0) * normOf(s))
+        const level = own?.qualitativeLevelId ?? s.qualitativeLevelId
+        if (level) levels[s.id] = level
       })
       setIndividualScores(scores)
       setIndividualLevels(levels)
     }
-  }, [submissions, normOf])
+  }, [submissions, evaluatorScores, normOf])
 
   // Nhận xét chỉ lấy từ bản CỦA MÌNH. Điểm cuối: bản của mình, không có thì lấy bản mới
   // nhất của cấp dưới làm điểm xuất phát (giữ hành vi cũ), người chấm vẫn kéo lại được.
@@ -326,13 +343,21 @@ export default function StaffEvaluationModal({
       })
 
       // Cảnh báo khung bell curve đi kèm bản ghi vừa chốt (chế độ "chặn" đã ném lỗi ở trên).
-      return { reviewResults, bellCurveWarning: evaluation?.bellCurveWarning }
+      return { reviewResults, bellCurveWarning: evaluation?.bellCurveWarning, approval: evaluation?.approval }
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['submissions'] })
       qc.invalidateQueries({ queryKey: ['evaluations'] })
 
       if (data?.bellCurveWarning) toast.warning(data.bellCurveWarning, { duration: 8000 })
+
+      // Quy trình "Đánh giá và xếp loại": điểm chưa ghi, đang chờ duyệt — chưa mời thưởng.
+      if (data?.approval) {
+        qc.invalidateQueries({ queryKey: ['approvals'] })
+        toast.success(i18n.t('approvalProcess:pending.evaluation', { names: data.approval.holderNames.join(', ') }))
+        onClose()
+        return
+      }
 
       const autoApproved = data?.reviewResults?.find(s => s.allChildrenApproved && s.parentSubmissionId)
       if (autoApproved) {
@@ -384,6 +409,98 @@ export default function StaffEvaluationModal({
     </Button>
   )
 
+  // ── Các bên chấm: Hệ thống · Quản lý · AI · Sếp ─────────────────────────────────────────────
+  // Thứ tự người chấm theo lần chấm đầu (backend đã sắp). Luật cấp bậc buộc cấp sau cao hơn cấp trước, nên người đầu
+  // là quản lý trực tiếp, người cuối là cấp trên cao nhất đã chấm.
+  const scorers = useMemo(() => {
+    const order: string[] = []
+    const names: Record<string, string> = {}
+    const bySubmission: Record<string, Record<string, SubmissionEvaluatorScore>> = {}
+    for (const r of evaluatorScores ?? []) {
+      if (!order.includes(r.evaluatorId)) order.push(r.evaluatorId)
+      if (r.evaluatorName) names[r.evaluatorId] = r.evaluatorName
+      ;(bySubmission[r.submissionId] ??= {})[r.evaluatorId] = r
+    }
+    return { order, names, bySubmission }
+  }, [evaluatorScores])
+
+  // Người đang mở phiếu (được chấm) nằm vào đúng cột của mình và cột đó là ô nhập: chưa ai chấm hoặc chính mình chấm
+  // đầu tiên thì là "Quản lý", đã có cấp dưới chấm trước thì là "Sếp". Xem lại (chỉ đọc) thì cả hai cột là điểm đã lưu.
+  type ScorerColumn = { kind: 'input' } | { kind: 'saved'; evaluatorId?: string } | { kind: 'empty' }
+  const otherScorers = scorers.order.filter(id => id !== user?.id)
+  const viewerIsManager = !readOnly && (scorers.order[0] === user?.id || otherScorers.length === 0)
+  const managerColumn: ScorerColumn = readOnly
+    ? (scorers.order[0] ? { kind: 'saved', evaluatorId: scorers.order[0] } : { kind: 'saved' })
+    : viewerIsManager ? { kind: 'input' } : { kind: 'saved', evaluatorId: otherScorers[0] }
+  const bossColumn: ScorerColumn = readOnly
+    ? (scorers.order.length > 1 ? { kind: 'saved', evaluatorId: scorers.order[scorers.order.length - 1] } : { kind: 'empty' })
+    : viewerIsManager
+      ? (otherScorers.length ? { kind: 'saved', evaluatorId: otherScorers[otherScorers.length - 1] } : { kind: 'empty' })
+      : { kind: 'input' }
+  const columnWho = (c: ScorerColumn) => c.kind === 'input'
+    ? t('ScorerColumns.you')
+    : c.kind === 'saved' && c.evaluatorId ? scorers.names[c.evaluatorId] : undefined
+
+  /** Điểm đã lưu của một cột: dòng của người đó trong sổ; đợt chấm trước V41 không có sổ thì lấy điểm trên bài nộp. */
+  const savedScore = (s: Submission, c: ScorerColumn): Pick<SubmissionEvaluatorScore, 'managerScore' | 'qualitativeLevelId' | 'qualitativeLevelName'> | undefined => {
+    if (c.kind !== 'saved') return undefined
+    if (c.evaluatorId) return scorers.bySubmission[s.id]?.[c.evaluatorId]
+    if (!s.reviewedById) return undefined
+    return { managerScore: s.managerScore, qualitativeLevelId: s.qualitativeLevelId, qualitativeLevelName: s.qualitativeLevelName }
+  }
+  const isQual = (s: Submission) => s.kpiType === 'QUALITATIVE'
+  // Hệ số theo từng KPI (người kiêm nhiệm chia % công sức theo nhánh), như normOf.
+  const fmtPoints = (raw: number | null | undefined, s: Submission) => (raw == null ? null : formatNumber(Math.round(raw * normOf(s))))
+
+  // AI chỉ chấm TỪNG chỉ tiêu (06/10): bấm "Gợi ý" ở ô nào thì chấm chỉ tiêu đó; chấm xong ô có "Xem cách AI chấm" và
+  // "Chấm lại bài này". Điểm đã chấm (kể cả của lượt cả phiếu trước đây) hiện sẵn. Bài không đổi thì máy chủ trả kết quả
+  // cũ, không tốn token. Chỉ tiêu xin tạm dừng thì AI không chấm.
+  const { hasPermission } = useHasPermission()
+  const aiAvailable = !!org?.enableAi && !!org?.enableAiReview && hasPermission('AI_REVIEW:USE')
+  const { data: aiReview } = useAiReview(periodId, userId, open && aiAvailable)
+  const requestAi = useRequestAiReview(periodId, userId)
+  // Bài nộp đang mở hộp "Xem cách AI chấm" (null = đóng).
+  const [aiDetailFor, setAiDetailFor] = useState<Submission | null>(null)
+  // Mỗi ô quay theo CHỈ TIÊU CỦA NÓ: đang chờ máy chủ nhận yêu cầu (aiPending), hoặc máy chủ báo chỉ tiêu đó đang chấm
+  // (runningCriteriaIds). Không dựa vào trạng thái chung của kết quả — trước đây bấm một ô làm mọi ô cùng quay.
+  const [aiPending, setAiPending] = useState<ReadonlySet<string>>(() => new Set())
+  const aiRowRunning = (s: Submission) => aiPending.has(s.kpiCriteriaId)
+    || !!aiReview?.runningCriteriaIds?.includes(s.kpiCriteriaId)
+  /** Chỉ tiêu đã duyệt tạm dừng / đang xin tạm dừng — AI không chấm (máy chủ cũng chặn). */
+  const aiPaused = (s: Submission) => s.kpiCriteriaStatus === 'INACTIVE' || !!s.kpiPausePending
+  // Chỉ nhận kết quả AI của ĐÚNG bài nộp của dòng. Nhân viên nộp lại là một bài nộp mới: kết quả của bài cũ (đã trả
+  // lại) không được hiện ở đây, kẻo người xem tưởng AI đã chấm bài mới — ô về "Gợi ý".
+  const aiItemOf = (s: Submission): AiReviewItem | undefined =>
+    aiReview?.items.find(i => i.kpiSubmissionId === s.id)
+  /** Kết quả dùng được của dòng (không tính chỉ tiêu AI báo lỗi — số khi đó thiếu phần chất lượng). */
+  const aiUsable = (s: Submission) => {
+    const item = aiItemOf(s)
+    return item && !item.errorMessage ? item : undefined
+  }
+  const aiRowFailed = (s: Submission) => !!aiReview?.failedCriteriaIds?.includes(s.kpiCriteriaId) || !!aiItemOf(s)?.errorMessage
+  const askAiFor = (ids: string[], force: boolean) => {
+    setAiPending(prev => new Set([...prev, ...ids]))
+    // onSettled chạy sau khi hook đã đọc lại kết quả gộp (đã có runningCriteriaIds), nên ô không chớp về "Gợi ý".
+    requestAi.mutate({ kpiCriteriaIds: ids, force }, {
+      onSettled: () => setAiPending(prev => new Set([...prev].filter(id => !ids.includes(id)))),
+    })
+  }
+  // Điểm AI: chỉ chất lượng, trên thang riêng do công ty đặt (13/10) — định lượng và định tính giống nhau.
+  const aiScoreOf = (item?: AiReviewItem) =>
+    item?.suggestedScore != null && item.maxPoints != null ? { score: item.suggestedScore, max: item.maxPoints } : null
+
+  // Chấm màu ở đầu cột bảng và ở dòng tóm tắt trên điện thoại — cùng một bên chấm, cùng một màu.
+  const SCORER_COLORS = { system: NEUTRAL_COLOR, manager: seriesColor(1), ai: seriesColor(4), boss: seriesColor(2) }
+  const columnText = (s: Submission, c: ScorerColumn) => {
+    if (c.kind === 'input') {
+      return isQual(s)
+        ? qualitativeLevels.find(l => l.id === individualLevels[s.id])?.name ?? null
+        : formatNumber(individualScores[s.id] ?? 0)
+    }
+    const saved = savedScore(s, c)
+    if (!saved) return null
+    return isQual(s) ? saved.qualitativeLevelName ?? null : fmtPoints(saved.managerScore, s)
+  }
   // Các ô của bảng KPI — hàm render (không phải component con) để ô nhập không bị dựng lại
   // và mất focus sau mỗi phím gõ. Mobile và desktop dùng chung nên chỉ có một bản.
   const kpiCell = (s: Submission) => (
@@ -420,16 +537,16 @@ export default function StaffEvaluationModal({
   )
   const systemScoreCell = (s: Submission) => (
     <span className="text-sm tabular-nums text-[var(--color-muted-foreground)]">
-      {s.kpiType === 'QUALITATIVE' ? '—' : formatNumber(Math.round((s.autoScore ?? 0) * normOf(s)))}
+      {isQual(s) ? '-' : fmtPoints(s.autoScore ?? 0, s)}
     </span>
   )
-  const scoreInputCell = (s: Submission) => s.kpiType === 'QUALITATIVE' ? (
+  const scoreInputCell = (s: Submission) => isQual(s) ? (
     <Select
       value={individualLevels[s.id] ?? ''}
       onValueChange={v => setIndividualLevels({ ...individualLevels, [s.id]: v })}
       disabled={readOnly}
     >
-      <SelectTrigger className="w-44" aria-label={t('StaffEvaluationModal.qualitativeLevel')}>
+      <SelectTrigger className="w-40" aria-label={t('StaffEvaluationModal.qualitativeLevel')}>
         <SelectValue placeholder={t('StaffEvaluationModal.chooseLevel')} />
       </SelectTrigger>
       <SelectContent>
@@ -446,9 +563,95 @@ export default function StaffEvaluationModal({
       onWheel={e => e.currentTarget.blur()}
       disabled={readOnly}
       aria-label={t('StaffEvaluationModal.scoreFor', { kpiCriteriaName: s.kpiCriteriaName })}
-      className="w-24"
+      className="w-20"
       inputClassName="text-right font-semibold tabular-nums text-[var(--color-primary)]"
     />
+  )
+  /** Ô "Quản lý chấm" / "Sếp chấm": ô nhập nếu là cột của người đang chấm, không thì điểm đã lưu của người kia. */
+  const scorerCell = (s: Submission, c: ScorerColumn) => c.kind === 'input' ? scoreInputCell(s) : (
+    <span className="text-sm font-medium tabular-nums text-[var(--color-foreground)]">{columnText(s, c) ?? '-'}</span>
+  )
+  const aiButtonCls = 'border-[var(--color-ai-line)] text-[var(--color-ai)] hover:bg-[var(--color-ai-soft)]'
+  /**
+   * Ô "AI chấm" của một dòng:
+   * - tạm dừng → nhãn, không có nút;
+   * - đang chấm → quay;
+   * - chưa có / lỗi → "Gợi ý" / "Thử lại" chấm riêng chỉ tiêu đó;
+   * - có điểm → thanh điểm / tối đa + con mắt mở "Cách AI chấm" (chấm lại ở chân hộp đó).
+   * `compact` cho dòng tóm tắt trên điện thoại (nút chỉ còn biểu tượng).
+   */
+  const aiCell = (s: Submission, compact = false) => {
+    if (aiPaused(s)) {
+      return (
+        <span title={t('ScorerColumns.pausedHint')}
+              className="inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-muted)] px-2 py-0.5 text-xs text-[var(--color-muted-foreground)]">
+          {s.kpiCriteriaStatus === 'INACTIVE' ? t('ScorerColumns.paused') : t('ScorerColumns.pausePending')}
+        </span>
+      )
+    }
+    if (aiRowRunning(s)) {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs text-[var(--color-muted-foreground)]">
+          <Loader2 size={13} className="animate-spin" aria-hidden="true" /> {t('ScorerColumns.aiRowRunning')}
+        </span>
+      )
+    }
+    const item = aiUsable(s)
+    const scored = aiScoreOf(item)
+    if (!item || !scored) {
+      const failed = aiRowFailed(s)
+      return (
+        <Button size="sm" variant="outline" type="button" className={cn(aiButtonCls, compact && 'h-7 px-2')}
+                onClick={() => askAiFor([s.kpiCriteriaId], failed || !!aiItemOf(s))}
+                title={failed ? (aiItemOf(s)?.errorMessage ?? t('AiReviewPanel.failed')) : t('ScorerColumns.aiSuggestRow')}
+                aria-label={`${failed ? t('ScorerColumns.aiRetry') : t('ScorerColumns.aiSuggest')}: ${s.kpiCriteriaName}`}>
+          {failed ? <RefreshCw aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+          {failed ? t('ScorerColumns.aiRetry') : t('ScorerColumns.aiSuggest')}
+        </Button>
+      )
+    }
+    // Một hàng: thanh điểm, cạnh đó chỉ một con mắt mở "Cách AI chấm" (chấm lại nằm ở chân hộp đó). Mức tin
+    // cậy cũng ở trong hộp — nó đi theo chất lượng nên trùng thông tin với thanh.
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <AiScoreBar score={scored.score} max={scored.max} compact={compact} />
+        <Button variant="ghost" size="icon-sm" type="button" onClick={() => setAiDetailFor(s)}
+                title={t('ScorerColumns.aiDetail')} aria-label={`${t('ScorerColumns.aiDetail')}: ${s.kpiCriteriaName}`}
+                className="h-7 w-7 text-[var(--color-subtle-foreground)] hover:bg-[var(--color-ai-soft)] hover:text-[var(--color-ai)] [&_svg]:size-4">
+          <Eye aria-hidden="true" />
+        </Button>
+      </span>
+    )
+  }
+  const aiDetailItem = aiDetailFor ? aiUsable(aiDetailFor) : undefined
+  const columnHead = (label: string, color: string, who?: string, extra?: ReactNode) => (
+    <div className="flex flex-col items-end gap-1">
+      <span className="text-eyebrow inline-flex items-center gap-1.5 whitespace-nowrap">
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
+        {label}
+      </span>
+      {who && <span className="text-caption max-w-[9rem] truncate font-normal" title={who}>{who}</span>}
+      {extra}
+    </div>
+  )
+  /** Điện thoại không có đầu cột: một dòng tóm tắt bốn bên chấm dưới mỗi chỉ tiêu. */
+  const mobileScorers = (s: Submission) => (
+    <dl className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+      {([
+        ['system', t('ScorerColumns.system'), isQual(s) ? null : fmtPoints(s.autoScore ?? 0, s)],
+        ['manager', t('ScorerColumns.manager'), columnText(s, managerColumn)],
+        ...(aiAvailable ? [['ai', t('ScorerColumns.ai'), null]] : []),
+        ['boss', t('ScorerColumns.boss'), columnText(s, bossColumn)],
+      ] as [keyof typeof SCORER_COLORS, string, string | null][]).map(([key, label, value]) => (
+        <div key={key} className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: SCORER_COLORS[key] }} aria-hidden="true" />
+          <dt className="text-[var(--color-muted-foreground)]">{label}</dt>
+          <dd className="font-semibold tabular-nums text-[var(--color-foreground)]">
+            {key === 'ai' ? aiCell(s, true) : value ?? '-'}
+          </dd>
+        </div>
+      ))}
+    </dl>
   )
 
   return (
@@ -456,10 +659,10 @@ export default function StaffEvaluationModal({
     <Dialog {...tourAnchor('staffeval.dialog')}
       open={open}
       onClose={onClose}
-      size="xl"
+      size="2xl"
       // Đang mở hộp "Trả lại bài nộp" chồng lên thì Esc chỉ được đóng hộp đó — không kéo theo
       // đóng cả phiếu chấm và mất phần điểm đang nhập dở.
-      dismissible={!submitMutation.isPending && !returnTarget}
+      dismissible={!submitMutation.isPending && !returnTarget && !aiDetailFor}
       title={<>{t('StaffEvaluationModal.overallEvaluation')} <span className="text-[var(--color-primary)]">{userName}</span></>}
       description={<>{t('StaffEvaluationModal.evaluationCycle')} <span className="font-medium text-[var(--color-foreground)]">{periodName}</span> · {submissionList.length} {t('StaffEvaluationModal.kpis')}</>}
       headerExtra={isFullyApproved
@@ -553,10 +756,6 @@ export default function StaffEvaluationModal({
           </div>
         ) : (
           <>
-            {/* AI đọc trước bài nộp — chỉ tham khảo, không tự điền điểm; tự ẩn khi tổ chức chưa bật. Hiện cả
-                khi xem lại đợt đã chấm: khối này chỉ đọc, và đặt cạnh điểm đã chốt là cách quản lý so AI với người. */}
-            {periodId && userId && <AiReviewPanel periodId={periodId} userId={userId} />}
-
             {/* ── 1. Chỉ tiêu KPI ─────────────────────────────────────────────
                 Bảng đọc + chấm từng KPI. Cột "chấm" dùng Select/Input chuẩn, ô chấm định lượng
                 đứng cạnh điểm hệ thống để thấy mình đang nâng/hạ bao nhiêu. */}
@@ -574,7 +773,6 @@ export default function StaffEvaluationModal({
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-card border border-[var(--color-border)]">
-                  {/* Mobile */}
                   <div className="divide-y divide-[var(--color-border)] sm:hidden">
                     {submissionList.map(s => (
                       <div key={s.id} className="space-y-2 px-4 py-3">
@@ -582,21 +780,24 @@ export default function StaffEvaluationModal({
                         <div className="flex items-center justify-between gap-3">
                           {resultCell(s)}
                           <span className="flex items-center gap-1">
-                            {canScore ? scoreInputCell(s) : systemScoreCell(s)}
+                            {!readOnly && scoreInputCell(s)}
                             {returnButton(s)}
                           </span>
                         </div>
+                        {mobileScorers(s)}
                       </div>
                     ))}
                   </div>
-                  {/* Desktop */}
+                  {/* Desktop: Hệ thống · Quản lý · AI · Sếp. Cột của người đang chấm là ô nhập. */}
                   <table className="hidden w-full border-collapse sm:table">
                     <thead>
-                      <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
+                      <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)] align-top">
                         <th className="text-eyebrow px-4 py-2.5 text-left">{t('StaffEvaluationModal.kpi')}</th>
-                        <th className="text-eyebrow px-4 py-2.5 text-center">{t('StaffEvaluationModal.resultTarget')}</th>
-                        <th className="text-eyebrow px-4 py-2.5 text-right">{t('StaffEvaluationModal.systemScore')}</th>
-                        {canScore && <th className="text-eyebrow px-4 py-2.5 text-right text-[var(--color-primary)]">{userRoleName} {t('StaffEvaluationModal.scored')}</th>}
+                        <th className="text-eyebrow px-3 py-2.5 text-center">{t('StaffEvaluationModal.resultTarget')}</th>
+                        <th className="px-3 py-2.5 text-right">{columnHead(t('ScorerColumns.systemScored'), SCORER_COLORS.system)}</th>
+                        <th className="px-3 py-2.5 text-right">{columnHead(t('ScorerColumns.managerScored'), SCORER_COLORS.manager, columnWho(managerColumn))}</th>
+                        {aiAvailable && <th className="px-3 py-2.5 text-right">{columnHead(t('ScorerColumns.aiScored'), SCORER_COLORS.ai)}</th>}
+                        <th className="px-3 py-2.5 text-right">{columnHead(t('ScorerColumns.bossScored'), SCORER_COLORS.boss, columnWho(bossColumn))}</th>
                         {canReturn && <th className="w-12 px-2 py-2.5"><span className="sr-only">{t('StaffEvaluationModal.returnForRework')}</span></th>}
                       </tr>
                     </thead>
@@ -604,9 +805,11 @@ export default function StaffEvaluationModal({
                       {submissionList.map(s => (
                         <tr key={s.id} className="group transition-colors hover:bg-[var(--color-muted)]">
                           <td className="px-4 py-3">{kpiCell(s)}</td>
-                          <td className="px-4 py-3 text-center">{resultCell(s)}</td>
-                          <td className="px-4 py-3 text-right">{systemScoreCell(s)}</td>
-                          {canScore && <td className="px-4 py-3"><div className="flex justify-end">{scoreInputCell(s)}</div></td>}
+                          <td className="px-3 py-3 text-center">{resultCell(s)}</td>
+                          <td className="px-3 py-3 text-right">{systemScoreCell(s)}</td>
+                          <td className="px-3 py-3"><div className="flex justify-end">{scorerCell(s, managerColumn)}</div></td>
+                          {aiAvailable && <td className="px-3 py-3 text-right">{aiCell(s)}</td>}
+                          <td className="px-3 py-3"><div className="flex justify-end">{bossColumn.kind === 'empty' ? <span className="text-sm text-[var(--color-subtle-foreground)]">-</span> : scorerCell(s, bossColumn)}</div></td>
                           {canReturn && <td className="px-2 py-3 text-right">{returnButton(s)}</td>}
                         </tr>
                       ))}
@@ -825,6 +1028,17 @@ export default function StaffEvaluationModal({
           <p className="text-sm text-[var(--color-muted-foreground)]">{t('StaffEvaluationModal.youHaveApprovedAllAssignedKpis')}</p>
         </div>
       </Dialog>
+
+      {aiReview && aiDetailFor && aiDetailItem && (
+        <AiReviewDetailDialog
+          open
+          onClose={() => setAiDetailFor(null)}
+          item={aiDetailItem}
+          review={aiReview}
+          onRescore={() => { askAiFor([aiDetailFor.kpiCriteriaId], true); setAiDetailFor(null) }}
+          rescoring={aiRowRunning(aiDetailFor)}
+        />
+      )}
 
       {returnTarget && (
         <ReturnSubmissionDialog

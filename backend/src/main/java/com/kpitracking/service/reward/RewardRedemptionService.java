@@ -7,17 +7,17 @@ import com.kpitracking.dto.request.reward.RedemptionDecisionRequest;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.reward.RedemptionResponse;
 import com.kpitracking.dto.response.reward.RedemptionVoucherResponse;
-import com.kpitracking.entity.RewardGiftItem;
-import com.kpitracking.entity.RewardRedemption;
-import com.kpitracking.entity.User;
-import com.kpitracking.enums.RedemptionStatus;
+import com.kpitracking.entity.reward.RewardGiftItem;
+import com.kpitracking.entity.reward.RewardRedemption;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.enums.reward.RedemptionStatus;
 import com.kpitracking.event.RewardEvents;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.i18n.Terms;
-import com.kpitracking.repository.RewardRedemptionRepository;
+import com.kpitracking.repository.reward.RewardRedemptionRepository;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.reward.fulfillment.RewardFulfillmentProvider;
 import com.kpitracking.service.reward.fulfillment.RewardFulfillmentProviders;
@@ -62,6 +62,8 @@ public class RewardRedemptionService {
     private final RewardFulfillmentProviders fulfillmentProviders;
     private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalViewService approvalView;
 
     // ────────────────────────────── ĐẶT ĐỔI ──────────────────────────────
 
@@ -110,8 +112,41 @@ public class RewardRedemptionService {
 
     // ──────────────────────────── QUYẾT ĐỊNH ────────────────────────────
 
+    /** Đang theo quy trình duyệt đổi quà: chỉ người giữ bước quyết, ở "Chờ tôi duyệt". */
+    private boolean inProcess(UUID id) {
+        return approvalChain.runningSubjectFlowId(com.kpitracking.enums.kpi.ApprovalSubjectType.GIFT_REDEMPTION, id).isPresent();
+    }
+
+    /** Bước cuối của quy trình vừa duyệt: yêu cầu sang ĐÃ DUYỆT, chờ người giữ quà giao. */
+    @Transactional
+    public void approveByProcess(UUID id, User actor) {
+        RewardRedemption r = redemptionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.giftRedemptionRequest"), "id", id));
+        if (r.getStatus() != RedemptionStatus.PENDING) throw new BusinessException(ErrorCode.REQUEST_NO_LONGER_PENDING);
+        r.setStatus(RedemptionStatus.APPROVED);
+        r.setHandledBy(actor);
+        r.setHandledAt(Instant.now());
+        RewardRedemption saved = redemptionRepository.save(r);
+        eventPublisher.publishEvent(new RewardEvents.RedemptionSettled(saved.getId(), actor.getId()));
+    }
+
+    /** Bị từ chối ở một bước: hoàn điểm, trả kho như {@link #reject}. */
+    @Transactional
+    public void rejectByProcess(UUID id, User actor, String reason) {
+        RewardRedemption r = redemptionRepository.findById(id).orElse(null);
+        if (r == null || r.getStatus() != RedemptionStatus.PENDING) return;
+        tx.refundAndRestore(r, actor, "ledger.redeemRejected");
+        r.setStatus(RedemptionStatus.REJECTED);
+        r.setHandledBy(actor);
+        r.setHandledAt(Instant.now());
+        if (reason != null) r.setNote(reason);
+        RewardRedemption saved = redemptionRepository.save(r);
+        eventPublisher.publishEvent(new RewardEvents.RedemptionSettled(saved.getId(), actor.getId()));
+    }
+
     @Transactional
     public RedemptionResponse approve(UUID id, RedemptionDecisionRequest request) {
+        if (inProcess(id)) throw new BusinessException(ErrorCode.REWARD_IN_APPROVAL_PROCESS);
         RewardRedemption r = loadPending(id);
         User actor = assertCanFulfill();
 
@@ -126,6 +161,7 @@ public class RewardRedemptionService {
 
     @Transactional
     public RedemptionResponse reject(UUID id, RedemptionDecisionRequest request) {
+        if (inProcess(id)) throw new BusinessException(ErrorCode.REWARD_IN_APPROVAL_PROCESS);
         RewardRedemption r = loadPending(id);
         User actor = assertCanFulfill();
         tx.refundAndRestore(r, actor, "ledger.redeemRejected");
@@ -158,6 +194,8 @@ public class RewardRedemptionService {
         r.setStatus(RedemptionStatus.CANCELLED);
         r.setHandledAt(Instant.now());
         RewardRedemption saved = redemptionRepository.save(r);
+        approvalChain.cancelRunningSubject(com.kpitracking.enums.kpi.ApprovalSubjectType.GIFT_REDEMPTION, id, me,
+                com.kpitracking.i18n.LocalizedText.of("approvalEvent.reason.proposalCancelled"));
         eventPublisher.publishEvent(new RewardEvents.RedemptionSettled(saved.getId(), me.getId()));
         return toOwnerResponse(saved);
     }
@@ -174,6 +212,8 @@ public class RewardRedemptionService {
      */
     public RedemptionResponse deliver(UUID id, RedemptionDecisionRequest request) {
         User actor = assertCanFulfill();
+        // Đang chờ duyệt theo quy trình: giao trước khi duyệt xong là đi tắt qua quy trình.
+        if (inProcess(id)) throw new BusinessException(ErrorCode.REDEMPTION_AWAITING_APPROVAL);
         RewardRedemption r = tx.loadForDelivery(id);
 
         Optional<RewardFulfillmentProvider> external = fulfillmentProviders
@@ -239,10 +279,15 @@ public class RewardRedemptionService {
     }
 
     private PageResponse<RedemptionResponse> toPage(Page<RewardRedemption> page, boolean withVouchers) {
+        List<RedemptionResponse> content = page.getContent().stream().map(r -> toResponse(r, withVouchers)).toList();
+        List<UUID> pending = content.stream().filter(r -> r.getStatus() == RedemptionStatus.PENDING)
+                .map(RedemptionResponse::getId).toList();
+        if (!pending.isEmpty()) {
+            var byId = approvalView.summariesForSubjects(com.kpitracking.enums.kpi.ApprovalSubjectType.GIFT_REDEMPTION, pending, context.getCurrentUser().getId());
+            content.forEach(r -> r.setApproval(byId.get(r.getId())));
+        }
         return PageResponse.<RedemptionResponse>builder()
-                .content(page.getContent().stream()
-                        .map(r -> toResponse(r, withVouchers))
-                        .toList())
+                .content(content)
                 .page(page.getNumber())
                 .size(page.getSize())
                 .totalElements(page.getTotalElements())

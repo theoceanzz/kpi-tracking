@@ -1,7 +1,7 @@
 package com.kpitracking.ai.document.profile;
 
 import com.kpitracking.ai.document.model.ParsedDocument;
-import com.kpitracking.entity.RagDocument;
+import com.kpitracking.entity.ai.RagDocument;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 

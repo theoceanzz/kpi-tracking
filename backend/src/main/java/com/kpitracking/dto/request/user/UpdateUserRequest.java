@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.user;
 
-import com.kpitracking.enums.UserStatus;
+import com.kpitracking.enums.user.UserStatus;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 import lombok.*;

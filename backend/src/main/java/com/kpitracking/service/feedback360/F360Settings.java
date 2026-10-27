@@ -2,8 +2,8 @@ package com.kpitracking.service.feedback360;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kpitracking.entity.F360Campaign;
-import com.kpitracking.enums.F360Relationship;
+import com.kpitracking.entity.feedback360.F360Campaign;
+import com.kpitracking.enums.feedback360.F360Relationship;
 
 import java.util.EnumMap;
 import java.util.LinkedHashMap;

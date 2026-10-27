@@ -1,12 +1,15 @@
 package com.kpitracking.service;
 
+import com.kpitracking.service.user.UserRoleService;
+import com.kpitracking.service.user.UserService;
+
 import com.kpitracking.dto.request.user.UpdateUserRequest;
 import com.kpitracking.dto.request.userrole.AssignRoleRequest;
 import com.kpitracking.dto.response.user.UserMembershipResponse;
 import com.kpitracking.dto.response.user.UserResponse;
 import com.kpitracking.dto.response.userrole.UserRoleOrgUnitResponse;
-import com.kpitracking.entity.User;
-import com.kpitracking.repository.UserRepository;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.repository.user.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

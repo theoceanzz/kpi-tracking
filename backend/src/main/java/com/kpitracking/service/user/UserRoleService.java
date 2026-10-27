@@ -1,0 +1,252 @@
+package com.kpitracking.service.user;
+
+import com.kpitracking.service.PrimaryUnitResolver;
+
+import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ForbiddenException;
+import com.kpitracking.dto.request.userrole.AssignRoleRequest;
+import com.kpitracking.dto.request.userrole.BulkAssignRoleRequest;
+import com.kpitracking.dto.response.userrole.UserRoleOrgUnitResponse;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.access.Role;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.exception.DuplicateResourceException;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
+import com.kpitracking.mapper.UserRoleOrgUnitMapper;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.access.RoleRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
+import com.kpitracking.security.PermissionChecker;
+import com.kpitracking.security.audit.SecurityAuditEvent;
+import com.kpitracking.security.audit.SecurityAuditService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class UserRoleService {
+
+    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final OrgUnitRepository orgUnitRepository;
+    private final UserRoleOrgUnitMapper mapper;
+    private final PermissionChecker permissionChecker;
+    private final SecurityAuditService securityAudit;
+    private final PrimaryUnitResolver primaryUnits;
+
+    /**
+     * {@code @PreAuthorize("hasAuthority('ROLE:ASSIGN')")} ở controller chỉ nói "người này có quyền
+     * gán vai trò Ở ĐÂU ĐÓ". orgUnitId đến từ body/path nên phải kiểm lại: quyền đó phải có hiệu
+     * lực ở chính đơn vị đích (theo thừa kế cây hoặc uỷ quyền), nếu không trưởng phòng của công
+     * ty A gán được vai trò trong công ty B.
+     */
+    private User requireAssignScope(UUID orgUnitId) {
+        User me = getCurrentUser();
+        if (!permissionChecker.hasPermissionInOrgUnit(me.getId(), "ROLE:ASSIGN", orgUnitId)
+                && !permissionChecker.isGlobalAdminIn(me.getId(), orgUnitId)) {
+            securityAudit.record(SecurityAuditEvent.ACCESS_DENIED, SecurityAuditService.BLOCKED,
+                    "ORG_UNIT", String.valueOf(orgUnitId), "Gán/gỡ vai trò ngoài phạm vi quản lý");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_ASSIGN_ROLES_UNIT);
+        }
+        return me;
+    }
+
+    private User getCurrentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
+    }
+
+    @Transactional
+    public UserRoleOrgUnitResponse assignRole(AssignRoleRequest request) {
+        requireAssignScope(request.getOrgUnitId());
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", request.getUserId()));
+        Role role = roleRepository.findById(request.getRoleId())
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.role"), "id", request.getRoleId()));
+        OrgUnit orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organizationUnit"), "id", request.getOrgUnitId()));
+
+        if (!orgUnit.getAllowedRoles().isEmpty() && !orgUnit.getAllowedRoles().contains(role)) {
+            // Rank 2 is "Others/Staff" which should be allowed anywhere
+            if (role.getRank() == null || role.getRank() != 2) {
+                throw new BusinessException(ErrorCode.ROLE_MAY_NOT_ASSIGNED_UNIT, role.getName(), orgUnit.getName());
+            }
+        }
+
+        if (userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(
+                request.getUserId(), request.getRoleId(), request.getOrgUnitId())) {
+            throw new DuplicateResourceException(ErrorCode.USER_ROLE_UNIT);
+        }
+
+        validateManagerRequirement(orgUnit, role);
+        validateManagerAssignment(orgUnit.getId(), role, user.getId());
+
+        // Ghim "nhà" hiện tại trước khi gán thêm: đơn vị mới (kể cả sâu hơn) chỉ là kiêm nhiệm,
+        // đổi đơn vị chính phải chọn rõ ở form Sửa người dùng.
+        primaryUnits.ensurePinned(user);
+
+        UserRoleOrgUnit assignment = UserRoleOrgUnit.builder()
+                .user(user)
+                .role(role)
+                .orgUnit(orgUnit)
+                .assignedBy(getCurrentUser())
+                .expiresAt(request.getExpiresAt())
+                .build();
+
+    assignment = userRoleOrgUnitRepository.save(assignment);
+        primaryUnits.ensurePinned(user);
+        securityAudit.record(SecurityAuditEvent.ROLE_ASSIGNED, SecurityAuditService.OK,
+                "USER", user.getId().toString(),
+                "Gán vai trò " + role.getName() + " tại đơn vị " + orgUnit.getName());
+        return mapper.toResponse(assignment);
+    }
+
+    @Transactional
+    public List<UserRoleOrgUnitResponse> bulkAssignRole(BulkAssignRoleRequest request) {
+        requireAssignScope(request.getOrgUnitId());
+        Role role = roleRepository.findById(request.getRoleId())
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.role"), "id", request.getRoleId()));
+        OrgUnit orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organizationUnit"), "id", request.getOrgUnitId()));
+
+        if (!orgUnit.getAllowedRoles().isEmpty() && !orgUnit.getAllowedRoles().contains(role)) {
+            // Rank 2 is "Others/Staff" which should be allowed anywhere
+            if (role.getRank() == null || role.getRank() != 2) {
+                throw new BusinessException(ErrorCode.ROLE_MAY_NOT_ASSIGNED_UNIT, role.getName(), orgUnit.getName());
+            }
+        }
+
+        validateManagerRequirement(orgUnit, role);
+
+        User currentUser = getCurrentUser();
+        List<UserRoleOrgUnit> assignments = new java.util.ArrayList<>();
+
+        for (UUID userId : request.getUserIds()) {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", userId));
+
+            if (!userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(userId, request.getRoleId(), request.getOrgUnitId())) {
+                primaryUnits.ensurePinned(user);
+                UserRoleOrgUnit assignment = UserRoleOrgUnit.builder()
+                        .user(user)
+                        .role(role)
+                        .orgUnit(orgUnit)
+                        .assignedBy(currentUser)
+                        .expiresAt(request.getExpiresAt())
+                        .build();
+                assignments.add(assignment);
+            }
+        }
+
+        if (assignments.isEmpty()) {
+            throw new BusinessException(ErrorCode.ALL_USERS_ROLE_UNIT);
+        }
+
+        List<UserRoleOrgUnit> saved = userRoleOrgUnitRepository.saveAll(assignments);
+        primaryUnits.ensurePinned(request.getUserIds());
+        return mapper.toResponseList(saved);
+    }
+
+    @Transactional
+    public void revokeRole(UUID userId, UUID roleId, UUID orgUnitId) {
+        requireAssignScope(orgUnitId);
+        if (!userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(userId, roleId, orgUnitId)) {
+            throw new ResourceNotFoundException(ErrorCode.USER_PERMISSION_INFORMATION_NOT_FOUND);
+        }
+        userRoleOrgUnitRepository.deleteByUserIdAndRoleIdAndOrgUnitId(userId, roleId, orgUnitId);
+        primaryUnits.ensurePinned(List.of(userId));
+        securityAudit.record(SecurityAuditEvent.ROLE_ASSIGNED, SecurityAuditService.OK,
+                "USER", userId.toString(), "Thu hồi vai trò " + roleId + " tại đơn vị " + orgUnitId);
+    }
+
+    @Transactional
+    public void removeBulkUsersFromOrgUnit(List<UUID> userIds, UUID orgUnitId) {
+        requireAssignScope(orgUnitId);
+        userRoleOrgUnitRepository.deleteByUserIdInAndOrgUnitId(userIds, orgUnitId);
+        primaryUnits.ensurePinned(userIds);
+        securityAudit.record(SecurityAuditEvent.ROLE_ASSIGNED, SecurityAuditService.OK,
+                "ORG_UNIT", orgUnitId.toString(), "Gỡ " + userIds.size() + " người khỏi đơn vị");
+    }
+
+    @Transactional
+    public void removeAllUsersFromOrgUnit(UUID orgUnitId) {
+        requireAssignScope(orgUnitId);
+        List<UUID> members = userRoleOrgUnitRepository.findByOrgUnitId(orgUnitId).stream()
+                .map(a -> a.getUser().getId()).distinct().toList();
+        userRoleOrgUnitRepository.deleteByOrgUnitId(orgUnitId);
+        primaryUnits.ensurePinned(members);
+        securityAudit.record(SecurityAuditEvent.ROLE_ASSIGNED, SecurityAuditService.OK,
+                "ORG_UNIT", orgUnitId.toString(), "Gỡ toàn bộ người khỏi đơn vị");
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserRoleOrgUnitResponse> getUserRoles(UUID userId) {
+        userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", userId));
+        return mapper.toResponseList(userRoleOrgUnitRepository.findByUserId(userId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserRoleOrgUnitResponse> getUsersByOrgUnit(UUID orgUnitId) {
+        orgUnitRepository.findById(orgUnitId)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organizationUnit"), "id", orgUnitId));
+        List<UserRoleOrgUnit> rows = userRoleOrgUnitRepository.findByOrgUnitId(orgUnitId);
+        List<UserRoleOrgUnitResponse> out = mapper.toResponseList(rows);
+        // Màn thành viên đánh dấu người kiêm nhiệm (đơn vị chính ở nơi khác).
+        java.util.Map<UUID, UserRoleOrgUnit> primary = primaryUnits.assignmentsOf(
+                rows.stream().map(a -> a.getUser().getId()).distinct().toList());
+        out.forEach(r -> {
+            UserRoleOrgUnit p = primary.get(r.getUserId());
+            if (p != null) {
+                r.setPrimaryOrgUnitId(p.getOrgUnit().getId());
+                r.setPrimaryOrgUnitName(p.getOrgUnit().getName());
+            }
+        });
+        return out;
+    }
+
+    private void validateManagerRequirement(OrgUnit orgUnit, Role role) {
+        // Only check when adding Staff (Rank 2)
+        if (role.getRank() != null && role.getRank() == 2) {
+            // Skip check for the root unit (parent to nhất - no parent)
+            if (orgUnit.getParent() != null && orgUnit.getOrgHierarchyLevel() != null) {
+                // Check if unit has any Manager (Rank 0)
+                boolean hasManager = userRoleOrgUnitRepository.existsByOrgUnitIdAndRoleRank(orgUnit.getId(), 0);
+                if (!hasManager) {
+                    throw new BusinessException(ErrorCode.UNIT_NO_MANAGER_2, orgUnit.getName());
+                }
+            }
+        }
+    }
+    private void validateManagerAssignment(UUID orgUnitId, Role role, UUID excludeUserId) {
+        if (role.getRank() != null && (role.getRank() == 0 || role.getRank() == 1)) {
+            OrgUnit unit = orgUnitRepository.findById(orgUnitId).orElse(null);
+            
+            // Check "Only one manager/deputy" for ALL units (including Root)
+            if (unit != null) {
+                Integer rank = role.getRank();
+                // Trưởng/phó sinh từ uỷ quyền "ký thay trưởng" chỉ là đồng trưởng tạm thời —
+                // không được chặn việc bổ nhiệm trưởng thật của đơn vị.
+                boolean exists = userRoleOrgUnitRepository.findByOrgUnitIdAndRoleRank(orgUnitId, rank).stream()
+                    .filter(a -> a.getDelegationId() == null)
+                    .anyMatch(a -> excludeUserId == null || !excludeUserId.equals(a.getUser().getId()));
+                
+                if (exists) {
+                    String rankName = (rank == 0) ? "Trưởng" : "Phó";
+                    throw new BusinessException(ErrorCode.UNIT_SOMEONE_ROLE, unit.getName(), String.valueOf(rankName), rankName.toLowerCase());
+                }
+            }
+        }
+    }
+}

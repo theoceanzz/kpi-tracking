@@ -284,9 +284,37 @@ export default function DashboardCustomizeChrome({
   const panelW = sidebar ? SIDEBAR_W : PANEL_W
   const wantPush = !!(configWidget && renderConfig)
   const canPush = outerWidth > 0 && outerWidth - (panelW + PANEL_GAP) > GRID_MIN_W
-  const pushing = wantPush && canPush
-  const sideTaken = pushing || sidebar ? panelW + PANEL_GAP : 0
-  const gridWidth = outerWidth > 0 ? outerWidth - sideTaken : 0
+  const sideTaken = sidebar ? SIDEBAR_W + PANEL_GAP : 0
+  const gridWidthIfNotPushed = outerWidth > 0 ? outerWidth - sideTaken : 0
+
+  /*
+    Bảng cấu hình NEO CẠNH Ô đang sửa thay vì nằm ở mép phải trang: bấm cấu hình một ô ở góc dưới
+    bên trái mà bảng hiện cách đó nửa màn hình thì không ai nối được hai thứ với nhau.
+
+    Toạ độ tính từ chính `gridLayouts` + bề rộng lưới, theo đúng công thức react-grid-layout
+    (`colW = (W - m*(cols+1))/cols`, ô đặt bằng transform). Không đo DOM, không thêm
+    ResizeObserver thứ hai — lưới đã có một cái, thêm nữa là nguồn giật cũ quay lại.
+  */
+  const anchored = (() => {
+    if (!wantPush || !configWidget || gridWidthIfNotPushed <= GRID_MIN_W) return null
+    const item = (gridLayouts.lg ?? []).find(l => l.i === configWidget.i)
+    if (!item) return null
+    const cols = GRID_COLS.lg
+    const m = GRID_MARGIN[0]
+    const colW = (gridWidthIfNotPushed - m * (cols + 1)) / cols
+    const left = item.x * (colW + m) + m
+    const width = item.w * colW + (item.w - 1) * m
+    const top = item.y * (32 + GRID_MARGIN[1]) + GRID_MARGIN[1]
+    const right = left + width + PANEL_GAP
+    // Ưu tiên bên phải ô; không đủ chỗ thì sang trái; chật cả hai bên thì thôi, rơi về cách cũ.
+    if (right + PANEL_W <= gridWidthIfNotPushed) return { left: right, top }
+    const leftSide = left - PANEL_W - PANEL_GAP
+    if (leftSide >= 0) return { left: leftSide, top }
+    return null
+  })()
+
+  const pushing = wantPush && canPush && !anchored
+  const gridWidth = gridWidthIfNotPushed - (pushing ? panelW + PANEL_GAP : 0)
 
   /*
     Trong đúng nhịp lưới đổi cỡ vì drawer, TẮT transition của ô. CSS chỉ transition `transform`
@@ -332,6 +360,21 @@ export default function DashboardCustomizeChrome({
   }, [catalog, search, onlyRecommended, recommendedIds, t])
 
   const closeConfig = useCallback(() => setConfigFor(null), [])
+
+  /*
+    Escape đóng bảng cấu hình. Bảng nay neo cạnh ô và làm mờ phần còn lại nên nó đọc như một lớp
+    phủ, mà lớp phủ thì ai cũng thử Escape trước. Bỏ qua khi có modal/drawer mở bên trên
+    (`[role="dialog"]`): Escape lúc đó thuộc về cái trên cùng.
+  */
+  useEffect(() => {
+    if (!configFor) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || document.querySelector('[role="dialog"]')) return
+      closeConfig()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [configFor, closeConfig])
 
   /*
     Phần tử của mỗi ô được CACHE theo đúng những gì ô đó phụ thuộc. `GridItem` của react-grid-layout
@@ -429,6 +472,18 @@ export default function DashboardCustomizeChrome({
           {/* ── Lưới widget ───────────────────────────────────────────────── */}
           {ready && gridWidth > 0 && (
             <div ref={gridWrapRef} className="relative min-h-[400px]">
+              {/*
+                Làm mờ phần còn lại của LƯỚI (không phủ cả trang: thanh công cụ và nút "Thêm biểu
+                đồ" vẫn phải bấm được). Ô đang cấu hình nổi lên trên lớp này nhờ `z-[50]` ở
+                `GridCell`; bảng cấu hình `z-[60]`.
+              */}
+              {anchored && (
+                <div
+                  onClick={closeConfig}
+                  aria-hidden="true"
+                  className="absolute inset-0 z-[40] rounded-widget bg-[var(--color-background)]/70 backdrop-blur-[1px]"
+                />
+              )}
               {/* Không còn widget nào hiện: nói rõ phải làm gì thay vì để trang trắng */}
               {visibleCount === 0 && (
                 <div className="flex flex-col items-center justify-center text-center gap-4 py-20 px-6">
@@ -476,6 +531,12 @@ export default function DashboardCustomizeChrome({
               >
                 {cells}
               </Responsive>
+
+              {anchored && configPanel && (
+                <div className="absolute z-[60]" style={{ left: anchored.left, top: anchored.top }}>
+                  {configPanel}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -767,7 +828,9 @@ const GridCell = React.forwardRef<HTMLDivElement, GridCellProps>(function GridCe
         // cảnh báo tự giãn theo nội dung) sẽ tràn ra và ĐÈ lên hàng dưới. Clip ở đây chặn được mọi
         // trường hợp, không phụ thuộc widget tự lo.
         'relative group h-full overflow-hidden rounded-widget',
-        active && 'ring-2 ring-[var(--color-primary)]',
+        // Nổi lên TRÊN lớp mờ khi đang cấu hình — cả điểm của việc neo bảng cạnh ô là thấy rõ
+        // mình đang sửa ô nào. (`react-draggable-dragging` dùng z-index 3, không đụng ba mức này.)
+        active && 'z-[50] ring-2 ring-[var(--color-primary)]',
       )}
     >
       {/*

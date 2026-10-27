@@ -890,7 +890,9 @@
     "whenSomeoneDeclinesYourTask": "Khi người được giao từ chối việc bạn giao",
     "whenATaskListRuleNotifiesYou": "Khi luật tự động của danh sách công việc báo cho bạn",
     "whenYouAreAddedToATaskList": "Khi bạn được mời vào một danh sách công việc",
-    "dailyTaskDigest": "Mỗi sáng (10:00): số việc của bạn đã quá hạn, đến hạn hôm nay và ngày mai (chỉ chuông)"
+    "dailyTaskDigest": "Mỗi sáng (10:00): số việc của bạn đã quá hạn, đến hạn hôm nay và ngày mai (chỉ chuông)",
+    "whenARequestNeedsYourApproval": "Khi có đơn từ chờ bạn duyệt",
+    "whenYourRequestIsDecided": "Khi đơn từ bạn nộp đã có kết quả"
   },
   "useAiQuota": {
     "couldNotUpdate": "Không cập nhật được",

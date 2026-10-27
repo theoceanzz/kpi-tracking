@@ -1,12 +1,12 @@
 package com.kpitracking.service;
 
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.OrgUnitDelegation;
-import com.kpitracking.entity.Role;
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.repository.OrgUnitDelegationRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.organization.OrgUnitDelegation;
+import com.kpitracking.entity.access.Role;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.organization.OrgUnitDelegationRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.security.audit.SecurityAuditEvent;
 import com.kpitracking.security.audit.SecurityAuditService;
 import lombok.RequiredArgsConstructor;

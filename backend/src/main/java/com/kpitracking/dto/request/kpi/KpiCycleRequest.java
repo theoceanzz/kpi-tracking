@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.kpi;
 
-import com.kpitracking.enums.KpiFrequency;
+import com.kpitracking.enums.kpi.KpiFrequency;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -25,7 +25,7 @@ public class KpiCycleRequest {
 
     private String description;
 
-    private com.kpitracking.enums.CycleEvaluationMode evaluationMode;
+    private com.kpitracking.enums.evaluation.CycleEvaluationMode evaluationMode;
 
     private UUID organizationId;
 

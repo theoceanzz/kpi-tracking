@@ -116,11 +116,11 @@ public class SubordinateDetailsResponses {
         private Boolean isReverseKpi;
         private Boolean isBonusKpi;
         // KPI định tính: kpiType=QUALITATIVE, chấm theo MỨC (qualitativeLevelName), không có tiến độ số.
-        private com.kpitracking.enums.KpiType kpiType;
+        private com.kpitracking.enums.kpi.KpiType kpiType;
         private String qualitativeLevelName;
         private UUID parentId;
-        private com.kpitracking.enums.KpiParentRelationType parentRelationType;
-        private com.kpitracking.enums.KpiParentRelationType childRelationType;
+        private com.kpitracking.enums.kpi.KpiParentRelationType parentRelationType;
+        private com.kpitracking.enums.kpi.KpiParentRelationType childRelationType;
         private List<KpiDetailedDto> children;
     }
 

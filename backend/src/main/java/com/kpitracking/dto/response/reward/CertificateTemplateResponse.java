@@ -1,7 +1,7 @@
 package com.kpitracking.dto.response.reward;
 
-import com.kpitracking.enums.CertificateOrientation;
-import com.kpitracking.enums.CertificateTemplateStatus;
+import com.kpitracking.enums.reward.CertificateOrientation;
+import com.kpitracking.enums.reward.CertificateTemplateStatus;
 import lombok.Builder;
 import lombok.Data;
 

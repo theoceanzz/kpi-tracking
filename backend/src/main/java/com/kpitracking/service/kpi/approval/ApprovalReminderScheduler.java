@@ -1,6 +1,6 @@
 package com.kpitracking.service.kpi.approval;
 
-import com.kpitracking.repository.KpiApprovalFlowRepository;
+import com.kpitracking.repository.kpi.KpiApprovalFlowRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;

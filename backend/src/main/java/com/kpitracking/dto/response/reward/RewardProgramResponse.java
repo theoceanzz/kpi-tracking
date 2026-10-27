@@ -1,10 +1,10 @@
 package com.kpitracking.dto.response.reward;
 
 import com.kpitracking.dto.request.reward.RewardProgramRequest;
-import com.kpitracking.enums.RewardProgramScope;
-import com.kpitracking.enums.RewardRankWithin;
-import com.kpitracking.enums.RewardRankingMetric;
-import com.kpitracking.enums.RewardTiePolicy;
+import com.kpitracking.enums.reward.RewardProgramScope;
+import com.kpitracking.enums.reward.RewardRankWithin;
+import com.kpitracking.enums.reward.RewardRankingMetric;
+import com.kpitracking.enums.reward.RewardTiePolicy;
 import lombok.Builder;
 import lombok.Data;
 

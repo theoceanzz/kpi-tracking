@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.kpi;
 
-import com.kpitracking.enums.AdjustmentStatus;
+import com.kpitracking.enums.kpi.AdjustmentStatus;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 

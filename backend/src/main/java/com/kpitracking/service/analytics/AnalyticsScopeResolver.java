@@ -1,12 +1,12 @@
 package com.kpitracking.service.analytics;
 
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.repository.KpiPeriodRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.kpi.KpiPeriodRepository;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -52,6 +53,21 @@ public class AnalyticsScopeResolver {
                 ? new ArrayList<>(periodIds)
                 : (orgId != null ? kpiPeriodRepository.findIdsByOrganizationId(orgId) : Collections.emptyList());
         return new Scope(unitIds, effPeriods, orgId);
+    }
+
+    /**
+     * Đơn vị ĐẠI DIỆN của phạm vi khi người dùng không chọn đơn vị nào ("Tất cả đơn vị"):
+     * đơn vị cao nhất (đường dẫn ngắn nhất) trong phạm vi xem.
+     *
+     * <p>Cần vì {@code BscScoringService.resolveScorecard} chỉ nhận MỘT đơn vị và cố ý không đi
+     * ngược lên đơn vị cha — truyền null vào đó thì không bao giờ ra bộ tiêu chí.
+     */
+    public UUID topUnitId(Scope scope) {
+        if (scope == null || scope.unitIds().isEmpty()) return null;
+        return orgUnitRepository.findAllById(scope.unitIds()).stream()
+                .min(Comparator.comparingInt((OrgUnit u) -> u.getPath() == null ? 0 : u.getPath().length())
+                        .thenComparing(u -> u.getName() == null ? "" : u.getName()))
+                .map(OrgUnit::getId).orElse(null);
     }
 
     private User getCurrentUser() {

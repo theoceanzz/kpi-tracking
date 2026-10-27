@@ -1,22 +1,22 @@
 package com.kpitracking.event;
 
 import com.kpitracking.i18n.LocalizedText;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.RewardBudget;
-import com.kpitracking.entity.RewardGrant;
-import com.kpitracking.entity.RewardGrantItem;
-import com.kpitracking.entity.RewardProgramRun;
-import com.kpitracking.entity.RewardProgramRunItem;
-import com.kpitracking.entity.RewardRedemption;
-import com.kpitracking.entity.User;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.RewardBudgetRepository;
-import com.kpitracking.repository.RewardGrantItemRepository;
-import com.kpitracking.repository.RewardGrantRepository;
-import com.kpitracking.repository.RewardProgramRunItemRepository;
-import com.kpitracking.repository.RewardProgramRunRepository;
-import com.kpitracking.repository.RewardRedemptionRepository;
-import com.kpitracking.repository.UserRepository;
+import com.kpitracking.entity.organization.OrgUnit;
+import com.kpitracking.entity.reward.RewardBudget;
+import com.kpitracking.entity.reward.RewardGrant;
+import com.kpitracking.entity.reward.RewardGrantItem;
+import com.kpitracking.entity.reward.RewardProgramRun;
+import com.kpitracking.entity.reward.RewardProgramRunItem;
+import com.kpitracking.entity.reward.RewardRedemption;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.repository.organization.OrgUnitRepository;
+import com.kpitracking.repository.reward.RewardBudgetRepository;
+import com.kpitracking.repository.reward.RewardGrantItemRepository;
+import com.kpitracking.repository.reward.RewardGrantRepository;
+import com.kpitracking.repository.reward.RewardProgramRunItemRepository;
+import com.kpitracking.repository.reward.RewardProgramRunRepository;
+import com.kpitracking.repository.reward.RewardRedemptionRepository;
+import com.kpitracking.repository.user.UserRepository;
 import com.kpitracking.service.notification.NotificationDispatcher;
 import com.kpitracking.service.notification.NotificationRoutingService;
 import com.kpitracking.service.reward.RewardContext;
@@ -72,6 +72,7 @@ public class RewardNotificationEventListener {
     private final RewardProgramRunItemRepository runItemRepository;
     private final RewardRedemptionRepository redemptionRepository;
     private final UserRepository userRepository;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
     private final OrgUnitRepository orgUnitRepository;
 
     /** Nhãn kiểu thông báo — quyết định biểu tượng ở chuông. */
@@ -99,6 +100,8 @@ public class RewardNotificationEventListener {
     public void handleGrantSubmitted(RewardEvents.GrantSubmitted event) {
         RewardGrant grant = findGrant(event.grantId());
         if (grant == null) return;
+        // Đề xuất đi theo quy trình duyệt: người giữ bước đầu đã được chuỗi duyệt báo riêng.
+        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.kpi.ApprovalSubjectType.REWARD_GRANT, grant.getId()).isPresent()) return;
 
         int people = grantItemRepository.findByGrantId(grant.getId()).size();
         LocalizedText title = LocalizedText.of("notif.reward.grantSubmitted.title");
@@ -323,7 +326,8 @@ public class RewardNotificationEventListener {
         RewardRedemption r = findRedemption(event.redemptionId());
         // Quà điện tử xuất được ngay lúc đặt thì không còn gì để ai xử lý — báo cho bộ phận
         // quà một việc đã xong là tạo hàng đợi giả.
-        if (r == null || r.getStatus() != com.kpitracking.enums.RedemptionStatus.PENDING) return;
+        if (r == null || r.getStatus() != com.kpitracking.enums.reward.RedemptionStatus.PENDING) return;
+        if (approvalChain.runningSubjectFlowId(com.kpitracking.enums.kpi.ApprovalSubjectType.GIFT_REDEMPTION, r.getId()).isPresent()) return;
 
         LocalizedText message = LocalizedText.of("notif.reward.redemptionCreated.message",
                 r.getUser().getFullName(), r.getPointsSpent(), r.getGiftNameSnapshot(),

@@ -1,5 +1,7 @@
 package com.kpitracking.dto.response.evaluation;
 
+import com.kpitracking.service.evaluation.EvaluationReadinessService;
+
 import lombok.*;
 
 import java.util.List;

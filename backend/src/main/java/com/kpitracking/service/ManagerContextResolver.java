@@ -1,9 +1,9 @@
 package com.kpitracking.service;
 
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.entity.user.User;
+import com.kpitracking.entity.user.UserRoleOrgUnit;
+import com.kpitracking.repository.user.UserRepository;
+import com.kpitracking.repository.user.UserRoleOrgUnitRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -13,6 +13,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+import com.kpitracking.service.ai.AiService;
 /**
  * Resolves the KPI "manager context" for the currently authenticated user — the
  * org unit they lead (or deputy-lead) plus its path and owning organization.

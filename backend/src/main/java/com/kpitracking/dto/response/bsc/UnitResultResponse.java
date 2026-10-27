@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.bsc;
 
-import com.kpitracking.enums.BscUnitResultStatus;
+import com.kpitracking.enums.bsc.BscUnitResultStatus;
 import lombok.*;
 
 import java.time.Instant;
@@ -25,4 +25,6 @@ public class UnitResultResponse {
     private List<UnitResultItemResponse> items;
     /** Đã chốt theo số tạm tính của thẻ nguồn (quản trị cho phép). */
     private Boolean provisionalSource;
+    /** Yêu cầu chốt đang chờ duyệt theo quy trình "Chốt kết quả thẻ điểm đơn vị". */
+    private com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse approval;
 }

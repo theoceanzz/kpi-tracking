@@ -177,6 +177,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
     if (path === '/wallet' && counts.pendingWallet > 0) return counts.pendingWallet
     if (path === '/documents' && counts.pendingDocumentPromotions > 0) return counts.pendingDocumentPromotions
     if (path === '/tasks' && counts.myTaskAlerts > 0) return counts.myTaskAlerts
+    if (path === '/requests' && counts.pendingRequests > 0) return counts.pendingRequests
     return null
   }
 

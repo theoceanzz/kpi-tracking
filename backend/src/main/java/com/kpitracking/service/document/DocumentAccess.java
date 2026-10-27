@@ -1,8 +1,8 @@
 package com.kpitracking.service.document;
 
 import com.kpitracking.ai.document.ingest.RagMetadata;
-import com.kpitracking.entity.Document;
-import com.kpitracking.enums.DocumentScope;
+import com.kpitracking.entity.document.Document;
+import com.kpitracking.enums.document.DocumentScope;
 import dev.langchain4j.store.embedding.filter.Filter;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -120,7 +120,7 @@ public record DocumentAccess(
     // ── Thư mục ─────────────────────────────────────────────────────────────────────────────────
 
     /** Thấy thư mục: cùng luật phạm vi với tài liệu (không có chia sẻ thư mục). */
-    public boolean canViewFolder(com.kpitracking.entity.DocumentFolder f) {
+    public boolean canViewFolder(com.kpitracking.entity.document.DocumentFolder f) {
         if (!member || f == null || !orgId.equals(f.getOrganizationId())) return false;
         return switch (f.getScope()) {
             case COMPANY -> true;
@@ -130,7 +130,7 @@ public record DocumentAccess(
     }
 
     /** Tạo / đổi tên / xoá thư mục, và đưa tài liệu vào thư mục: cần quyền tạo tài liệu ở đúng phạm vi đó. */
-    public boolean canEditFolder(com.kpitracking.entity.DocumentFolder f) {
+    public boolean canEditFolder(com.kpitracking.entity.document.DocumentFolder f) {
         if (!canViewFolder(f)) return false;
         return switch (f.getScope()) {
             case COMPANY -> canManageCompany;

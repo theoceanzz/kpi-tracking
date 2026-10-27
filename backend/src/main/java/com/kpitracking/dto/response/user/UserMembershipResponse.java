@@ -1,5 +1,7 @@
 package com.kpitracking.dto.response.user;
 
+import com.kpitracking.service.PrimaryUnitResolver;
+
 import lombok.*;
 
 import java.util.UUID;

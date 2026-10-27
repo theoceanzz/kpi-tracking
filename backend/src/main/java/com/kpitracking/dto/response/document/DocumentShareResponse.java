@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.document;
 
-import com.kpitracking.enums.DocumentSharePermission;
+import com.kpitracking.enums.document.DocumentSharePermission;
 
 import java.time.Instant;
 import java.util.UUID;

@@ -1,6 +1,6 @@
 package com.kpitracking.event;
 
-import com.kpitracking.enums.KpiTaskStatus;
+import com.kpitracking.enums.task.KpiTaskStatus;
 
 import java.util.UUID;
 

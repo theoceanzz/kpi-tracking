@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatDateTime, formatNumber, downloadFile, cn } from '@/lib/utils'
 import { ArrowLeft, Download, Eye, File as FileIcon, Pencil, Plus, FileText } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import ApprovalChainPanel from '@/features/kpi/components/ApprovalChainPanel'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -30,6 +31,11 @@ export default function SubmissionDetailPage() {
     queryKey: ['submissions', id],
     queryFn: () => submissionApi.getById(id!),
     enabled: !!id,
+  })
+  const { data: chain } = useQuery({
+    queryKey: ['submissions', id, 'approval-chain'],
+    queryFn: () => submissionApi.approvalChain(id!),
+    enabled: !!submission && submission.status !== 'DRAFT',
   })
 
   if (isLoading) return <div className="mx-auto max-w-[1200px]"><LoadingSkeleton type="form" rows={6} /></div>
@@ -179,6 +185,8 @@ export default function SubmissionDetailPage() {
               <Row label={t('SubmissionDetailPage.type')} value={<Badge variant="outline">{isQualitative ? t('SubmissionDetailPage.qualitative') : t('SubmissionDetailPage.quantitative')}</Badge>} />
             </dl>
           </section>
+
+          <ApprovalChainPanel chain={chain} title={t('SubmissionDetailPage.approvalProcess')} />
 
           <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
             <h2 className="text-eyebrow">{t('SubmissionDetailPage.next')}</h2>

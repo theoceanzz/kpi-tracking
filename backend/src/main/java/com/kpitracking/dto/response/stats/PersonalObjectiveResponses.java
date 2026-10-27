@@ -74,11 +74,11 @@ public class PersonalObjectiveResponses {
         private Boolean isReverseKpi;
         private Boolean isBonusKpi;
         // KPI định tính: kết quả là MỨC (qualitativeLevelName), không có tiến độ/hiệu suất số.
-        private com.kpitracking.enums.KpiType kpiType;
+        private com.kpitracking.enums.kpi.KpiType kpiType;
         private String qualitativeLevelName;
         private UUID parentId;
-        private com.kpitracking.enums.KpiParentRelationType parentRelationType; // quan hệ của chính nó với cha
-        private com.kpitracking.enums.KpiParentRelationType childRelationType;  // loại con của nó (DECOMPOSITION=cha, DELEGATION=thác nước)
+        private com.kpitracking.enums.kpi.KpiParentRelationType parentRelationType; // quan hệ của chính nó với cha
+        private com.kpitracking.enums.kpi.KpiParentRelationType childRelationType;  // loại con của nó (DECOMPOSITION=cha, DELEGATION=thác nước)
         private List<KpiDetail> children; // KPI con (kèm metrics), chỉ điền cho KPI cha/thác nước
 
         private List<SubmissionHistory> mySubmissions;
@@ -142,7 +142,7 @@ public class PersonalObjectiveResponses {
         private List<ContributionData> contributions;
 
         // KPI định tính: đầu ra là MỨC → biểu đồ phân bố mức thay biểu đồ số.
-        private com.kpitracking.enums.KpiType kpiType;
+        private com.kpitracking.enums.kpi.KpiType kpiType;
         private String qualitativeLevelName;
         private List<com.kpitracking.util.QualitativeKpiUtil.LevelBucket> qualitativeDistribution;
     }

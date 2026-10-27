@@ -1,6 +1,6 @@
 package com.kpitracking.dto.request.okr;
 
-import com.kpitracking.enums.OkrStatus;
+import com.kpitracking.enums.okr.OkrStatus;
 import lombok.*;
 
 import java.time.LocalDate;

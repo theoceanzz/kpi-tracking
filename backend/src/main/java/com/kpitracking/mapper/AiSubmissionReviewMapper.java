@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.dto.response.ai.AiReviewBasisResponse;
 import com.kpitracking.dto.response.ai.AiSubmissionReviewItemResponse;
 import com.kpitracking.dto.response.ai.AiSubmissionReviewResponse;
-import com.kpitracking.entity.AiSubmissionReview;
-import com.kpitracking.entity.AiSubmissionReviewItem;
+import com.kpitracking.entity.ai.AiSubmissionReview;
+import com.kpitracking.entity.ai.AiSubmissionReviewItem;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
@@ -24,12 +24,15 @@ public interface AiSubmissionReviewMapper {
     @Mapping(target = "missingData", source = "missingData")
     @Mapping(target = "unreadableFiles", source = "unreadableFiles")
     @Mapping(target = "items", ignore = true)
+    @Mapping(target = "runningCriteriaIds", ignore = true)
+    @Mapping(target = "failedCriteriaIds", ignore = true)
     @Mapping(target = "disclaimer", ignore = true)
     AiSubmissionReviewResponse toResponse(AiSubmissionReview review);
 
     @Mapping(target = "kpiCriteriaName", ignore = true)
     @Mapping(target = "weight", ignore = true)
     @Mapping(target = "basis", source = "basisCitations", qualifiedByName = "basis")
+    @Mapping(target = "reviewedAt", ignore = true)
     AiSubmissionReviewItemResponse toItemResponse(AiSubmissionReviewItem item);
 
     ObjectMapper JSON = new ObjectMapper();

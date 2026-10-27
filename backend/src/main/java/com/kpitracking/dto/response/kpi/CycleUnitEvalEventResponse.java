@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.kpi;
 
-import com.kpitracking.enums.CycleUnitEvalAction;
+import com.kpitracking.enums.evaluation.CycleUnitEvalAction;
 import lombok.*;
 
 import java.time.Instant;

@@ -9,6 +9,7 @@ import { SortHeader, type SortDir } from '@/components/common/SortHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import StaffEvaluationModal from '../components/StaffEvaluationModal'
+import AwaitingApprovalPanel from '../components/AwaitingApprovalPanel'
 import EvaluationDetailModal from '@/features/evaluations/components/EvaluationDetailModal'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 import { useOrgUnitSubmissions } from '../hooks/useOrgUnitSubmissions'
@@ -29,11 +30,10 @@ import { pickCurrentOrNearest } from '@/components/common/dateScope'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { usePermission } from '@/hooks/usePermission'
-import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
-import { aiShortcuts } from '@/features/analytics/aiShortcuts'
+import AiShortcutButton from '@/features/ai/chat/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/ai/chat/aiShortcuts'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Users, Clock, ClipboardCheck, ArrowRight, Eye, PenLine, Inbox, Bot, Loader2, Star } from 'lucide-react'
-import { useAiReviewBatch } from '../hooks/useAiReview'
+import { Users, Clock, ClipboardCheck, ArrowRight, Eye, PenLine, Inbox, Star } from 'lucide-react'
 import { useWorkflowNavigator } from '@/features/kpi/workflow/hooks/useWorkflowNavigator'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
@@ -106,10 +106,6 @@ export default function OrgUnitSubmissionsPage() {
   const rawTitle = (customLabels as Record<string, string>)['submissions-org-unit'] || (customLabels as Record<string, string>)['/submissions/org-unit'] || t('OrgUnitSubmissionsPage.periodEvaluation')
 
   const { data: orgUnitTreeData } = useOrgUnitTree()
-  const aiBatch = useAiReviewBatch()
-  // "Tất cả" = cả cây: chạy lô từ đơn vị gốc; máy chủ vẫn chỉ xếp hàng người mình chấm được.
-  const aiBatchUnitId = selectedOrgUnitId === 'ALL' ? orgUnitTreeData?.[0]?.id : selectedOrgUnitId
-  const canAiBatch = !!org?.enableAi && !!org?.enableAiReview && hasPermission('AI_REVIEW:USE')
   const { data: periodsData } = useKpiPeriods({ organizationId: orgId })
 
   const flattenTree = (nodes: any[], level = 0): any[] => {
@@ -473,17 +469,6 @@ export default function OrgUnitSubmissionsPage() {
         actions={
           // Gom các nút vào một nhóm để chúng xuống dòng cùng nhau, không tách 1 trên 1 dưới.
           <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
-            {canAiBatch && (
-              <Button {...tourAnchor('subs.ai-batch')}
-                variant="outline"
-                disabled={!selectedPeriodId || !aiBatchUnitId || aiBatch.isPending}
-                title="AI đọc trước bài nộp của mọi người bạn chấm được trong đơn vị đang chọn (chạy nền, chỉ để tham khảo)"
-                onClick={() => aiBatch.mutate({ periodId: selectedPeriodId, orgUnitId: aiBatchUnitId! })}
-              >
-                {aiBatch.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Bot aria-hidden="true" />}
-                Nhờ AI xem trước cả đơn vị
-              </Button>
-            )}
             {hasPermission('SUBMISSION:REVIEW') && (
               <AiShortcutButton {...tourAnchor('subs.ai-approve')}
                 label={t('OrgUnitSubmissionsPage.approveWithKAi')}
@@ -503,6 +488,8 @@ export default function OrgUnitSubmissionsPage() {
           </div>
         }
       />
+
+      <AwaitingApprovalPanel />
 
       <FilterBar
         id="tour-approve-toolbar"

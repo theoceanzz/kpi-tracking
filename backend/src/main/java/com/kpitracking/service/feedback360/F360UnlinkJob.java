@@ -1,10 +1,10 @@
 package com.kpitracking.service.feedback360;
 
-import com.kpitracking.entity.F360Campaign;
-import com.kpitracking.enums.F360Relationship;
-import com.kpitracking.repository.F360AnswerRepository;
-import com.kpitracking.repository.F360AssignmentRepository;
-import com.kpitracking.repository.F360CampaignRepository;
+import com.kpitracking.entity.feedback360.F360Campaign;
+import com.kpitracking.enums.feedback360.F360Relationship;
+import com.kpitracking.repository.feedback360.F360AnswerRepository;
+import com.kpitracking.repository.feedback360.F360AssignmentRepository;
+import com.kpitracking.repository.feedback360.F360CampaignRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

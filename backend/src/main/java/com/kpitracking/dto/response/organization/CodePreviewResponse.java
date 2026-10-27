@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.organization;
 
-import com.kpitracking.enums.CodeType;
+import com.kpitracking.enums.organization.CodeType;
 import lombok.*;
 
 /**

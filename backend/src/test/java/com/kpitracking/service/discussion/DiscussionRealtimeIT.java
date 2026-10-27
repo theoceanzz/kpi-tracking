@@ -1,6 +1,6 @@
 package com.kpitracking.service.discussion;
 
-import com.kpitracking.enums.DiscussionTargetType;
+import com.kpitracking.enums.discussion.DiscussionTargetType;
 import com.kpitracking.security.JwtTokenProvider;
 import com.kpitracking.service.CollabITSupport;
 import org.junit.jupiter.api.Test;

@@ -1,13 +1,4 @@
 {
-  "ActionStep": {
-    "doneBackToFlowSelection": "Xong, về màn chọn luồng",
-    "nextStep": "Bước tiếp theo",
-    "nothingIsWaitingOnYouAt": "Không còn việc nào đang chờ bạn ở bước này.",
-    "openScreen": "Mở màn hình",
-    "openTheScreenBelowToHandle": "Mở màn hình bên dưới để xử lý. Xong rồi quay lại đây đi tiếp.",
-    "pendingTasks": "việc đang chờ",
-    "thisStepIsDoneBySomeone": "Bước này do người khác thực hiện. Bạn không cần ngồi đợi ở đây — rời đi và quay lại khi có thông báo, chỉ tiêu sẽ tự chuyển sang trạng thái đã duyệt."
-  },
   "AdjustmentKpiPickerModal": {
     "chooseTheKpiToAdjust": "Chọn chỉ tiêu cần điều chỉnh",
     "noKpiMatchesTheKeyword": "Không tìm thấy chỉ tiêu nào khớp với từ khoá.",
@@ -72,42 +63,10 @@
     "system": "Hệ thống",
     "theAssigneeWillBeNotifiedAdministrators": "Người được gán sẽ nhận thông báo. Quản trị viên không duyệt thay được.",
     "time": "Thời gian",
-    "viewApprovalHistorySubmissions": "Xem lịch sử duyệt ({{count}} lần gửi)"
-  },
-  "CriteriaStep": {
-    "actual": "% thật",
-    "addKpi": "Thêm chỉ tiêu",
-    "addKpisForThePeriod": "Thêm chỉ tiêu cho đợt",
-    "afterAddingTheFormClearsSo": "Thêm xong, form tự dọn để bạn nhập tiếp",
-    "aPeriod": "Đợt",
-    "bonusNotCountedToward100": "· thưởng, không tính vào 100%",
-    "chooseTheAssignee": "Chọn người thực hiện",
-    "chooseTheImplementingUnit": "Chọn đơn vị thực hiện",
-    "chooseThePeriodAndImplementingUnit": "Chọn đợt và đơn vị thực hiện, phần theo dõi trọng số sẽ hiện ở đây.",
-    "chooseThePeriodAndTheImplementing": "Hãy chọn đợt và đơn vị thực hiện trước.",
-    "chooseThePeriodInTheForm": "Chọn đợt ở form bên trái",
-    "continue": "Tiếp tục",
-    "creatingFor": "Đang lập cho",
-    "due": "hạn {{effectiveDeadline}}",
-    "keepAddingUntilTheUnitsTotal": "Thêm liên tục cho tới khi tổng trọng số của đơn vị đạt đúng 100%. Mỗi chỉ tiêu được lưu ngay khi bấm thêm.",
-    "n100ReachedReadyToSubmitFor": "Đủ 100% — sẵn sàng gửi duyệt",
-    "newKpi": "Chỉ tiêu mới",
-    "noTargetSet": "Chưa đặt mục tiêu",
-    "over": " · vượt {{value}}%",
-    "overByReduceIt": "Vượt {{value}}% — cần giảm bớt",
-    "person": "Người",
-    "remaining": "Còn thiếu {{value}}%",
-    "removeFromList": "Bỏ khỏi danh sách",
-    "short": " · thiếu {{value}}%",
-    "theTotalWeightIsOnlyShort": "Tổng trọng số mới đạt {{value}}%, còn thiếu {{value2}}%. Hãy thêm chỉ tiêu cho đủ 100%.",
-    "theTotalWeightIsOver100": "Tổng trọng số đang là {{value}}%, vượt 100%. Hãy giảm bớt trước khi đi tiếp.",
-    "thisUnitHasNoKpisIn": "Đơn vị này chưa có chỉ tiêu nào trong đợt.",
-    "totalWeight": "Tổng trọng số",
-    "unit": "Đơn vị",
-    "unitKpis": "Chỉ tiêu của đơn vị",
-    "units": "{{count}} đơn vị",
-    "unitTotalTheUnassignedPartThe": "Tổng của đơn vị = phần chưa giao ai + người có tổng cao nhất.",
-    "youAreAssigningToSeveralUnits": "Bạn đang giao cho nhiều đơn vị cùng lúc. Mỗi đơn vị có mức 100% riêng, nên phần theo dõi trọng số chỉ hiện khi chọn đúng một đơn vị."
+    "viewApprovalHistorySubmissions": "Xem lịch sử duyệt ({{count}} lần gửi)",
+    "byProcess": "Theo quy trình: {{title}}",
+    "viewProcessDiagram": "Xem sơ đồ quy trình",
+    "processDiagram": "Sơ đồ quy trình duyệt"
   },
   "CycleApprovalTimeline": {
     "approvalFlowByLevel": "Luồng duyệt theo cấp",
@@ -549,21 +508,6 @@
     "periodCanNoLongerBeChanged": "Đợt \"{{name}}\" {{toLowerCase}} — không thay đổi được nữa.",
     "theKpiWasClosedAsClosed": "KPI đã chốt \"Không hoàn thành do khoá kỳ\" — không thao tác được nữa."
   },
-  "CycleStep": {
-    "aCycleGroupsSeveralPeriodsFor": "Kỳ gom nhiều đợt để chấm điểm tổng thể cuối kỳ. Chưa cần thì bỏ qua — bạn gán đợt vào kỳ sau cũng được.",
-    "backToHome": "Về trang chủ",
-    "chooseAnExistingCycle": "Chọn kỳ có sẵn",
-    "chooseOrCreateAnEvaluationCycle": "Chọn hoặc tạo kỳ đánh giá",
-    "createANewCycle": "Tạo kỳ mới",
-    "createANewCycleOrSkip": "Tạo kỳ mới, hoặc bỏ qua để đi thẳng tới bước tạo đợt.",
-    "createCycleContinue": "Tạo kỳ & tiếp tục",
-    "noCyclesYet": "Chưa có kỳ nào",
-    "periods": "đợt",
-    "skipThisStep": "Bỏ qua bước này"
-  },
-  "EndNode": {
-    "completed": "Hoàn thành"
-  },
   "FinalizeUnitDialog": {
     "afterLockingIndividualCycleScoresAnd": "Sau khi khoá, điểm kỳ cá nhân và điểm phòng không sửa được nữa; cấp trên sẽ thấy đơn vị này đã xong để duyệt tiếp. Cần sửa thì \"Mở khoá\" — đơn vị quay về bước hiệu chỉnh",
     "all": "Cả",
@@ -599,12 +543,6 @@
     "unfinishedPeriodsChooseHowToHandle": "đợt chưa hoàn thành — chọn cách xử lý từng đợt. Chưa muốn khoá thì bấm Huỷ, kỳ vẫn mở như cũ.",
     "unitScoreToBeLocked": "Điểm đơn vị sẽ khoá",
     "curve": "Khung"
-  },
-  "FlowPicker": {
-    "eachFlowTakesYouThroughOne": "Mỗi luồng dẫn bạn đi trọn một mạch công việc. Chọn xong vẫn quay lại đây được bất cứ lúc nào.",
-    "noFlowAvailableForYouYet": "Chưa có luồng nào dành cho bạn",
-    "whatWouldYouLikeToDo": "Bạn muốn làm gì?",
-    "yourAccountDoesNotYetHave": "Tài khoản của bạn chưa có quyền tham gia bước nào trong quy trình KPI."
   },
   "flows": {
     "aCycle": "Kỳ",
@@ -1592,17 +1530,6 @@
     "theTargetCannotBeNegative": "Mục tiêu không được âm",
     "weightCanBeAtMost100": "Trọng số tối đa 100"
   },
-  "KpiSetupLayout": {
-    "chooseAnotherFlow": "Chọn luồng khác",
-    "chooseWhatYouWantToDo": "Chọn việc bạn muốn làm",
-    "exit": "Thoát",
-    "exitTheSetupWizard": "Thoát trình thiết lập",
-    "exitTheSetupWizard2": "Thoát trình thiết lập?",
-    "kpiSetup": "Thiết lập KPI",
-    "otherFlow": "Luồng khác",
-    "step": "Bước {{value}} / {{length}} — {{label}}",
-    "whatYouHaveCreatedIsKept": "Những gì bạn đã tạo vẫn được giữ lại — kỳ và đợt đã lưu, các chỉ tiêu nằm ở trạng thái NHÁP trong trang Quản lý chỉ tiêu. Bạn quay lại làm tiếp bất cứ lúc nào."
-  },
   "KpiTagChips": {
     "bonusKpi": "KPI thưởng",
     "bscItem": "Hạng mục BSC: {{effectivePerspectiveName}}",
@@ -1707,15 +1634,6 @@
     "youHaveNoKpisInThis": "Đợt này chưa có chỉ tiêu của bạn",
     "youHaveNotBeenAssignedAny": "Bạn chưa được giao chỉ tiêu"
   },
-  "MyWorkflowPanel": {
-    "hidden": "Đang ẩn",
-    "hideThisStepFromMyScreen": "Ẩn bước này khỏi màn hình của tôi",
-    "myDisplay": "Hiển thị của tôi",
-    "onlyAffectsYourScreenNothingChanges": "Chỉ ảnh hưởng màn hình của bạn — không đổi gì với người khác",
-    "showAllAgain": "Hiện lại tất cả",
-    "shown": "Đang hiện",
-    "showThisStepAgain": "Hiện lại bước này"
-  },
   "nextStepHints": {
     "assignKpis": "Giao chỉ tiêu",
     "assignKpisForPeriod": "Giao chỉ tiêu cho đợt «{{name}}»",
@@ -1731,21 +1649,6 @@
     "dismissSuggestion": "Đóng gợi ý",
     "later": "Để sau",
     "nextStep": "Bước tiếp theo"
-  },
-  "OrgWorkflowPanel": {
-    "appliesTo": "Áp dụng cho",
-    "coreStepOfTheFlowCannot": "Bước lõi của luồng, không thể tắt",
-    "everyone": "mọi người",
-    "exitFullScreen": "Thoát toàn màn hình",
-    "exitFullScreenEsc": "Thoát toàn màn hình (Esc)",
-    "fullScreen": "Toàn màn hình",
-    "onlyPeopleWithPermissionToConfigure": "Chỉ người có quyền cấu hình luồng mới sửa được. Bạn đang xem quy trình tổ chức đang áp dụng.",
-    "organizationFlow": "Luồng của tổ chức",
-    "required": "Bắt buộc",
-    "resetToDefault": "Đặt lại mặc định",
-    "saveChanges": "Lưu thay đổi",
-    "stepRequiresStepToBeEnabled": "Bước \"{{label}}\" cần bước \"{{label2}}\" cũng được bật.",
-    "turningStepsOnOffHereChanges": "— bật/tắt bước ở đây đổi cả luật nghiệp vụ. Bấm một bước để mở cài đặt."
   },
   "PerformancePage": {
     "performanceManagement": "Quản lý hiệu suất",
@@ -1782,44 +1685,10 @@
     "year": "Năm {{startDateObj}}",
     "youChoseDaysWhileTheStandard": "Bạn đã chọn {{selectedDays}} ngày, trong khi chu kỳ \"{{value}}\" tiêu chuẩn là {{standardDays}} ngày. Hệ thống sẽ không tự kiểm tra lại — bạn tự chịu trách nhiệm với khoảng thời gian đã chọn."
   },
-  "PeriodStep": {
-    "aPeriodIsTheTimeFrame": "Đợt là mốc thời gian mà mọi chỉ tiêu bám vào. Không có đợt thì chưa giao được chỉ tiêu nào.",
-    "askYourManagerToCreateA": "Hãy nhờ quản lý tạo đợt trước khi bạn giao chỉ tiêu.",
-    "chooseAnExistingPeriod": "Chọn đợt có sẵn",
-    "chooseOrCreateAKpiPeriod": "Chọn hoặc tạo đợt KPI",
-    "createANewPeriod": "Tạo đợt mới",
-    "createPeriodContinue": "Tạo đợt & tiếp tục",
-    "inCycle": "· thuộc kỳ",
-    "noPeriodsYet": "Chưa có đợt nào",
-    "switchToTheCreateNewPeriod": "Chuyển sang thẻ \"Tạo đợt mới\" để bắt đầu."
-  },
   "reviewSchema": {
     "pleaseEnterANoteWithThe": "Vui lòng nhập ghi chú lý do từ chối",
     "pleaseEnterTheRejectionReason": "Vui lòng nhập lý do từ chối",
     "theCompensationMustBeBetween0": "Tỷ lệ % bù trừ phải nằm trong khoảng 0 – 150"
-  },
-  "ReviewStep": {
-    "aPeriod": "Đợt",
-    "checkOneLastTimeBeforeSending": "Kiểm tra lần cuối trước khi chuyển toàn bộ chỉ tiêu sang cấp trên phê duyệt.",
-    "finish": "Hoàn tất",
-    "goToTheNextStep": "Tới bước tiếp theo",
-    "haveBeenSentToTheManager": "đã chuyển sang cấp trên phê duyệt.",
-    "kpisOfThePeriod": "chỉ tiêu của đợt",
-    "noDraftKpisLeftInThis": "Không còn chỉ tiêu NHÁP nào trong đợt này — có thể bạn đã gửi duyệt rồi.",
-    "numberOfKpis": "Số chỉ tiêu",
-    "qualitative": "Định tính",
-    "quantitative": "Định lượng",
-    "reviewFinish": "Xem lại & hoàn tất",
-    "reviewSubmitForApproval": "Xem lại & gửi duyệt",
-    "submitKpisForApproval": "Gửi duyệt {{count}} chỉ tiêu",
-    "submittedForApproval": "Đã gửi duyệt",
-    "theOrganizationHasTurnedOffThe": "Tổ chức đã tắt bước duyệt chỉ tiêu nên các chỉ tiêu này có hiệu lực ngay.",
-    "totalWeight": "Tổng trọng số",
-    "unit": "Đơn vị"
-  },
-  "SelfEvalStep": {
-    "scoreYourselfForThePeriodYou": "Chấm điểm cho chính mình ở đợt vừa nộp. Hệ thống đã tính sẵn điểm gợi ý từ kết quả bạn nộp.",
-    "selfAssessment": "Tự đánh giá"
   },
   "SendEvaluationModal": {
     "cancel": "Huỷ",
@@ -1838,55 +1707,6 @@
     "sendToPeople": "Gửi cho {{count}} người",
     "theScoresSentMayStillChange": ". Điểm gửi đi vẫn có thể thay đổi — nên chốt trước khi gửi cho nhân viên.",
     "thisUnit": "Đơn vị này"
-  },
-  "StageInspector": {
-    "allowSavingDraftsBeforeSubmitting": "Cho phép lưu nháp trước khi nộp",
-    "approvalMode": "Chế độ duyệt",
-    "autoApproveEverySubmission": "Tự động duyệt mọi bản nộp",
-    "autoRejectAfter": "Tự động từ chối sau",
-    "days": "ngày",
-    "directUnitHeadParentHeadTop": "Trưởng đơn vị trực tiếp → trưởng cấp trên → … → cấp cao nhất. Vai trò có quyền “Duyệt cuối” (KPI:APPROVE_FINAL) chốt luôn, các cấp phía trên được bỏ qua.",
-    "forPeopleWithSelfApprovalPermission": "Người có quyền tự duyệt thì chỉ tiêu họ tạo là đã duyệt ngay",
-    "hierarchicalApprovalChainDefault": "Chuỗi duyệt theo phân cấp (mặc định)",
-    "hours": "giờ",
-    "ifTheTopApprovalLevelHas": "Người có quyền tự duyệt (KPI:APPROVE_OWN) thì chỉ tiêu họ tạo là đã duyệt ngay, không qua chuỗi duyệt",
-    "manualApprovalByTheManagerDefault": "Quản lý duyệt thủ công (mặc định)",
-    "oneLevelAnyoneWithApprovalPermission": "Một cấp: bất kỳ ai có quyền duyệt trong đơn vị",
-    "oneLevelDirectManagerPreviousWorkflow": "Một cấp: cấp trên trực tiếp (luồng cũ)",
-    "onlyAppliesToTheOneLevel": "Chỉ áp dụng cho luồng duyệt một cấp. Chuỗi duyệt không tự từ chối mà nhắc người đang giữ bước.",
-    "options": "Tuỳ chọn",
-    "remindTheApproverWhenAStep": "Nhắc người duyệt khi một bước chờ quá",
-    "requireEvidenceAttachments": "Bắt buộc đính kèm minh chứng",
-    "requiresStep": "Cần bước",
-    "whoApproves": "Ai được duyệt"
-  },
-  "StageNode": {
-    "coreStepOfTheFlowCannot": "Bước lõi của luồng, không thể tắt",
-    "off": "Đã tắt",
-    "turnThisStepOff": "Tắt bước này",
-    "turnThisStepOn": "Bật bước này"
-  },
-  "StepShell": {
-    "back": "Quay lại"
-  },
-  "SubmitStep": {
-    "achievedResult": "Kết quả đạt được",
-    "couldNotSubmit": "Chưa nộp được (",
-    "doneBackToFlowSelection": "Xong, về màn chọn luồng",
-    "fillInResultsForAtLeast": "Điền kết quả cho ít nhất một chỉ tiêu",
-    "fillInTheResultsForEach": "Điền kết quả cho từng chỉ tiêu rồi nộp một lượt — không phải mở lần lượt từng cái.",
-    "noKpisAreAssignedToYou": "Không có chỉ tiêu nào được giao cho bạn trong đợt này.",
-    "noTargetSet": "Chưa đặt mục tiêu",
-    "notesOptional": "Ghi chú (không bắt buộc)",
-    "openTheFullPageToAttach": "Mở trang đầy đủ để đính kèm tệp minh chứng",
-    "pts": "đ",
-    "reports": "báo cáo",
-    "skipContinue": "Bỏ qua, đi tiếp",
-    "submissions": "· lượt",
-    "submit": "Nộp",
-    "submitReport": "Nộp báo cáo",
-    "target": "Mục tiêu {{targetValue}}{{value}}",
-    "theOrganizationHasNotConfiguredThe": "Tổ chức chưa cấu hình thang định tính nên chưa nộp được chỉ tiêu này."
   },
   "UnitScoreDialog": {
     "backToTheMemberAverage": "Quay về trung bình thành viên",
@@ -2136,12 +1956,6 @@
     "failedToUpdateKpi": "Cập nhật chỉ tiêu thất bại",
     "kpiUpdatedSuccessfully": "Cập nhật chỉ tiêu thành công"
   },
-  "WizardEntryButton": {
-    "quickSetup": "Thiết lập nhanh"
-  },
-  "WizardStepper": {
-    "setupSteps": "Các bước thiết lập"
-  },
   "workflowGraphModel": {
     "approve": "Duyệt",
     "notApproved": "Không duyệt",
@@ -2171,10 +1985,6 @@
     "managersScoreEmployeesAtTheEnd": "Quản lý chấm điểm nhân viên cuối đợt.",
     "summarizeAndFinalizeEvaluationResultsBy": "Tổng hợp và chốt kết quả đánh giá theo kỳ.",
     "unitManager": "Quản lý đơn vị"
-  },
-  "WorkflowStartCard": {
-    "startKpiSetup": "Bắt đầu thiết lập KPI",
-    "tasksWaitingOnYou": "việc chờ bạn"
   },
   "KpiLinkPage": {
     "notFound": "Không mở được KPI này",

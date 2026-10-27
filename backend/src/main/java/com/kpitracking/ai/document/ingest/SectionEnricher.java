@@ -2,7 +2,7 @@ package com.kpitracking.ai.document.ingest;
 
 import com.kpitracking.ai.document.model.DocumentSection;
 import com.kpitracking.ai.document.profile.DocumentProfile;
-import com.kpitracking.entity.RagDocument;
+import com.kpitracking.entity.ai.RagDocument;
 
 import java.util.Map;
 import java.util.UUID;

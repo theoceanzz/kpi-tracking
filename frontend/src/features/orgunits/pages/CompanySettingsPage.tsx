@@ -8,9 +8,8 @@ import { SidebarSettingsTab, NotificationSettingsTab } from '@/features/organiza
 import DelegationSettingsTab from '@/features/organization/components/DelegationSettingsTab'
 import EmailTemplateSettingsTab from '@/features/organization/components/EmailTemplateSettingsTab'
 import LarkSettingsTab from '@/features/organization/components/LarkSettingsTab'
-import AiDocumentsSettingsTab from '@/features/organization/components/AiDocumentsSettingsTab'
-import WorkflowSettingsTab from '@/features/kpi/workflow/components/WorkflowSettingsTab'
-import { useSearchParams } from 'react-router-dom'
+import AiDocumentsSettingsTab from '@/features/ai/document/AiDocumentsSettingsTab'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 /**
@@ -21,7 +20,7 @@ import { useTranslation } from 'react-i18next'
 export default function CompanySettingsPage() {
   const { t } = useTranslation('orgunits')
   const pageTitle = usePageTitle('setup-company', t('CompanySettingsPage.companySetup'))
-  const [, setSearchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const goToSection = (id: string) =>
     setSearchParams(prev => {
@@ -29,6 +28,11 @@ export default function CompanySettingsPage() {
       p.set('section', id)
       return p
     }, { replace: true })
+
+  // "Quy trình duyệt" đã ra dòng "Quy trình" riêng — link / bookmark cũ chuyển theo.
+  if (searchParams.get('section') === 'approval-processes') {
+    return <Navigate to="/processes?section=approval-processes" replace />
+  }
 
   return (
     <>
@@ -51,7 +55,6 @@ export default function CompanySettingsPage() {
           },
           { id: 'api', render: () => <LarkSettingsTab /> },
           { id: 'ai-docs', render: () => <AiDocumentsSettingsTab /> },
-          { id: 'kpi-workflow', render: () => <WorkflowSettingsTab /> },
         ]}
       />
     </>

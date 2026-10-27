@@ -5,7 +5,7 @@ import com.kpitracking.dto.request.task.TaskListRequests;
 import com.kpitracking.dto.response.task.KpiTaskResponse;
 import com.kpitracking.dto.response.task.TaskListResponses;
 import com.kpitracking.dto.response.task.TaskSidebarResponse;
-import com.kpitracking.enums.TaskListRole;
+import com.kpitracking.enums.task.TaskListRole;
 import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.service.CollabITSupport;
 import org.junit.jupiter.api.AfterEach;
@@ -220,7 +220,7 @@ class TaskPersonalIT extends CollabITSupport {
         loginAs(employee);
         assertThat(structureService.setMilestone(a.getId(), true, null).isMilestone()).isTrue();
         assertThat(taskService.history(a.getId())).extracting(com.kpitracking.dto.response.task.KpiTaskEventResponse::getAction)
-                .contains(com.kpitracking.enums.KpiTaskEventAction.MILESTONE_CHANGED);
+                .contains(com.kpitracking.enums.task.KpiTaskEventAction.MILESTONE_CHANGED);
         assertThat(structureService.setMilestone(a.getId(), false, null).isMilestone()).isFalse();
         loginAs(colleague);
         assertThatThrownBy(() -> structureService.setMilestone(a.getId(), true, null)).isInstanceOf(RuntimeException.class);

@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.auth;
 
-import com.kpitracking.enums.UserStatus;
+import com.kpitracking.enums.user.UserStatus;
 import lombok.*;
 
 import java.util.List;

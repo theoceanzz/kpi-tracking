@@ -3,7 +3,7 @@ package com.kpitracking.service.discussion;
 import com.kpitracking.dto.request.task.CreateKpiTaskRequest;
 import com.kpitracking.dto.response.discussion.DiscussionCommentResponse;
 import com.kpitracking.dto.response.task.KpiTaskResponse;
-import com.kpitracking.enums.DiscussionTargetType;
+import com.kpitracking.enums.discussion.DiscussionTargetType;
 import com.kpitracking.service.CollabITSupport;
 import com.kpitracking.service.task.KpiTaskService;
 import org.junit.jupiter.api.AfterEach;
