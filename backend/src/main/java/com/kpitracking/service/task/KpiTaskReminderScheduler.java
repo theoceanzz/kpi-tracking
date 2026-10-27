@@ -55,6 +55,7 @@ public class KpiTaskReminderScheduler {
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.service.PrimaryUnitResolver primaryUnits;
     private final NotificationDispatcher dispatcher;
 
     @Scheduled(cron = "${app.tasks.reminder-cron:0 */5 * * * *}", zone = "Asia/Ho_Chi_Minh")
@@ -128,8 +129,7 @@ public class KpiTaskReminderScheduler {
 
     private OrgUnit unitFor(KpiCriteria kpi, User to) {
         if (kpi != null && kpi.getOrgUnit() != null) return kpi.getOrgUnit();
-        return userRoleOrgUnitRepository.findByUserId(to.getId()).stream()
-                .map(UserRoleOrgUnit::getOrgUnit).findFirst().orElse(null);
+        return primaryUnits.unitOf(to);
     }
 
     private static String dueLabel(KpiTask t) {

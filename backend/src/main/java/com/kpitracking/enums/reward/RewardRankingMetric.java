@@ -1,5 +1,7 @@
 package com.kpitracking.enums.reward;
 
+import com.kpitracking.service.evaluation.EvaluationService;
+
 /** Xếp hạng theo chỉ số nào. Chỉ ĐỌC từ phía đánh giá, không bao giờ ghi ngược. */
 public enum RewardRankingMetric {
     /** Điểm chốt kỳ ({@code cycle_user_evaluations.final_score}). Chỉ dùng với scope CYCLE. */

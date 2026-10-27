@@ -4,7 +4,7 @@ import { subscribeTopic } from '@/lib/realtime'
 import { taskApi, type AssignTaskInput, type MoveTasksInput, type SetAssigneesInput, type SetKpiInput } from '../api/taskApi'
 import { listApi, mySectionApi, tagApi } from '../api/listApi'
 import type {
-  CreateTaskInput, KpiTask, ReminderInput, TaskBatchInput, TaskListDetail, TaskListParams, TaskStatus, UpdateTaskInput,
+  CreateTaskInput, KpiTask, ReminderInput, TaskAttachmentKind, TaskBatchInput, TaskListDetail, TaskListParams, TaskStatus, UpdateTaskInput,
 } from '../types'
 
 /**
@@ -257,7 +257,10 @@ export function useTaskMutations() {
       onSuccess: done,
     }),
     deleteChecklist: useMutation({ mutationFn: (v: { id: string; itemId: string }) => taskApi.deleteChecklist(v.id, v.itemId), onSuccess: done }),
-    addAttachments: useMutation({ mutationFn: (v: { id: string; files: File[] }) => taskApi.addAttachments(v.id, v.files), onSuccess: done }),
+    addAttachments: useMutation({
+      mutationFn: (v: { id: string; files: File[]; kind?: TaskAttachmentKind }) => taskApi.addAttachments(v.id, v.files, v.kind),
+      onSuccess: done,
+    }),
     deleteAttachment: useMutation({
       mutationFn: (v: { id: string; attachmentId: string }) => taskApi.deleteAttachment(v.id, v.attachmentId),
       onSuccess: done,

@@ -1,5 +1,7 @@
 package com.kpitracking.ai.kpi;
 
+import com.kpitracking.service.kpi.KpiCriteriaService;
+
 
 import com.kpitracking.ai.org.OrgUnitStatisticToolRequests;
 import com.kpitracking.ai.core.tool.ToolSupport;

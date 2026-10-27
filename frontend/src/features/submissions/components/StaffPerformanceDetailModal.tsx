@@ -49,6 +49,15 @@ export default function StaffPerformanceDetailModal({
     enabled: open
   })
 
+  // Điểm hệ thống do backend tính (đã quy đổi trọng số, kể cả "% công sức" của người kiêm nhiệm) —
+  // cộng thô autoScore ở đây thì người thuộc hai phòng (mỗi phòng 100%) ra điểm gấp đôi.
+  const { data: scorePreview } = useQuery({
+    queryKey: ['score-preview', periodId, userId],
+    queryFn: () => evaluationApi.getScorePreview(periodId, userId),
+    enabled: open && !!periodId && !!userId,
+  })
+  const effortShares = scorePreview?.effortShares ?? []
+
   const isLoading = loadingSubs || loadingEval
   const submissionList = submissions?.content ?? []
   const officialEval = useMemo(() => 
@@ -82,7 +91,14 @@ export default function StaffPerformanceDetailModal({
         <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <span>{periodName}</span>
           <span className="inline-flex items-center gap-1.5 tabular-nums"><Calendar size={13} aria-hidden="true" /> {submissionList.length} {t('StaffPerformanceDetailModal.kpis')}</span>
-          <span className="inline-flex items-center gap-1.5 tabular-nums"><Award size={13} aria-hidden="true" /> {t('StaffPerformanceDetailModal.weight')} {totalWeight}%</span>
+          {effortShares.length > 1 ? (
+            // Kiêm nhiệm: mỗi phòng giao đủ 100% của mình — hiện % công sức từng phòng thay cho tổng 200%.
+            <span className="inline-flex items-center gap-1.5 tabular-nums"><Award size={13} aria-hidden="true" />
+              {t('StaffPerformanceDetailModal.effortShares', { list: effortShares.map(b => `${b.orgUnitName} ${formatNumber(b.sharePercent)}%`).join(' · ') })}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 tabular-nums"><Award size={13} aria-hidden="true" /> {t('StaffPerformanceDetailModal.weight')} {totalWeight}%</span>
+          )}
         </span>
       }
       footer={<DialogFooter primary={<Button onClick={onClose}>{t('StaffPerformanceDetailModal.close')}</Button>} />}
@@ -141,7 +157,7 @@ export default function StaffPerformanceDetailModal({
                   <div className="relative z-10">
                      <div className="flex items-baseline gap-2 mb-1">
                         <p className="text-4xl font-semibold tracking-tighter">
-                           {officialEval ? formatNumber(Math.round(officialEval.score ?? 0)) : formatNumber(Math.round(totalAutoScore))}
+                           {officialEval ? formatNumber(Math.round(officialEval.score ?? 0)) : formatNumber(Math.round(scorePreview?.systemScore ?? totalAutoScore))}
                         </p>
                         <span className="text-xs font-medium opacity-60">{t('StaffPerformanceDetailModal.score')}</span>
                      </div>

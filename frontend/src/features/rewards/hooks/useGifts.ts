@@ -1,6 +1,7 @@
 import { intlLocale } from '@/i18n/format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { celebrate } from '../celebration/celebrate'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { giftApi } from '../api/giftApi'
 import { RedemptionStatus } from '../types'
@@ -117,7 +118,11 @@ export const useMyRedemptions = (page = 0, size = 20) => {
         return
       }
 
+      // Ăn mừng chỉ khi quà ĐÃ chắc chắn về tay (có mã / đã giao / đã duyệt ngay). Chờ duyệt,
+      // thất bại, treo ở trên: giữ nguyên toast cũ.
       if (r.vouchers?.length) {
+        // Hộp mã quà tự hiện ngay sau đây (kèm hộp quà mở) — pháo + kèn ở đây, toast giữ như cũ.
+        celebrate({ kind: 'GIFT', points: r.pointsSpent, hasVoucher: true, refId: r.id })
         toast.success(t('useGifts.redeemed', { giftNameSnapshot: r.giftNameSnapshot }), {
           description: t('useGifts.pointsDeductedTheGiftCodeIs', { points }),
           duration: 6000,
@@ -128,19 +133,26 @@ export const useMyRedemptions = (page = 0, size = 20) => {
       // Quà nhận ngay đã hoàn tất, không có "yêu cầu" nào đang chờ và cũng chẳng ai
       // từ chối được — nói như luồng chờ giao là nói sai với người dùng.
       if (r.status === RedemptionStatus.DELIVERED) {
-        toast.success(t('useGifts.redeemed', { giftNameSnapshot: r.giftNameSnapshot }), {
-          description: t('useGifts.pointsDeductedTheGiftHasBeen', { points }),
-          duration: 5000,
-        })
+        const title = t('useGifts.redeemed', { giftNameSnapshot: r.giftNameSnapshot })
+        const description = t('useGifts.pointsDeductedTheGiftHasBeen', { points })
+        // Có hiệu ứng thì toast chúc mừng (cùng câu chữ) THAY toast thường.
+        if (celebrate({ kind: 'GIFT', points: r.pointsSpent, title, description, refId: r.id }) === null) {
+          toast.success(title, { description, duration: 5000 })
+        }
         return
       }
 
-      toast.success(t('useGifts.sentARequestToRedeem', { giftNameSnapshot: r.giftNameSnapshot }), {
-        // Nói rõ điểm đã trừ NGAY — nếu không người dùng sẽ tưởng bị trừ nhầm khi thấy
-        // số dư giảm mà quà chưa nhận được.
-        description: t('useGifts.pointsDeductedYouWillReceiveThe', { points }),
-        duration: 6000,
-      })
+      const title = t('useGifts.sentARequestToRedeem', { giftNameSnapshot: r.giftNameSnapshot })
+      // Nói rõ điểm đã trừ NGAY — nếu không người dùng sẽ tưởng bị trừ nhầm khi thấy
+      // số dư giảm mà quà chưa nhận được.
+      const description = t('useGifts.pointsDeductedYouWillReceiveThe', { points })
+      if (
+        r.status === RedemptionStatus.APPROVED &&
+        celebrate({ kind: 'GIFT', points: r.pointsSpent, title, description, refId: r.id }) !== null
+      ) {
+        return
+      }
+      toast.success(title, { description, duration: 6000 })
     },
     onError: (error: any) => toast.error(errMsg(error, t('useGifts.giftRedemptionFailed')), { duration: 6000 }),
   })

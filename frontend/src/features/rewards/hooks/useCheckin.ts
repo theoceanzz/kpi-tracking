@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { checkinApi } from '../api/checkinApi'
-import type { CheckinConfigRequest } from '../types'
+import type { CheckinConfigRequest, CheckinStatus } from '../types'
+import { celebrate } from '../celebration/celebrate'
+import { checkinBonusPoints } from '../celebration/celebrationPlan'
 import { useTranslation } from 'react-i18next'
 
 /** Lấy thông báo nghiệp vụ backend trả về; các lỗi này là câu tiếng Việt viết sẵn cho người dùng. */
@@ -35,11 +37,24 @@ export const useCheckin = () => {
   return useMutation({
     mutationFn: () => checkinApi.checkin(),
     onSuccess: (status) => {
+      const prev = qc.getQueryData<CheckinStatus>(['checkinStatus', 'me'])
       // Điểm danh vừa đổi trạng thái điểm danh vừa cộng vào ví và ghi một dòng sổ cái —
       // thiếu cái nào thì màn hình hiện số dư cũ ngay cạnh thông báo vừa nhận điểm.
+      // Làm mới số dư NGAY: số trên màn hình tự đợi "+N" bay tới rồi mới chạy (AnimatedNumber).
       qc.setQueryData(['checkinStatus', 'me'], status)
       qc.invalidateQueries({ queryKey: ['rewardWallet'] })
       qc.invalidateQueries({ queryKey: ['rewardTransactions'] })
+
+      // Cấp "vừa" (chạm mốc chuỗi) hiện toast chúc mừng THAY toast dưới; cấp nhỏ hoặc tắt hiệu
+      // ứng thì toast cũ giữ nguyên.
+      const level = celebrate({
+        kind: 'CHECKIN',
+        points: status.todayPoints ?? 0,
+        streakLength: status.streakLength,
+        bonusPoints: checkinBonusPoints(prev, status),
+        origin: document.querySelector<HTMLElement>('[data-celebrate="checkin-button"]'),
+      })
+      if (level === 'medium') return
 
       toast.success(t('useCheckin.checkedInSuccessfullyPoints', { todayPoints: status.todayPoints }), {
         description:

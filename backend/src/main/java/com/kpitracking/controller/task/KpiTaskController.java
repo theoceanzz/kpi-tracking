@@ -4,6 +4,7 @@ import com.kpitracking.dto.request.task.*;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.task.*;
+import com.kpitracking.enums.task.KpiTaskAttachmentKind;
 import com.kpitracking.enums.task.KpiTaskPriority;
 import com.kpitracking.enums.task.KpiTaskStatus;
 import com.kpitracking.service.task.KpiTaskService;
@@ -331,8 +332,9 @@ public class KpiTaskController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<KpiTaskResponse>> addAttachments(@PathVariable UUID id,
                                                                        @RequestParam("files") MultipartFile[] files,
-                                                                       @RequestParam(required = false) List<String> sourceDocumentIds) throws IOException {
-        return ResponseEntity.ok(ApiResponse.success(taskService.addAttachments(id, files, sourceDocumentIds)));
+                                                                       @RequestParam(required = false) List<String> sourceDocumentIds,
+                                                                       @RequestParam(defaultValue = "REFERENCE") KpiTaskAttachmentKind kind) throws IOException {
+        return ResponseEntity.ok(ApiResponse.success(taskService.addAttachments(id, files, sourceDocumentIds, kind)));
     }
 
     @DeleteMapping("/kpi-tasks/{id}/attachments/{attachmentId}")

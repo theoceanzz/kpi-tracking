@@ -74,7 +74,7 @@ public class RewardRedemptionService {
         Optional<RewardFulfillmentProvider> provider =
                 fulfillmentProviders.find(redemption.getGiftItem().getType());
         if (provider.isPresent() && provider.get().fulfillsOnRedeem()) {
-            return toOwnerResponse(runFulfillment(redemption, provider.get()));
+            return toOwnerResponse(runFulfillment(redemption, provider.get(), true));
         }
         return toOwnerResponse(redemption);
     }
@@ -90,14 +90,17 @@ public class RewardRedemptionService {
      *       Hoàn điểm ở ca này là vừa mất tiền vừa mất hàng nếu voucher thật ra đã xuất;
      *       người có quyền xử lý bấm "Giao quà" để hỏi lại bằng mã giao dịch cũ.</li>
      * </ul>
+     *
+     * @param ownerWatching chạy trong request đổi quà của chính người đổi (xem {@link RewardRedemptionTx#settleSuccess})
      */
     private RewardRedemption runFulfillment(RewardRedemption redemption,
-                                            RewardFulfillmentProvider provider) {
+                                            RewardFulfillmentProvider provider,
+                                            boolean ownerWatching) {
         UUID id = redemption.getId();
         RewardFulfillmentProvider.FulfillmentResult result = provider.fulfill(redemption);
 
         if (result.ok()) {
-            return tx.settleSuccess(id, result.externalRef(), result.payload());
+            return tx.settleSuccess(id, result.externalRef(), result.payload(), ownerWatching);
         }
         if (result.retryable()) {
             log.warn("Chưa xác định được kết quả xuất quà cho yêu cầu {}: {}", id, result.message());
@@ -221,7 +224,7 @@ public class RewardRedemptionService {
             // Hỏi lại nhà cung cấp bằng ĐÚNG mã giao dịch cũ: nếu đơn đã tồn tại, họ trả
             // về quà đã xuất thay vì bán thêm lần nữa. Đây là đường lấy lại quà cho một
             // yêu cầu treo vì timeout.
-            RewardRedemption settled = runFulfillment(r, external.get());
+            RewardRedemption settled = runFulfillment(r, external.get(), false);
             if (settled.getStatus() == RedemptionStatus.PENDING) {
                 throw new BusinessException(ErrorCode.GIFT_COULD_NOT_OBTAINED_PROVIDER, String.valueOf(settled.getFulfillmentError()));
             }

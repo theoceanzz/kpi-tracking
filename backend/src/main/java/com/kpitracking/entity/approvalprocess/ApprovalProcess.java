@@ -12,7 +12,7 @@ import java.util.*;
 
 import com.kpitracking.entity.user.User;
 /**
- * Quy trình duyệt của một tổ chức cho một đối tượng (xem {@code V45__approval_processes.sql}).
+ * Quy trình duyệt của một tổ chức cho một đối tượng (xem {@code V51__approval_processes.sql}).
  * Sơ đồ ở {@link #definition} là dạng lưu của {@code ProcessGraph}; để jsonb thay vì trải thành
  * bảng node/cạnh vì luôn đọc/ghi nguyên khối và chỉ cần kiểm ở một chỗ.
  */

@@ -1,4 +1,4 @@
-import { intlDateLocale, intlLocale } from '@/i18n/format'
+import { intlLocale } from '@/i18n/format'
 import i18n from 'i18next'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -18,6 +18,7 @@ import {
 import { CertificateOrientation, type RewardGrant } from '../../types'
 import { useCertificateCatalog } from '../../hooks/useCertificates'
 import CertificateCanvas from './CertificateCanvas'
+import { certificateDataFor, fmtDate, preferredTemplateKey, type PickedTemplate } from './certificateData'
 import {
   downloadCertificateBatch,
   printCertificateArea,
@@ -26,7 +27,6 @@ import {
 import {
   CERTIFICATE_PAGE,
   CERTIFICATE_PRESETS,
-  DEFAULT_PRESET,
   resolveDesign,
   type CertificateData,
 } from './presets'
@@ -44,16 +44,8 @@ interface CertificateModalProps {
   lockedRecipientId?: string
 }
 
-/** `preset:<khoá>` hoặc `tpl:<id>`. Một chuỗi để state chọn mẫu chỉ có một kiểu. */
-type PickedTemplate = string
-
 /** Xem ghi chú z-index của `SelectContent` ở EmployeePicker — modal này cũng là z-[1000]. */
 const SELECT_CONTENT_Z = 'z-[1100]'
-
-const fmtDate = (iso?: string | null) =>
-  iso
-    ? new Date(iso).toLocaleDateString(intlDateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
-    : ''
 
 /**
  * Màn hình in chứng nhận cho một lượt thưởng.
@@ -94,13 +86,7 @@ export default function CertificateModal({
   }, [grant, recipients])
 
   /**
-   * Thứ tự ưu tiên khi chọn mẫu mở sẵn:
-   * 1. Mẫu người trao đã chọn lúc thưởng — đó là ý định của họ, không phải gợi ý.
-   * 2. Mẫu mặc định của công ty.
-   * 3. Mẫu đầu tiên trong danh sách, rồi cuối cùng là thiết kế dựng sẵn.
-   *
-   * <p>Bước 1 phải kiểm mẫu có thật sự còn trong danh mục: mẫu bị xoá mềm vẫn giữ id
-   * trong lượt thưởng cũ, trỏ vào đó sẽ ra một ô chọn rỗng và bản xem trước trắng trơn.
+   * Chọn mẫu mở sẵn theo thứ tự ưu tiên ở {@link preferredTemplateKey}.
    *
    * <p>PHẢI đợi danh mục tải xong (`isPending`). Chạy sớm thì `templates` còn rỗng, cả ba
    * bước ưu tiên đều trượt và mẫu rơi về thiết kế dựng sẵn — rồi vì `picked` đã có giá
@@ -110,13 +96,7 @@ export default function CertificateModal({
   useEffect(() => {
     if (!grant || picked || isPending) return
 
-    const templates = catalog?.templates ?? []
-    const chosenByGrantor = grant.certificateTemplateId
-      ? templates.find((t) => t.id === grant.certificateTemplateId)
-      : undefined
-    const preferred = chosenByGrantor ?? templates.find((t) => t.isDefault) ?? templates[0]
-
-    setPicked(preferred ? `tpl:${preferred.id}` : `preset:${DEFAULT_PRESET().key}`)
+    setPicked(preferredTemplateKey(grant, catalog))
   }, [grant, catalog, picked, isPending])
 
   const template = useMemo(() => {
@@ -133,16 +113,8 @@ export default function CertificateModal({
     return orientation ? { ...resolved, orientation } : resolved
   }, [template, picked, orientation])
 
-  const buildData = (recipient: { fullName: string; points: number }): CertificateData => ({
-    recipientName: recipient.fullName,
-    points: recipient.points,
-    reason: grant?.reason ?? '',
-    dateLabel: fmtDate(grant?.approvedAt ?? grant?.createdAt),
-    grantorName: grant?.grantorName ?? '',
-    orgUnitName: grant?.orgUnitName ?? '',
-    organizationName: catalog?.organizationName ?? '',
-    organizationLogoUrl: catalog?.organizationLogoUrl,
-  })
+  const buildData = (recipient: { fullName: string; points: number }): CertificateData =>
+    certificateDataFor(grant, recipient, catalog)
 
   const chosen = recipients.filter((r) => selectedIds.includes(r.userId))
   const previewRecipient = chosen[0] ?? recipients[0]
@@ -366,7 +338,7 @@ export default function CertificateModal({
  * <p>Tính tỉ lệ từ bề rộng đo được thay vì đặt một con số cố định: cột phải hẹp lại trên
  * laptop 13" và tờ chứng nhận sẽ tràn ra ngoài khung nếu tỉ lệ đóng cứng.
  */
-function PreviewFrame({
+export function PreviewFrame({
   design,
   data,
 }: {

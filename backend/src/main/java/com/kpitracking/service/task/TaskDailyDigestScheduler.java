@@ -39,6 +39,7 @@ public class TaskDailyDigestScheduler {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.service.PrimaryUnitResolver primaryUnits;
     private final NotificationDispatcher dispatcher;
 
     @Scheduled(cron = "${app.tasks.digest-cron:0 0 10 * * *}", zone = "Asia/Ho_Chi_Minh")
@@ -83,6 +84,6 @@ public class TaskDailyDigestScheduler {
     }
 
     private OrgUnit unitOf(User u) {
-        return userRoleOrgUnitRepository.findByUserId(u.getId()).stream().map(UserRoleOrgUnit::getOrgUnit).findFirst().orElse(null);
+        return primaryUnits.unitOf(u);
     }
 }

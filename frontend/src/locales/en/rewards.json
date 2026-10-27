@@ -981,6 +981,34 @@
     "thisCodeCanAlwaysBeViewed": "This code can always be viewed again in “Redeemed gifts”. For help with the gift, contact the UrBox hotline 1900 299 232.",
     "validUntil": "Valid until:",
     "yourGiftCode": "Your gift code",
-    "done": "Done"
+    "done": "Done",
+    "enjoyYourGift": "Congratulations! Here is your gift"
+  },
+  "Celebration": {
+    "awesome": "Awesome!",
+    "bannerSent": "sent you +{{points}} points",
+    "close": "Close",
+    "comboLabel": "{{count}} rewards in a row",
+    "congratulations": "Congratulations! 🎉",
+    "from": "From",
+    "fromMany": "From {{names}}",
+    "giftApproved": "🎁 {{gift}} has been approved",
+    "giftDelivered": "🎁 {{gift}} has been delivered to you",
+    "giftPoints": "Redeemed for {{points}} points",
+    "manyPeople": "Several people",
+    "pointsUnit": "points",
+    "programRank": "Rank #{{rank}}",
+    "reward": "Reward",
+    "sentYou": "{{name}} sent you",
+    "streakBonus": "🔥 {{days}}-day streak, bonus +{{bonus}}",
+    "streakMilestone": "🔥 {{days}}-day streak!",
+    "tapToSkip": "Click anywhere to skip",
+    "totalPoints": "Total reward points",
+    "viewCertificate": "View / download certificate",
+    "viewCertificateNumbered": "Certificate {{index}}",
+    "withCertificate": "with certificate",
+    "youHaveBeenRewarded": "You have been rewarded",
+    "youReceivedRewards_one": "You received {{count}} reward 🎉",
+    "youReceivedRewards_other": "You received {{count}} rewards 🎉"
   }
 }

@@ -66,6 +66,7 @@ export function notificationLink(n: Pick<Notification, 'type' | 'referenceId'>):
     case 'REWARD_GIFT_REQUEST':
       return '/rewards'
     case 'REWARD_POINT':
+    case 'REWARD_POINT_REVOKED':
     case 'REWARD_GIFT':
       return '/rewards/me'
     case 'WALLET':

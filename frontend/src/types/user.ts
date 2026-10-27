@@ -11,10 +11,20 @@ export interface User {
   status: UserStatus
   organizationId: string
   memberships: UserMembership[]
+  /** Chỉ có khi người này thuộc ≥ 2 nhánh (kiêm nhiệm): "% công sức" từng nhánh, đơn vị chính đứng đầu. */
+  effortShares?: UserEffortShare[] | null
   roles: string[]
   permissions?: string[]
   createdAt: string
   updatedAt: string
+}
+
+export interface UserEffortShare {
+  orgUnitId: string
+  orgUnitName: string
+  sharePercent: number
+  /** true = đặt tay; false = chia đều. */
+  configured: boolean
 }
 
 // Matches BE: CreateUserRequest

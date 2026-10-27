@@ -1,5 +1,7 @@
 package com.kpitracking.entity.user;
 
+import com.kpitracking.service.PrimaryUnitResolver;
+
 import com.kpitracking.entity.converter.EncryptedStringConverter;
 import com.kpitracking.enums.user.UserStatus;
 import jakarta.persistence.*;
@@ -107,6 +109,13 @@ public class User {
      */
     @Column(name = "preferred_language", length = 10)
     private String preferredLanguage;
+
+    /**
+     * Đơn vị CHÍNH (V46) khi người này thuộc nhiều đơn vị. Đừng đọc thẳng cột này: nó có thể
+     * trống hoặc trỏ vào đơn vị họ đã rời — dùng {@code PrimaryUnitResolver}.
+     */
+    @Column(name = "primary_org_unit_id")
+    private UUID primaryOrgUnitId;
 
     /**
      * Tài khoản đã bị tạm dừng (INACTIVE) hoặc tạm khóa (SUSPENDED) ở trang Quản lý tài khoản.

@@ -192,5 +192,12 @@ public class KpiTaskResponse {
         private String sourceDocumentTitle;
         /** Chỉ có khi tài liệu gốc còn và người xem mở được nó — link "Mở bản mới nhất". */
         private UUID sourceDocumentId;
+        /** Tệp đính kèm hay kết quả (V47). */
+        private com.kpitracking.enums.task.KpiTaskAttachmentKind kind;
+        private UUID uploadedById;
+        private String uploadedByName;
+        private String uploadedByAvatarUrl;
+        /** Người xem xoá được tệp này ({@code KpiTaskAccess.Scope.canRemoveFile} + việc đang sửa được). */
+        private boolean canDelete;
     }
 }

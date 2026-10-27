@@ -12,6 +12,7 @@ import AiAssistantWidget from '@/features/ai/chat/components/AiAssistantWidget'
 import HeaderBreadcrumb from '@/components/common/HeaderBreadcrumb'
 import CheckinReminderBanner from '@/features/rewards/components/CheckinReminderBanner'
 import RewardActivityTicker from '@/features/rewards/components/RewardActivityTicker'
+import CelebrationHost from '@/features/rewards/celebration/CelebrationHost'
 import { DashboardToolbarSlot } from '@/components/common/dashboard/DashboardToolbarSlot'
 import { useState, useEffect } from 'react'
 import WorkflowHandoffBar from '@/features/kpi/workflow/components/WorkflowHandoffBar'
@@ -52,6 +53,8 @@ export default function AppLayout() {
       <OnboardingTour />
       {/* Một chỗ duy nhất chạy hướng dẫn cho mọi màn hình — xem TourHost. */}
       <TourHost />
+      {/* Hiệu ứng ăn mừng (điểm danh, đổi quà, được thưởng) — một bộ chạy cho mọi trang, gọi qua celebrate(). */}
+      <CelebrationHost />
       {/* Chatbot nổi ở mọi trang. Ẩn trên /ai-assistant vì trang đó đã là trợ lý toàn màn hình.
           Đặt trong AppLayout nên không bị unmount khi đổi route -> hội thoại giữ nguyên. */}
       {location.pathname !== '/ai-assistant' && <AiAssistantWidget />}

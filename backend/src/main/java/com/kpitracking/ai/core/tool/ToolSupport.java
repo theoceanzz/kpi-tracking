@@ -156,9 +156,9 @@ public class ToolSupport {
             String email = SecurityContextHolder.getContext().getAuthentication().getName();
             User user = userRepository.findByEmail(email).orElse(null);
             if (user == null) return null;
-            List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
-            if (assignments.isEmpty()) return null;
-            return assignments.get(0).getOrgUnit().getId();
+            UserRoleOrgUnit primary = com.kpitracking.service.PrimaryUnitResolver.pick(
+                    userRoleOrgUnitRepository.findByUserId(user.getId()), user.getPrimaryOrgUnitId());
+            return primary != null ? primary.getOrgUnit().getId() : null;
         } catch (Exception e) {
             log.error("Error getting current user org unit ID", e);
             return null;

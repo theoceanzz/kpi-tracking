@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import AiReviewDetailDialog from '../../ai/submission/components/AiReviewDetailDialog'
 import AiScoreBar from '../../ai/submission/components/AiScoreBar'
 import { useAiReview, useRequestAiReview } from '../../ai/submission/hooks/useAiReview'
@@ -172,6 +172,8 @@ export default function StaffEvaluationModal({
   const scoreCeiling = scorePreview?.maxAllowedScore ?? maxScore
   scoreCeilingRef.current = scoreCeiling
   const bonusScore = scorePreview?.bonusScore ?? 0
+  // Hệ số "% công sức" từng KPI của người kiêm nhiệm (xem normOf bên dưới).
+  const weightFactors = scorePreview?.kpiWeightFactors ?? null
 
   // Bài đã trả lại (hoàn duyệt) là lịch sử: không chấm, không duyệt khi chốt — hiện ở mục riêng.
   const allSubmissions = useMemo(() => submissions?.content ?? [], [submissions])
@@ -217,7 +219,8 @@ export default function StaffEvaluationModal({
     let sum = 0, totalWeight = 0
     for (const s of submissionList) {
       if (s.kpiType !== 'QUALITATIVE') continue
-      const weight = s.weight ?? 0
+      // Kiêm nhiệm: nhân hệ số "% công sức" backend gửi (cùng công thức calculateBehaviorScore).
+      const weight = (s.weight ?? 0) * (weightFactors?.[s.kpiCriteriaId] ?? 1)
       if (weight <= 0) continue
       const level = qualitativeLevels.find(l => l.id === individualLevels[s.id])
       if (!level || level.value == null) continue
@@ -225,7 +228,7 @@ export default function StaffEvaluationModal({
       totalWeight += weight
     }
     return totalWeight > 0 ? Math.round((sum / totalWeight) * 100) / 100 : null
-  }, [submissionList, individualLevels, qualitativeLevels, hasQualitative, conductBehavior, scorePreview?.behaviorScore])
+  }, [submissionList, individualLevels, qualitativeLevels, hasQualitative, conductBehavior, scorePreview?.behaviorScore, weightFactors])
 
   // Trục cột của ma trận: % hoàn thành định lượng (không đổi theo thao tác chấm tay).
   // Không có KPI định lượng ⇒ TRỐNG, và ma trận không xếp loại. Một loại KPI chỉ cấp được
@@ -252,6 +255,9 @@ export default function StaffEvaluationModal({
   [submissionList])
   const quantWeight = Math.max(scorePreview?.quantitativeWeight ?? 0, submittedQuantWeight)
   const normFactor = quantWeight > 0 ? 100 / quantWeight : 1
+  // Người kiêm nhiệm (≥ 2 nhánh): mỗi KPI có hệ số riêng = % công sức của nhánh ÷ trọng số của nhánh,
+  // đúng như điểm hệ thống ở backend (KpiEffortShares). Không có bảng hệ số ⇒ quy đổi chung như cũ.
+  const normOf = useCallback((s: Submission) => weightFactors?.[s.kpiCriteriaId] ?? normFactor, [weightFactors, normFactor])
 
   // Initialize individual scores when data loaded. Đã chấm rồi thì lấy điểm CỦA MÌNH trong sổ theo người chấm:
   // điểm trên bài nộp là của người chấm cuối, mở lại sau khi cấp trên chấm sẽ thấy điểm của cấp trên trong ô của mình.
@@ -261,14 +267,14 @@ export default function StaffEvaluationModal({
       const levels: Record<string, string> = {}
       submissionList.forEach(s => {
         const own = evaluatorScores?.find(r => r.submissionId === s.id && r.evaluatorId === user?.id)
-        scores[s.id] = Math.round((own?.managerScore ?? s.managerScore ?? s.autoScore ?? 0) * normFactor)
+        scores[s.id] = Math.round((own?.managerScore ?? s.managerScore ?? s.autoScore ?? 0) * normOf(s))
         const level = own?.qualitativeLevelId ?? s.qualitativeLevelId
         if (level) levels[s.id] = level
       })
       setIndividualScores(scores)
       setIndividualLevels(levels)
     }
-  }, [submissions, evaluatorScores, normFactor])
+  }, [submissions, evaluatorScores, normOf])
 
   // Nhận xét chỉ lấy từ bản CỦA MÌNH. Điểm cuối: bản của mình, không có thì lấy bản mới
   // nhất của cấp dưới làm điểm xuất phát (giữ hành vi cũ), người chấm vẫn kéo lại được.
@@ -283,8 +289,8 @@ export default function StaffEvaluationModal({
 
   // Calculation logic (quantitative only, normalized to fill the 0..100 pool)
   const totalAutoScore = useMemo(() =>
-    submissionList.filter(s => s.kpiType !== 'QUALITATIVE').reduce((acc, s) => acc + Math.round((s.autoScore ?? 0) * normFactor), 0),
-  [submissionList, normFactor])
+    submissionList.filter(s => s.kpiType !== 'QUALITATIVE').reduce((acc, s) => acc + Math.round((s.autoScore ?? 0) * normOf(s)), 0),
+  [submissionList, normOf])
 
   // Qualitative KPIs feed the matrix, not the 0..100 sum, so exclude them here.
   const totalManagerScore = useMemo(() =>
@@ -323,7 +329,7 @@ export default function StaffEvaluationModal({
             s.kpiType === 'QUALITATIVE'
               ? { submissionId: s.id, qualitativeLevelId: data.individualLevels[s.id] }
               // De-normalize back to the raw weight scale for storage.
-              : { submissionId: s.id, managerScore: (data.individualScores[s.id] ?? 0) / normFactor }
+              : { submissionId: s.id, managerScore: normOf(s) > 0 ? (data.individualScores[s.id] ?? 0) / normOf(s) : 0 }
           ).filter(ir => ('managerScore' in ir && ir.managerScore != null) || ('qualitativeLevelId' in ir && ir.qualitativeLevelId != null))
         })
       }
@@ -443,7 +449,8 @@ export default function StaffEvaluationModal({
     return { managerScore: s.managerScore, qualitativeLevelId: s.qualitativeLevelId, qualitativeLevelName: s.qualitativeLevelName }
   }
   const isQual = (s: Submission) => s.kpiType === 'QUALITATIVE'
-  const fmtPoints = (raw?: number | null) => (raw == null ? null : formatNumber(Math.round(raw * normFactor)))
+  // Hệ số theo từng KPI (người kiêm nhiệm chia % công sức theo nhánh), như normOf.
+  const fmtPoints = (raw: number | null | undefined, s: Submission) => (raw == null ? null : formatNumber(Math.round(raw * normOf(s))))
 
   // AI chỉ chấm TỪNG chỉ tiêu (06/10): bấm "Gợi ý" ở ô nào thì chấm chỉ tiêu đó; chấm xong ô có "Xem cách AI chấm" và
   // "Chấm lại bài này". Điểm đã chấm (kể cả của lượt cả phiếu trước đây) hiện sẵn. Bài không đổi thì máy chủ trả kết quả
@@ -492,7 +499,7 @@ export default function StaffEvaluationModal({
     }
     const saved = savedScore(s, c)
     if (!saved) return null
-    return isQual(s) ? saved.qualitativeLevelName ?? null : fmtPoints(saved.managerScore)
+    return isQual(s) ? saved.qualitativeLevelName ?? null : fmtPoints(saved.managerScore, s)
   }
   // Các ô của bảng KPI — hàm render (không phải component con) để ô nhập không bị dựng lại
   // và mất focus sau mỗi phím gõ. Mobile và desktop dùng chung nên chỉ có một bản.
@@ -530,7 +537,7 @@ export default function StaffEvaluationModal({
   )
   const systemScoreCell = (s: Submission) => (
     <span className="text-sm tabular-nums text-[var(--color-muted-foreground)]">
-      {isQual(s) ? '-' : fmtPoints(s.autoScore ?? 0)}
+      {isQual(s) ? '-' : fmtPoints(s.autoScore ?? 0, s)}
     </span>
   )
   const scoreInputCell = (s: Submission) => isQual(s) ? (
@@ -631,7 +638,7 @@ export default function StaffEvaluationModal({
   const mobileScorers = (s: Submission) => (
     <dl className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
       {([
-        ['system', t('ScorerColumns.system'), isQual(s) ? null : fmtPoints(s.autoScore ?? 0)],
+        ['system', t('ScorerColumns.system'), isQual(s) ? null : fmtPoints(s.autoScore ?? 0, s)],
         ['manager', t('ScorerColumns.manager'), columnText(s, managerColumn)],
         ...(aiAvailable ? [['ai', t('ScorerColumns.ai'), null]] : []),
         ['boss', t('ScorerColumns.boss'), columnText(s, bossColumn)],
@@ -713,6 +720,23 @@ export default function StaffEvaluationModal({
           <p className="text-sm text-[var(--color-foreground)]">
             {t('StaffEvaluationModal.finalizeBlockedAwaitingResubmission', { count: awaitingResubmission.length })}
           </p>
+        </div>
+      )}
+      {(scorePreview?.effortShares?.length ?? 0) > 1 && (
+        <div role="note" className="mb-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] px-4 py-3 text-sm text-[var(--color-foreground)]">
+          <p className="font-semibold">{t('StaffEvaluationModal.effortSharesTitle')}</p>
+          <ul className="mt-1 space-y-0.5">
+            {scorePreview!.effortShares!.map(b => (
+              <li key={b.orgUnitId} className="tabular-nums">
+                {b.orgUnitName}: <b>{formatNumber(b.sharePercent)}%</b> {t('StaffEvaluationModal.effortShareOfScore')}
+                {b.completionPercent != null && <> · {t('StaffEvaluationModal.effortBranchCompletion', { value: formatNumber(b.completionPercent) })}</>}
+                {b.frozen
+                  ? <span className="text-caption"> ({t('StaffEvaluationModal.effortFrozenForPeriod')})</span>
+                  : !b.configured && <span className="text-caption"> ({t('StaffEvaluationModal.effortSplitEqually')})</span>}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-caption">{t('StaffEvaluationModal.effortSharesHint')}</p>
         </div>
       )}
       <div className="space-y-6">

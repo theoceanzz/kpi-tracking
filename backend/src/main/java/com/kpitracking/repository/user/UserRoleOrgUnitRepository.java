@@ -51,6 +51,13 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
 
     boolean existsByUserIdAndRoleIdAndOrgUnitId(UUID userId, UUID roleId, UUID orgUnitId);
 
+    /** Vai trò trưởng sinh từ uỷ quyền — job đối chiếu với uỷ quyền còn hiệu lực. */
+    @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.user JOIN FETCH uro.role JOIN FETCH uro.orgUnit WHERE uro.delegationId IS NOT NULL")
+    List<UserRoleOrgUnit> findDelegationGenerated();
+
+    @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.user JOIN FETCH uro.role JOIN FETCH uro.orgUnit WHERE uro.delegationId = :delegationId")
+    List<UserRoleOrgUnit> findByDelegationId(@Param("delegationId") UUID delegationId);
+
     @Query("SELECT CASE WHEN COUNT(uro) > 0 THEN true ELSE false END FROM UserRoleOrgUnit uro WHERE uro.orgUnit.id = :orgUnitId AND uro.role.name = :roleName")
     boolean existsByOrgUnitIdAndRoleName(@Param("orgUnitId") UUID orgUnitId, @Param("roleName") String roleName);
 

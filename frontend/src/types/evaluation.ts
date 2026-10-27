@@ -71,6 +71,13 @@ export interface EvaluationScorePreview {
   bscUnassignedKpis?: string[] | null
   /** Tổng trọng số KPI định lượng (trừ KPI thưởng) trên MỌI KPI được giao, kể cả chưa nộp. */
   quantitativeWeight?: number | null
+  /**
+   * Kiêm nhiệm ≥ 2 nhánh: hệ số nhân vào trọng số từng KPI (khoá = id KPI) để quy điểm giống backend
+   * (KpiEffortShares). Không có = một nhánh, quy đổi như cũ.
+   */
+  kpiWeightFactors?: Record<string, number> | null
+  /** Kiêm nhiệm: % công sức + % hoàn thành KPI định lượng của từng nhánh. */
+  effortShares?: { orgUnitId: string; orgUnitName: string; sharePercent: number; configured: boolean; frozen?: boolean; completionPercent: number | null }[] | null
   /** Quản lý đã chấm được người này chưa (chỉ có khi xem điểm của người khác). */
   scoringReadiness?: ScoringReadiness | null
 }

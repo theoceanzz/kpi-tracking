@@ -2,7 +2,10 @@ package com.kpitracking.entity.conduct;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -34,6 +37,11 @@ public class ConductEvaluationItem {
 
     @Column(name = "criteria_description", columnDefinition = "TEXT")
     private String criteriaDescription;
+
+    /** Định nghĩa từng mức điểm chụp lúc mở phiếu (V48); null = tiêu chí không định nghĩa theo mức. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "criteria_level_descriptions", columnDefinition = "jsonb")
+    private Map<String, String> criteriaLevelDescriptions;
 
     /** % TRÊN TỔNG (đã nhân trọng số nhóm nếu có) — mọi phép cộng điểm dùng con số này. */
     @Column(name = "weight", nullable = false)

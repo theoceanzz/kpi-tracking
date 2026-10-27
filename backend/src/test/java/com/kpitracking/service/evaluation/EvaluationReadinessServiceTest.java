@@ -1,5 +1,7 @@
 package com.kpitracking.service.evaluation;
 
+import com.kpitracking.service.kpi.KpiEffortShares;
+
 import com.kpitracking.dto.response.evaluation.ScoringReadinessResponse;
 import com.kpitracking.entity.kpi.KpiPeriod;
 import com.kpitracking.entity.organization.Organization;
@@ -50,7 +52,7 @@ class EvaluationReadinessServiceTest {
         KpiWorkflowConfigService workflowConfig = mock(KpiWorkflowConfigService.class);
         when(workflowConfig.definitionFor(any())).thenReturn(workflow);
         service = new EvaluationReadinessService(kpiCriteriaRepository, kpiSubmissionRepository,
-                evaluationRepository, workflowConfig);
+                evaluationRepository, workflowConfig, mock(KpiEffortShares.class));
 
         period = KpiPeriod.builder()
                 .id(UUID.randomUUID())

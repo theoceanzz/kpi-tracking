@@ -319,11 +319,11 @@ class KpiApprovalChainServiceTest {
     @Test
     @DisplayName("C3: giám đốc (trưởng gốc) có KPI:APPROVE_OWN ⇒ tự duyệt; không có ⇒ chuyển admin")
     void topCreator() {
-        when(permissionChecker.hasPermission(headC.getId(), "KPI:APPROVE_OWN")).thenReturn(true);
+        when(permissionChecker.hasPermissionInOrgUnit(org.mockito.ArgumentMatchers.eq(headC.getId()), org.mockito.ArgumentMatchers.eq("KPI:APPROVE_OWN"), org.mockito.ArgumentMatchers.any())).thenReturn(true);
         var result = service.startCriteria(kpi(headC), headC, ApprovalEventAction.SUBMITTED, true);
         assertThat(result.selfApproved()).isTrue();
 
-        when(permissionChecker.hasPermission(headC.getId(), "KPI:APPROVE_OWN")).thenReturn(false);
+        when(permissionChecker.hasPermissionInOrgUnit(org.mockito.ArgumentMatchers.eq(headC.getId()), org.mockito.ArgumentMatchers.eq("KPI:APPROVE_OWN"), org.mockito.ArgumentMatchers.any())).thenReturn(false);
         var toAdmin = service.startCriteria(kpi(headC), headC, ApprovalEventAction.SUBMITTED, true);
         assertThat(toAdmin.selfApproved()).isFalse();
         KpiApprovalStep step = toAdmin.flow().currentStep().orElseThrow();
@@ -336,7 +336,7 @@ class KpiApprovalChainServiceTest {
     @Test
     @DisplayName("Người có KPI:APPROVE_OWN (không phải cấp cao nhất) gửi duyệt ⇒ chốt ngay, không lập chuỗi")
     void selfApproveOwnerSkipsChain() {
-        when(permissionChecker.hasPermission(headA.getId(), "KPI:APPROVE_OWN")).thenReturn(true);
+        when(permissionChecker.hasPermissionInOrgUnit(org.mockito.ArgumentMatchers.eq(headA.getId()), org.mockito.ArgumentMatchers.eq("KPI:APPROVE_OWN"), org.mockito.ArgumentMatchers.any())).thenReturn(true);
         var result = service.startCriteria(kpi(headA), headA, ApprovalEventAction.SUBMITTED, true);
         assertThat(result.selfApproved()).isTrue();
         assertThat(result.flow().getStatus()).isEqualTo(ApprovalFlowStatus.APPROVED);
@@ -345,6 +345,16 @@ class KpiApprovalChainServiceTest {
         // Điều chỉnh vẫn luôn đi chuỗi, kể cả khi người xin có quyền tự duyệt.
         KpiAdjustmentRequest adj = KpiAdjustmentRequest.builder().id(UUID.randomUUID()).kpiCriteria(kpi(headA)).requester(headA).build();
         assertThat(service.startAdjustment(adj, headA, ApprovalEventAction.SUBMITTED, true).selfApproved()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Quyền tự duyệt chỉ ở đơn vị KHÁC (kiêm nhiệm) ⇒ KPI ở đơn vị này vẫn đi chuỗi duyệt")
+    void selfApproveIsCheckedInTheKpisUnit() {
+        KpiCriteria k = kpi(headA);
+        // Quyền "ở đâu đó" (đơn vị mình làm trưởng) không còn đủ — phải có ở đơn vị của KPI.
+        org.mockito.Mockito.lenient().when(permissionChecker.hasPermission(headA.getId(), "KPI:APPROVE_OWN")).thenReturn(true);
+        org.mockito.Mockito.lenient().when(permissionChecker.hasPermissionInOrgUnit(headA.getId(), "KPI:APPROVE_OWN", k.getOrgUnit().getId())).thenReturn(false);
+        assertThat(service.startCriteria(k, headA, ApprovalEventAction.SUBMITTED, true).selfApproved()).isFalse();
     }
 
     @Test

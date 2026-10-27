@@ -1,5 +1,7 @@
 package com.kpitracking.dto.response.user;
 
+import com.kpitracking.service.PrimaryUnitResolver;
+
 import lombok.*;
 
 import java.util.UUID;
@@ -17,4 +19,6 @@ public class UserMembershipResponse {
     private String unitTypeLabel;
     private Integer levelOrder;
     private Integer roleLevel;
+    /** Dòng đại diện cho đơn vị CHÍNH (PrimaryUnitResolver) — luôn đứng đầu danh sách. */
+    private boolean primary;
 }

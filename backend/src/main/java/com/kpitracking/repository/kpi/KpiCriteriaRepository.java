@@ -1,5 +1,7 @@
 package com.kpitracking.repository.kpi;
 
+import com.kpitracking.service.evaluation.EvaluationReadinessService;
+
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;

@@ -69,6 +69,7 @@ public class TaskNotificationListener {
     private final TaskListRepository taskListRepository;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.service.PrimaryUnitResolver primaryUnits;
     private final NotificationDispatcher dispatcher;
     private final NotificationService notificationService;
     private final NotificationRepository notificationRepository;
@@ -143,8 +144,9 @@ public class TaskNotificationListener {
                             TYPE_TASK, task.getId()));
                 }
             }
-            case DUE_CHANGED, STATUS_CHANGED, COMPLETED -> {
+            case DUE_CHANGED, STATUS_CHANGED, COMPLETED, RESULT_ADDED -> {
                 LocalizedText message = switch (e.kind()) {
+                    case RESULT_ADDED -> LocalizedText.of("notif.task.changed.result", actorName, task.getTitle());
                     case DUE_CHANGED -> LocalizedText.of("notif.task.changed.due", actorName, task.getTitle(),
                             task.getDueDate() == null ? LocalizedText.of("task.noDue")
                                     : task.getDueTime() == null ? DATE.format(task.getDueDate())
@@ -288,7 +290,6 @@ public class TaskNotificationListener {
 
     private OrgUnit unitFor(KpiCriteria kpi, User to) {
         if (kpi != null && kpi.getOrgUnit() != null) return kpi.getOrgUnit();
-        return userRoleOrgUnitRepository.findByUserId(to.getId()).stream()
-                .map(UserRoleOrgUnit::getOrgUnit).findFirst().orElse(null);
+        return primaryUnits.unitOf(to);
     }
 }

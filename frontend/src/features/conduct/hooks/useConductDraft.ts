@@ -125,6 +125,7 @@ export function useConductDraft(sheet: ConductSheet) {
       return {
         name: i.name,
         description: i.description,
+        levelDescriptions: i.levelDescriptions,
         weight: i.weight,
         groupName: i.groupName,
         groupWeight: i.groupWeight,

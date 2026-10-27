@@ -28,6 +28,10 @@ export const userApi = {
   update: (id: string, data: UpdateUserRequest) =>
     axiosInstance.put<ApiResponse<User>>(`/users/${id}`, data).then((r) => r.data.data),
 
+  /** "% công sức" theo nhánh của người kiêm nhiệm; mảng rỗng = về chia đều. */
+  setEffortShares: (id: string, shares: { orgUnitId: string; sharePercent: number }[]) =>
+    axiosInstance.put<ApiResponse<User>>(`/users/${id}/effort-shares`, { shares }).then((r) => r.data.data),
+
   delete: (id: string) =>
     axiosInstance.delete<ApiResponse<void>>(`/users/${id}`).then((r) => r.data),
 

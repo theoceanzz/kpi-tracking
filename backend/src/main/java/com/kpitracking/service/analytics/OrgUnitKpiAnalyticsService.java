@@ -48,6 +48,7 @@ public class OrgUnitKpiAnalyticsService {
     private final OrgUnitRepository orgUnitRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.service.PrimaryUnitResolver primaryUnits;
     private final PermissionChecker permissionChecker;
     private final EvaluationService evaluationService;
     /** Mọi con số về KPI đi qua đây — xem {@link AnalyticsKpiMetrics}. */
@@ -690,8 +691,10 @@ public class OrgUnitKpiAnalyticsService {
                 List<UserRoleOrgUnit> assignments = kpiOrgUnitId != null
                         ? userRoleOrgUnitRepository.findByUserIdAndOrgUnitId(assignee.getId(), kpiOrgUnitId)
                         : Collections.emptyList();
-                if (assignments.isEmpty())
-                    assignments = userRoleOrgUnitRepository.findByUserId(assignee.getId());
+                if (assignments.isEmpty()) {
+                    UserRoleOrgUnit primary = primaryUnits.assignmentOf(assignee);
+                    assignments = primary != null ? List.of(primary) : Collections.emptyList();
+                }
                 String assigneeOrgUnitName = assignments.isEmpty() ? null : assignments.get(0).getOrgUnit().getName();
                 String assigneeRoleName    = assignments.isEmpty() ? null : assignments.get(0).getRole().getName();
 

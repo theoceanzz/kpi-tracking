@@ -11,13 +11,15 @@ import { useTranslation } from 'react-i18next'
  *
  * Đơn vị dưới ngưỡng ẩn danh đã được backend gộp lên đơn vị cha (đánh dấu "gộp").
  */
-export default function HeatmapCard({ campaignId }: { campaignId: string }) {
+export default function HeatmapCard({ campaignId, bare = false }: { campaignId: string; bare?: boolean }) {
+  // `bare`: đặt trong một khung có sẵn (tab của trang chi tiết) — bỏ viền riêng để không lồng khung.
+  const frame = bare ? 'p-4' : 'rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-5'
   const { t } = useTranslation('feedback360')
   const { data, isLoading } = useF360Heatmap(campaignId)
-  if (isLoading) return <LoadingSkeleton rows={4} />
+  if (isLoading) return <div className={bare ? 'p-4' : undefined}><LoadingSkeleton rows={4} /></div>
   if (!data || data.rows.length === 0) {
     return (
-      <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-5">
+      <section className={frame}>
         <h3 className="flex items-center gap-2 text-sm font-semibold"><Grid3x3 size={16} className="text-slate-400" />{t('HeatmapCard.unitsScorePerCompetency')}</h3>
         <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
           {t('HeatmapCard.noUnitHasEnough')} {data?.anonymityThreshold ?? 3} {t('HeatmapCard.peopleWithResultsToShowWhile')}
@@ -35,7 +37,7 @@ export default function HeatmapCard({ campaignId }: { campaignId: string }) {
   const cell = (v?: number | null) => (v == null ? undefined : { backgroundColor: tone(v), color: '#0f172a' })
 
   return (
-    <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-5">
+    <section className={frame}>
       <h3 className="flex items-center gap-2 text-sm font-semibold"><Grid3x3 size={16} className="text-slate-400" />{t('HeatmapCard.unitsScorePerCompetency')}</h3>
       <p className="mt-1 text-caption">
         {t('HeatmapCard.othersScoresScale1')}{data.scaleMax}{t('HeatmapCard.unitsWithFewerThan')} {data.anonymityThreshold} {t('HeatmapCard.peopleAreMergedIntoTheParent')}

@@ -19,7 +19,7 @@ import com.kpitracking.entity.organization.OrgUnit;
 import com.kpitracking.entity.user.User;
 /**
  * Một lần gửi duyệt: chỉ tiêu KPI, yêu cầu điều chỉnh, hoặc đối tượng khác có quy trình duyệt
- * ({@link #subjectId}, xem {@code V48__approval_engine_generic.sql}). Chuỗi người duyệt chụp lại vào
+ * ({@link #subjectId}, xem {@code V54__approval_engine_generic.sql}). Chuỗi người duyệt chụp lại vào
  * {@link #steps} ngay lúc gửi — cơ cấu tổ chức đổi sau đó không làm đổi chuỗi đang chạy.
  *
  * <p>{@code @Version} là lớp chặn thứ hai cho việc hai người duyệt cùng lúc; lớp thứ nhất là
@@ -96,7 +96,7 @@ public class KpiApprovalFlow {
     @Column(name = "process_snapshot", columnDefinition = "jsonb")
     private Map<String, Object> processSnapshot;
 
-    /** Đề xuất chờ duyệt (đánh giá, chốt kỳ): áp vào lúc duyệt cuối. Xem {@code V49__approval_flow_payload.sql}. */
+    /** Đề xuất chờ duyệt (đánh giá, chốt kỳ): áp vào lúc duyệt cuối. Xem {@code V55__approval_flow_payload.sql}. */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "payload", columnDefinition = "jsonb")
     private Map<String, Object> payload;

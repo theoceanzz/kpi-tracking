@@ -43,6 +43,7 @@ public class AiReviewSettingsResolver {
     private final AiCriteriaSetRepository criteriaSetRepository;
     private final AiCriteriaSetItemRepository criteriaSetItemRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.service.PrimaryUnitResolver primaryUnits;
     private final OrgUnitRepository orgUnitRepository;
     private final RagDocumentRepository ragDocumentRepository;
     private final AiReviewLevelRepository levelRepository;
@@ -144,11 +145,8 @@ public class AiReviewSettingsResolver {
     }
 
     private String primaryUnitPath(UUID userId) {
-        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
-        return assignments.stream().map(UserRoleOrgUnit::getOrgUnit)
-                .filter(u -> u != null && u.getPath() != null)
-                .map(OrgUnit::getPath)
-                .findFirst().orElse(null);
+        OrgUnit unit = primaryUnits.unitOf(userId);
+        return unit != null ? unit.getPath() : null;
     }
 
     private Map<UUID, String> unitPaths(UUID organizationId) {

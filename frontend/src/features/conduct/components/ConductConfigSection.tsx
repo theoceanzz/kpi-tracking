@@ -14,8 +14,10 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
 import { useConductConfig, useConductSets } from '../hooks/useConduct'
 import { CONDUCT_MIN_SCORE } from '../hooks/useConductDraft'
-import type { ConductSet } from '../api/conductApi'
+import type { ConductCriteria, ConductLevelDescriptions, ConductSet } from '../api/conductApi'
 import { groupLetter } from '../utils/conductGroups'
+import { cleanLevels, conductLevels, definedLevels } from '../utils/conductLevels'
+import { Textarea } from '@/components/ui/textarea'
 import type { OrganizationResponse } from '@/features/orgunits/api/organizationApi'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
@@ -44,6 +46,8 @@ interface DraftCriteria {
   id?: string
   name: string
   description: string
+  /** Định nghĩa theo mức điểm, khoá "1".."thang"; vắng = chưa định nghĩa. */
+  levels?: ConductLevelDescriptions
   weight: string
 }
 
@@ -67,10 +71,11 @@ interface DraftSet {
   groups: DraftGroup[]
 }
 
-const toDraftCriteria = (c: { id: string; name: string; description?: string | null; weight: number }): DraftCriteria => ({
+const toDraftCriteria = (c: ConductCriteria): DraftCriteria => ({
   id: c.id,
   name: c.name,
   description: c.description ?? '',
+  levels: c.levelDescriptions ?? undefined,
   weight: String(c.weight),
 })
 
@@ -244,10 +249,12 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
     if (rows.some(c => !(Number(c.weight) > 0))) { toast.error(t('ConductConfigSection.eachCriterionsWeightMustBeGreater')); return false }
     return true
   }
-  const toPayloadCriteria = (rows: DraftCriteria[]) => rows.map(c => ({
+  const toPayloadCriteria = (rows: DraftCriteria[], max: number) => rows.map(c => ({
     id: c.id ?? null,
     name: c.name.trim(),
     description: c.description.trim() || null,
+    // Đổi thang xuống (5 → 4) thì mức 5 đã soạn bị bỏ khi lưu — server cũng lọc y như vậy.
+    levelDescriptions: cleanLevels(c.levels, CONDUCT_MIN_SCORE, max),
     weight: Number(c.weight),
   }))
 
@@ -286,9 +293,9 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
         ...(grouped
           ? {
               criteria: null,
-              groups: draft.groups.map(g => ({ id: g.id ?? null, name: g.name.trim(), weight: Number(g.weight), criteria: toPayloadCriteria(g.criteria) })),
+              groups: draft.groups.map(g => ({ id: g.id ?? null, name: g.name.trim(), weight: Number(g.weight), criteria: toPayloadCriteria(g.criteria, max) })),
             }
-          : { criteria: toPayloadCriteria(draft.criteria), groups: [] }),
+          : { criteria: toPayloadCriteria(draft.criteria, max), groups: [] }),
       },
     }, { onSettled: () => setSavingId(null) })
   }
@@ -585,6 +592,7 @@ function SetCard({
                   group={g}
                   index={gi}
                   fieldCls={fieldCls}
+                  scaleMax={Number(d.maxScore)}
                   onChange={p => setGroup(gi, p)}
                   onRemove={() => onPatch({ groups: d.groups.filter((_, i) => i !== gi) })}
                 />
@@ -604,7 +612,7 @@ function SetCard({
             </div>
           ) : (
             <div className="p-3 space-y-1.5">
-              <CriteriaRows rows={d.criteria} fieldCls={fieldCls} onChange={rows => onPatch({ criteria: rows })} />
+              <CriteriaRows rows={d.criteria} fieldCls={fieldCls} scaleMax={Number(d.maxScore)} onChange={rows => onPatch({ criteria: rows })} />
               <div className="flex gap-2 max-sm:flex-col">
                 <Button variant="outline" className="flex-1" type="button" onClick={() => onPatch({ criteria: [...d.criteria, { name: '', description: '', weight: '0' }] })}>
                   <Plus aria-hidden="true" /> {t('ConductConfigSection.addCriterion')}
@@ -627,10 +635,12 @@ function SetCard({
  * từng tiêu chí: mở sẵn hết thì thẻ dài gấp mấy lần và nút Lưu bị đẩy khỏi màn hình.
  */
 function CriteriaRows({
-  rows, fieldCls, onChange,
+  rows, fieldCls, scaleMax, onChange,
 }: {
   rows: DraftCriteria[]
   fieldCls: string
+  /** Thang điểm của bộ — quyết định có những mức nào để định nghĩa. */
+  scaleMax: number
   onChange: (rows: DraftCriteria[]) => void
 }) {
   const { t } = useTranslation('conduct')
@@ -649,6 +659,11 @@ function CriteriaRows({
     <>
       {rows.map((row, idx) => {
         const lines = row.description.split('\n').map(l => l.trim()).filter(Boolean)
+        const levelCount = definedLevels(row.levels, CONDUCT_MIN_SCORE, scaleMax).length
+        const summary = [
+          lines.length ? t('ConductConfigSection.indicators', { count: lines.length }) : null,
+          levelCount ? t('ConductConfigSection.levelsDefined', { count: levelCount }) : null,
+        ].filter(Boolean).join(' · ')
         const descOpen = openDesc.has(idx)
         return (
           <div key={idx} className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
@@ -684,13 +699,13 @@ function CriteriaRows({
                 aria-expanded={descOpen}
                 className={cn(
                   'shrink-0 inline-flex items-center gap-1 px-2 h-9 rounded-control text-xs font-medium cursor-pointer transition-colors',
-                  lines.length
+                  summary
                     ? 'bg-[var(--color-card)] text-[var(--color-muted-foreground)] hover:text-[var(--color-info)] border border-[var(--color-border)]'
                     : 'text-[var(--color-subtle-foreground)] hover:text-[var(--color-info)]',
                 )}
               >
                 {descOpen ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}
-                {lines.length ? t('ConductConfigSection.indicators', { count: lines.length }) : t('ConductConfigSection.addIndicator')}
+                {summary || t('ConductConfigSection.addIndicator')}
               </button>
               <IconButton
                 label={t('ConductConfigSection.deleteCriterion', { value: row.name || idx + 1 })}
@@ -702,14 +717,23 @@ function CriteriaRows({
             </div>
 
             {descOpen && (
-              <div className="px-2 pb-2 pl-10 max-sm:pl-2">
-                <textarea
-                  value={row.description}
-                  onChange={e => setRow(idx, { description: e.target.value })}
-                  placeholder={t('ConductConfigSection.specificIndicatorsOnePerLine')}
-                  aria-label={t('ConductConfigSection.specificIndicatorsOfCriterion', { value: idx + 1 })}
-                  rows={4}
-                  className="w-full px-3 py-2 rounded-control bg-[var(--color-card)] border border-[var(--color-border)] text-xs font-medium leading-relaxed outline-none focus:border-[var(--color-info-border)] focus:ring-2 focus:ring-[var(--color-info-solid)] resize-y"
+              <div className="px-2 pb-2 pl-10 max-sm:pl-2 space-y-3">
+                <div className="space-y-1">
+                  <p className="text-eyebrow">{t('ConductConfigSection.generalIndicators')}</p>
+                  <textarea
+                    value={row.description}
+                    onChange={e => setRow(idx, { description: e.target.value })}
+                    placeholder={t('ConductConfigSection.specificIndicatorsOnePerLine')}
+                    aria-label={t('ConductConfigSection.specificIndicatorsOfCriterion', { value: idx + 1 })}
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-control bg-[var(--color-card)] border border-[var(--color-border)] text-xs font-medium leading-relaxed outline-none focus:border-[var(--color-info-border)] focus:ring-2 focus:ring-[var(--color-info-solid)] resize-y"
+                  />
+                </div>
+                <LevelDefinitions
+                  criterionLabel={row.name || String(idx + 1)}
+                  scaleMax={scaleMax}
+                  levels={row.levels}
+                  onChange={levels => setRow(idx, { levels })}
                 />
               </div>
             )}
@@ -717,6 +741,51 @@ function CriteriaRows({
         )
       })}
     </>
+  )
+}
+
+/**
+ * Định nghĩa từng mức điểm của một tiêu chí (VD thang 1–5: "5 — luôn chủ động…" … "1 — …"), cao → thấp như
+ * phiếu giấy. Tuỳ chọn: bỏ trống hết = tiêu chí chỉ có biểu hiện chung. Người chấm thấy định nghĩa ngay dưới
+ * tiêu chí và mô tả của mức vừa chọn. Thang không nguyên / quá dài thì không có mức để định nghĩa.
+ */
+function LevelDefinitions({
+  criterionLabel, scaleMax, levels, onChange,
+}: {
+  criterionLabel: string
+  scaleMax: number
+  levels?: ConductLevelDescriptions
+  onChange: (levels: ConductLevelDescriptions) => void
+}) {
+  const { t } = useTranslation('conduct')
+  const scale = conductLevels(CONDUCT_MIN_SCORE, scaleMax)
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <p className="text-eyebrow">{t('ConductConfigSection.levelDefinitions')}</p>
+        <p className="text-caption">{t('ConductConfigSection.levelDefinitionsHint')}</p>
+      </div>
+      {scale.length === 0 ? (
+        <p className="text-caption">{t('ConductConfigSection.levelDefinitionsUnavailable')}</p>
+      ) : scale.map(level => (
+        <div key={level} className="flex items-start gap-2">
+          <span className="mt-1.5 w-7 h-7 shrink-0 rounded-control bg-[var(--color-card)] border border-[var(--color-border)] flex items-center justify-center text-sm font-semibold tabular-nums">
+            {level}
+          </span>
+          <Textarea
+            rows={1}
+            value={levels?.[String(level)] ?? ''}
+            onChange={e => onChange({ ...(levels ?? {}), [String(level)]: e.target.value })}
+            placeholder={t(level === scale[0] ? 'ConductConfigSection.levelPlaceholderTop'
+              : level === scale[scale.length - 1] ? 'ConductConfigSection.levelPlaceholderBottom'
+              : 'ConductConfigSection.levelPlaceholder', { level })}
+            aria-label={t('ConductConfigSection.levelOfCriterion', { level, name: criterionLabel })}
+            maxLength={1000}
+            className="min-h-9 py-1.5 text-xs"
+          />
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -748,11 +817,12 @@ function SplitIntoGroupsMenu({ onFromCurrent, onCultureTemplate }: { onFromCurre
 
 /** Một nhóm tiêu chí: tên + % nhóm trên tổng, rồi các tiêu chí mang % TRONG nhóm (cộng 100). */
 function GroupBlock({
-  group: g, index, fieldCls, onChange, onRemove,
+  group: g, index, fieldCls, scaleMax, onChange, onRemove,
 }: {
   group: DraftGroup
   index: number
   fieldCls: string
+  scaleMax: number
   onChange: (p: Partial<DraftGroup>) => void
   onRemove: () => void
 }) {
@@ -791,7 +861,7 @@ function GroupBlock({
       </div>
 
       <div className="p-2 space-y-1.5">
-        <CriteriaRows rows={g.criteria} fieldCls={fieldCls} onChange={rows => onChange({ criteria: rows })} />
+        <CriteriaRows rows={g.criteria} fieldCls={fieldCls} scaleMax={scaleMax} onChange={rows => onChange({ criteria: rows })} />
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" className="flex-1" type="button" onClick={() => onChange({ criteria: [...g.criteria, { name: '', description: '', weight: '0' }] })}>
             <Plus aria-hidden="true" /> {t('ConductConfigSection.addCriterion')}

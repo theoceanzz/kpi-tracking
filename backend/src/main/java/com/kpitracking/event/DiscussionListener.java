@@ -56,6 +56,7 @@ public class DiscussionListener {
     private final DiscussionTargets targets;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.service.PrimaryUnitResolver primaryUnits;
     private final NotificationDispatcher dispatcher;
     private final NotificationService notificationService;
     private final NotificationRepository notificationRepository;
@@ -183,11 +184,10 @@ public class DiscussionListener {
         return ids;
     }
 
-    /** Thông báo bắt buộc gắn một đơn vị: đơn vị của KPI, không có thì đơn vị đầu tiên của người nhận. */
+    /** Thông báo bắt buộc gắn một đơn vị: đơn vị của KPI, không có thì đơn vị chính của người nhận. */
     private OrgUnit unitFor(DiscussionTargets.Target t, User to) {
         if (t.orgUnit() != null) return t.orgUnit();
-        return userRoleOrgUnitRepository.findByUserId(to.getId()).stream()
-                .map(UserRoleOrgUnit::getOrgUnit).findFirst().orElse(null);
+        return primaryUnits.unitOf(to);
     }
 
     private static String snippet(DiscussionComment c) {

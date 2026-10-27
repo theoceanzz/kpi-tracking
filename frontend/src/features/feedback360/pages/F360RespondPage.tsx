@@ -20,8 +20,13 @@ import i18n from 'i18next'
 
 type Answer = { score: number | null; na: boolean; comment: string }
 
-/** Nhãn neo cho thang điểm — chỉ gắn ở hai đầu và điểm giữa để không rối. */
+/**
+ * Nhãn dưới mỗi mức điểm. Thang 1-5 (phổ biến nhất, và bắt buộc khi tính vào xếp loại) có đủ năm
+ * nhãn để người chấm khỏi phải đoán "2" hay "4" nghĩa là gì; thang khác chỉ gắn hai đầu và điểm giữa.
+ */
 function anchorLabel(n: number, max: number) {
+  if (max === 5 && n === 2) return i18n.t('feedback360:F360RespondPage.poor')
+  if (max === 5 && n === 4) return i18n.t('feedback360:F360RespondPage.good')
   if (n === 1) return i18n.t('feedback360:F360RespondPage.veryPoor')
   if (n === max) return i18n.t('feedback360:F360RespondPage.excellent')
   if (n === Math.ceil((max + 1) / 2)) return i18n.t('feedback360:F360RespondPage.meets')
@@ -57,6 +62,9 @@ export default function F360RespondPage() {
   const [confirmSubmit, setConfirmSubmit] = useState(false)
   const [declining, setDeclining] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
+  // Bấm Nộp khi còn câu bắt buộc: tô các câu đó và cuộn tới câu đầu tiên, thay vì một nút xám im lặng.
+  const [showMissing, setShowMissing] = useState(false)
+  const questionEls = useRef(new Map<string, HTMLElement>())
 
   // Nạp câu trả lời từ server MỘT lần cho mỗi phiếu — sau đó bản nháp trên máy là nguồn đúng.
   const loadedFor = useRef<string | null>(null)
@@ -119,6 +127,19 @@ export default function F360RespondPage() {
 
   const pct = allQuestions.length ? Math.round((answeredCount / allQuestions.length) * 100) : 0
   const scale = Array.from({ length: form.scaleMax }, (_, i) => i + 1)
+  const self = form.relationship === 'SELF'
+  const missingIds = new Set(missingRequired.map(q => q.id))
+  const isAnswered = (id: string, type: string) => {
+    const a = answers[id]
+    return type === 'RATING' ? !!a && (a.score != null || a.na) : !!a?.comment.trim()
+  }
+  const trySubmit = () => {
+    if (missingRequired.length === 0) { setConfirmSubmit(true); return }
+    setShowMissing(true)
+    questionEls.current.get(missingRequired[0]!.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+  // Đánh số câu liên tục qua các năng lực để người chấm biết mình đang ở đâu.
+  const numberOf = new Map(allQuestions.map((q, i) => [q.id, i + 1]))
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 pb-28">
@@ -126,110 +147,138 @@ export default function F360RespondPage() {
 
       <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4 sm:p-5">
         <div className="flex items-center gap-3">
-          <UserAvatar fullName={form.subjectName} avatarUrl={form.subjectAvatarUrl} className="h-12 w-12 rounded-full text-base" />
+          <UserAvatar fullName={form.subjectName} avatarUrl={form.subjectAvatarUrl} className="size-12 shrink-0 rounded-full text-base" />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-section-title">{form.relationship === 'SELF' ? tr('F360RespondPage.selfAssessment') : form.subjectName}</h1>
-            <p className="truncate text-caption">{form.campaignName} · {form.subjectOrgUnitName ?? ''} {tr('F360RespondPage.due')} {fmtDate(form.dueAt)}</p>
+            <p className="text-eyebrow">{self ? tr('F360RespondPage.selfAssessment') : tr('F360RespondPage.youAreRating')}</p>
+            <h1 className="truncate text-section-title">{form.subjectName}</h1>
+            <p className="truncate text-caption">
+              {[form.subjectOrgUnitName, form.campaignName].filter(Boolean).join(' · ')} {tr('F360RespondPage.due')} {fmtDate(form.dueAt)}
+            </p>
           </div>
           <AssignmentStatusBadge status={form.status} />
         </div>
-        <p className={cn('mt-3 flex items-start gap-2 rounded-control p-3 text-sm',
+        <p className={cn('mt-3 flex items-start gap-2 rounded-control px-3 py-2 text-caption',
           form.anonymous ? 'bg-[var(--color-info-bg)] text-[var(--color-info)]' : 'bg-[var(--color-muted)]')}>
-          {form.anonymous ? <EyeOff size={16} className="mt-0.5 shrink-0" /> : <Info size={16} className="mt-0.5 shrink-0" />}
+          {form.anonymous ? <EyeOff size={14} className="mt-0.5 shrink-0" /> : <Info size={14} className="mt-0.5 shrink-0" />}
           <span>{anonymityNote(form)}</span>
         </p>
       </div>
 
-      {form.sections.map(section => (
-        <section key={section.competencyKey ?? section.title} className="space-y-3 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4 sm:p-5">
-          <h2 className="text-sm font-semibold">{section.title}</h2>
-          {section.questions.map(q => {
-            const a = answers[q.id] ?? { score: null, na: false, comment: '' }
-            return (
-              <div key={q.id} className="space-y-2 border-t border-[var(--color-border)] pt-3 first-of-type:border-t-0 first-of-type:pt-0">
-                <p className="text-sm">
-                  {q.text}{q.required && <span className="text-[var(--color-error)]"> *</span>}
-                </p>
-                {q.questionType === 'RATING' ? (
-                  <div className="flex flex-wrap items-start gap-1.5" role="radiogroup" aria-label={q.text}>
-                    {scale.map(n => (
-                      <button
-                        key={n}
-                        type="button"
-                        role="radio"
-                        aria-checked={a.score === n}
-                        disabled={!editable}
-                        onClick={() => update(q.id, { score: n, na: false })}
-                        className={cn(
-                          'flex min-h-11 min-w-11 flex-col items-center justify-center rounded-control border px-2 py-1 text-sm font-semibold transition-colors',
-                          a.score === n
-                            ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
-                            : 'border-[var(--color-border)] hover:bg-[var(--color-muted)]',
-                          !editable && 'cursor-default',
+      {form.sections.map(section => {
+        const done = section.questions.filter(q => isAnswered(q.id, q.questionType)).length
+        const complete = done === section.questions.length
+        return (
+          <section key={section.competencyKey ?? section.title} className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+            <header className="flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-muted)]/50 px-4 py-2.5 sm:px-5">
+              <h2 className="min-w-0 flex-1 text-sm font-semibold">{section.title}</h2>
+              <span className={cn('inline-flex items-center gap-1 text-xs tabular-nums',
+                complete ? 'text-[var(--color-success)]' : 'text-[var(--color-muted-foreground)]')}>
+                {complete && <CheckCircle2 size={13} />}{done}/{section.questions.length}
+              </span>
+            </header>
+            <div className="divide-y divide-[var(--color-border)]">
+              {section.questions.map(q => {
+                const a = answers[q.id] ?? { score: null, na: false, comment: '' }
+                const flagged = showMissing && missingIds.has(q.id)
+                return (
+                  <div key={q.id} ref={el => { if (el) questionEls.current.set(q.id, el); else questionEls.current.delete(q.id) }}
+                    className={cn('space-y-3 px-4 py-4 transition-colors sm:px-5', flagged && 'bg-[var(--color-warning-bg)]')}>
+                    <p className="flex gap-2 text-sm">
+                      <span className="w-5 shrink-0 text-right font-semibold tabular-nums text-[var(--color-muted-foreground)]">{numberOf.get(q.id)}.</span>
+                      <span className="min-w-0 flex-1">
+                        {q.text}{q.required && <span className="text-[var(--color-error)]"> *</span>}
+                        {flagged && <span className="mt-0.5 block text-xs font-medium text-[var(--color-warning)]">{tr('F360RespondPage.pleaseAnswerThisQuestion')}</span>}
+                      </span>
+                    </p>
+                    {q.questionType === 'RATING' ? (
+                      <div className="space-y-1.5 sm:pl-7" role="radiogroup" aria-label={q.text}>
+                        <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${form.scaleMax}, minmax(0, 1fr))` }}>
+                          {scale.map(n => (
+                            <button
+                              key={n}
+                              type="button"
+                              role="radio"
+                              aria-checked={a.score === n}
+                              disabled={!editable}
+                              onClick={() => update(q.id, { score: n, na: false })}
+                              className={cn(
+                                'flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-control border px-1 py-1.5 text-base font-semibold transition-colors',
+                                a.score === n
+                                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-sm'
+                                  : 'border-[var(--color-border)] bg-[var(--color-card)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary-soft)]',
+                                !editable && 'cursor-default hover:border-[var(--color-border)] hover:bg-[var(--color-card)]',
+                              )}
+                            >
+                              {n}
+                              {anchorLabel(n, form.scaleMax) && (
+                                <span className="w-full truncate text-center text-[10px] font-normal leading-tight opacity-80">{anchorLabel(n, form.scaleMax)}</span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                        {q.allowNa && (
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-checked={a.na}
+                            disabled={!editable}
+                            onClick={() => update(q.id, { na: true, score: null })}
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-control px-2 py-1 text-xs transition-colors',
+                              a.na ? 'bg-[var(--color-muted)] font-semibold text-[var(--color-foreground)]' : 'text-[var(--color-muted-foreground)] underline-offset-2 hover:underline',
+                            )}
+                          >
+                            {a.na && <CheckCircle2 size={12} />}{tr('F360RespondPage.cannotAssess')}
+                          </button>
                         )}
-                      >
-                        {n}
-                        {anchorLabel(n, form.scaleMax) && <span className="text-[10px] font-normal leading-tight opacity-80">{anchorLabel(n, form.scaleMax)}</span>}
-                      </button>
-                    ))}
-                    {q.allowNa && (
-                      <button
-                        type="button"
-                        role="radio"
-                        aria-checked={a.na}
-                        disabled={!editable}
-                        onClick={() => update(q.id, { na: true, score: null })}
-                        className={cn(
-                          'min-h-11 rounded-control border px-3 text-xs transition-colors',
-                          a.na ? 'border-[var(--color-foreground)] bg-[var(--color-muted)] font-semibold' : 'border-dashed border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]',
-                        )}
-                      >
-                        {tr('F360RespondPage.cannotAssess')}
-                      </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-1 sm:pl-7">
+                        <Textarea
+                          rows={3}
+                          maxLength={2000}
+                          disabled={!editable}
+                          value={a.comment}
+                          onChange={e => update(q.id, { comment: e.target.value })}
+                          placeholder={tr('F360RespondPage.beSpecificAndBasedOnObserved')}
+                        />
+                        <div className="flex justify-between gap-2 text-caption">
+                          <span className="text-[var(--color-warning)]">
+                            {looksIdentifying(a.comment) ? tr('F360RespondPage.theCommentSeemsToContainA') : ''}
+                          </span>
+                          {a.comment.length > 1500 && <span className="tabular-nums">{a.comment.length}/2000</span>}
+                        </div>
+                      </div>
                     )}
                   </div>
-                ) : (
-                  <div className="space-y-1">
-                    <Textarea
-                      rows={3}
-                      maxLength={2000}
-                      disabled={!editable}
-                      value={a.comment}
-                      onChange={e => update(q.id, { comment: e.target.value })}
-                      placeholder={tr('F360RespondPage.beSpecificAndBasedOnObserved')}
-                    />
-                    <div className="flex justify-between text-caption">
-                      <span className="text-[var(--color-warning)]">
-                        {looksIdentifying(a.comment) ? tr('F360RespondPage.theCommentSeemsToContainA') : ''}
-                      </span>
-                      <span>{a.comment.length}/2000</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </section>
-      ))}
+                )
+              })}
+            </div>
+          </section>
+        )
+      })}
 
       {/* Thanh dưới cố định: tiến độ + trạng thái lưu + nộp. */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-border)] bg-[var(--color-card)]/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3">
-          <div className="min-w-[140px] flex-1">
+          <div className="min-w-[160px] flex-1">
             <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-muted)]">
-              <div className="h-full bg-[var(--color-primary)] transition-all" style={{ width: `${pct}%` }} />
+              <div className={cn('h-full transition-all', pct === 100 ? 'bg-[var(--color-success-solid)]' : 'bg-[var(--color-primary)]')} style={{ width: `${pct}%` }} />
             </div>
             <p className="mt-1 text-caption">
-              {answeredCount}/{allQuestions.length} {tr('F360RespondPage.questions')}
+              <span className="font-medium tabular-nums text-[var(--color-foreground)]">{answeredCount}/{allQuestions.length}</span> {tr('F360RespondPage.questions')}
+              {editable && missingRequired.length > 0 && (
+                <span className="text-[var(--color-warning)]"> · {tr('F360RespondPage.requiredLeft', { count: missingRequired.length })}</span>
+              )}
               {editable && (saveDraft.isPending ? tr('F360RespondPage.saving') : savedAt ? tr('F360RespondPage.savedAt', { toLocaleTimeString: savedAt.toLocaleTimeString(intlDateLocale(), { hour: '2-digit', minute: '2-digit' }) }) : '')}
             </p>
           </div>
           {editable ? (
             <>
-              {form.relationship !== 'SELF' && (
-                <Button variant="ghost" size="sm" onClick={() => setDeclining(true)}>{tr('F360RespondPage.rejected')}</Button>
+              {!self && (
+                <Button variant="ghost" size="sm" onClick={() => setDeclining(true)}>{tr('F360RespondPage.declineToAssess')}</Button>
               )}
-              <Button onClick={() => setConfirmSubmit(true)} disabled={missingRequired.length > 0 || submit.isPending}>
+              <Button onClick={trySubmit} disabled={submit.isPending}>
                 <Send /> {tr('F360RespondPage.submitForm')}
               </Button>
             </>
@@ -260,7 +309,7 @@ export default function F360RespondPage() {
             secondary={<Button variant="outline" onClick={() => setDeclining(false)}>{tr('F360RespondPage.cancel')}</Button>}
             primary={<Button disabled={!declineReason.trim() || decline.isPending}
               onClick={() => decline.mutate(declineReason.trim(), { onSuccess: () => navigate('/me?section=my-feedback360') })}>
-              {tr('F360RespondPage.rejected')}
+              {tr('F360RespondPage.declineToAssess')}
             </Button>}
           />}>
           <Textarea rows={3} value={declineReason} onChange={e => setDeclineReason(e.target.value)} />

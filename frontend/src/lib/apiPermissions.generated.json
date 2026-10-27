@@ -4029,6 +4029,22 @@
     "source": "RewardWalletController.java"
   },
   {
+    "method": "POST",
+    "path": "/api/v1/rewards/me/celebrations/ack",
+    "anyOf": [
+      "REWARD:VIEW_MY"
+    ],
+    "source": "RewardWalletController.java"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/rewards/me/celebrations",
+    "anyOf": [
+      "REWARD:VIEW_MY"
+    ],
+    "source": "RewardWalletController.java"
+  },
+  {
     "method": "GET",
     "path": "/api/v1/rewards/me/transactions",
     "anyOf": [
@@ -5196,6 +5212,14 @@
       "ROLE:VIEW"
     ],
     "source": "UserRoleController.java"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/users/{userId}/effort-shares",
+    "anyOf": [
+      "USER:UPDATE"
+    ],
+    "source": "UserController.java"
   },
   {
     "method": "DELETE",

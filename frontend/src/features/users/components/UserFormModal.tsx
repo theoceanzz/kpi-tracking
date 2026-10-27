@@ -34,12 +34,15 @@ import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
 import { tourAnchor } from '@/components/common/tours/anchors'
 import { blockedByTour } from '@/components/common/tours/guard'
+import { formatNumber } from '@/i18n/format'
 
 interface UserFormModalProps {
   open: boolean
   onClose: () => void
   editUser?: User | null
 }
+
+type EffortShareInput = { orgUnitId: string; sharePercent: number }
 
 // Roles are loaded dynamically from the API
 interface RoleOption {
@@ -143,7 +146,11 @@ export default function UserFormModal({ open, onClose, editUser }: UserFormModal
   const createMutation = useCreateUser()
 
   const updateMutation = useMutation({
-    mutationFn: (data: UpdateUserFormData) => userApi.update(editUser!.id, data),
+    // shares: undefined = không đổi "% công sức"; [] = về chia đều.
+    mutationFn: async ({ data, shares }: { data: UpdateUserFormData; shares?: EffortShareInput[] }) => {
+      const updated = await userApi.update(editUser!.id, data)
+      return shares ? userApi.setEffortShares(editUser!.id, shares) : updated
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] })
       qc.invalidateQueries({ queryKey: ['organization-users'] })
@@ -161,7 +168,7 @@ export default function UserFormModal({ open, onClose, editUser }: UserFormModal
   if (!open) return null
 
   return isEdit ? (
-    <EditUserForm editUser={editUser!} onClose={onClose} onSubmit={(data) => { if (blockedByTour()) return; updateMutation.mutate(data) }} isPending={updateMutation.isPending} canAssignRoles={canAssignRoles} dynamicRoles={dynamicRoles} flattenedUnits={flattenedUnits} orgTree={orgTree || []} rolesData={rolesData || []} />
+    <EditUserForm editUser={editUser!} onClose={onClose} onSubmit={(data, shares) => { if (blockedByTour()) return; updateMutation.mutate({ data, shares }) }} isPending={updateMutation.isPending} canAssignRoles={canAssignRoles} dynamicRoles={dynamicRoles} flattenedUnits={flattenedUnits} orgTree={orgTree || []} rolesData={rolesData || []} />
   ) : (
     <CreateUserForm onClose={onClose} onSubmit={(data) => { if (blockedByTour()) return; createMutation.mutate(data, { onSuccess: () => onClose() }) }} isPending={createMutation.isPending} canAssignRoles={canAssignRoles} dynamicRoles={dynamicRoles} flattenedUnits={flattenedUnits} orgTree={orgTree || []} />
   )
@@ -429,7 +436,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
   )
 }
 
-function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, dynamicRoles, flattenedUnits, orgTree, rolesData }: { editUser: User; onClose: () => void; onSubmit: (data: UpdateUserFormData) => void; isPending: boolean; canAssignRoles: boolean; dynamicRoles: RoleOption[]; flattenedUnits: { id: string, name: string, level: number }[]; orgTree: OrgUnitTreeResponse[]; rolesData: any[] }) {
+function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, dynamicRoles, flattenedUnits, orgTree, rolesData }: { editUser: User; onClose: () => void; onSubmit: (data: UpdateUserFormData, shares?: EffortShareInput[]) => void; isPending: boolean; canAssignRoles: boolean; dynamicRoles: RoleOption[]; flattenedUnits: { id: string, name: string, level: number }[]; orgTree: OrgUnitTreeResponse[]; rolesData: any[] }) {
   const { t } = useTranslation('users')
   const formApi = useForm<UpdateUserFormData>({
     resolver: zodResolver(updateUserSchema()),
@@ -443,8 +450,68 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
       orgUnitId: getPrimaryMembership(editUser)?.orgUnitId || ''
     },
   })
-  const { register, handleSubmit, control, reset, formState: { errors } } = formApi
+  const { register, handleSubmit, control, reset, setValue, formState: { errors } } = formApi
   const draft = useFormDraft(formApi, { key: `user-form:${editUser.id}`, enabled: true })
+
+  // Ô "Đơn vị" là ĐƠN VỊ CHÍNH. Người kiêm nhiệm còn các đơn vị khác — chọn một trong số đó chỉ
+  // đổi đơn vị chính; chọn đơn vị mới là chuyển khỏi đơn vị chính hiện tại (nơi kiêm nhiệm giữ nguyên).
+  const initialUnitId = getPrimaryMembership(editUser)?.orgUnitId || ''
+  const initialRole = getHighestRole(editUser) || ''
+  const otherUnits = useMemo(() => {
+    const byUnit = new Map<string, { orgUnitId: string; orgUnitName: string; roleName: string; rank: number }>()
+    for (const m of editUser.memberships ?? []) {
+      if (m.orgUnitId === initialUnitId) continue
+      const rank = m.roleRank ?? 99
+      const cur = byUnit.get(m.orgUnitId)
+      if (!cur || rank < cur.rank) byUnit.set(m.orgUnitId, { orgUnitId: m.orgUnitId, orgUnitName: m.orgUnitName, roleName: m.roleDisplayName || m.roleName, rank })
+    }
+    return [...byUnit.values()]
+  }, [editUser, initialUnitId])
+
+  const onUnitChange = (unitId: string) => {
+    setValue('orgUnitId', unitId, { shouldDirty: true })
+    // Đơn vị người đó đang thuộc ⇒ gợi ý đúng vai trò cao nhất của họ ở đó, không mang vai trò cũ sang.
+    const there = otherUnits.find(u => u.orgUnitId === unitId)
+    if (there) setValue('role', there.roleName, { shouldDirty: true })
+    else if (unitId === initialUnitId) setValue('role', initialRole, { shouldDirty: true })
+  }
+
+  // "% công sức" khi kiêm nhiệm ≥ 2 nhánh: mỗi đơn vị vẫn giao đủ 100% KPI của mình, điểm KPI đợt
+  // của người này = Σ (% công sức × % hoàn thành của nhánh). Backend: KpiEffortShares.
+  const branches = useMemo(() => editUser.effortShares ?? [], [editUser.effortShares])
+  const initialShares = useMemo(
+    () => Object.fromEntries(branches.map(b => [b.orgUnitId, String(b.sharePercent)])) as Record<string, string>,
+    [branches])
+  const [shares, setShares] = useState<Record<string, string>>(initialShares)
+  // 'equal' = bấm "Chia đều" ⇒ gửi [] để xoá cấu hình, nhánh mới về sau cũng chia đều.
+  const [sharesMode, setSharesMode] = useState<'unchanged' | 'custom' | 'equal'>('unchanged')
+  const [sharesError, setSharesError] = useState<string | null>(null)
+  const sharesTotal = branches.reduce((acc, b) => acc + (Number(shares[b.orgUnitId]) || 0), 0)
+  const splitEqually = () => {
+    const each = Math.round((100 / branches.length) * 100) / 100
+    setShares(Object.fromEntries(branches.map(b => [b.orgUnitId, String(each)])))
+    setSharesMode('equal')
+    setSharesError(null)
+  }
+
+  // Không đổi đơn vị chính lẫn vai trò ⇒ không gửi hai trường này, để lưu tên / số điện thoại không
+  // bao giờ đụng tới phân công.
+  const submit = (data: UpdateUserFormData) => {
+    let sharesPayload: EffortShareInput[] | undefined
+    if (sharesMode === 'equal') sharesPayload = []
+    if (sharesMode === 'custom') {
+      if (Math.abs(sharesTotal - 100) > 0.05) {
+        setSharesError(t('UserFormModal.effortSharesMustTotal100', { total: formatNumber(sharesTotal) }))
+        return
+      }
+      sharesPayload = branches.map(b => ({ orgUnitId: b.orgUnitId, sharePercent: Number(shares[b.orgUnitId]) || 0 }))
+    }
+    if ((data.orgUnitId || '') === initialUnitId && (data.role || '') === initialRole) {
+      onSubmit({ ...data, orgUnitId: undefined, role: undefined }, sharesPayload)
+      return
+    }
+    onSubmit(data, sharesPayload)
+  }
 
   // Ensure form resets when editUser changes
   useEffect(() => {
@@ -461,6 +528,7 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
 
   // Watch selected unit to filter roles by allowedRoles
   const selectedOrgUnitId = useWatch({ control, name: 'orgUnitId' })
+  const selectedRole = useWatch({ control, name: 'role' })
 
   const filteredRoles = useMemo(() => {
     let roles = dynamicRoles
@@ -488,17 +556,19 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
       }
     }
 
-    // IMPORTANT: Always ensure the user's current role is in the list so it's not blank
-    const currentRoleName = getHighestRole(editUser)
-    if (currentRoleName && !roles.find(r => r.name === currentRoleName)) {
-      const actualRole = rolesData?.find((rd: any) => rd.name === currentRoleName)
-      if (actualRole) {
-        roles = [...roles, { id: actualRole.id, name: actualRole.name }]
+    // IMPORTANT: Always ensure the user's current role is in the list so it's not blank —
+    // kể cả vai trò của họ ở đơn vị kiêm nhiệm vừa được chọn làm đơn vị chính.
+    for (const currentRoleName of [getHighestRole(editUser), selectedRole]) {
+      if (currentRoleName && !roles.find(r => r.name === currentRoleName)) {
+        const actualRole = rolesData?.find((rd: any) => rd.name === currentRoleName)
+        if (actualRole) {
+          roles = [...roles, { id: actualRole.id, name: actualRole.name }]
+        }
       }
     }
 
     return roles
-  }, [selectedOrgUnitId, orgTree, dynamicRoles, editUser, rolesData])
+  }, [selectedOrgUnitId, selectedRole, orgTree, dynamicRoles, editUser, rolesData])
 
 
   return (
@@ -521,7 +591,7 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
       }
     >
       <DraftNotice draft={draft} className="mb-4" />
-      <form id="edit-user-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form id="edit-user-form" onSubmit={handleSubmit(submit)} className="space-y-4">
         <div>
           <label className="text-label block font-medium mb-1.5">{t('UserFormModal.fullName')}</label>
           <Input {...register('fullName')} invalid={!!errors.fullName} />
@@ -542,12 +612,12 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
           {errors.phone && <p className="text-[var(--color-error)] text-xs mt-1">{errors.phone.message}</p>}
         </div>
         <div>
-          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.unit')}</label>
+          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.primaryUnit')}</label>
           <Controller
             name="orgUnitId"
             control={control}
             render={({ field }) => (
-              <Select onValueChange={field.onChange} value={field.value}>
+              <Select onValueChange={onUnitChange} value={field.value}>
                 <SelectTrigger>
                   <SelectValue placeholder={t('UserFormModal.chooseUnit')} />
                 </SelectTrigger>
@@ -564,9 +634,23 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
               </Select>
             )}
           />
+          {otherUnits.length > 0 && (
+            <div className="mt-1.5 text-xs text-[var(--color-muted-foreground)] space-y-1">
+              <p>
+                {t('UserFormModal.alsoMemberOf')}{' '}
+                {otherUnits.map((u, i) => (
+                  <span key={u.orgUnitId}>
+                    {i > 0 && ', '}
+                    <span className="font-medium text-[var(--color-foreground)]">{u.orgUnitName}</span> ({u.roleName})
+                  </span>
+                ))}
+              </p>
+              <p>{t('UserFormModal.primaryUnitHint')}</p>
+            </div>
+          )}
         </div>
         <div>
-          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.role')}</label>
+          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.roleAtPrimaryUnit')}</label>
           <Controller
             name="role"
             control={control}
@@ -592,6 +676,30 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
             </p>
           )}
         </div>
+        {branches.length > 1 && (
+          <div>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <label className="text-label font-medium">{t('UserFormModal.effortShares')}</label>
+              <Button type="button" variant="ghost" size="sm" onClick={splitEqually}>{t('UserFormModal.splitEqually')}</Button>
+            </div>
+            <div className="space-y-2">
+              {branches.map(b => (
+                <div key={b.orgUnitId} className="flex items-center gap-3">
+                  <span className="min-w-0 flex-1 truncate text-sm text-[var(--color-foreground)]">{b.orgUnitName}</span>
+                  <Input size="sm" type="number" min={0} max={100} step={1} className="no-edit-hint w-[96px] shrink-0"
+                    aria-label={t('UserFormModal.effortShareOf', { unit: b.orgUnitName })}
+                    value={shares[b.orgUnitId] ?? ''} suffix="%"
+                    onChange={e => { setShares(prev => ({ ...prev, [b.orgUnitId]: e.target.value })); setSharesMode('custom'); setSharesError(null) }} />
+                </div>
+              ))}
+            </div>
+            <p className={cn('mt-1.5 text-xs tabular-nums', Math.abs(sharesTotal - 100) > 0.05 ? 'text-[var(--color-error)]' : 'text-[var(--color-muted-foreground)]')}>
+              {t('UserFormModal.effortSharesTotal', { total: formatNumber(sharesTotal) })}
+            </p>
+            {sharesError && <p className="text-[var(--color-error)] text-xs mt-1">{sharesError}</p>}
+            <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">{t('UserFormModal.effortSharesHint')}</p>
+          </div>
+        )}
         <div>
           <label className="text-label block font-medium mb-1.5">{t('UserFormModal.status')}</label>
           <Controller

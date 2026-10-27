@@ -242,7 +242,9 @@ function DraggableChip({ task, day, active, onOpen, startsHere = true, endsHere 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: day ? `${task.id}@${day}` : task.id, disabled: !task.canEdit })
   const resizable = !!day && task.canEdit && !isClosed(task)
   return (
-    <div ref={setNodeRef} {...attributes} {...listeners} className={cn('group/bar relative h-full', isDragging && 'opacity-40')}>
+    // Không kéo được ⇒ bỏ thuộc tính dnd-kit (aria-disabled="true" làm việc bị coi là vô hiệu dù bấm vẫn mở).
+    <div ref={setNodeRef} {...(task.canEdit ? attributes : {})} {...(task.canEdit ? listeners : {})}
+      className={cn('group/bar relative h-full', isDragging && 'opacity-40')}>
       <Chip task={task} day={day} active={active} onOpen={onOpen} startsHere={startsHere} endsHere={endsHere} />
       {resizable && startsHere && <ResizeHandle task={task} edge="start" />}
       {resizable && endsHere && <ResizeHandle task={task} edge="end" />}

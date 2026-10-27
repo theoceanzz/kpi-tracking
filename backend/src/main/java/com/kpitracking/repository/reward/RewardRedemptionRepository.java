@@ -5,10 +5,13 @@ import com.kpitracking.enums.reward.RedemptionStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -72,4 +75,31 @@ public interface RewardRedemptionRepository extends JpaRepository<RewardRedempti
              GROUP BY r.giftItem.id
             """)
     List<Object[]> countPendingByGift(@Param("orgId") UUID orgId);
+
+    /**
+     * Đơn đổi quà CHƯA ăn mừng mà nay đã chắc chắn về tay (duyệt / đã giao) nhờ NGƯỜI KHÁC xử lý.
+     * Đơn giao ngay trong request của chính người đổi đã được đánh dấu lúc lưu nên không lọt vào đây.
+     * Một đơn chỉ ăn mừng một lần: duyệt rồi mới giao thì lần giao không ăn mừng lại.
+     */
+    @Query("""
+            SELECT r FROM RewardRedemption r
+             WHERE r.user.id = :userId
+               AND r.celebratedAt IS NULL
+               AND r.status IN (com.kpitracking.enums.reward.RedemptionStatus.APPROVED,
+                                com.kpitracking.enums.reward.RedemptionStatus.DELIVERED)
+               AND r.deletedAt IS NULL
+               AND r.organization.id = :orgId
+               AND COALESCE(r.handledAt, r.deliveredAt, r.updatedAt) >= :since
+             ORDER BY COALESCE(r.handledAt, r.deliveredAt, r.updatedAt)
+            """)
+    List<RewardRedemption> findUncelebrated(@Param("userId") UUID userId, @Param("orgId") UUID orgId,
+                                            @Param("since") Instant since, Pageable page);
+
+    @Modifying
+    @Query("""
+            UPDATE RewardRedemption r SET r.celebratedAt = :now
+             WHERE r.user.id = :userId AND r.id IN :ids AND r.celebratedAt IS NULL
+            """)
+    int markCelebrated(@Param("userId") UUID userId, @Param("ids") Collection<UUID> ids,
+                       @Param("now") Instant now);
 }

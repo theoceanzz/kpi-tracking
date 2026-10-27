@@ -6,11 +6,16 @@ import i18n from 'i18next'
 export type ConductScope = 'PERIOD' | 'CYCLE'
 export type ConductStatus = 'DRAFT' | 'SELF_SUBMITTED' | 'REVIEWED'
 
+/** Mô tả theo mức điểm: khoá là mức ("1".."5"), giá trị là hành vi ứng với mức đó. */
+export type ConductLevelDescriptions = Record<string, string>
+
 export interface ConductCriteria {
   id: string
   name: string
   /** Các biểu hiện cụ thể, mỗi dòng một gạch đầu dòng. */
   description?: string | null
+  /** Định nghĩa từng mức điểm, khoá "1".."thang" (V48); null = không định nghĩa theo mức. */
+  levelDescriptions?: ConductLevelDescriptions | null
   /** Trọng số %. Bộ không nhóm: % trên tổng (cả bộ = 100). Bộ có nhóm: % TRONG NHÓM (mỗi nhóm = 100). */
   weight: number
   position: number
@@ -77,6 +82,8 @@ export interface ConductItem {
   criteriaId?: string | null
   name: string
   description?: string | null
+  /** Định nghĩa từng mức điểm (chụp lúc mở phiếu); null = không định nghĩa theo mức. */
+  levelDescriptions?: ConductLevelDescriptions | null
   /** % TRÊN TỔNG (đã nhân % nhóm nếu có) — dùng để cộng điểm. */
   weight: number
   position: number

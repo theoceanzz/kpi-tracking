@@ -1,15 +1,19 @@
 package com.kpitracking.controller.reward;
 
+import com.kpitracking.dto.request.reward.RewardCelebrationAckRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.reward.RewardActivityResponse;
+import com.kpitracking.dto.response.reward.RewardCelebrationResponse;
 import com.kpitracking.dto.response.reward.RewardLeaderboardEntryResponse;
 import com.kpitracking.dto.response.reward.RewardMonthlySummaryResponse;
 import com.kpitracking.dto.response.reward.RewardTransactionResponse;
 import com.kpitracking.dto.response.reward.RewardWalletResponse;
 import com.kpitracking.service.reward.RewardWalletService;
 import com.kpitracking.service.reward.RewardActivityService;
+import com.kpitracking.service.reward.RewardCelebrationService;
 import com.kpitracking.service.reward.RewardQueryService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,6 +31,7 @@ public class RewardWalletController {
     private final RewardWalletService walletService;
     private final RewardActivityService activityService;
     private final com.kpitracking.service.reward.RewardStatsService statsService;
+    private final RewardCelebrationService celebrationService;
 
     @GetMapping("/me")
     @PreAuthorize("hasAuthority('REWARD:VIEW_MY')")
@@ -40,6 +45,24 @@ public class RewardWalletController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(ApiResponse.success(queryService.getMyTransactions(page, size)));
+    }
+
+    /**
+     * Lượt thưởng / đổi quà của tôi CHƯA được ăn mừng (hiệu ứng chúc mừng ở frontend). Xem
+     * {@link RewardCelebrationService}: WebSocket chỉ báo "có thưởng mới", đây mới là nguồn sự thật.
+     */
+    @GetMapping("/me/celebrations")
+    @PreAuthorize("hasAuthority('REWARD:VIEW_MY')")
+    public ResponseEntity<ApiResponse<List<RewardCelebrationResponse>>> getMyCelebrations() {
+        return ResponseEntity.ok(ApiResponse.success(celebrationService.listMine()));
+    }
+
+    /** Đánh dấu đã ăn mừng. Idempotent — gọi lại với cùng id không đổi gì. */
+    @PostMapping("/me/celebrations/ack")
+    @PreAuthorize("hasAuthority('REWARD:VIEW_MY')")
+    public ResponseEntity<ApiResponse<Integer>> acknowledgeCelebrations(
+            @Valid @RequestBody RewardCelebrationAckRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(celebrationService.acknowledge(request.getRefIds())));
     }
 
     /**

@@ -2,6 +2,7 @@ package com.kpitracking.dto.response.conduct;
 
 import lombok.*;
 
+import java.util.Map;
 import java.util.UUID;
 
 /** Một dòng tiêu chí trong phiếu hạnh kiểm, đủ hai phía chấm. */
@@ -11,6 +12,8 @@ public class ConductItemResponse {
     private UUID criteriaId;
     private String name;
     private String description;
+    /** Định nghĩa từng mức điểm, khoá "1".."thang" (V48); null = không định nghĩa theo mức. */
+    private Map<String, String> levelDescriptions;
     /** % TRÊN TỔNG — dùng để cộng điểm. */
     private Double weight;
     private Integer position;

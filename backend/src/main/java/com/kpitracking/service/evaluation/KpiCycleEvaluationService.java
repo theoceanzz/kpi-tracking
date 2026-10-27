@@ -1,5 +1,7 @@
 package com.kpitracking.service.evaluation;
 
+import com.kpitracking.service.PrimaryUnitResolver;
+
 import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.BusinessException;
@@ -72,6 +74,7 @@ public class KpiCycleEvaluationService {
     private final OrgUnitRepository orgUnitRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final UserRepository userRepository;
+    private final PrimaryUnitResolver primaryUnits;
     private final CycleUnitEvaluationRepository cycleUnitEvaluationRepository;
     private final CycleUnitEvalEventRepository cycleUnitEvalEventRepository;
     private final CycleUserEvaluationRepository cycleUserEvaluationRepository;
@@ -1298,16 +1301,16 @@ public class KpiCycleEvaluationService {
         List<OrgUnit> subtree = orgUnitRepository.findSubtree(unit.getPath(), orgId);
         List<UUID> unitIds = subtree.isEmpty() ? List.of(unit.getId())
                 : subtree.stream().map(OrgUnit::getId).toList();
+        // Chỉ người có ĐƠN VỊ CHÍNH trong nhánh: người kiêm nhiệm được chấm kỳ ở đơn vị chính.
         Map<UUID, User> distinct = new LinkedHashMap<>();
-        for (UserRoleOrgUnit uro : userRoleOrgUnitRepository.findByOrgUnitIdIn(unitIds)) {
+        for (UserRoleOrgUnit uro : primaryUnits.primaryWithin(unitIds).values()) {
             if (uro.getUser() != null) distinct.putIfAbsent(uro.getUser().getId(), uro.getUser());
         }
         return new ArrayList<>(distinct.values());
     }
 
     private OrgUnit primaryUnit(UUID userId) {
-        List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(userId);
-        return roles.isEmpty() ? null : roles.get(0).getOrgUnit();
+        return primaryUnits.unitOf(userId);
     }
 
     private double maxScore(KpiCycle cycle) {
@@ -1383,11 +1386,15 @@ public class KpiCycleEvaluationService {
         Set<UUID> scopeUnitIds = new HashSet<>(unitsInScope(cycle).stream().map(OrgUnit::getId).toList());
         if (scopeUnitIds.isEmpty()) return List.of();
 
-        List<CycleUserRankResponse> rows = cycleUserEvaluationRepository.findAllForCycle(cycleId).stream()
+        List<CycleUserEvaluation> saved = cycleUserEvaluationRepository.findAllForCycle(cycleId);
+        Map<UUID, UserRoleOrgUnit> primaryOf = primaryUnits.assignmentsOf(saved.stream()
+                .map(e -> e.getUser() != null ? e.getUser().getId() : null).filter(Objects::nonNull).toList());
+        List<CycleUserRankResponse> rows = saved.stream()
                 .map(e -> {
                     User u = e.getUser();
                     if (u == null || u.getDeletedAt() != null || u.isPausedAccount()) return null;
-                    OrgUnit unit = primaryUnitOf(u.getId());
+                    UserRoleOrgUnit primary = primaryOf.get(u.getId());
+                    OrgUnit unit = primary != null ? primary.getOrgUnit() : null;
                     if (unit == null || !scopeUnitIds.contains(unit.getId())) return null;
                     return CycleUserRankResponse.builder()
                             .userId(u.getId())
@@ -1425,14 +1432,6 @@ public class KpiCycleEvaluationService {
         if (myUnitIds.isEmpty()) return List.of();
 
         return orgUnitRepository.findAllInSubtrees(myUnitIds, orgId);
-    }
-
-    private OrgUnit primaryUnitOf(UUID userId) {
-        return userRoleOrgUnitRepository.findByUserId(userId).stream()
-                .map(UserRoleOrgUnit::getOrgUnit)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
     }
 
     private Double round(Double v) {

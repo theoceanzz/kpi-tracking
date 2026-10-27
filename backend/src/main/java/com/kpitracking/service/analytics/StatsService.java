@@ -1,5 +1,8 @@
 package com.kpitracking.service.analytics;
 
+import com.kpitracking.service.PrimaryUnitResolver;
+import com.kpitracking.service.kpi.KpiEffortShares;
+
 import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.dto.response.PageResponse;
@@ -54,6 +57,8 @@ public class StatsService {
     private final OrgUnitRepository orgUnitRepository;
     private final com.kpitracking.mapper.SoftDeletedRefs softDeletedRefs;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final PrimaryUnitResolver primaryUnits;
+    private final KpiEffortShares effortShares;
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final KpiSubmissionRepository submissionRepository;
     private final EvaluationRepository evaluationRepository;
@@ -760,9 +765,7 @@ public class StatsService {
         List<UserRoleOrgUnit> userRoles = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
         if (userRoles.isEmpty()) return AnalyticsDrillDownResponse.builder().build();
 
-        OrgUnit userUnit = userRoles.get(0).getOrgUnit();
-        OrgUnit currentOrgUnit = orgUnitId != null ? orgUnitRepository.findById(orgUnitId).orElse(userUnit) : userUnit;
-        if (!currentOrgUnit.getPath().startsWith(userUnit.getPath())) currentOrgUnit = userUnit;
+        OrgUnit currentOrgUnit = scopedUnit(currentUser, userRoles, orgUnitId);
 
         List<OrgUnit> childUnits = orgUnitRepository.findByParentId(currentOrgUnit.getId());
         List<AnalyticsDrillDownResponse.OrgUnitSummary> childSummaries = childUnits.stream().map(unit -> {
@@ -778,7 +781,8 @@ public class StatsService {
                     .orgUnitId(unit.getId())
                     .orgUnitName(unit.getName())
                     .levelName(unit.getOrgHierarchyLevel().getUnitTypeName())
-                    .memberCount(userRoleOrgUnitRepository.findByOrgUnitId(unit.getId()).size())
+                    .memberCount((int) userRoleOrgUnitRepository.findByOrgUnitId(unit.getId()).stream()
+                            .map(uro -> uro.getUser().getId()).distinct().count())
                     .totalKpi(kpiCriteriaRepository.countByOrgUnitIdIn(subtreeIds))
                     .approvedKpi(unitKpis.size())
                     .completionRate(AnalyticsRounding.pct1(!unitKpis.isEmpty() ? totalPerformance / unitKpis.size() : 0))
@@ -975,9 +979,7 @@ public class StatsService {
         List<UserRoleOrgUnit> userRoles = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
         if (userRoles.isEmpty()) return AnalyticsSummaryResponse.builder().build();
 
-        OrgUnit userUnit = userRoles.get(0).getOrgUnit();
-        OrgUnit targetUnit = orgUnitId != null ? orgUnitRepository.findById(orgUnitId).orElse(userUnit) : userUnit;
-        if (!targetUnit.getPath().startsWith(userUnit.getPath())) targetUnit = userUnit;
+        OrgUnit targetUnit = scopedUnit(currentUser, userRoles, orgUnitId);
 
         List<UUID> subtreeIds = getSubtreeIds(targetUnit);
         List<OrgUnit> childUnits = orgUnitRepository.findByParentId(targetUnit.getId());
@@ -997,19 +999,12 @@ public class StatsService {
         long kpiCompletionRate = kpiPctCount > 0 ? Math.round(sumKpiPct / kpiPctCount) : 0;
         
         long pendingSubs = submissionRepository.countByOrgUnitIdInAndStatus(subtreeIds, SubmissionStatus.PENDING);
-        List<UserRoleOrgUnit> allMembersRaw = userRoleOrgUnitRepository.findByOrgUnitIdIn(subtreeIds);
-        Map<UUID, UserRoleOrgUnit> memberMap = new HashMap<>();
-        for (UserRoleOrgUnit m : allMembersRaw) {
-            UUID userId = m.getUser().getId();
-            UserRoleOrgUnit existing = memberMap.get(userId);
-            if (existing == null || m.getOrgUnit().getOrgHierarchyLevel().getLevelOrder() > 
-                                   existing.getOrgUnit().getOrgHierarchyLevel().getLevelOrder()) {
-                memberMap.put(userId, m);
-            }
-        }
+        // Mỗi người MỘT dòng (đơn vị chính nếu trong nhánh, không thì vai trò cao nhất trong nhánh) —
+        // không phụ thuộc thứ tự dòng, người nhiều vai trò không đếm trùng (PrimaryUnitResolver).
+        Map<UUID, UserRoleOrgUnit> memberMap = new HashMap<>(primaryUnits.membersWithin(subtreeIds));
         Collection<UserRoleOrgUnit> allMembers = memberMap.values();
 
-        // Structure logic — đếm MỖI NGƯỜI 1 LẦN ở đơn vị SÂU NHẤT (memberMap), theo vai trò tại đó.
+        // Structure logic — đếm MỖI NGƯỜI 1 LẦN (memberMap), theo vai trò của dòng đại diện.
         // Bucket 0 = ĐƠN VỊ HIỆN TẠI: gồm TOÀN BỘ nhân sự dưới cây (kể cả đơn vị con).
         // Bucket i+1 = từng đơn vị con (breakdown, là tập con của bucket 0).
         int childCount = childUnits.size();
@@ -1277,16 +1272,9 @@ public class StatsService {
             .map(u -> new AnalyticsSummaryResponse.RiskInfo(u.getUnitName(), "UNIT", u.getPerformance(), 0, "HIGH"))
             .toList();
 
-        List<UserRoleOrgUnit> allMembersRaw = userRoleOrgUnitRepository.findByOrgUnitIdIn(subtree);
-        Map<UUID, UserRoleOrgUnit> memberMap = new HashMap<>();
-        for (UserRoleOrgUnit m : allMembersRaw) {
-            UUID userId = m.getUser().getId();
-            UserRoleOrgUnit existing = memberMap.get(userId);
-            if (existing == null || m.getOrgUnit().getOrgHierarchyLevel().getLevelOrder() > 
-                                   existing.getOrgUnit().getOrgHierarchyLevel().getLevelOrder()) {
-                memberMap.put(userId, m);
-            }
-        }
+        // Mỗi người MỘT dòng (đơn vị chính nếu trong nhánh, không thì vai trò cao nhất trong nhánh) —
+        // không phụ thuộc thứ tự dòng, người nhiều vai trò không đếm trùng (PrimaryUnitResolver).
+        Map<UUID, UserRoleOrgUnit> memberMap = new HashMap<>(primaryUnits.membersWithin(subtree));
 
         List<AnalyticsSummaryResponse.RiskInfo> userRisks = memberMap.values().stream().map(m -> {
             User u = m.getUser();
@@ -1326,16 +1314,9 @@ public class StatsService {
         List<UUID> subtree = getSubtreeIds(rankUnit);
         TimeRange range = new TimeRange(from, to != null ? to : Instant.now().plus(365, ChronoUnit.DAYS));
 
-        List<UserRoleOrgUnit> allAssignments = userRoleOrgUnitRepository.findByOrgUnitIdIn(subtree);
-        Map<UUID, UserRoleOrgUnit> memberMap = new HashMap<>();
-        for (UserRoleOrgUnit m : allAssignments) {
-            UUID userId = m.getUser().getId();
-            UserRoleOrgUnit existing = memberMap.get(userId);
-            if (existing == null || m.getOrgUnit().getOrgHierarchyLevel().getLevelOrder() >
-                                   existing.getOrgUnit().getOrgHierarchyLevel().getLevelOrder()) {
-                memberMap.put(userId, m);
-            }
-        }
+        // Mỗi người MỘT dòng (đơn vị chính nếu trong nhánh, không thì vai trò cao nhất trong nhánh) —
+        // không phụ thuộc thứ tự dòng, người nhiều vai trò không đếm trùng (PrimaryUnitResolver).
+        Map<UUID, UserRoleOrgUnit> memberMap = new HashMap<>(primaryUnits.membersWithin(subtree));
 
         List<AnalyticsSummaryResponse.RankingItem> items = memberMap.values().stream()
             .map(m -> {
@@ -1427,9 +1408,23 @@ public class StatsService {
         User u = getCurrentUser();
         List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(u.getId());
         if (roles.isEmpty()) return null;
-        OrgUnit userUnit = roles.get(0).getOrgUnit();
-        OrgUnit target = orgUnitId != null ? orgUnitRepository.findById(orgUnitId).orElse(userUnit) : userUnit;
-        return target.getPath().startsWith(userUnit.getPath()) ? target : userUnit;
+        return scopedUnit(u, roles, orgUnitId);
+    }
+
+    /**
+     * Đơn vị thống kê: không chọn ⇒ ĐƠN VỊ CHÍNH; chọn một đơn vị thì nó phải nằm trong nhánh của
+     * MỘT đơn vị mình thuộc (người kiêm nhiệm xem được nhánh của cả hai nơi), không thì về đơn vị chính.
+     * Trước đây gốc phạm vi là dòng phân công đầu tiên, nên người thuộc hai phòng chỉ xem được một.
+     */
+    private OrgUnit scopedUnit(User user, List<UserRoleOrgUnit> roles, UUID orgUnitId) {
+        UserRoleOrgUnit primary = PrimaryUnitResolver.pick(roles, user.getPrimaryOrgUnitId());
+        OrgUnit home = primary != null ? primary.getOrgUnit() : roles.get(0).getOrgUnit();
+        if (orgUnitId == null) return home;
+        OrgUnit target = orgUnitRepository.findById(orgUnitId).orElse(null);
+        if (target == null || target.getPath() == null) return home;
+        boolean inScope = roles.stream().anyMatch(a -> a.getOrgUnit() != null && a.getOrgUnit().getPath() != null
+                && target.getPath().startsWith(a.getOrgUnit().getPath()));
+        return inScope ? target : home;
     }
 
     private Instant getStartInstant(String period) {
@@ -1452,24 +1447,14 @@ public class StatsService {
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organizationUnit"), "id", orgUnitId)) : null;
         
         if (targetUnit == null) {
-            List<UserRoleOrgUnit> userRoles = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
-            if (userRoles.isEmpty()) return Collections.emptyList();
-            targetUnit = userRoles.get(0).getOrgUnit();
+            targetUnit = primaryUnits.unitOf(currentUser);
+            if (targetUnit == null) return Collections.emptyList();
         }
 
         List<UUID> subtreeIds = getSubtreeIds(targetUnit);
-        List<UserRoleOrgUnit> allAssignments = userRoleOrgUnitRepository.findByOrgUnitIdIn(subtreeIds);
-        
-        // Use a map to keep only the "best" assignment per user (highest unit or lowest rank)
-        Map<UUID, UserRoleOrgUnit> memberMap = new HashMap<>();
-        for (UserRoleOrgUnit m : allAssignments) {
-            UUID userId = m.getUser().getId();
-            UserRoleOrgUnit existing = memberMap.get(userId);
-            if (existing == null || m.getOrgUnit().getOrgHierarchyLevel().getLevelOrder() > 
-                                   existing.getOrgUnit().getOrgHierarchyLevel().getLevelOrder()) {
-                memberMap.put(userId, m);
-            }
-        }
+        // Mỗi người MỘT dòng (đơn vị chính nếu trong nhánh, không thì vai trò cao nhất trong nhánh) —
+        // không phụ thuộc thứ tự dòng, người nhiều vai trò không đếm trùng (PrimaryUnitResolver).
+        Map<UUID, UserRoleOrgUnit> memberMap = new HashMap<>(primaryUnits.membersWithin(subtreeIds));
 
         List<ExportDetailedPerformanceResponse> result = new ArrayList<>();
         for (UserRoleOrgUnit assignment : memberMap.values()) {
@@ -1482,8 +1467,15 @@ public class StatsService {
             // Skip users with no KPIs for this period (e.g., Directors or managers who only evaluate)
             if (userKpis.isEmpty()) continue;
 
+            // Kiêm nhiệm: KPI của nhánh khác đơn vị chính ghi kèm tên đơn vị — hai nhánh mỗi nhánh 100%
+            // nên cột trọng số cộng ra 200%, người đọc phải biết dòng nào thuộc phòng nào.
+            KpiEffortShares.Split split = effortShares.split(user.getId(), kpiPeriodId, userKpis);
+            UUID homeBranch = split.active() ? split.branches().keySet().iterator().next() : null;
             List<KpiDetailRow> kpiDetails = new ArrayList<>();
             for (KpiCriteria kpi : userKpis) {
+                UUID kpiBranch = homeBranch != null ? split.branchOfKpi().get(kpi.getId()) : null;
+                String branchLabel = kpiBranch != null && !kpiBranch.equals(homeBranch) && split.branches().get(kpiBranch) != null
+                        ? " (" + split.branches().get(kpiBranch).unit().getName() + ")" : "";
                 // Get approved submissions for this user and KPI
                 List<KpiSubmission> submissions = submissionRepository.findByKpiCriteriaIdAndSubmittedByIdAndDeletedAtIsNull(kpi.getId(), user.getId());
                 
@@ -1509,7 +1501,7 @@ public class StatsService {
                 }
 
                 kpiDetails.add(KpiDetailRow.builder()
-                        .kpiName(kpi.getName())
+                        .kpiName(kpi.getName() + branchLabel)
                         .weight(kpi.getWeight())
                         .unit(kpi.getUnit())
                         .targetValue(kpi.getTargetValue())

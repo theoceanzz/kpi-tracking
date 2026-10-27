@@ -1,5 +1,7 @@
 package com.kpitracking.util;
 
+import com.kpitracking.service.kpi.KpiCriteriaService;
+
 import com.kpitracking.entity.bsc.BscPerspective;
 import com.kpitracking.entity.kpi.KpiCriteria;
 

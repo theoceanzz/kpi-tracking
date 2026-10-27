@@ -1,9 +1,12 @@
 package com.kpitracking.dto.response.bsc;
 
+import com.kpitracking.service.bsc.BscPerspectiveOwnership;
+
 import com.kpitracking.enums.bsc.BscFixedPerspective;
 import com.kpitracking.enums.bsc.BscPerspectiveStatus;
 import lombok.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
@@ -28,4 +31,12 @@ public class PerspectiveResponse {
     private String fixedPerspectiveName;
     /** Màu của lĩnh vực cố định. */
     private String fixedPerspectiveColor;
+    /**
+     * Bộ tiêu chí CHỦ của hạng mục ({@code BscPerspectiveOwnership}): chỉ sửa được hạng mục từ bộ này.
+     * null = chưa bộ nào tự thêm, sửa được từ bất kỳ bộ nào.
+     */
+    private UUID ownerScorecardId;
+    private String ownerScorecardName;
+    /** Mọi bộ tiêu chí còn sống đang có dòng của hạng mục — khác rỗng thì không xoá được. */
+    private List<UUID> usedInScorecardIds;
 }

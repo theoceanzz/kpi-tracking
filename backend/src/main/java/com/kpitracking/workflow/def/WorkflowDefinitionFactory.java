@@ -1,5 +1,7 @@
 package com.kpitracking.workflow.def;
 
+import com.kpitracking.service.kpi.KpiCriteriaService;
+
 import com.kpitracking.enums.kpi.AdjustmentStatus;
 import com.kpitracking.enums.kpi.KpiStatus;
 import com.kpitracking.enums.submission.SubmissionStatus;

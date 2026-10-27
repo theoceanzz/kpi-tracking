@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs'
 import { format } from 'date-fns'
-import type { ConductSheet, ConductStatus } from '../api/conductApi'
+import type { ConductLevelDescriptions, ConductSheet, ConductStatus } from '../api/conductApi'
+import { definedLevels } from './conductLevels'
 import i18n from 'i18next'
 import { perLanguage } from '@/i18n/perLanguage'
 
@@ -15,6 +16,8 @@ import { perLanguage } from '@/i18n/perLanguage'
 export interface ConductExportRow {
   name: string
   description?: string | null
+  /** Định nghĩa theo mức điểm — ghi thêm vào ô tiêu chí, mức cao trước. */
+  levelDescriptions?: ConductLevelDescriptions | null
   /** % trên tổng. */
   weight: number
   /** Phiếu chia nhóm (null = không nhóm): tên, % nhóm, thứ tự nhóm và % trong nhóm. */
@@ -167,6 +170,8 @@ export async function exportConductSheetToExcel(
       .map(l => l.trim())
       .filter(Boolean)
       .map(l => `- ${l}`)
+      .concat(definedLevels(r.levelDescriptions, sheet.minScore ?? 1, sheet.maxScore)
+        .map(l => i18n.t('conduct:conductSheetExport.levelLine', { level: l.level, text: l.text })))
       .join('\n')
 
     const row = ws.addRow([

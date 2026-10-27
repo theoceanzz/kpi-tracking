@@ -6,11 +6,18 @@ import { toast } from 'sonner'
 import { htmlToText } from '../utils/html'
 import type { Redemption } from '../types'
 import { useTranslation } from 'react-i18next'
+import LottieObject from '../celebration/LottieObject'
+import { isCelebrationEnabled, isGentleMode } from '../celebration/celebrationSettings'
 
 interface VoucherModalProps {
   /** null = đóng. */
   redemption: Redemption | null
   onClose: () => void
+  /**
+   * Mã VỪA được cấp sau khi đổi quà: đầu hộp có hộp quà mở (pháo + kèn do `celebrate()` lo).
+   * Mở lại từ lịch sử đổi quà thì không — đó là xem lại, không phải lúc ăn mừng.
+   */
+  justIssued?: boolean
 }
 
 /**
@@ -21,7 +28,7 @@ interface VoucherModalProps {
  * vi phạm quy định hiển thị đã ký với UrBox, và thực tế là đẩy nhân viên tới quầy với
  * một mã không kích hoạt được.
  */
-export default function VoucherModal({ redemption, onClose }: VoucherModalProps) {
+export default function VoucherModal({ redemption, onClose, justIssued = false }: VoucherModalProps) {
   const { t } = useTranslation('rewards')
   const [copied, setCopied] = useState<string | null>(null)
 
@@ -49,6 +56,12 @@ export default function VoucherModal({ redemption, onClose }: VoucherModalProps)
       footer={<DialogFooter primary={<Button onClick={onClose}>{t('VoucherModal.done')}</Button>} />}
     >
       <div className="space-y-5">
+        {justIssued && isCelebrationEnabled() && (
+          <div className="flex flex-col items-center gap-2 text-center">
+            <LottieObject name="gift" size={112} still={isGentleMode()} className="-my-3" />
+            <p className="celebration-rise text-sm font-semibold">{t('VoucherModal.enjoyYourGift')}</p>
+          </div>
+        )}
         <div className="flex gap-3">
           {redemption.giftImageUrl && (
             <img

@@ -38,6 +38,15 @@
     "everyUnassignedCycle": "mọi kỳ chưa gán",
     "howConductCriteriaSetsWork": "Bộ tiêu chí hạnh kiểm hoạt động thế nào",
     "indicators": "{{count}} biểu hiện",
+    "levelsDefined": "{{count}} mức",
+    "generalIndicators": "Biểu hiện chung",
+    "levelDefinitions": "Định nghĩa theo mức điểm",
+    "levelDefinitionsHint": "Tuỳ chọn — người chấm thấy mô tả của mức mình chọn",
+    "levelDefinitionsUnavailable": "Thang điểm của bộ không phải số nguyên hoặc dài quá 10 mức nên không định nghĩa theo mức được.",
+    "levelPlaceholderTop": "Mức {{level}} (cao nhất) — VD: luôn chủ động, làm gương cho người khác",
+    "levelPlaceholderBottom": "Mức {{level}} (thấp nhất) — VD: thường xuyên vi phạm, đã được nhắc nhiều lần",
+    "levelPlaceholder": "Hành vi ứng với mức {{level}}",
+    "levelOfCriterion": "Định nghĩa mức {{level}} của tiêu chí {{name}}",
     "isOneWayOfScoringConduct": "là một cách chấm hạnh kiểm. Gán bộ cho",
     "makeDefaultSet": "Đặt làm bộ mặc định",
     "n15Matrix": "≠ ma trận 1–5",
@@ -166,7 +175,8 @@
     "yourSelfAssessment": "Bạn tự đánh giá",
     "yourSelfScore": "Điểm bạn tự chấm",
     "scaleRange": "thang {{min}}–{{max}}",
-    "groupScore": "Điểm nhóm:"
+    "groupScore": "Điểm nhóm:",
+    "levelGuide": "Định nghĩa {{count}} mức điểm"
   },
   "conductSheetExport": {
     "assessedByTheDirectManager": "Do CBQLTT đánh giá",
@@ -196,6 +206,7 @@
     "weightedConductScore": "Điểm hành vi đã tính đến trọng số:",
     "weightedRatingScore": "Điểm xếp loại đã tính đến trọng số",
     "rowNo": "STT",
+    "levelLine": "Mức {{level}}: {{text}}",
     "groupTotal": "Tổng nhóm: {{name}} ({{letter}})"
   },
   "ConductSheetTable": {

@@ -1,5 +1,7 @@
 package com.kpitracking.service.kpi;
 
+import com.kpitracking.service.PrimaryUnitResolver;
+
 import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.dto.request.kpi.CreateKpiCriteriaRequest;
@@ -67,6 +69,8 @@ public class KpiCriteriaService {
     private final UserRepository userRepository;
     private final OrgUnitRepository orgUnitRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final PrimaryUnitResolver primaryUnits;
+    private final KpiEffortShares effortShares;
     private final KpiPeriodRepository kpiPeriodRepository;
     private final KpiCriteriaMapper kpiCriteriaMapper;
     private final ApplicationEventPublisher eventPublisher;
@@ -205,7 +209,7 @@ public class KpiCriteriaService {
      * là quyền {@code KPI:APPROVE_OWN}. Giờ còn phụ thuộc cấu hình: tổ chức tắt hẳn bước duyệt chỉ
      * tiêu thì chỉ tiêu ra đời đã duyệt, vì không còn ai để duyệt nó nữa.
      */
-    private KpiStatus initialCriteriaStatus(UUID organizationId, User creator) {
+    private KpiStatus initialCriteriaStatus(UUID organizationId, User creator, UUID orgUnitId) {
         com.kpitracking.workflow.def.WorkflowDefinition definition =
                 workflowConfigService.definitionFor(organizationId);
 
@@ -219,7 +223,11 @@ public class KpiCriteriaService {
                 .stageConfig(com.kpitracking.workflow.WorkflowStage.CRITERIA_APPROVAL)
                 .booleanOption("allowSelfApprove", true);
 
-        return allowSelfApprove && permissionChecker.hasPermission(creator.getId(), "KPI:APPROVE_OWN")
+        // Quyền tự duyệt phải có hiệu lực ở ĐƠN VỊ CỦA KPI: trưởng phòng A (có quyền) kiêm nhân viên
+        // phòng B tạo KPI ở B thì vẫn đi chuỗi duyệt của B. Vai trò ở đơn vị gốc thừa kế xuống mọi
+        // đơn vị nên giám đốc / phó giám đốc vẫn tự duyệt mọi nơi như trước.
+        return allowSelfApprove && orgUnitId != null
+                && permissionChecker.hasPermissionInOrgUnit(creator.getId(), "KPI:APPROVE_OWN", orgUnitId)
                 ? KpiStatus.APPROVED
                 : KpiStatus.DRAFT;
     }
@@ -228,7 +236,7 @@ public class KpiCriteriaService {
     public KpiCriteriaResponse createKpiCriteria(CreateKpiCriteriaRequest request) {
         User currentUser = getCurrentUser();
 
-        KpiStatus initialStatus = initialCriteriaStatus(getCurrentUserOrganizationId(currentUser), currentUser);
+        UUID organizationId = getCurrentUserOrganizationId(currentUser);
 
         com.kpitracking.entity.kpi.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(request.getKpiPeriodId())
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", request.getKpiPeriodId()));
@@ -246,9 +254,10 @@ public class KpiCriteriaService {
         } else if (request.getOrgUnitId() != null) {
             targetOrgUnitIds.add(request.getOrgUnitId());
         } else {
-            List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
-            if (!assignments.isEmpty()) {
-                targetOrgUnitIds.add(assignments.get(0).getOrgUnit().getId());
+            // Không chọn đơn vị ⇒ KPI thuộc ĐƠN VỊ CHÍNH của người tạo.
+            OrgUnit home = primaryUnits.unitOf(currentUser);
+            if (home != null) {
+                targetOrgUnitIds.add(home.getId());
             } else {
                 throw new BusinessException(ErrorCode.USER_MUST_BELONG_LEAST_ONE_UNIT_CREATE);
             }
@@ -281,6 +290,7 @@ public class KpiCriteriaService {
 
             validateWaterfallAssignment(currentUser, orgUnit, assignees);
 
+            KpiStatus initialStatus = initialCriteriaStatus(organizationId, currentUser, orgUnit.getId());
             KpiCriteria kpi = buildKpiEntity(request, orgUnit, assignees, currentUser, initialStatus, kpiPeriod);
             requirePerspectiveWhenBscEnabled(kpi, "when.beforeCreate");
             if (initialStatus == KpiStatus.APPROVED) requireWithinFullWeight(kpi);
@@ -991,15 +1001,20 @@ public class KpiCriteriaService {
     @Transactional(readOnly = true)
     public WeightHeadroom getWeightHeadroom(UUID kpiPeriodId, List<UUID> orgUnitIds, List<UUID> assigneeIds, UUID excludeKpiId) {
         User currentUser = getCurrentUser();
-        boolean selfApproved = initialCriteriaStatus(getCurrentUserOrganizationId(currentUser), currentUser) == KpiStatus.APPROVED;
-        // Sửa chỉ tiêu đã duyệt (excludeKpiId) thì luôn chốt 100%, không phụ thuộc quyền tự duyệt.
-        boolean checks = selfApproved || excludeKpiId != null;
+        UUID organizationId = getCurrentUserOrganizationId(currentUser);
+        // Tự duyệt tính theo TỪNG đơn vị (initialCriteriaStatus): kiêm nhiệm có thể tự duyệt ở đơn vị
+        // này mà không ở đơn vị kia. selfApproved trả về = có ít nhất một đơn vị tự duyệt.
+        boolean selfApproved = false;
         List<UnitWeightUsage> units = new ArrayList<>();
-        if (checks && kpiPeriodId != null && orgUnitIds != null) {
+        if (kpiPeriodId != null && orgUnitIds != null) {
             for (UUID orgUnitId : orgUnitIds) {
                 // Chỉ đơn vị người này được tạo / sửa chỉ tiêu — không lộ số của đơn vị khác.
                 if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:CREATE", orgUnitId)
                         && !permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:UPDATE", orgUnitId)) continue;
+                boolean selfHere = initialCriteriaStatus(organizationId, currentUser, orgUnitId) == KpiStatus.APPROVED;
+                selfApproved |= selfHere;
+                // Sửa chỉ tiêu đã duyệt (excludeKpiId) thì luôn chốt 100%, không phụ thuộc quyền tự duyệt.
+                if (!selfHere && excludeKpiId == null) continue;
                 OrgUnit unit = orgUnitRepository.findById(orgUnitId).orElse(null);
                 if (unit == null) continue;
                 units.add(new UnitWeightUsage(orgUnitId, unit.getName(), usedWeightInUnit(orgUnitId, kpiPeriodId, assigneeIds, excludeKpiId)));
@@ -1520,6 +1535,16 @@ public class KpiCriteriaService {
 
     @Transactional(readOnly = true)
     public Double getTotalWeight(UUID orgUnitId, UUID userId, UUID kpiPeriodId) {
+        return getTotalWeight(orgUnitId, userId, kpiPeriodId, false);
+    }
+
+    /**
+     * @param sameBranch chỉ khi có cả {@code userId}, {@code orgUnitId}, {@code kpiPeriodId}: cộng KPI
+     *                   của người này thuộc CÙNG NHÁNH với {@code orgUnitId} (KpiEffortShares) — người
+     *                   kiêm nhiệm mỗi nhánh đủ 100% riêng, cộng mọi đơn vị sẽ ra 200% và chặn gửi duyệt.
+     *                   Người một nhánh: bằng đúng tổng mọi KPI của họ như khi không truyền đơn vị.
+     */
+    public Double getTotalWeight(UUID orgUnitId, UUID userId, UUID kpiPeriodId, boolean sameBranch) {
         User currentUser = getCurrentUser();
 
         if (userId != null) {
@@ -1549,7 +1574,15 @@ public class KpiCriteriaService {
                 return kpiCriteriaRepository.sumWeightByUserIdAndKpiPeriodIdAndStatusIn(userId, null, WEIGHT_COUNTED_STATUSES);
             }
             List<KpiCriteria> userKpis;
-            if (orgUnitId != null) {
+            if (sameBranch && orgUnitId != null) {
+                List<KpiCriteria> all = kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodId(
+                        userId, kpiPeriodId, WEIGHT_COUNTED_STATUSES, org.springframework.data.domain.Pageable.unpaged()).getContent();
+                OrgUnit unit = orgUnitRepository.findById(orgUnitId).orElse(null);
+                UUID branch = effortShares.branchOf(userId, unit);
+                KpiEffortShares.Split split = effortShares.split(userId, all);
+                userKpis = branch == null ? all : all.stream()
+                        .filter(k -> branch.equals(split.branchOfKpi().get(k.getId()))).toList();
+            } else if (orgUnitId != null) {
                 userKpis = kpiCriteriaRepository.findByOrgUnitIdAndKpiPeriodIdAndStatusIn(orgUnitId, kpiPeriodId, WEIGHT_COUNTED_STATUSES);
             } else {
                 userKpis = kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodId(
@@ -1854,7 +1887,7 @@ public class KpiCriteriaService {
 
             validateWaterfallAssignment(creator, finalUnit, assignees);
 
-            KpiStatus importedStatus = initialCriteriaStatus(organizationId, creator);
+            KpiStatus importedStatus = initialCriteriaStatus(organizationId, creator, finalUnit.getId());
 
             KpiCriteria kpi = KpiCriteria.builder()
                     .kpiType(kpiType != null ? kpiType : com.kpitracking.enums.kpi.KpiType.QUANTITATIVE)
@@ -2015,7 +2048,8 @@ public class KpiCriteriaService {
         // được, bản thay thế phải đi thẳng vào CHỜ DUYỆT: đo thật cho thấy để nó nằm nháp thì
         // không ai gửi tiếp, chốt 100% lúc gửi duyệt đã qua từ trước, và sang kỳ chấm người đó chỉ
         // còn 80% trọng số đã duyệt.
-        KpiStatus initialStatus = initialCriteriaStatus(organizationIdOf(replacedKpi), currentUser);
+        KpiStatus initialStatus = initialCriteriaStatus(organizationIdOf(replacedKpi), currentUser,
+                replacedKpi.getOrgUnit() != null ? replacedKpi.getOrgUnit().getId() : null);
         if (initialStatus == KpiStatus.DRAFT && IN_APPROVAL_PIPELINE_STATUSES.contains(replacedKpi.getStatus())) {
             initialStatus = KpiStatus.PENDING_APPROVAL;
         }

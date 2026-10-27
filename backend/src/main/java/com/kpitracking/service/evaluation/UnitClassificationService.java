@@ -1,5 +1,7 @@
 package com.kpitracking.service.evaluation;
 
+import com.kpitracking.service.PrimaryUnitResolver;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.i18n.ErrorMessages;
@@ -55,6 +57,7 @@ public class UnitClassificationService {
     private final UserRepository userRepository;
     private final OrgUnitRepository orgUnitRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final PrimaryUnitResolver primaryUnits;
     private final KpiCycleRepository kpiCycleRepository;
     private final KpiPeriodRepository kpiPeriodRepository;
     private final CycleUserEvaluationRepository cycleUserEvaluationRepository;
@@ -1189,9 +1192,9 @@ public class UnitClassificationService {
         return ids.isEmpty() ? List.of(unit.getId()) : ids;
     }
 
+    /** Người có ĐƠN VỊ CHÍNH trong nhánh — người kiêm nhiệm chỉ nằm trong bell curve đơn vị chính. */
     private List<UUID> distinctMemberIds(List<UUID> unitIds) {
-        return userRoleOrgUnitRepository.findByOrgUnitIdIn(unitIds).stream()
-                .map(uro -> uro.getUser().getId()).distinct().collect(Collectors.toList());
+        return new ArrayList<>(primaryUnits.primaryWithin(unitIds).keySet());
     }
 
     private OrgUnit resolveUnit(UUID orgUnitId) {
@@ -1201,7 +1204,7 @@ public class UnitClassificationService {
         List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(user.getId());
         if (roles.isEmpty()) return null;
         UUID orgId = roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
-        if (orgUnitId == null) return roles.get(0).getOrgUnit();
+        if (orgUnitId == null) return primaryUnits.unitOf(user);
         OrgUnit u = orgUnitRepository.findById(orgUnitId).orElse(null);
         if (u == null || !u.getOrgHierarchyLevel().getOrganization().getId().equals(orgId)) return null;
         return u;

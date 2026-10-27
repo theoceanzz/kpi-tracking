@@ -474,16 +474,34 @@ export default function KpiCriteriaPage() {
     const draft = items.filter(k => k.status === 'DRAFT').length
     const pending = items.filter(k => k.status === 'PENDING_APPROVAL').length
     const weight = sumWeight(items)
+    // Người kiêm nhiệm: mỗi đơn vị giao đủ 100% của riêng mình (backend chốt theo đơn vị), cộng chung ra
+    // 200%. Vượt 100% mà KPI đến từ ≥ 2 đơn vị ⇒ hiện trọng số theo từng đơn vị thay cho một con số tổng.
+    const byUnit = new Map<string, { name: string; items: KpiCriteria[] }>()
+    for (const k of items) {
+      const key = k.orgUnitId ?? ''
+      const g = byUnit.get(key) ?? { name: k.orgUnitName ?? '', items: [] }
+      g.items.push(k)
+      byUnit.set(key, g)
+    }
+    const perUnit = Math.round(weight) > 100 && byUnit.size > 1
     return (
       <>
         <PersonGroupBadge label={tr('KpiCriteriaPage.kpis')} value={items.length} />
         {draft > 0 && <PersonGroupBadge label={tr('KpiCriteriaPage.draft')} value={draft} tone="rose" />}
         {pending > 0 && <PersonGroupBadge label={tr('KpiCriteriaPage.pendingApproval')} value={pending} tone="amber" />}
-        <PersonGroupBadge
-          label={tr('KpiCriteriaPage.weights')}
-          value={`${formatNumber(weight)}%`}
-          tone={Math.round(weight) === 100 ? 'emerald' : 'indigo'}
-        />
+        {perUnit ? [...byUnit.entries()].map(([key, g]) => {
+          const w = sumWeight(g.items)
+          return (
+            <PersonGroupBadge key={key} label={`${tr('KpiCriteriaPage.weights')} · ${g.name}`}
+              value={`${formatNumber(w)}%`} tone={Math.round(w) === 100 ? 'emerald' : 'indigo'} />
+          )
+        }) : (
+          <PersonGroupBadge
+            label={tr('KpiCriteriaPage.weights')}
+            value={`${formatNumber(weight)}%`}
+            tone={Math.round(weight) === 100 ? 'emerald' : 'indigo'}
+          />
+        )}
       </>
     )
   }
@@ -982,7 +1000,8 @@ function KpiRowMenu({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, onDec
   const aiAvailable = useAiAvailable()
   const askAi = useAiAssistantStore(s => s.ask)
   const primaryAssigneeId = kpi.assigneeIds?.[0]
-  const { data: assigneeWeight } = useKpiTotalWeight(undefined, kpi.kpiPeriodId, primaryAssigneeId)
+  // Tính trong NHÁNH của KPI: người kiêm nhiệm có 100% riêng ở mỗi nhánh, cộng mọi đơn vị ra 200%.
+  const { data: assigneeWeight } = useKpiTotalWeight(primaryAssigneeId ? kpi.orgUnitId ?? undefined : undefined, kpi.kpiPeriodId, primaryAssigneeId, true)
   const canSubmit = Math.round(assigneeWeight ?? 0) === 100
   // Kỳ đã khoá: mọi thao tác ghi ẩn đi, chỉ còn "Xem chi tiết" kèm dòng giải thích.
   const lockReason = kpiLockReason(kpi)

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
-  AlignLeft, ArrowLeftRight, Ban, Bookmark, Check, CheckCircle2, ChevronRight, Copy, Diamond, FileText, GitBranch, History, ListChecks, ListTree, RefreshCw,
+  AlignLeft, ArrowLeftRight, Ban, Bookmark, Check, CheckCircle2, ChevronRight, Copy, Diamond, FileCheck2, FileText, GitBranch, History, ListChecks, ListTree, RefreshCw,
   Loader2, Lock, Maximize2, Minimize2, MoreHorizontal, Paperclip, Plus, Search, Share2, Trash2, UserMinus, X,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -27,7 +27,7 @@ import { taskApi } from '../api/taskApi'
 import { taskKeys, useTask, useTaskHistory, useTaskMutations, useTaskPresence } from '../hooks/useTasks'
 import { useDeferredDelete } from '../hooks/useDeferredDelete'
 import { dueTone, historyText, isClosed, NEEDS_CONFIRM, placeholderBtn, shortDue, STATUS_STYLE, statusStyleOf } from '../taskUtils'
-import { MAX_TASK_DEPTH, type KpiTask, type TaskEvent, type TaskStatus, type TaskViewer, type UpdateTaskInput } from '../types'
+import { MAX_TASK_DEPTH, type KpiTask, type TaskAttachmentKind, type TaskEvent, type TaskStatus, type TaskViewer, type UpdateTaskInput } from '../types'
 import { AssigneeStack } from './TaskBits'
 import AssignDialog from './AssignDialog'
 import TaskDescriptionEditor from './TaskDescriptionEditor'
@@ -178,18 +178,20 @@ export default function TaskDetailPanel({ taskId, onClose, onNavigate, focusComm
   const isAssignee = !!task && !!myId && task.assignees.some((a) => a.id === myId)
   const root = !!task && !task.parentTaskId
 
-  const addFiles = (files: File[]) => {
+  // Việc người khác giao cho mình: kéo thả tệp = nộp kết quả; còn lại = tệp đính kèm.
+  const dropKind: TaskAttachmentKind = isAssignee && task?.createdById !== myId ? 'RESULT' : 'REFERENCE'
+  const addFiles = (files: File[], kind: TaskAttachmentKind) => {
     if (!task || !files.length) return
     const bad = checkFiles(files)[0]
     if (bad) {
       toast.error(bad.reason === 'size' ? t('detail.fileTooLarge', { name: bad.file.name }) : t('detail.fileNotSupported', { name: bad.file.name }))
       return
     }
-    if ((task.attachments?.length ?? 0) + files.length > COLLAB_MAX_FILES_PER_TASK) {
-      toast.error(t('detail.tooManyFiles', { max: COLLAB_MAX_FILES_PER_TASK }))
+    if ((task.attachments ?? []).filter((a) => a.kind === kind).length + files.length > COLLAB_MAX_FILES_PER_TASK) {
+      toast.error(t(kind === 'RESULT' ? 'detail.tooManyResultFiles' : 'detail.tooManyFiles', { max: COLLAB_MAX_FILES_PER_TASK }))
       return
     }
-    m.addAttachments.mutate({ id: task.id, files }, { onError: (e) => toast.error(getApiErrorMessage(e)) })
+    m.addAttachments.mutate({ id: task.id, files, kind }, { onError: (e) => toast.error(getApiErrorMessage(e)) })
   }
 
   return (
@@ -207,7 +209,7 @@ export default function TaskDetailPanel({ taskId, onClose, onNavigate, focusComm
         if (!editable || !e.dataTransfer.files.length) return
         e.preventDefault()
         setDragOver(false)
-        addFiles(Array.from(e.dataTransfer.files))
+        addFiles(Array.from(e.dataTransfer.files), dropKind)
       }}
       aria-label={t('detail.title')}
     >
@@ -314,7 +316,8 @@ export default function TaskDetailPanel({ taskId, onClose, onNavigate, focusComm
               <Description task={task} editable={editable} onSave={(doc, plain) => save({ descriptionDoc: doc, description: plain })} />
               {(task.depth < MAX_TASK_DEPTH || task.subtaskTotal > 0) && <Subtasks task={task} editable={editable && task.depth < MAX_TASK_DEPTH} onOpen={onNavigate} />}
               <Checklist task={task} editable={editable} />
-              <Attachments task={task} editable={editable} onAdd={addFiles} onPreview={setPreview} />
+              <Attachments task={task} kind="REFERENCE" editable={editable} onAdd={addFiles} onPreview={setPreview} />
+              <Attachments task={task} kind="RESULT" editable={editable} showEmpty={dropKind === 'RESULT'} onAdd={addFiles} onPreview={setPreview} />
               <Dependencies task={task} editable={editable} onOpen={onNavigate} />
             </div>
           </div>
@@ -535,49 +538,67 @@ function Checklist({ task, editable }: { task: KpiTask; editable: boolean }) {
   )
 }
 
-/** Tệp đính kèm (Lark: "📎 Thêm tệp đính kèm"); kéo thả tệp vào bảng cũng được. */
-function Attachments({ task, editable, onAdd, onPreview }: {
-  task: KpiTask; editable: boolean; onAdd: (files: File[]) => void; onPreview: (p: { url: string; name: string; type: string | null }) => void
+/**
+ * Tệp của việc, một dòng cho mỗi loại (V47). REFERENCE = "📎 Thêm tệp đính kèm" của Lark; RESULT = "Thêm kết quả" —
+ * KeyGo thêm (docs/TASKS_LARK_REFERENCE.md "KeyGo buộc phải khác"): người thực hiện nộp kết quả tách khỏi tài liệu
+ * người giao. Dòng kết quả trống chỉ hiện cho người được giao ({@code showEmpty}); kéo thả tệp vào bảng cũng được.
+ */
+function Attachments({ task, kind, editable, showEmpty = true, onAdd, onPreview }: {
+  task: KpiTask; kind: TaskAttachmentKind; editable: boolean; showEmpty?: boolean
+  onAdd: (files: File[], kind: TaskAttachmentKind) => void; onPreview: (p: { url: string; name: string; type: string | null }) => void
 }) {
   const { t } = useTranslation('tasks')
   const m = useTaskMutations()
   const fileRef = useRef<HTMLInputElement>(null)
-  const files = task.attachments ?? []
-  if (!editable && files.length === 0) return null
+  const files = (task.attachments ?? []).filter((a) => a.kind === kind)
+  const result = kind === 'RESULT'
+  if (files.length === 0 && (!editable || !showEmpty)) return null
+  const pending = m.addAttachments.isPending && (m.addAttachments.variables?.kind ?? 'REFERENCE') === kind
+  const add = (picked: File[]) => onAdd(picked, kind)
   const picker = editable && (
     <>
       <input ref={fileRef} type="file" multiple accept={COLLAB_ACCEPT} className="hidden"
-        onChange={(e) => { onAdd(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+        onChange={(e) => { add(Array.from(e.target.files ?? [])); e.target.value = '' }} />
       {/* Từ thư viện tài liệu: bản sao tệp, đi chung luồng tải lên (cùng luật loại / dung lượng / số tệp). */}
       <PickFromLibraryButton variant="ghost" size="icon-sm" iconOnly className="h-7 w-7 text-[var(--color-subtle-foreground)]"
         accept={COLLAB_EXTENSIONS} disabled={m.addAttachments.isPending}
-        max={COLLAB_MAX_FILES_PER_TASK - files.length} onPicked={onAdd} />
+        max={COLLAB_MAX_FILES_PER_TASK - files.length} onPicked={add} />
     </>
   )
   return (
-    <PropRow icon={<Paperclip size={16} />} title={t('detail.attachments')}>
+    <PropRow icon={result ? <FileCheck2 size={16} /> : <Paperclip size={16} />} title={t(result ? 'detail.results' : 'detail.attachments')}>
       {files.length === 0 ? (
         <>
-          <button type="button" className={placeholderBtn} disabled={m.addAttachments.isPending} title={t('detail.dropFiles')}
-            onClick={() => fileRef.current?.click()}>
-            {m.addAttachments.isPending ? <Loader2 size={14} className="animate-spin" /> : t('detail.addAttachmentLark')}
+          <button type="button" className={placeholderBtn} disabled={m.addAttachments.isPending}
+            title={t(result ? 'detail.resultHint' : 'detail.dropFiles')} onClick={() => fileRef.current?.click()}>
+            {pending ? <Loader2 size={14} className="animate-spin" /> : t(result ? 'detail.addResultLark' : 'detail.addAttachmentLark')}
           </button>
           {picker}
         </>
       ) : (
         <div className="w-full space-y-1.5">
+          {result && <div className="text-xs text-[var(--color-subtle-foreground)]">{t('detail.results')}</div>}
           <div className="flex flex-wrap items-start gap-2">
             {files.map((a) => (
               <div key={a.id} className="group relative flex max-w-[240px] flex-col gap-0.5">
                 <button type="button" onClick={() => onPreview({ url: a.fileUrl, name: a.fileName, type: a.contentType })}
+                  title={a.uploadedByName ? t('detail.uploadedBy', { name: a.uploadedByName, at: formatDateTime(a.createdAt) }) : undefined}
                   className="flex w-fit items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)] p-1 pr-2 text-xs">
                   {a.image ? <img src={a.fileUrl} alt="" className="h-10 w-10 rounded object-cover" /> : <FileText size={16} className="mx-1" />}
                   <span className="max-w-[160px] truncate">{a.fileName}</span>
                 </button>
+                {/* Kết quả: ghi người nộp (nhiều người thực hiện thì mỗi người nộp phần mình). */}
+                {result && a.uploadedByName && (
+                  <span className="flex items-center gap-1 pl-0.5 text-[11px] text-[var(--color-subtle-foreground)]">
+                    <UserAvatar fullName={a.uploadedByName} avatarUrl={a.uploadedByAvatarUrl} className="h-4 w-4 shrink-0 rounded-full text-[8px]"
+                      fallbackClassName="bg-[var(--color-primary-soft)] font-semibold text-[var(--color-primary)]" />
+                    <span className="truncate">{a.uploadedByName}</span>
+                  </span>
+                )}
                 <LibrarySourceNote source={a} className="pl-0.5" />
-                {editable && (
+                {a.canDelete && (
                   <button type="button" aria-label={t('detail.removeFile')}
-                    onClick={() => m.deleteAttachment.mutate({ id: task.id, attachmentId: a.id })}
+                    onClick={() => m.deleteAttachment.mutate({ id: task.id, attachmentId: a.id }, { onError: (e) => toast.error(getApiErrorMessage(e)) })}
                     className="absolute -right-1.5 -top-1.5 hidden rounded-full bg-[var(--color-card)] p-0.5 shadow group-hover:block">
                     <X size={12} />
                   </button>
@@ -589,7 +610,7 @@ function Attachments({ task, editable, onAdd, onPreview }: {
             <div className="flex items-center gap-1">
               <button type="button" className={cn(placeholderBtn, 'inline-flex items-center gap-1 text-xs')} disabled={m.addAttachments.isPending}
                 onClick={() => fileRef.current?.click()}>
-                {m.addAttachments.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} {t('detail.attach')}
+                {pending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} {t(result ? 'detail.addResult' : 'detail.attach')}
               </button>
               {picker}
             </div>

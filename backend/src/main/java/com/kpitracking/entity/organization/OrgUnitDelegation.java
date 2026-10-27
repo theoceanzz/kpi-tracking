@@ -1,5 +1,7 @@
 package com.kpitracking.entity.organization;
 
+import com.kpitracking.service.DelegationLeaderRoles;
+
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
@@ -61,6 +63,10 @@ public class OrgUnitDelegation {
     @Column(name = "can_act_as_leader", nullable = false)
     @Builder.Default
     private Boolean canActAsLeader = true;
+
+    /** Lúc đã gán vai trò trưởng ở đơn vị đích (chỉ một lần) — xem {@code DelegationLeaderRoles}. */
+    @Column(name = "leader_role_granted_at")
+    private Instant leaderRoleGrantedAt;
 
     @Column(name = "reason", columnDefinition = "TEXT")
     private String reason;

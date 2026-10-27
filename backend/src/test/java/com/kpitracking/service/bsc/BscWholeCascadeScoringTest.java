@@ -1,5 +1,8 @@
 package com.kpitracking.service.bsc;
 
+import com.kpitracking.service.PrimaryUnitResolver;
+import com.kpitracking.service.kpi.KpiEffortShares;
+
 import com.kpitracking.dto.response.bsc.PerspectiveScoreResponse;
 import com.kpitracking.entity.bsc.BscPerspective;
 import com.kpitracking.entity.bsc.BscScorecard;
@@ -61,8 +64,12 @@ class BscWholeCascadeScoringTest {
     void setUp() {
         service = new BscScoringService(scorecardRepository, kpiCriteriaRepository,
                 mock(KpiAchievementCalculator.class), mock(BscPerspectiveRepository.class),
-                mock(EvaluationPerspectiveScoreRepository.class), userRoleOrgUnitRepository,
-                new BscSourceScores(unitResultRepository));
+                mock(EvaluationPerspectiveScoreRepository.class),
+                new PrimaryUnitResolver(userRoleOrgUnitRepository, mock(com.kpitracking.repository.user.UserRepository.class)),
+                new BscSourceScores(unitResultRepository),
+                new KpiEffortShares(userRoleOrgUnitRepository, mock(com.kpitracking.repository.user.UserRepository.class),
+                        mock(com.kpitracking.repository.user.UserUnitEffortShareRepository.class),
+                        mock(com.kpitracking.repository.user.UserPeriodEffortShareRepository.class)));
 
         company = card("BSC công ty", null);
         dept = card("BSC phòng", company);

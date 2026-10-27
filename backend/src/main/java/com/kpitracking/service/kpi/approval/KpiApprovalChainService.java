@@ -1,5 +1,7 @@
 package com.kpitracking.service.kpi.approval;
 
+import com.kpitracking.service.kpi.KpiCriteriaService;
+
 import com.kpitracking.i18n.SupportedLanguages;
 import com.kpitracking.i18n.LocalizedText;
 
@@ -199,7 +201,10 @@ public class KpiApprovalChainService {
         // trước khi có chuỗi). Điều chỉnh thì luôn đi chuỗi. Chuyển đổi KPI cũ (MIGRATED) không tự chốt.
         boolean allowSelfApprove = approvalStage(orgId).booleanOption("allowSelfApprove", true);
         boolean selfApproved = type == ApprovalSubjectType.CRITERIA && action != ApprovalEventAction.MIGRATED
-                && allowSelfApprove && permissionChecker.hasPermission(requester.getId(), "KPI:APPROVE_OWN");
+                && allowSelfApprove && kpi.getOrgUnit() != null
+                // Theo ĐƠN VỊ CỦA KPI (cùng luật KpiCriteriaService.initialCriteriaStatus): quyền tự duyệt ở
+                // đơn vị mình làm trưởng không mở đường bỏ qua chuỗi duyệt ở đơn vị kiêm nhiệm.
+                && permissionChecker.hasPermissionInOrgUnit(requester.getId(), "KPI:APPROVE_OWN", kpi.getOrgUnit().getId());
         if (selfApproved) {
             flow.getSteps().clear();
             flow.setProcessId(null);

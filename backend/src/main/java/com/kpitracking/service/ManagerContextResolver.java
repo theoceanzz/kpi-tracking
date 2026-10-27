@@ -27,6 +27,7 @@ public class ManagerContextResolver {
 
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.service.PrimaryUnitResolver primaryUnits;
 
     /** userId cần cho việc lọc tool theo quyền ở {@code ToolRegistry}. */
     public record ManagerContext(UUID orgUnitId, String orgUnitPath, UUID orgId, String email, UUID userId) {}
@@ -47,9 +48,8 @@ public class ManagerContextResolver {
             String email = SecurityContextHolder.getContext().getAuthentication().getName();
             User user = userRepository.findByEmail(email).orElse(null);
             if (user == null) return null;
-            return userRoleOrgUnitRepository.findByUserId(user.getId()).stream()
-                    .filter(a -> a.getOrgUnit() != null && a.getRole() != null)
-                    .min(Comparator.comparingInt(a -> a.getRole().getRank() == null ? Integer.MAX_VALUE : a.getRole().getRank()))
+            // Ngữ cảnh cá nhân = ĐƠN VỊ CHÍNH (PrimaryUnitResolver), không phải dòng phân công bất kỳ.
+            return java.util.Optional.ofNullable(primaryUnits.assignmentOf(user))
                     .map(a -> new ManagerContext(
                             a.getOrgUnit().getId(),
                             a.getOrgUnit().getPath(),

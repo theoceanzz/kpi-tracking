@@ -1,5 +1,7 @@
 package com.kpitracking.service.reward;
 
+import com.kpitracking.service.kpi.KpiCriteriaService;
+
 import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.request.reward.CreateRewardGrantRequest;
 import com.kpitracking.dto.request.reward.GrantDecisionRequest;
@@ -666,6 +668,14 @@ public class RewardGrantService {
         if (pending.isEmpty()) return;
         var byId = approvalView.summariesForSubjects(com.kpitracking.enums.kpi.ApprovalSubjectType.REWARD_GRANT, pending, context.getCurrentUser().getId());
         responses.forEach(r -> r.setApproval(byId.get(r.getId())));
+    }
+
+    /**
+     * Đề nghị thưởng nhìn từ phía MỘT người nhận — chỉ chứa dòng của chính họ, cùng luật với
+     * {@link #searchMyAwards}. Hộp chúc mừng dùng để vẽ giấy khen.
+     */
+    public RewardGrantResponse toRecipientView(RewardGrant grant, RewardGrantItem mine) {
+        return toResponse(grant, List.of(mine));
     }
 
     private RewardGrantResponse toResponse(RewardGrant grant, List<RewardGrantItem> items) {

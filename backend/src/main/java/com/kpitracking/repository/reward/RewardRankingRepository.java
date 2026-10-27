@@ -1,5 +1,7 @@
 package com.kpitracking.repository.reward;
 
+import com.kpitracking.service.evaluation.EvaluationService;
+
 import com.kpitracking.entity.evaluation.CycleUserEvaluation;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

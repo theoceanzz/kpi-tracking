@@ -1,5 +1,7 @@
 package com.kpitracking.dto.response.evaluation;
 
+import com.kpitracking.service.kpi.KpiEffortShares;
+
 import com.kpitracking.dto.response.bsc.PerspectiveScoreResponse;
 import com.kpitracking.enums.bsc.BscScoringMode;
 import lombok.*;
@@ -21,6 +23,13 @@ public class EvaluationScorePreview {
      *  tính trên MỌI KPI được giao, kể cả KPI chưa nộp (tính 0). Phiếu chấm dùng số này để không
      *  quy đổi chỉ trên các bài đã nộp (làm 35% trọng số vẫn ra 100 điểm). */
     private Double quantitativeWeight;
+    /**
+     * Kiêm nhiệm ≥ 2 nhánh (KpiEffortShares): hệ số nhân vào trọng số từng KPI (khoá = id KPI) để
+     * phiếu chấm quy điểm đúng như backend. Null/rỗng = một nhánh, dùng cách quy đổi cũ.
+     */
+    private java.util.Map<java.util.UUID, Double> kpiWeightFactors;
+    /** Kiêm nhiệm: phần điểm theo từng nhánh (để người chấm thấy % công sức). */
+    private List<EffortShareLine> effortShares;
     /** Quản lý đã chấm được người này chưa (chỉ có khi xem điểm của người khác). */
     private ScoringReadinessResponse scoringReadiness;
 

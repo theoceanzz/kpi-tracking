@@ -189,8 +189,10 @@ public class AiReviewAdminService {
     }
 
     private OrgUnit primaryUnit(UUID userId) {
-        return userRoleOrgUnitRepository.findByUserId(userId).stream()
-                .map(UserRoleOrgUnit::getOrgUnit).filter(Objects::nonNull).findFirst().orElse(null);
+        UserRoleOrgUnit primary = com.kpitracking.service.PrimaryUnitResolver.pick(
+                userRoleOrgUnitRepository.findByUserId(userId),
+                userRepository.findById(userId).map(com.kpitracking.entity.user.User::getPrimaryOrgUnitId).orElse(null));
+        return primary != null ? primary.getOrgUnit() : null;
     }
 
     private Map<UUID, String> unitNames(UUID orgId) {

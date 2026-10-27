@@ -31,9 +31,11 @@ export const bscApi = {
       .post<ApiResponse<PerspectiveResponse>>(`/bsc/organization/${organizationId}/perspectives`, data)
       .then(r => r.data.data),
 
-  updatePerspective: (perspectiveId: string, data: PerspectiveRequest) =>
+  /** `scorecardId` = bộ tiêu chí đang mở form (bỏ trống = bộ chưa lưu): backend chỉ cho sửa từ bộ chủ. */
+  updatePerspective: (perspectiveId: string, data: PerspectiveRequest, scorecardId?: string) =>
     axiosInstance
-      .put<ApiResponse<PerspectiveResponse>>(`/bsc/perspectives/${perspectiveId}`, data)
+      .put<ApiResponse<PerspectiveResponse>>(`/bsc/perspectives/${perspectiveId}`, data,
+        { params: scorecardId ? { scorecardId } : undefined })
       .then(r => r.data.data),
 
   deletePerspective: (perspectiveId: string) =>

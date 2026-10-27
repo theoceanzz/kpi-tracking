@@ -1,5 +1,8 @@
 package com.kpitracking.service.evaluation;
 
+import com.kpitracking.service.PrimaryUnitResolver;
+import com.kpitracking.service.kpi.KpiEffortShares;
+
 import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.dto.request.evaluation.CreateEvaluationRequest;
 import com.kpitracking.dto.response.PageResponse;
@@ -58,6 +61,8 @@ public class EvaluationService {
     private final KpiPeriodRepository kpiPeriodRepository;
     private final OrgUnitRepository orgUnitRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final PrimaryUnitResolver primaryUnits;
+    private final KpiEffortShares effortShares;
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final KpiSubmissionRepository kpiSubmissionRepository;
     private final KpiCriteriaService kpiCriteriaService;
@@ -153,19 +158,15 @@ public class EvaluationService {
         // đánh giá cũ nhưng cũng đóng, nên dùng cùng một chốt.
         cycleStatusGuard.assertWritable(kpiPeriod);
 
-        // Get user's primary org unit for linking
+        // Đánh giá luôn gắn ĐƠN VỊ CHÍNH của người được chấm: người kiêm nhiệm chỉ được trưởng
+        // đơn vị chính (hoặc cấp trên của nó) chấm — trưởng nơi kiêm nhiệm không chấm thay.
         java.util.List<com.kpitracking.entity.user.UserRoleOrgUnit> evaluatedUserAssignments = userRoleOrgUnitRepository.findByUserId(evaluatedUser.getId());
-        if (evaluatedUserAssignments.isEmpty()) {
+        com.kpitracking.entity.user.UserRoleOrgUnit evaluatedPrimary =
+                PrimaryUnitResolver.pick(evaluatedUserAssignments, evaluatedUser.getPrimaryOrgUnitId());
+        if (evaluatedPrimary == null) {
             throw new BusinessException(ErrorCode.USER_NOT_ASSIGNED_UNIT);
         }
-        // Get authorized units considering hierarchy inheritance
-        // Prioritize units where the viewer is actually a "Trưởng" (Rank 0)
-        OrgUnit targetOrgUnit = evaluatedUserAssignments.stream()
-                .filter(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "EVALUATION:CREATE", a.getOrgUnit().getId()))
-                .sorted(java.util.Comparator.comparingInt(a -> permissionChecker.getMinRankInOrgUnit(currentUser.getId(), a.getOrgUnit().getId())))
-                .map(com.kpitracking.entity.user.UserRoleOrgUnit::getOrgUnit)
-                .findFirst()
-                .orElse(evaluatedUserAssignments.get(0).getOrgUnit());
+        OrgUnit targetOrgUnit = evaluatedPrimary.getOrgUnit();
         com.kpitracking.entity.organization.Organization org = targetOrgUnit.getOrgHierarchyLevel().getOrganization();
 
         // Kỳ chứa đợt này đã "chốt dữ liệu" ở đơn vị của người được chấm ⇒ đánh giá đợt là ĐẦU
@@ -221,17 +222,20 @@ public class EvaluationService {
                     throw new ForbiddenException(ErrorCode.ONLY_HEADS_MAY_EVALUATE_EMPLOYEES);
                 }
 
-                // 2. Kiểm tra quan hệ cấp trên - cấp dưới
-                boolean isSubordinate = evaluatedUserAssignments.stream().anyMatch(assignment -> {
-                    Integer subLevel = assignment.getRole().getLevel();
-                    Integer subRank = assignment.getRole().getRank();
-                    
-                    if (subLevel == null || subRank == null) return false;
-                    
-                    // Cấp dưới là người có Level thấp hơn (số lớn hơn) 
-                    // HOẶC cùng Level nhưng có Rank thấp hơn (số lớn hơn)
-                    return (subLevel > viewerLevel || (subLevel == viewerLevel && subRank > viewerRank));
-                });
+                // 2. Kiểm tra quan hệ cấp trên - cấp dưới, theo vai trò CAO NHẤT của người được chấm
+                //    tại đơn vị chính: người vừa Trưởng vừa Nhân viên một đơn vị là Trưởng — vai trò
+                //    nhân viên đi kèm không được biến họ thành "cấp dưới" của một người ngang cấp.
+                Integer subLevel = evaluatedUserAssignments.stream()
+                        .filter(a -> a.getOrgUnit().getId().equals(targetOrgUnit.getId()) && a.getRole().getLevel() != null)
+                        .map(a -> a.getRole().getLevel()).min(Integer::compare).orElse(evaluatedPrimary.getRole().getLevel());
+                Integer subRank = evaluatedUserAssignments.stream()
+                        .filter(a -> a.getOrgUnit().getId().equals(targetOrgUnit.getId())
+                                && java.util.Objects.equals(a.getRole().getLevel(), subLevel) && a.getRole().getRank() != null)
+                        .map(a -> a.getRole().getRank()).min(Integer::compare).orElse(evaluatedPrimary.getRole().getRank());
+                // Cấp dưới là người có Level thấp hơn (số lớn hơn)
+                // HOẶC cùng Level nhưng có Rank thấp hơn (số lớn hơn)
+                boolean isSubordinate = subLevel != null && subRank != null
+                        && (subLevel > viewerLevel || (subLevel == viewerLevel && subRank > viewerRank));
 
                 if (!isSubordinate) {
                     throw new ForbiddenException(ErrorCode.MAY_ONLY_EVALUATE_EMPLOYEES_BELOW_ORGANIZATION_CHART);
@@ -284,6 +288,16 @@ public class EvaluationService {
         // Sửa lại bản mình đã chấm thì không chặn (bản cũ có thể chấm trước khi có luật này).
         if (!isSelfEval && evaluation.getId() == null) {
             readinessService.assertReady(kpiPeriod, evaluatedUser.getId(), evaluatedUser.getFullName());
+        }
+
+        // Người kiêm nhiệm: lần chấm đầu của quản lý CHỐT % công sức cho đợt này (V46) — sửa % về sau
+        // không làm trôi điểm của đợt đã chấm. Phải trước calculateSystemScore bên dưới.
+        if (!isSelfEval) {
+            effortShares.freezeForPeriod(evaluatedUser.getId(), kpiPeriod.getId(),
+                    kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodId(evaluatedUser.getId(), kpiPeriod.getId(),
+                            KpiAchievementCalculator.scoringStatuses(Arrays.asList(
+                                    KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE)),
+                            Pageable.unpaged()).getContent());
         }
 
         evaluation.setUser(evaluatedUser);
@@ -451,9 +465,11 @@ public class EvaluationService {
 
         // Chỉ cần biết người này có thuộc đơn vị nào không — điểm chấm trên pool 100 chung,
         // không còn phụ thuộc thang điểm của tổ chức.
-        if (userRoleOrgUnitRepository.findByUserId(targetUserId).isEmpty()) {
+        java.util.List<com.kpitracking.entity.user.UserRoleOrgUnit> targetAssignments = userRoleOrgUnitRepository.findByUserId(targetUserId);
+        if (targetAssignments.isEmpty()) {
             return 0.0;
         }
+        requireCanViewScoresOf(currentUser, targetUserId, targetAssignments);
 
         return calculateSystemScore(targetUserId, kpiPeriodId);
     }
@@ -467,6 +483,7 @@ public class EvaluationService {
                 .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", kpiPeriodId));
 
         java.util.List<com.kpitracking.entity.user.UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(targetUserId);
+        requireCanViewScoresOf(currentUser, targetUserId, assignments);
         if (assignments.isEmpty()) {
             return com.kpitracking.dto.response.evaluation.EvaluationScorePreview.builder()
                     .systemScore(0.0).kpiCompletionPercent(0.0).build();
@@ -500,6 +517,7 @@ public class EvaluationService {
         if (!targetUserId.equals(currentUser.getId())) {
             builder.scoringReadiness(readinessService.compute(kpiPeriod, targetUserId));
         }
+        applyEffortShares(builder, targetUserId, kpiPeriodId, Boolean.TRUE.equals(org.getEnableWaterfall()));
 
         // BSC preview (chỉ khi org bật BSC & kỳ đã có bộ tiêu chí)
         if (Boolean.TRUE.equals(org.getEnableBsc())) {
@@ -541,13 +559,18 @@ public class EvaluationService {
                 .toList();
         if (candidateIds.isEmpty()) return java.util.List.of();
 
+        // Cùng luật với createEvaluation: chỉ người có ĐƠN VỊ CHÍNH trong nhánh đang xem và mình
+        // có quyền chấm ở đơn vị chính đó — người chỉ kiêm nhiệm ở đây được chấm ở đơn vị chính.
+        String scopePath = path.substring(0, path.length() - 1);
         Map<UUID, Boolean> canEvaluateInUnit = new HashMap<>();
         Set<UUID> allowed = new HashSet<>();
-        for (UserRoleOrgUnit a : userRoleOrgUnitRepository.findByUserIdInWithUnit(candidateIds)) {
-            boolean ok = canEvaluateInUnit.computeIfAbsent(a.getOrgUnit().getId(),
+        primaryUnits.assignmentsOf(candidateIds).forEach((userId, a) -> {
+            OrgUnit unit = a.getOrgUnit();
+            if (!scopePath.isEmpty() && (unit.getPath() == null || !unit.getPath().startsWith(scopePath))) return;
+            boolean ok = canEvaluateInUnit.computeIfAbsent(unit.getId(),
                     unitId -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "EVALUATION:CREATE", unitId));
-            if (ok) allowed.add(a.getUser().getId());
-        }
+            if (ok) allowed.add(userId);
+        });
         return new java.util.ArrayList<>(readinessService.compute(kpiPeriod,
                 candidateIds.stream().filter(allowed::contains).toList()).values());
     }
@@ -599,13 +622,15 @@ public class EvaluationService {
         double[] parts = new double[3];
         if (kpis.isEmpty()) return parts;
 
+        // Kiêm nhiệm: trọng số nhân "% công sức" của nhánh (rỗng = một nhánh ⇒ hệ số 1, công thức cũ).
+        Map<UUID, Double> factors = effortFactors(userId, kpiPeriodId, kpis);
         boolean enableWaterfall = kpis.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getEnableWaterfall();
         for (KpiCriteria kpi : kpis) {
             // Quy tắc loại trừ + công thức tỉ lệ đạt nằm ở KpiAchievementCalculator (dùng chung với BSC).
             if (!achievementCalculator.countsTowardQuantitativeScore(kpi)) continue;
 
             double ratio = achievementCalculator.ratio(kpi, userId, enableWaterfall);
-            double weight = kpi.getWeight();
+            double weight = kpi.getWeight() * factors.getOrDefault(kpi.getId(), 1.0);
             if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) {
                 parts[2] += ratio * weight;
             } else {
@@ -636,11 +661,10 @@ public class EvaluationService {
         List<KpiCriteria> kpis = kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodId(
                 userId, kpiPeriodId, activeKpiStatuses, Pageable.unpaged()).getContent();
         double weightedSum = 0.0, totalWeight = 0.0;
+        Map<UUID, Double> factors = effortFactors(userId, kpiPeriodId, kpis);
         for (KpiCriteria kpi : kpis) {
-            if (kpi.getKpiType() != com.kpitracking.enums.kpi.KpiType.QUALITATIVE) continue;
-            if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) continue;
-            if (KpiAchievementCalculator.excludedByLock(kpi)) continue;
-            double weight = kpi.getWeight() != null ? kpi.getWeight() : 0.0;
+            if (!countsTowardBehavior(kpi)) continue;
+            double weight = kpi.getWeight() * factors.getOrDefault(kpi.getId(), 1.0);
             if (weight <= 0) continue;
             if (kpi.getStatus() == KpiStatus.CLOSED_BY_LOCK) {
                 // Chế độ tính 0: giữ trọng số, mức = 0.
@@ -664,6 +688,84 @@ public class EvaluationService {
             totalWeight += weight;
         }
         return totalWeight > 0 ? weightedSum / totalWeight : null;
+    }
+
+    /**
+     * Kiêm nhiệm: gửi phiếu chấm hệ số từng KPI + phần điểm theo nhánh. Một nhánh thì không gửi gì
+     * — phiếu chấm giữ cách quy đổi cũ.
+     */
+    private void applyEffortShares(com.kpitracking.dto.response.evaluation.EvaluationScorePreview.EvaluationScorePreviewBuilder builder,
+                                   UUID userId, UUID kpiPeriodId, boolean waterfall) {
+        List<KpiCriteria> kpis = kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodId(
+                userId, kpiPeriodId, KpiAchievementCalculator.scoringStatuses(Arrays.asList(
+                        KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE)), Pageable.unpaged()).getContent();
+        KpiEffortShares.Split split = effortShares.split(userId, kpiPeriodId, kpis);
+        if (!split.active()) return;
+        builder.kpiWeightFactors(effortShares.factors(split, kpis,
+                achievementCalculator::countsTowardQuantitativeScore, this::countsTowardBehavior));
+
+        Map<UUID, double[]> byBranch = new LinkedHashMap<>();   // [Σ tỉ lệ×trọng số, Σ trọng số]
+        Set<UUID> present = new LinkedHashSet<>();
+        for (KpiCriteria k : kpis) {
+            UUID b = split.branchOfKpi().get(k.getId());
+            boolean quant = achievementCalculator.countsTowardQuantitativeScore(k);
+            if (b == null || (!quant && !countsTowardBehavior(k))) continue;
+            present.add(b);
+            if (quant && !Boolean.TRUE.equals(k.getIsBonusKpi())) {
+                double[] acc = byBranch.computeIfAbsent(b, x -> new double[2]);
+                acc[0] += achievementCalculator.ratio(k, userId, waterfall) * k.getWeight();
+                acc[1] += k.getWeight();
+            }
+        }
+        double shareSum = present.stream().mapToDouble(b -> split.branches().get(b).sharePercent()).sum();
+        List<com.kpitracking.dto.response.evaluation.EffortShareLine> lines = new ArrayList<>();
+        for (KpiEffortShares.Branch br : split.branches().values()) {
+            if (!present.contains(br.unit().getId())) continue;
+            double[] acc = byBranch.get(br.unit().getId());
+            lines.add(com.kpitracking.dto.response.evaluation.EffortShareLine.builder()
+                    .orgUnitId(br.unit().getId())
+                    .orgUnitName(br.unit().getName())
+                    .sharePercent(shareSum > 0 ? Math.round(br.sharePercent() / shareSum * 1000.0) / 10.0 : 0.0)
+                    .configured(br.configured())
+                    .frozen(split.frozen())
+                    .completionPercent(acc != null && acc[1] > 0 ? Math.round(acc[0] / acc[1] * 1000.0) / 10.0 : null)
+                    .build());
+        }
+        builder.effortShares(lines);
+    }
+
+    /**
+     * Xem điểm tạm tính (hệ thống, ma trận, BSC, % công sức) của NGƯỜI KHÁC: cùng luật với danh sách
+     * đánh giá — có EVALUATION:VIEW hoặc EVALUATION:CREATE ở một đơn vị người đó thuộc (theo cây, kể cả
+     * nơi kiêm nhiệm), hoặc là quản trị tổ chức của họ. Trước đây API này chỉ đòi đăng nhập: biết
+     * userId là đọc được điểm của bất kỳ ai.
+     */
+    private void requireCanViewScoresOf(User viewer, UUID targetUserId,
+                                        java.util.List<com.kpitracking.entity.user.UserRoleOrgUnit> targetAssignments) {
+        if (viewer.getId().equals(targetUserId)) return;
+        if (permissionChecker.isGlobalAdminOverUser(viewer.getId(), targetUserId)) return;
+        boolean allowed = targetAssignments.stream()
+                .map(com.kpitracking.entity.user.UserRoleOrgUnit::getOrgUnit)
+                .filter(java.util.Objects::nonNull)
+                .map(OrgUnit::getId)
+                .distinct()
+                .anyMatch(unitId -> permissionChecker.hasPermissionInOrgUnit(viewer.getId(), "EVALUATION:VIEW", unitId)
+                        || permissionChecker.hasPermissionInOrgUnit(viewer.getId(), "EVALUATION:CREATE", unitId));
+        if (!allowed) throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_USER_SCORES);
+    }
+
+    /** KPI định tính vào trục "Hành vi" — cùng bộ lọc với {@link #calculateBehaviorScore}. */
+    private boolean countsTowardBehavior(KpiCriteria kpi) {
+        if (kpi.getKpiType() != com.kpitracking.enums.kpi.KpiType.QUALITATIVE) return false;
+        if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) return false;
+        if (KpiAchievementCalculator.excludedByLock(kpi)) return false;
+        return kpi.getWeight() != null && kpi.getWeight() > 0;
+    }
+
+    /** Hệ số "% công sức" cho KPI của một người kiêm nhiệm (KpiEffortShares); rỗng khi một nhánh. */
+    private Map<UUID, Double> effortFactors(UUID userId, UUID kpiPeriodId, List<KpiCriteria> kpis) {
+        return effortShares.factors(effortShares.split(userId, kpiPeriodId, kpis), kpis,
+                achievementCalculator::countsTowardQuantitativeScore, this::countsTowardBehavior);
     }
 
     /** Hai trục của ma trận sau khi đã để điểm hạnh kiểm lấp chỗ trống. */
@@ -843,9 +945,9 @@ public class EvaluationService {
             userRoleOrgUnitRepository.findManagersByOrgUnitId(unit.getId())
                     .forEach(uro -> userIds.add(uro.getUser().getId()));
         } else {
-            // = TB đánh giá của tất cả nhân sự trong đơn vị (subtree).
-            userRoleOrgUnitRepository.findByOrgUnitIdIn(subtreeIds)
-                    .forEach(uro -> userIds.add(uro.getUser().getId()));
+            // = TB đánh giá của tất cả nhân sự có ĐƠN VỊ CHÍNH trong nhánh (người kiêm nhiệm
+            //   được tính ở đơn vị chính, không cộng hai lần vào hai phòng).
+            userIds.addAll(primaryUnits.primaryWithin(subtreeIds).keySet());
         }
         Double p = averagePerformance(userIds, periodIds);
         // Giữ 1 chữ số thập phân: thang "điểm" (1..5) cần chính xác (3.5 không được làm tròn thành 4).
@@ -991,16 +1093,8 @@ public class EvaluationService {
             response.setOfficialScore(evaluation.getSystemScore());
         }
 
-        // Populate evaluated user's best position (Highest unit but not root)
-        java.util.List<com.kpitracking.entity.user.UserRoleOrgUnit> userUro = userRoleOrgUnitRepository.findByUserId(evaluation.getUser().getId());
-        com.kpitracking.entity.user.UserRoleOrgUnit bestUro = userUro.stream()
-                .filter(uro -> uro.getRole() != null)
-                .sorted(java.util.Comparator.comparing(uro -> {
-                    int lo = uro.getOrgUnit().getOrgHierarchyLevel().getLevelOrder();
-                    return lo == 0 ? 999 : lo;
-                }))
-                .findFirst()
-                .orElse(userUro.isEmpty() ? null : userUro.get(0));
+        // Vị trí của người được chấm = vai trò cao nhất tại ĐƠN VỊ CHÍNH.
+        com.kpitracking.entity.user.UserRoleOrgUnit bestUro = primaryUnits.assignmentOf(evaluation.getUser());
 
         if (bestUro != null && bestUro.getRole() != null) {
             response.setUserLevel(bestUro.getRole().getLevel());

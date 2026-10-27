@@ -30,12 +30,21 @@ import { attachRealtimeClient, detachRealtimeClient } from '@/lib/realtime'
  * <p>Khoá liệt kê ở mức GỐC ({@code ['cashWallet']} chứ không phải {@code ['cashWallet','me']}):
  * React Query khớp theo tiền tố, nên một dòng bao trọn mọi biến thể phân trang và bộ lọc.
  */
-const REFRESH_ON_NOTIFICATION: Record<string, string[]> = {
+export const REFRESH_ON_NOTIFICATION: Record<string, string[]> = {
   // Vòng đời đề nghị thưởng: trình, duyệt, từ chối, rút lại, cấp hạn mức.
   REWARD_GRANT: ['rewardGrants', 'rewardBudget', 'rewardBudgets', 'myAwards'],
 
-  // Điểm vào hoặc ra khỏi ví thưởng — thưởng thủ công, chương trình, và thu hồi cả hai loại.
+  // Điểm vào ví thưởng — thưởng thủ công, chương trình (thông báo thu hồi tạo trước khi tách loại vẫn mang loại này).
   REWARD_POINT: [
+    'rewardWallet',
+    'rewardTransactions',
+    'rewardGrants',
+    'rewardRuns',
+    'rewardActivity',
+    'myAwards',
+  ],
+  // Điểm bị trừ khỏi ví (thu hồi thưởng tay / hoàn tác chương trình): cùng dữ liệu phải làm mới.
+  REWARD_POINT_REVOKED: [
     'rewardWallet',
     'rewardTransactions',
     'rewardGrants',

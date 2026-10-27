@@ -971,6 +971,33 @@
     "thisCodeCanAlwaysBeViewed": "Mã này luôn xem lại được trong mục “Quà đã đổi”. Cần hỗ trợ về quà, liên hệ hotline UrBox 1900 299 232.",
     "validUntil": "Hạn sử dụng:",
     "yourGiftCode": "Mã quà của bạn",
-    "done": "Xong"
+    "done": "Xong",
+    "enjoyYourGift": "Chúc mừng! Quà của bạn đây"
+  },
+  "Celebration": {
+    "awesome": "Tuyệt vời!",
+    "bannerSent": "đã tặng bạn +{{points}} điểm",
+    "close": "Đóng",
+    "comboLabel": "{{count}} phần thưởng liên tiếp",
+    "congratulations": "Chúc mừng bạn! 🎉",
+    "from": "Từ",
+    "fromMany": "Từ {{names}}",
+    "giftApproved": "🎁 {{gift}} đã được duyệt",
+    "giftDelivered": "🎁 {{gift}} đã được giao tới bạn",
+    "giftPoints": "Đổi bằng {{points}} điểm",
+    "manyPeople": "Nhiều người",
+    "pointsUnit": "điểm",
+    "programRank": "Hạng {{rank}}",
+    "reward": "Phần thưởng",
+    "sentYou": "{{name}} đã tặng bạn",
+    "streakBonus": "🔥 Chuỗi {{days}} ngày, thưởng +{{bonus}}",
+    "streakMilestone": "🔥 Chuỗi {{days}} ngày liên tiếp!",
+    "tapToSkip": "Bấm bất kỳ đâu để bỏ qua",
+    "totalPoints": "Tổng điểm thưởng",
+    "viewCertificate": "Xem / Tải giấy khen",
+    "viewCertificateNumbered": "Giấy khen {{index}}",
+    "withCertificate": "kèm giấy khen",
+    "youHaveBeenRewarded": "Bạn vừa được thưởng",
+    "youReceivedRewards": "Bạn nhận {{count}} phần thưởng 🎉"
   }
 }

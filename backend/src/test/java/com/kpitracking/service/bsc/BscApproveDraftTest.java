@@ -42,7 +42,9 @@ class BscApproveDraftTest {
         service = new BscTreeService(scorecardRepository, itemRepository, mock(BscPerspectiveRepository.class),
                 mock(BscUnitResultRepository.class), mock(BscUnitResultItemRepository.class), mock(KpiCriteriaRepository.class),
                 mock(OrgUnitRepository.class), mock(KpiPeriodRepository.class), mock(UserRepository.class),
-                mock(BscAccessGuard.class), mock(ApplicationEventPublisher.class), mock(com.kpitracking.service.kpi.approval.KpiApprovalChainService.class), mock(BscCycleLockGuard.class));
+                mock(BscAccessGuard.class), mock(ApplicationEventPublisher.class),
+                mock(com.kpitracking.service.kpi.approval.KpiApprovalChainService.class), mock(BscCycleLockGuard.class),
+                mock(BscEmptyPolicySync.class));
         draft = BscScorecard.builder().id(UUID.randomUUID()).name("Thẻ phòng").status(BscScorecardStatus.DRAFT).build();
         when(scorecardRepository.findById(draft.getId())).thenReturn(Optional.of(draft));
         when(scorecardRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));

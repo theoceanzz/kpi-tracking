@@ -94,6 +94,15 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success("User updated successfully", response));
     }
 
+    @PutMapping("/{userId}/effort-shares")
+    @PreAuthorize("hasAuthority('USER:UPDATE')")
+    @Operation(summary = "Set effort shares (%) of a person across the units they belong to")
+    public ResponseEntity<ApiResponse<UserResponse>> updateEffortShares(
+            @PathVariable UUID userId,
+            @Valid @RequestBody com.kpitracking.dto.request.user.UpdateEffortSharesRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(userService.updateEffortShares(userId, request)));
+    }
+
     @DeleteMapping("/{userId}")
     @PreAuthorize("hasAuthority('USER:DELETE')")
     @Operation(summary = "Soft delete user")

@@ -1,5 +1,7 @@
 package com.kpitracking.service.organization;
 
+import com.kpitracking.service.DelegationLeaderRoles;
+
 import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.request.delegation.DelegationRequest;
 import com.kpitracking.dto.response.delegation.DelegationResponse;
@@ -54,6 +56,7 @@ public class OrgUnitDelegationService {
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final PermissionChecker permissionChecker;
+    private final DelegationLeaderRoles leaderRoles;
 
     private User currentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -127,6 +130,7 @@ public class OrgUnitDelegationService {
 
         List<DelegationResponse> created = new ArrayList<>();
         Instant now = Instant.now();
+        boolean canActAsLeader = request.getCanActAsLeader() == null || request.getCanActAsLeader();
 
         // Bỏ trùng trước khi chạy: cùng một đơn vị gửi lên hai lần sẽ đâm vào unique index
         // và làm hỏng cả lô vì một lỗi hoàn toàn vô hại.
@@ -149,7 +153,10 @@ public class OrgUnitDelegationService {
             }
 
             // Uỷ quyền vào chính cây của mình là vô nghĩa: quyền đã tới đó sẵn theo thừa kế.
-            boolean alreadyInScope = delegateRoles.stream()
+            // Chỉ xét vai trò QUẢN LÝ — cùng lý do với trần cấp bậc bên dưới: membership nhân
+            // viên tự sinh ở đơn vị cha (thường là gốc) khiến mọi đơn vị trong tổ chức đều
+            // nằm "trong cây" và chặn oan mọi uỷ quyền chéo.
+            boolean alreadyInScope = managerRoles.stream()
                     .anyMatch(r -> r.getOrgUnit() != null && target.getPath().startsWith(r.getOrgUnit().getPath()));
             if (alreadyInScope) {
                 throw new BusinessException(ErrorCode.PERSON_CAN_MANAGE_UNIT_THROUGH_ORGANIZATION_TREE, target.getName());
@@ -184,14 +191,17 @@ public class OrgUnitDelegationService {
                     .delegateUser(delegate)
                     .orgUnit(target)
                     .fromOrgUnit(from)
-                    .includeSubtree(request.getIncludeSubtree() == null || request.getIncludeSubtree())
-                    .canActAsLeader(request.getCanActAsLeader() == null || request.getCanActAsLeader())
+                    // Ký thay trưởng = gán vai trò trưởng THẬT ở đơn vị đích, mà vai trò thì luôn
+                    // phủ cả cây con — ghi đúng như vậy thay vì để cờ nói một đằng, quyền một nẻo.
+                    .includeSubtree(canActAsLeader || request.getIncludeSubtree() == null || request.getIncludeSubtree())
+                    .canActAsLeader(canActAsLeader)
                     .reason(request.getReason())
                     .startsAt(request.getStartsAt())
                     .expiresAt(request.getExpiresAt())
                     .createdBy(actor)
                     .build());
 
+            leaderRoles.grantIfDue(saved, now);
             created.add(toResponse(saved, now));
         }
 
@@ -214,6 +224,7 @@ public class OrgUnitDelegationService {
         // lại chốt được đánh giá của tôi".
         delegation.setDeletedAt(Instant.now());
         delegationRepository.save(delegation);
+        leaderRoles.release(delegation.getId());
     }
 
     /** Đơn vị chính của một người: vai trò cấp cao nhất (level rồi rank nhỏ nhất). */

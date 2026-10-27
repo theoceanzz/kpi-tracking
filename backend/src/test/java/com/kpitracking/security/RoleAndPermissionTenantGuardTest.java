@@ -72,7 +72,8 @@ class RoleAndPermissionTenantGuardTest {
     @BeforeEach
     void setUp() {
         userRoleService = new UserRoleService(userRoleOrgUnitRepository, userRepository, roleRepository,
-                orgUnitRepository, userRoleMapper, permissionChecker, securityAudit);
+                orgUnitRepository, userRoleMapper, permissionChecker, securityAudit,
+                new com.kpitracking.service.PrimaryUnitResolver(userRoleOrgUnitRepository, userRepository));
         permissionService = new PermissionService(permissionRepository, rolePermissionRepository,
                 roleRepository, permissionMapper, userRepository, permissionChecker, securityAudit, userAuthorityCache);
 

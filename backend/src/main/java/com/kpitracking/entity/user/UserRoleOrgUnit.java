@@ -43,6 +43,10 @@ public class UserRoleOrgUnit {
     @Column(name = "expires_at")
     private Instant expiresAt;
 
+    /** Uỷ quyền "ký thay trưởng" đã sinh ra vai trò này; null = gán tay. */
+    @Column(name = "delegation_id")
+    private UUID delegationId;
+
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor
     @EqualsAndHashCode
     public static class UserRoleOrgUnitId implements Serializable {
